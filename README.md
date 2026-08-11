@@ -1,3 +1,8 @@
 # VaultTrades AI
 
-Strategy-driven chart analysis application.
+Build 1 — Strategy Engine + Chart Analyzer.
+
+This project will provide strategy-driven chart analysis for:
+- London Kill Zone
+- EMA Pullback
+- Continuation
