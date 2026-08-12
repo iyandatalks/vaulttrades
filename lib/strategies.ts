@@ -7,126 +7,319 @@ export const STRATEGY_RULES: Record<StrategyId, string> = {
   killZone: `
 KILLER ZONE — INDEPENDENT STRATEGY
 
-This strategy operates independently.
+IMPORTANT STRATEGY ISOLATION:
 
-Do not combine Killer Zone with EMA.
-Do not combine Killer Zone with Continuation unless the chart itself
-shows a genuine continuation event that is relevant to the setup.
+This strategy operates completely independently.
 
-TIMEZONE:
+Evaluate ONLY the Killer Zone rules below.
+
+DO NOT use EMA strategy conditions.
+DO NOT use Continuation strategy conditions.
+DO NOT require EMA20.
+DO NOT require EMA105.
+DO NOT require UT Bot.
+DO NOT require SMI.
+DO NOT require Continuation expansion/correction logic.
+
+The existence or absence of an EMA or Continuation setup must NEVER
+confirm, reject, delay, or invalidate a Killer Zone setup.
+
+============================================================
+TIME
+============================================================
+
+Timezone:
 America/New_York
 
-LONDON KILL ZONE:
+London Kill Zone:
 02:00–05:00 New York time.
 
-ASIAN SESSION:
+Asian Session:
 19:00–02:00 New York time.
 
-PRIMARY SEQUENCE:
+============================================================
+PRIMARY SEQUENCE
+============================================================
 
 Asian High / Asian Low
 → London liquidity sweep
 → MSS
 → FVG
-→ 50% FVG / CE retracement
+→ 50% FVG / Consequent Encroachment retracement
 → Entry
+→ SL
+→ TP1
+→ TP2
+→ Final TP
 
+============================================================
+ASIAN RANGE
+============================================================
+
+Identify the Asian session High and Low.
+
+Asian High:
+Highest relevant price established during the Asian session.
+
+Asian Low:
+Lowest relevant price established during the Asian session.
+
+Do not invent Asian High or Asian Low.
+
+If the Asian range cannot be reliably identified from the chart:
+
+WAITING
+
+============================================================
 LIQUIDITY SWEEP
+============================================================
 
-Bullish setup:
-Price trades below Asian Low during London Kill Zone.
+BULLISH SETUP:
 
-Bearish setup:
-Price trades above Asian High during London Kill Zone.
+Price must trade below the Asian Low during the London Kill Zone.
 
+This represents a sell-side liquidity sweep.
+
+BEARISH SETUP:
+
+Price must trade above the Asian High during the London Kill Zone.
+
+This represents a buy-side liquidity sweep.
+
+A sweep alone is NOT an entry.
+
+============================================================
 MSS
+============================================================
 
-Bullish:
-After sell-side sweep, price closes above the relevant previous swing high.
+After a bullish sell-side sweep:
 
-Bearish:
-After buy-side sweep, price closes below the relevant previous swing low.
+Price must close above the relevant previous swing high.
+
+After a bearish buy-side sweep:
+
+Price must close below the relevant previous swing low.
 
 MSS swing length:
 3.
 
-FVG
+MSS must occur after the relevant liquidity sweep.
 
-Bullish:
+Do not manufacture MSS.
+
+============================================================
+FVG
+============================================================
+
+Bullish FVG:
+
 Current low > high from two candles earlier.
 
-Bearish:
+Bearish FVG:
+
 Current high < low from two candles earlier.
 
-FVG validity:
+FVG must occur after the valid MSS.
+
+FVG validity window:
 Maximum 5 bars.
 
+A sweep without MSS + FVG is NOT a confirmed trade.
+
+============================================================
 ENTRY
+============================================================
 
-Do not enter merely because a sweep occurred.
+After:
 
-Do not enter merely because MSS occurred.
+Liquidity Sweep
+→ MSS
+→ Valid FVG
 
-After valid MSS + FVG, wait for price to retrace into the FVG.
+wait for price to retrace into the FVG.
 
 Preferred entry:
 50% FVG / Consequent Encroachment.
 
-If the setup is incomplete:
+Do NOT enter simply because:
+
+- Asian liquidity was swept
+- MSS occurred
+- an FVG formed
+- price is moving strongly
+- price is near the FVG
+
+The actual retracement into the FVG is required.
+
+If the setup is forming but entry has not occurred:
 
 BUY DEVELOPING
+
+or
+
 SELL DEVELOPING
+
+If no valid setup is forming:
+
 WAITING
-or NO TRADE.
 
-Only one completed trade per London session.
+or
 
+NO TRADE
+
+============================================================
 STOP LOSS
+============================================================
 
-BUY:
-Below the bullish setup's structural/sweep invalidation area.
+BULLISH:
 
-SELL:
-Above the bearish setup's structural/sweep invalidation area.
+SL must be below the bullish setup's structural/sweep invalidation
+area.
 
+BEARISH:
+
+SL must be above the bearish setup's structural/sweep invalidation
+area.
+
+The stop must be derived from the Killer Zone setup.
+
+Do NOT use EMA levels to determine the stop.
+
+Do NOT use Continuation support/resistance to determine the stop.
+
+Do NOT invent a round-number stop.
+
+If a valid structural stop cannot be identified:
+
+STOP LOSS:
+WAIT
+
+============================================================
 TAKE PROFIT
+============================================================
 
-Provide TP1, TP2 and FINAL TP.
+Killer Zone must provide:
 
-BUY:
-Final TP should target a valid previous meaningful high / Previous Day High
-liquidity objective when it is ahead of price.
+TP1
+TP2
+FINAL TP
 
-SELL:
-Final TP should target a valid previous meaningful low / Previous Day Low
-liquidity objective when it is below price.
+Targets must be logically ahead of the entry.
 
-If that objective has already been taken, use the next valid
+BULLISH:
+
+TP1:
+First valid upside structural/liquidity objective.
+
+TP2:
+Next valid upside structural/liquidity objective.
+
+FINAL TP:
+Valid previous meaningful high / Previous Day High / upside liquidity
+objective when ahead of price.
+
+BEARISH:
+
+TP1:
+First valid downside structural/liquidity objective.
+
+TP2:
+Next valid downside structural/liquidity objective.
+
+FINAL TP:
+Valid previous meaningful low / Previous Day Low / downside liquidity
+objective when below price.
+
+If the first objective has already been taken, use the next valid
 structural/liquidity objective.
 
 Never place a target behind the entry.
-Never force a trade.
+
+Never invent a target.
+
+If a valid final target cannot be identified:
+
+FINAL TP:
+WAIT
+
+============================================================
+SESSION TRADE LIMIT
+============================================================
+
+Only one completed Killer Zone trade per London session.
+
+============================================================
+KILLER ZONE STATES
+============================================================
+
+Sweep without MSS:
+
+BUY DEVELOPING
+or
+SELL DEVELOPING
+
+Sweep + MSS without valid FVG:
+
+BUY DEVELOPING
+or
+SELL DEVELOPING
+
+Sweep + MSS + FVG without 50% FVG retracement:
+
+BUY DEVELOPING
+or
+SELL DEVELOPING
+
+Complete sequence + valid entry + valid SL:
+
+BUY
+or
+SELL
+
+Invalidated/expired setup:
+
+NO TRADE
+
+============================================================
+STRICT INDEPENDENCE
+============================================================
+
+Do not use another strategy to confirm this strategy.
+
+Killer Zone must stand alone.
 `,
 
   // ============================================================
-  // EMA — SOURCE OF TRUTH: USER-SUPPLIED PINE SCRIPT
+  // EMA
   // ============================================================
   ema: `
 EMA20 PULLBACK MORNING ENGINE — SOURCE OF TRUTH
 
 IMPORTANT:
 
-This EMA strategy must follow the supplied Pine Script logic.
+This EMA strategy follows the supplied Pine Script logic.
+
+This is an INDEPENDENT strategy.
+
+Do NOT use Killer Zone conditions.
+
+Do NOT use Continuation conditions.
+
+Do NOT require:
+
+- Asian liquidity
+- London Kill Zone
+- MSS from Killer Zone
+- FVG from Killer Zone
+- Continuation expansion
+- Continuation correction
+- Continuation support/resistance
 
 Do NOT add volume requirements.
+
 Do NOT add a higher-timeframe filter.
-Do NOT add Continuation dependency.
+
 Do NOT require both UT Bot and SMI.
-Do NOT invent additional entry conditions.
-
-This is an INDEPENDENT EMA strategy.
-
-It can operate independently of Killer Zone and Continuation.
 
 ============================================================
 INPUTS
@@ -163,19 +356,18 @@ SMI:
 7-2-2
 
 ============================================================
-MOVING AVERAGES
+EMA
 ============================================================
 
 EMA20:
 20-period exponential moving average.
 
-Slow EMA Context:
+EMA105:
 105-period exponential moving average.
 
-EMA105 is part of the chart context.
+EMA105 is chart context.
 
-Do not invent an additional EMA105 entry requirement that does not
-exist in the supplied Pine Script.
+Do NOT create an additional EMA105 entry requirement.
 
 ============================================================
 ATR
@@ -193,9 +385,11 @@ MARKET STRUCTURE
 ============================================================
 
 Pivot high:
+
 ta.pivothigh(high, 3, 3)
 
 Pivot low:
+
 ta.pivotlow(low, 3, 3)
 
 Maintain:
@@ -222,7 +416,7 @@ Lower Low:
 lastSwingLow < previousSwingLow
 
 ============================================================
-EMA20 TREND
+EMA20 DIRECTION
 ============================================================
 
 EMA20 rising:
@@ -258,7 +452,7 @@ AND
 close < EMA20
 
 ============================================================
-EMA20 PULLBACK / TOUCH
+EMA20 TOUCH
 ============================================================
 
 Bullish touch:
@@ -274,7 +468,7 @@ AND
 high <= EMA20 + EMA tolerance
 
 ============================================================
-REJECTION CANDLE
+REJECTION
 ============================================================
 
 Bullish rejection:
@@ -298,20 +492,20 @@ AND
 close < EMA20
 
 ============================================================
-STORE REJECTION
+REJECTION STORAGE
 ============================================================
 
-When bullish rejection occurs, store:
+Bullish rejection stores:
 
-bullRejectHigh = rejection candle high
-bullRejectLow = rejection candle low
-bullRejectBar = rejection candle bar index
+bullRejectHigh
+bullRejectLow
+bullRejectBar
 
-When bearish rejection occurs, store:
+Bearish rejection stores:
 
-bearRejectHigh = rejection candle high
-bearRejectLow = rejection candle low
-bearRejectBar = rejection candle bar index
+bearRejectHigh
+bearRejectLow
+bearRejectBar
 
 ============================================================
 REJECTION VALIDITY
@@ -357,23 +551,19 @@ bar_index - bearRejectBar > 3
 EMA BREAK / RECLAIM
 ============================================================
 
-BULLISH EMA BREAK:
+Bullish EMA break:
 
 bullActive
 AND
 close > bullRejectHigh
 
-BEARISH EMA BREAK:
+Bearish EMA break:
 
 bearActive
 AND
 close < bearRejectLow
 
 This break/reclaim is mandatory.
-
-Do NOT create an entry merely because price touched EMA20.
-
-Do NOT create an entry merely because structure is bullish/bearish.
 
 ============================================================
 UT BOT
@@ -382,10 +572,10 @@ UT BOT
 UT Bot sensitivity:
 1.0
 
-UT Bot ATR length:
+UT Bot ATR:
 10
 
-UT Bot ATR:
+UT ATR:
 
 ta.atr(10)
 
@@ -393,8 +583,7 @@ UT loss:
 
 1.0 × UT ATR
 
-Maintain the UT trailing stop exactly according to the supplied
-Pine Script logic.
+Maintain the UT trailing stop according to the supplied Pine Script.
 
 UT bullish:
 
@@ -429,26 +618,20 @@ smiMid = (smiHigh + smiLow) / 2
 
 smiRelative = close - smiMid
 
-smiRelativeEMA =
-EMA(smiRelative, 2)
+smiRelativeEMA = EMA(smiRelative, 2)
 
-smiRangeEMA =
-EMA(smiRange, 2)
+smiRangeEMA = EMA(smiRange, 2)
 
 smiRaw =
 200 × smiRelativeEMA / (smiRangeEMA / 2)
 
-When smiRangeEMA is zero, smiRaw is zero.
+If smiRangeEMA is zero:
 
-smiMain =
-EMA(smiRaw, 2)
+smiRaw = 0
 
-smiSignal =
-EMA(smiMain, 2)
+smiMain = EMA(smiRaw, 2)
 
-============================================================
-SMI DIRECTION
-============================================================
+smiSignal = EMA(smiMain, 2)
 
 Bullish SMI:
 
@@ -463,19 +646,12 @@ AND
 smiMain < smiMain[1]
 
 ============================================================
-CONFIRMATION SCORE
+CONFIRMATION
 ============================================================
 
-There are TWO possible confirmations:
+UT Bot = 1 confirmation point.
 
-UT Bot
-SMI
-
-UT Bot bullish = 1 point
-SMI bullish = 1 point
-
-UT Bot bearish = 1 point
-SMI bearish = 1 point
+SMI = 1 confirmation point.
 
 Minimum confirmation score:
 
@@ -487,80 +663,60 @@ UT Bot OR SMI is sufficient.
 
 UT Bot AND SMI is NOT required.
 
-This is extremely important.
-
-Do not reject a valid EMA setup merely because one of UT Bot or SMI
-does not agree.
-
 ============================================================
-FINAL LONG SIGNAL
+LONG
 ============================================================
 
-A LONG signal requires:
+A LONG requires:
 
 bullMABreak
 AND
 longConfirmationScore >= 1
 
-Where:
-
-bullMABreak =
-bullActive
-AND
-close > bullRejectHigh
-
-Therefore the logical sequence is:
+Logical sequence:
 
 BULLISH STRUCTURE
 → EMA20 PULLBACK
 → BULLISH REJECTION
-→ REJECTION REMAINS VALID
+→ REJECTION VALID
 → CLOSE ABOVE REJECTION HIGH
 → UT BULL OR SMI BULL
 → LONG
 
 ============================================================
-FINAL SHORT SIGNAL
+SHORT
 ============================================================
 
-A SHORT signal requires:
+A SHORT requires:
 
 bearMABreak
 AND
 shortConfirmationScore >= 1
 
-Where:
-
-bearMABreak =
-bearActive
-AND
-close < bearRejectLow
-
-Therefore the logical sequence is:
+Logical sequence:
 
 BEARISH STRUCTURE
 → EMA20 PULLBACK
 → BEARISH REJECTION
-→ REJECTION REMAINS VALID
+→ REJECTION VALID
 → CLOSE BELOW REJECTION LOW
 → UT BEAR OR SMI BEAR
 → SHORT
 
 ============================================================
-DUPLICATE SIGNAL PREVENTION
+DUPLICATE SIGNAL PROTECTION
 ============================================================
 
-Only treat the signal as a new trade when:
+Only treat a signal as a new trade when:
 
 current signal = TRUE
 AND
 previous signal = FALSE
 
-Do not repeatedly generate the same trade on every candle while the
-condition remains true.
+Do not repeatedly generate the same trade on every candle.
 
 ============================================================
-ENTRY PRICE
+ENTRY
 ============================================================
 
 LONG:
@@ -571,37 +727,37 @@ SHORT:
 
 Entry = signal candle close.
 
-Do not shift the entry backward or forward after the signal.
+Do not move the entry backward or forward.
 
 ============================================================
-LONG STOP LOSS
+STOP LOSS
 ============================================================
 
-Long SL:
+LONG:
 
+longSL =
 bullRejectLow - syminfo.mintick
 
 Risk:
 
+longRisk =
 longEntry - longSL
 
-Only accept the trade if:
+Require:
 
 longRisk > 0
 
-============================================================
-SHORT STOP LOSS
-============================================================
+SHORT:
 
-Short SL:
-
+shortSL =
 bearRejectHigh + syminfo.mintick
 
 Risk:
 
+shortRisk =
 shortSL - shortEntry
 
-Only accept the trade if:
+Require:
 
 shortRisk > 0
 
@@ -609,9 +765,9 @@ shortRisk > 0
 TAKE PROFIT
 ============================================================
 
-Risk / Reward:
+The supplied EMA Pine Script uses:
 
-1:2
+Risk / Reward = 1:2
 
 LONG:
 
@@ -625,7 +781,8 @@ shortEntry - (shortRisk × 2)
 
 Do NOT change this to 1:3, 1:4 or 1:5.
 
-The source Pine Script is 1:2.
+Do NOT replace the Pine Script TP calculation with a generic
+previous-high/previous-low target.
 
 ============================================================
 06:00 SAST BIAS
@@ -644,11 +801,11 @@ Evaluate:
 bullStructure
 bearStructure
 
-If bullStructure is true:
+Bull structure:
 
 06:00 BIAS = BULLISH
 
-If bearStructure is true:
+Bear structure:
 
 06:00 BIAS = BEARISH
 
@@ -656,53 +813,45 @@ Otherwise:
 
 06:00 BIAS = NEUTRAL
 
-IMPORTANT:
+The 06:00 bias is informational.
 
-The 06:00 bias is a displayed market-bias feature.
+It is NOT a mandatory condition for longSignal or shortSignal.
 
-The supplied Pine Script does NOT use bias0600 as a mandatory
-condition inside longSignal or shortSignal.
-
-Therefore do not reject a valid EMA trade solely because the
-06:00 bias differs.
+Do not reject a valid EMA trade because 06:00 bias differs.
 
 ============================================================
-AI DECISION STATES
+EMA TRADE STATES
 ============================================================
 
-If bullish structure + EMA20 touch + rejection exists but the
-EMA break has not happened:
+Bullish structure + EMA20 touch + rejection but no EMA break:
 
 BUY DEVELOPING
 
-If bearish structure + EMA20 touch + rejection exists but the
-EMA break has not happened:
+Bearish structure + EMA20 touch + rejection but no EMA break:
 
 SELL DEVELOPING
 
-If the EMA break has happened but neither UT Bot nor SMI confirms:
+EMA break occurred but neither UT Bot nor SMI confirms:
 
 WAITING
 
-If all required long conditions are confirmed:
+All long conditions confirmed:
 
 BUY
 
-If all required short conditions are confirmed:
+All short conditions confirmed:
 
 SELL
 
-If the setup has been invalidated or expired:
+Setup invalidated or expired:
 
 NO TRADE
 
 ============================================================
-CRITICAL EMA RULE
+STRICT ENTRY PROTECTION
 ============================================================
 
-The AI must follow the actual sequence.
-
-Do NOT produce BUY simply because:
+Do NOT produce BUY merely because:
 
 - price is above EMA20
 - EMA20 is rising
@@ -711,9 +860,7 @@ Do NOT produce BUY simply because:
 - UT Bot is bullish
 - SMI is bullish
 
-Those conditions alone are insufficient.
-
-Do NOT produce SELL simply because:
+Do NOT produce SELL merely because:
 
 - price is below EMA20
 - EMA20 is falling
@@ -722,39 +869,21 @@ Do NOT produce SELL simply because:
 - UT Bot is bearish
 - SMI is bearish
 
-Those conditions alone are insufficient.
-
-The trade must come from the actual:
-
-STRUCTURE
-→ EMA20 TOUCH
-→ REJECTION
-→ BREAK / RECLAIM
-→ UT OR SMI CONFIRMATION
-→ ENTRY
+The complete sequence is mandatory.
 
 ============================================================
-NO TRADE DISCIPLINE
+STRICT INDEPENDENCE
 ============================================================
 
-If the chart does not visibly provide enough evidence to verify the
-required conditions, return:
+EMA must stand alone.
 
-WAITING
+Do not use Killer Zone to confirm EMA.
 
-or
+Do not use Continuation to confirm EMA.
 
-NO TRADE
+Do not reject EMA because Killer Zone conditions are absent.
 
-Do not guess missing candles, levels, indicators, or prices.
-
-Do not manufacture an entry.
-
-Do not manufacture a stop.
-
-Do not manufacture a target.
-
-The source Pine Script takes priority over generic trading assumptions.
+Do not reject EMA because Continuation conditions are absent.
 `,
 
   // ============================================================
@@ -763,70 +892,131 @@ The source Pine Script takes priority over generic trading assumptions.
   continuation: `
 CONTINUATION — INDEPENDENT STRATEGY
 
-Primary timeframe:
+IMPORTANT STRATEGY ISOLATION:
+
+Continuation operates completely independently.
+
+Evaluate ONLY the Continuation rules below.
+
+DO NOT use Killer Zone conditions.
+
+DO NOT use EMA conditions.
+
+DO NOT require:
+
+- Asian High
+- Asian Low
+- London Kill Zone
+- liquidity sweep
+- EMA20
+- EMA105
+- UT Bot
+- SMI
+- EMA rejection
+
+The absence of a Killer Zone or EMA setup must NEVER prevent a valid
+Continuation trade.
+
+============================================================
+PRIMARY TIMEFRAME
+============================================================
+
 M15.
 
 Continuation is an actual market event.
 
 Do not predict continuation before it happens.
 
-Do not combine this strategy with Killer Zone or EMA.
+============================================================
+STRUCTURAL DIRECTIVE
+============================================================
 
-DIRECTIVE
-
-M15 structural state provides:
+M15 structural state must be:
 
 BULLISH
 BEARISH
-or WAITING.
+or
+WAITING.
 
-STRUCTURE
+============================================================
+BULLISH STRUCTURE
+============================================================
 
-Bullish:
-Actual M15 structural low acts as support.
+An actual M15 structural low acts as support.
 
-Bearish:
-Actual M15 structural high acts as resistance.
+The support must be identifiable from the chart.
 
+Do not invent support.
+
+============================================================
+BEARISH STRUCTURE
+============================================================
+
+An actual M15 structural high acts as resistance.
+
+The resistance must be identifiable from the chart.
+
+Do not invent resistance.
+
+============================================================
 EXPANSION
+============================================================
 
 Identify the actual M15 expansion.
 
-Bullish:
+BULLISH:
+
 Expansion moves upward.
 
-Bearish:
+BEARISH:
+
 Expansion moves downward.
 
-CORRECTION
+The expansion must be visible on the chart.
 
-Bullish:
+============================================================
+CORRECTION
+============================================================
+
+BULLISH:
+
 M15 bullish expansion high
 → actual retracement
 → M15 support.
 
-Bearish:
+BEARISH:
+
 M15 bearish expansion low
 → actual retracement
 → M15 resistance.
 
 Correction ATR filter:
+
 0.25 × ATR.
 
 Support/resistance tolerance:
+
 0.10 × ATR.
 
+============================================================
 INVALIDATION
+============================================================
 
-Bullish:
-If structural support is decisively broken by close, invalidate bullish continuation.
+BULLISH:
 
-Bearish:
-If structural resistance is decisively broken by close, invalidate bearish continuation.
+If structural support is decisively broken by close,
+invalidate bullish continuation.
 
-CONFIRMATION
+BEARISH:
 
-Bullish continuation requires:
+If structural resistance is decisively broken by close,
+invalidate bearish continuation.
+
+============================================================
+CONTINUATION CONFIRMATION
+============================================================
+
+BULLISH continuation requires:
 
 1. Bullish directive.
 2. Valid bullish correction.
@@ -834,7 +1024,7 @@ Bullish continuation requires:
 4. Confirmed M15 close above previous M15 high.
 5. Movement away satisfies continuation ATR filter.
 
-Bearish continuation requires:
+BEARISH continuation requires:
 
 1. Bearish directive.
 2. Valid bearish correction.
@@ -843,11 +1033,14 @@ Bearish continuation requires:
 5. Movement away satisfies continuation ATR filter.
 
 Continuation ATR filter:
+
 0.20 × ATR.
 
+============================================================
 ENTRY
+============================================================
 
-Bullish:
+BULLISH sequence:
 
 Expansion high
 → correction
@@ -856,7 +1049,7 @@ Expansion high
 → confirmed continuation
 → BUY.
 
-Bearish:
+BEARISH sequence:
 
 Expansion low
 → correction
@@ -865,20 +1058,173 @@ Expansion low
 → confirmed continuation
 → SELL.
 
+A valid Continuation setup CAN produce an independent BUY or SELL.
+
+Do NOT require EMA confirmation.
+
+Do NOT require Killer Zone confirmation.
+
+============================================================
+ENTRY LOCATION
+============================================================
+
 Do NOT place a bullish entry directly at resistance/expansion high.
 
 Do NOT place a bearish entry directly at support/expansion low.
 
-The entry must be inside the structural continuation area.
+The entry must be associated with the confirmed structural
+continuation area.
 
-If continuation has not actually confirmed:
+If the continuation event has not confirmed:
 
 BUY DEVELOPING
 SELL DEVELOPING
 WAITING
-or NO TRADE.
+or
+NO TRADE.
 
-INVALIDATION
+============================================================
+CONTINUATION STOP LOSS
+============================================================
+
+Continuation SL must come from the Continuation setup itself.
+
+BULLISH:
+
+SL must be below the valid structural support / correction
+invalidation area.
+
+BEARISH:
+
+SL must be above the valid structural resistance / correction
+invalidation area.
+
+Do NOT use:
+
+- EMA20
+- EMA105
+- EMA rejection low/high
+- Asian High/Low
+- Killer Zone sweep levels
+
+to manufacture the Continuation SL.
+
+The SL must be structurally connected to the Continuation setup.
+
+If a valid structural SL cannot be identified:
+
+STOP LOSS:
+WAIT
+
+============================================================
+CONTINUATION RISK
+============================================================
+
+For BUY:
+
+Risk =
+Entry - Stop Loss
+
+Risk must be positive.
+
+For SELL:
+
+Risk =
+Stop Loss - Entry
+
+Risk must be positive.
+
+Never report negative risk.
+
+============================================================
+CONTINUATION TAKE PROFIT
+============================================================
+
+Continuation must independently provide:
+
+TP1
+TP2
+FINAL TP
+
+The Continuation source model does not specify a fixed RR formula.
+
+Therefore targets must be derived from visible structural/liquidity
+objectives.
+
+============================================================
+BULLISH TARGETS
+============================================================
+
+TP1:
+
+First valid upside structural/liquidity objective ahead of entry.
+
+TP2:
+
+Next valid upside structural/liquidity objective ahead of entry.
+
+FINAL TP:
+
+Valid previous meaningful high / Previous Day High / upside liquidity
+objective ahead of entry.
+
+If that target has already been taken, use the next valid structural
+or liquidity objective.
+
+============================================================
+BEARISH TARGETS
+============================================================
+
+TP1:
+
+First valid downside structural/liquidity objective below entry.
+
+TP2:
+
+Next valid downside structural/liquidity objective below entry.
+
+FINAL TP:
+
+Valid previous meaningful low / Previous Day Low / downside liquidity
+objective below entry.
+
+If that target has already been taken, use the next valid structural
+or liquidity objective.
+
+============================================================
+TARGET PROTECTION
+============================================================
+
+Never place:
+
+- TP above a BUY entry without structural justification
+- TP below a SELL entry without structural justification
+- a FINAL TP behind the entry
+- a target at an already-consumed liquidity level unless the strategy
+  explicitly requires that level
+
+Never manufacture a previous high.
+
+Never manufacture a previous low.
+
+Never manufacture PDH.
+
+Never manufacture PDL.
+
+If a valid target cannot be identified:
+
+TP1:
+WAIT
+
+TP2:
+WAIT
+
+FINAL TP:
+WAIT
+
+============================================================
+INVALIDATION BEFORE ENTRY
+============================================================
 
 If bullish price reaches/exceeds the expansion extreme before a valid
 fresh entry, invalidate the fresh bullish entry.
@@ -886,25 +1232,66 @@ fresh entry, invalidate the fresh bullish entry.
 If bearish price reaches/falls below the expansion extreme before a valid
 fresh entry, invalidate the fresh bearish entry.
 
-TAKE PROFIT
+============================================================
+CONTINUATION TRADE STATES
+============================================================
 
-The source Continuation model does not define a TP formula.
+Expansion + correction visible but continuation not confirmed:
 
-For VaultTrades AI:
+BUY DEVELOPING
+or
+SELL DEVELOPING
 
-BUY:
-Final TP should target a valid previous meaningful high / PDH liquidity
-objective when ahead of price.
+Structural continuation confirmation incomplete:
 
-SELL:
-Final TP should target a valid previous meaningful low / PDL liquidity
-objective when below price.
+WAITING
 
-If that objective has already been taken, use the next valid
-structural/liquidity objective.
+Continuation confirmation complete + valid entry + valid SL:
 
-Never manufacture a future target.
-Never force a trade.
+BUY
+or
+SELL
+
+Setup invalidated:
+
+NO TRADE
+
+============================================================
+STRICT INDEPENDENCE
+============================================================
+
+Continuation must stand alone.
+
+Do not use Killer Zone to confirm Continuation.
+
+Do not use EMA to confirm Continuation.
+
+Do not reject a valid Continuation setup because:
+
+- there was no Asian liquidity sweep
+- there was no London Kill Zone setup
+- EMA20 is not aligned
+- EMA105 is not aligned
+- UT Bot disagrees
+- SMI disagrees
+
+Continuation is allowed to produce its own independent trade.
+
+============================================================
+FINAL RULE
+============================================================
+
+The selected strategy is the ONLY strategy being evaluated.
+
+Never combine strategy conditions.
+
+Never use another strategy's entry logic.
+
+Never use another strategy's stop-loss logic.
+
+Never use another strategy's confirmation logic.
+
+Only the selected strategy determines whether a trade exists.
 `,
 };
 
