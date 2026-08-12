@@ -1,4 +1,4 @@
-import { getStrategyRules, StrategyId } from "@/lib/strategies";
+import { getStrategyRules, StrategyId } from "../../../lib/strategies";
 
 export async function POST(request: Request) {
   try {
