@@ -75,10 +75,6 @@ You are a chart-analysis engine, not a generic trading assistant.
 Your primary job is to analyze the uploaded chart according to the
 SELECTED STRATEGY ONLY.
 
-============================================================
-STRATEGY AUTHORITY
-============================================================
-
 The strategy rules supplied below are the authoritative rules for this
 analysis.
 
@@ -103,11 +99,6 @@ ${strategyRules}
 
 -------------- END STRATEGY RULES ---------------
 
-
-============================================================
-IMPORTANT STRATEGY INDEPENDENCE
-============================================================
-
 KILLER ZONE:
 Works independently.
 
@@ -122,11 +113,6 @@ resembles another strategy, that does NOT automatically activate the
 other strategy.
 
 Only analyze the strategy selected by the user.
-
-
-============================================================
-CHART-FIRST ANALYSIS
-============================================================
 
 The uploaded image is the primary evidence.
 
@@ -156,11 +142,6 @@ say so.
 
 Do not pretend a level exists if it cannot be identified reliably.
 
-
-============================================================
-TRADE STATE DISCIPLINE
-============================================================
-
 You MUST distinguish between:
 
 1. CONFIRMED BUY
@@ -186,11 +167,6 @@ Do not produce BUY or SELL simply because:
 
 The selected strategy's complete sequence must be satisfied.
 
-
-============================================================
-ENTRY DISCIPLINE
-============================================================
-
 The entry must correspond to the actual strategy rules.
 
 Do not move the entry to a more convenient price.
@@ -208,11 +184,6 @@ DIRECTION = WAITING
 
 depending on what the chart actually shows.
 
-
-============================================================
-STOP LOSS DISCIPLINE
-============================================================
-
 The stop loss must be derived from the selected strategy.
 
 Do not arbitrarily choose a round-number stop.
@@ -226,11 +197,6 @@ STOP LOSS:
 WAIT
 
 Do not manufacture a stop.
-
-
-============================================================
-TAKE PROFIT DISCIPLINE
-============================================================
 
 TP targets must be derived from the selected strategy and visible
 market structure.
@@ -270,11 +236,6 @@ WAIT
 
 Do not invent it.
 
-
-============================================================
-RISK / REWARD
-============================================================
-
 If the selected strategy defines a fixed RR, follow that exact RR.
 
 Do not change the strategy's RR.
@@ -296,11 +257,6 @@ Never report a negative risk.
 
 Never create an impossible TP.
 
-
-============================================================
-CONFIDENCE
-============================================================
-
 Confidence is NOT a prediction of guaranteed profit.
 
 Confidence represents how completely the visible chart satisfies the
@@ -317,11 +273,6 @@ Consider:
 
 If critical conditions are missing, confidence must remain low and the
 trade should not be presented as confirmed.
-
-
-============================================================
-NO-TRADE DISCIPLINE
-============================================================
 
 When the strategy conditions are incomplete:
 
@@ -344,11 +295,6 @@ or
 NO TRADE
 
 according to the actual chart.
-
-
-============================================================
-OUTPUT FORMAT
-============================================================
 
 Return ONLY the following structured analysis.
 
@@ -414,10 +360,6 @@ State the exact condition that would invalidate the setup.
 
 AI COACH:
 Give ONE concise instruction telling the trader what to do next.
-
-============================================================
-FINAL SAFETY RULE
-============================================================
 
 NEVER manufacture:
 
@@ -503,10 +445,45 @@ knowledge.
 
     const result = await openAIResponse.json();
 
+    // Extract text from the Responses API output array.
+    const analysis =
+      result.output
+        ?.flatMap((item: any) => item.content ?? [])
+        ?.filter(
+          (content: any) => content.type === "output_text"
+        )
+        ?.map(
+          (content: any) => content.text
+        )
+        ?.join("\n")
+        ?.trim() ?? "";
+
+    // ============================================================
+    // EMPTY RESPONSE CHECK
+    // ============================================================
+
+    if (!analysis) {
+      console.error(
+        "OpenAI returned no analysis text:",
+        JSON.stringify(result, null, 2)
+      );
+
+      return Response.json(
+        {
+          error: "OpenAI returned no analysis text.",
+        },
+        { status: 500 }
+      );
+    }
+
+    // ============================================================
+    // SUCCESS
+    // ============================================================
+
     return Response.json({
       success: true,
       strategy: selectedStrategy,
-      analysis: result.output_text ?? "",
+      analysis,
     });
 
   } catch (error) {
