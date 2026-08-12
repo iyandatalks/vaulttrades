@@ -25,7 +25,8 @@ export async function POST(request: Request) {
     if (
       strategy !== "killZone" &&
       strategy !== "ema" &&
-      strategy !== "continuation"
+      strategy !== "continuation" &&
+      strategy !== "supplyDemand"
     ) {
       return Response.json(
         { error: "Invalid strategy selected." },
@@ -106,6 +107,9 @@ EMA:
 Works independently.
 
 CONTINUATION:
+Works independently.
+
+SUPPLY & DEMAND:
 Works independently.
 
 If a selected strategy happens to encounter a market condition that
