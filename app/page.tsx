@@ -23,7 +23,7 @@ type Timeframe =
 
 type Direction =
   | "BUY"
-  |  | "SELL"
+  | "SELL"
   | "BUY DEVELOPING"
   | "SELL DEVELOPING"
   | "WAITING"
@@ -150,24 +150,21 @@ const strategies: Record<
 > = {
   killZone: {
     name: "Killer Zone",
-    description:
-      "London Kill Zone model",
+    description: "London Kill Zone model",
     detail:
       "Asian liquidity sweep → MSS → FVG → 50% FVG retracement → entry",
   },
 
   ema: {
     name: "EMA",
-    description:
-      "EMA20 Pullback Morning Engine",
+    description: "EMA20 Pullback Morning Engine",
     detail:
       "EMA20 pullback → rejection → break → UT Bot OR SMI confirmation",
   },
 
   continuation: {
     name: "Continuation",
-    description:
-      "M15 Continuation model",
+    description: "M15 Continuation model",
     detail:
       "Expansion → correction → structural support/resistance → recovery → confirmed continuation",
   },
@@ -354,7 +351,7 @@ export default function Home() {
 
 
   // ============================================================
-  // RESET RESULT
+  // RESET RESULTS
   // ============================================================
 
   function clearResults() {
@@ -397,7 +394,7 @@ export default function Home() {
 
 
   // ============================================================
-  // UPLOAD
+  // UPLOAD CHART
   // ============================================================
 
   function handleUpload(
@@ -464,7 +461,7 @@ export default function Home() {
 
 
   // ============================================================
-  // ANALYZE
+  // ANALYZE CHART
   // ============================================================
 
   async function analyzeChart() {
@@ -559,13 +556,11 @@ export default function Home() {
       );
 
       setConfirmedConditions(
-        data.confirmedConditions ??
-          []
+        data.confirmedConditions ?? []
       );
 
       setMissingConditions(
-        data.missingConditions ??
-          []
+        data.missingConditions ?? []
       );
 
       setAiCoach(
@@ -600,8 +595,7 @@ export default function Home() {
     return annotations.map(
       (annotation, index) => {
         const points =
-          annotation.points ??
-          [];
+          annotation.points ?? [];
 
         if (
           annotation.type ===
@@ -736,6 +730,10 @@ export default function Home() {
   }
 
 
+  // ============================================================
+  // DISPLAY VALUES
+  // ============================================================
+
   const currentDirection =
     tradeSignal?.direction ??
     "WAITING";
@@ -791,17 +789,19 @@ export default function Home() {
 
       <header className="header">
 
-        <div className="brand-area">
+        <div className="brand-block">
 
-          <div className="brand">
-            VAULTTRADES
-          </div>
+          <img
+            src="/vaulttrades-logo.png.png"
+            alt="VaultTrades"
+            className="logo"
+          />
 
-          <div className="brand-subtitle">
+          <div className="tagline">
             Built by Traders.
           </div>
 
-          <div className="brand-slogan">
+          <div className="slogan">
             Focus, discipline, consistency.
           </div>
 
@@ -837,7 +837,7 @@ export default function Home() {
           </p>
 
 
-          {/* KILL ZONE */}
+          {/* KILLER ZONE */}
 
           <button
             type="button"
@@ -969,6 +969,7 @@ export default function Home() {
           <div className="timeframe-section">
 
             <div className="timeframe-heading">
+
               <strong>
                 Analysis Timeframe
               </strong>
@@ -976,6 +977,7 @@ export default function Home() {
               <span className="muted">
                 User selected
               </span>
+
             </div>
 
             <div className="timeframe-grid">
@@ -1013,6 +1015,7 @@ export default function Home() {
           <div className="analysis-selection">
 
             <div>
+
               <span className="muted">
                 Strategy
               </span>
@@ -1024,9 +1027,11 @@ export default function Home() {
                   ].name
                 }
               </strong>
+
             </div>
 
             <div>
+
               <span className="muted">
                 Timeframe
               </span>
@@ -1034,6 +1039,7 @@ export default function Home() {
               <strong>
                 {timeframe}
               </strong>
+
             </div>
 
           </div>
@@ -1088,9 +1094,7 @@ export default function Home() {
                     className="preview"
                   />
 
-                  {/* ==================================================
-                      CHART MARKINGS
-                  ================================================== */}
+                  {/* CHART MARKINGS */}
 
                   {annotations.length >
                     0 && (
@@ -1169,12 +1173,19 @@ export default function Home() {
 
       {/* ========================================================
           DIRECT TRADE EXECUTION
-          THIS REPLACES "SELECTED STRATEGY"
+
+          THIS IS THE PRIMARY RESULT.
+          NO SELECTED STRATEGY CARD.
       ======================================================== */}
 
       {tradeSignal && (
         <section
-          className="card execution-card"
+          className={`card execution-card ${directionClass(
+            currentDirection
+          )}`}
+          style={{
+            marginTop: "20px",
+          }}
         >
 
           <div className="execution-header">
@@ -1186,9 +1197,7 @@ export default function Home() {
               </span>
 
               <h2
-                className={`execution-direction ${directionClass(
-                  currentDirection
-                )}`}
+                className="execution-direction"
               >
                 {directionLabel(
                   currentDirection
@@ -1216,7 +1225,7 @@ export default function Home() {
 
 
           {/* ====================================================
-              EXPECTED / CONFIRMED STATUS
+              STATUS
           ==================================================== */}
 
           {isDeveloping && (
@@ -1228,8 +1237,9 @@ export default function Home() {
 
               <span>
                 This setup is developing.
-                Wait for the required
-                confirmation before execution.
+                The levels below represent
+                where the trade is expected
+                if confirmation occurs.
               </span>
 
             </div>
@@ -1364,7 +1374,7 @@ export default function Home() {
 
 
           {/* ====================================================
-              SUPPLY / DEMAND ZONE
+              PROJECTED ZONE
           ==================================================== */}
 
           {projection &&
@@ -1376,6 +1386,7 @@ export default function Home() {
               <div className="projection-box">
 
                 <div className="projection-title">
+
                   <strong>
                     Projected Zone
                   </strong>
@@ -1385,11 +1396,13 @@ export default function Home() {
                       projection.setupType
                     }
                   </span>
+
                 </div>
 
                 <div className="projection-grid">
 
                   <div>
+
                     <span className="muted">
                       Zone Low
                     </span>
@@ -1399,9 +1412,11 @@ export default function Home() {
                         projection.zoneLow
                       )}
                     </strong>
+
                   </div>
 
                   <div>
+
                     <span className="muted">
                       Zone High
                     </span>
@@ -1411,6 +1426,7 @@ export default function Home() {
                         projection.zoneHigh
                       )}
                     </strong>
+
                   </div>
 
                 </div>
@@ -1420,7 +1436,7 @@ export default function Home() {
 
 
           {/* ====================================================
-              RETEST
+              RETEST + CONFIRMATION
           ==================================================== */}
 
           {projection &&
@@ -1428,6 +1444,7 @@ export default function Home() {
               <div className="status-row">
 
                 <div>
+
                   <span className="muted">
                     Retest
                   </span>
@@ -1437,9 +1454,11 @@ export default function Home() {
                       projection.retestStatus
                     }
                   </strong>
+
                 </div>
 
                 <div>
+
                   <span className="muted">
                     Confirmation
                   </span>
@@ -1449,6 +1468,7 @@ export default function Home() {
                       projection.confirmationStatus
                     }
                   </strong>
+
                 </div>
 
               </div>
@@ -1481,68 +1501,10 @@ export default function Home() {
 
 
       {/* ========================================================
-          MARKET STATE
-      ======================================================== */}
+          TRADE ANALYSIS
 
-      {tradeSignal && (
-        <section
-          className="card"
-          style={{
-            marginTop: "20px",
-          }}
-        >
-
-          <h2 className="title">
-            Market State
-          </h2>
-
-          <p
-            style={{
-              lineHeight: 1.7,
-              marginBottom: 0,
-            }}
-          >
-            {marketState}
-          </p>
-
-        </section>
-      )}
-
-
-      {/* ========================================================
-          SETUP
-      ======================================================== */}
-
-      {tradeSignal && (
-        <section
-          className="card"
-          style={{
-            marginTop: "20px",
-          }}
-        >
-
-          <h2 className="title">
-            Setup
-          </h2>
-
-          <p
-            style={{
-              whiteSpace:
-                "pre-wrap",
-              lineHeight: 1.7,
-              marginBottom: 0,
-            }}
-          >
-            {setup}
-          </p>
-
-        </section>
-      )}
-
-
-      {/* ========================================================
-          AI TRADE ANALYSIS
-          DETAILED EXPLANATION REMAINS BELOW
+          MARKET STATE + SETUP + CONDITIONS +
+          INVALIDATION ARE NOW CONSOLIDATED HERE.
       ======================================================== */}
 
       {analysis && (
@@ -1586,14 +1548,69 @@ export default function Home() {
           </div>
 
 
-          <div
-            style={{
-              whiteSpace:
-                "pre-wrap",
-              lineHeight: 1.7,
-            }}
-          >
-            {analysis}
+          {/* ====================================================
+              MARKET STATE
+          ==================================================== */}
+
+          {marketState && (
+            <div className="analysis-section">
+
+              <h3>
+                Market State
+              </h3>
+
+              <p>
+                {marketState}
+              </p>
+
+            </div>
+          )}
+
+
+          {/* ====================================================
+              SETUP
+          ==================================================== */}
+
+          {setup && (
+            <div className="analysis-section">
+
+              <h3>
+                Setup
+              </h3>
+
+              <p
+                style={{
+                  whiteSpace:
+                    "pre-wrap",
+                }}
+              >
+                {setup}
+              </p>
+
+            </div>
+          )}
+
+
+          {/* ====================================================
+              FULL ANALYSIS
+          ==================================================== */}
+
+          <div className="analysis-section">
+
+            <h3>
+              Strategy Analysis
+            </h3>
+
+            <div
+              style={{
+                whiteSpace:
+                  "pre-wrap",
+                lineHeight: 1.7,
+              }}
+            >
+              {analysis}
+            </div>
+
           </div>
 
 
@@ -1616,6 +1633,7 @@ export default function Home() {
                   </strong>
 
                   <ul>
+
                     {confirmedConditions.map(
                       (
                         condition,
@@ -1630,6 +1648,7 @@ export default function Home() {
                         </li>
                       )
                     )}
+
                   </ul>
 
                 </div>
@@ -1645,6 +1664,7 @@ export default function Home() {
                   </strong>
 
                   <ul>
+
                     {missingConditions.map(
                       (
                         condition,
@@ -1659,6 +1679,7 @@ export default function Home() {
                         </li>
                       )
                     )}
+
                   </ul>
 
                 </div>
@@ -1669,18 +1690,20 @@ export default function Home() {
 
 
           {/* ====================================================
-              AI COACH
+              INVALIDATION
           ==================================================== */}
 
-          {aiCoach && (
-            <div className="coach-box">
+          {tradeSignal?.invalidation && (
+            <div className="confirmation-box">
 
               <span className="muted">
-                Trade Coach
+                Invalidation
               </span>
 
               <strong>
-                {aiCoach}
+                {
+                  tradeSignal.invalidation
+                }
               </strong>
 
             </div>
@@ -1691,7 +1714,79 @@ export default function Home() {
 
 
       {/* ========================================================
-          DISCLAIMER
+          AI COACH
+
+          INTENTIONALLY SEPARATE FROM TRADE ANALYSIS.
+          THIS IS WHERE THE TRADER GETS COACHING/INTERPRETATION.
+      ======================================================== */}
+
+      {tradeSignal && (
+        <section
+          className="card coach-card"
+          style={{
+            marginTop: "20px",
+          }}
+        >
+
+          <div className="analysis-heading">
+
+            <div>
+
+              <span className="muted">
+                Trader Guidance
+              </span>
+
+              <h2 className="title">
+                AI Coach
+              </h2>
+
+            </div>
+
+            <div className="analysis-meta">
+
+              <span>
+                {
+                  strategies[
+                    strategy
+                  ].name
+                }
+              </span>
+
+              <strong>
+                {timeframe}
+              </strong>
+
+            </div>
+
+          </div>
+
+
+          <div className="coach-box">
+
+            <span className="muted">
+              Coach Guidance
+            </span>
+
+            <p
+              style={{
+                whiteSpace:
+                  "pre-wrap",
+                lineHeight: 1.7,
+                marginBottom: 0,
+              }}
+            >
+              {aiCoach ||
+                "Review the trade execution, confirmation requirements and invalidation levels before making a trading decision."}
+            </p>
+
+          </div>
+
+        </section>
+      )}
+
+
+      {/* ========================================================
+          DISCLAIMER + FOOTER
       ======================================================== */}
 
       <footer className="footer">
@@ -1700,15 +1795,20 @@ export default function Home() {
           VAULTTRADES
         </div>
 
-        <p>
-          Built by Traders. Focus,
-          discipline, consistency.
+        <p className="footer-tagline">
+          Built by Traders.
         </p>
 
-        <p className="disclaimer">
+        <p className="footer-slogan">
+          Focus, discipline, consistency.
+        </p>
+
+        <p className="footer-disclaimer">
+
           <strong>
             Disclaimer:
           </strong>{" "}
+
           VaultTrades is an analytical
           tool designed to assist with
           market analysis and strategy
@@ -1716,16 +1816,24 @@ export default function Home() {
           provide financial advice,
           investment advice or a
           guarantee of trading results.
+
           Trading involves substantial
           risk and users remain solely
           responsible for their own
           trading decisions.
+
         </p>
 
-        <p className="copyright">
+        <p className="footer-copy">
+
           © {new Date().getFullYear()}{" "}
           VaultTrades. All rights
           reserved.
+
+        </p>
+
+        <p className="footer-developed">
+          Built by Traders.
         </p>
 
       </footer>
