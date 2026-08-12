@@ -2,28 +2,46 @@
 
 import { ChangeEvent, useState } from "react";
 
-type Strategy = "killZone" | "ema" | "continuation";
+type Strategy =
+  | "killZone"
+  | "ema"
+  | "continuation"
+  | "supplyDemand";
 
-const strategies = {
+const strategies: Record<
+  Strategy,
+  {
+    name: string;
+    description: string;
+    detail: string;
+  }
+> = {
   killZone: {
     name: "Killer Zone",
     description: "London Kill Zone model",
     detail:
-      "Time-specific London liquidity and reversal/continuation analysis",
+      "Asian liquidity sweep → MSS → FVG → 50% FVG retracement → entry",
   },
 
   ema: {
     name: "EMA",
     description: "EMA20 Pullback Morning Engine",
     detail:
-      "EMA20 pullback, market structure, rejection, break/reclaim, UT Bot OR SMI confirmation",
+      "EMA20 pullback → rejection → break → UT Bot OR SMI confirmation",
   },
 
   continuation: {
     name: "Continuation",
-    description: "Continuation model",
+    description: "M15 Continuation model",
     detail:
-      "Trend expansion → correction → retest/balance → continuation",
+      "Expansion → correction → structural support/resistance → recovery → confirmed continuation",
+  },
+
+  supplyDemand: {
+    name: "Supply & Demand",
+    description: "Independent Supply & Demand Zone Engine",
+    detail:
+      "Swing-based zones → retest → reaction → zone hold → confirmed entry",
   },
 };
 
@@ -41,6 +59,16 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
 
   const [error, setError] = useState("");
+
+  // ============================================================
+  // CHANGE STRATEGY
+  // ============================================================
+
+  function changeStrategy(nextStrategy: Strategy) {
+    setStrategy(nextStrategy);
+    setAnalysis("");
+    setError("");
+  }
 
   // ============================================================
   // UPLOAD
@@ -80,6 +108,14 @@ export default function Home() {
     setFileName("");
     setAnalysis("");
     setError("");
+
+    const input = document.getElementById(
+      "chart-upload"
+    ) as HTMLInputElement | null;
+
+    if (input) {
+      input.value = "";
+    }
   }
 
   // ============================================================
@@ -174,82 +210,92 @@ export default function Home() {
           </h2>
 
           <p className="muted">
-            Choose the strategy you want the chart analyzer to apply.
+            Choose the independent strategy you want the chart
+            analyzer to apply.
           </p>
 
 
-          {/* KILLER ZONE */}
+          {/* ====================================================
+              KILLER ZONE
+          ==================================================== */}
 
           <button
             type="button"
             className={`strategy ${
               strategy === "killZone" ? "active" : ""
             }`}
-            onClick={() => {
-              setStrategy("killZone");
-              setAnalysis("");
-              setError("");
-            }}
+            onClick={() => changeStrategy("killZone")}
           >
-
             <strong>
               Killer Zone
             </strong>
 
             <span className="muted">
-              London Kill Zone model
+              London liquidity sweep → MSS → FVG → entry
             </span>
-
           </button>
 
 
-          {/* EMA */}
+          {/* ====================================================
+              EMA
+          ==================================================== */}
 
           <button
             type="button"
             className={`strategy ${
               strategy === "ema" ? "active" : ""
             }`}
-            onClick={() => {
-              setStrategy("ema");
-              setAnalysis("");
-              setError("");
-            }}
+            onClick={() => changeStrategy("ema")}
           >
-
             <strong>
               EMA
             </strong>
 
             <span className="muted">
-              EMA20 pullback + structure + momentum model
+              EMA20 pullback → rejection → break → confirmation
             </span>
-
           </button>
 
 
-          {/* CONTINUATION */}
+          {/* ====================================================
+              CONTINUATION
+          ==================================================== */}
 
           <button
             type="button"
             className={`strategy ${
               strategy === "continuation" ? "active" : ""
             }`}
-            onClick={() => {
-              setStrategy("continuation");
-              setAnalysis("");
-              setError("");
-            }}
+            onClick={() => changeStrategy("continuation")}
           >
-
             <strong>
               Continuation
             </strong>
 
             <span className="muted">
-              Expansion → correction → retest → continuation
+              Expansion → correction → structure → continuation
             </span>
+          </button>
 
+
+          {/* ====================================================
+              SUPPLY & DEMAND
+          ==================================================== */}
+
+          <button
+            type="button"
+            className={`strategy ${
+              strategy === "supplyDemand" ? "active" : ""
+            }`}
+            onClick={() => changeStrategy("supplyDemand")}
+          >
+            <strong>
+              Supply & Demand
+            </strong>
+
+            <span className="muted">
+              Zones → retest → reaction → confirmed entry
+            </span>
           </button>
 
         </section>
@@ -274,7 +320,9 @@ export default function Home() {
           </p>
 
 
-          {/* UPLOAD AREA */}
+          {/* ====================================================
+              UPLOAD AREA
+          ==================================================== */}
 
           <div
             className="upload"
@@ -320,7 +368,9 @@ export default function Home() {
           </div>
 
 
-          {/* ACTIONS */}
+          {/* ====================================================
+              ACTIONS
+          ==================================================== */}
 
           <div className="actions">
 
@@ -348,7 +398,9 @@ export default function Home() {
           </div>
 
 
-          {/* ERROR */}
+          {/* ====================================================
+              ERROR
+          ==================================================== */}
 
           {error && (
             <div
