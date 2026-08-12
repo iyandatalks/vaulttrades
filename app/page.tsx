@@ -1,6 +1,9 @@
 "use client";
 
-import { ChangeEvent, useState } from "react";
+import {
+  ChangeEvent,
+  useState,
+} from "react";
 
 type Strategy =
   | "killZone"
@@ -18,16 +21,123 @@ type Timeframe =
   | "H4"
   | "D1";
 
+type Direction =
+  | "BUY"
+  |  | "SELL"
+  | "BUY DEVELOPING"
+  | "SELL DEVELOPING"
+  | "WAITING"
+  | "NO TRADE";
+
+type ChartPoint = {
+  x: number;
+  y: number;
+};
+
+type ChartAnnotation = {
+  type:
+    | "zone"
+    | "entry"
+    | "stopLoss"
+    | "tp1"
+    | "tp2"
+    | "finalTp"
+    | "retest"
+    | "confirmation"
+    | "structure";
+
+  label: string;
+
+  price?: number | null;
+
+  points?: ChartPoint[];
+
+  color:
+    | "gold"
+    | "green"
+    | "red"
+    | "white";
+};
+
+type Projection = {
+  available: boolean;
+
+  setupType:
+    | "demand"
+    | "supply"
+    | "long"
+    | "short"
+    | "continuation"
+    | "killZone"
+    | "ema"
+    | "none";
+
+  zoneLow: number | null;
+  zoneHigh: number | null;
+
+  expectedEntry: number | null;
+  expectedStopLoss: number | null;
+
+  expectedTp1: number | null;
+  expectedTp2: number | null;
+  expectedFinalTp: number | null;
+
+  retestRequired: boolean;
+
+  retestStatus:
+    | "WAITING"
+    | "TESTED"
+    | "CONFIRMED"
+    | "NOT_REQUIRED";
+
+  confirmationRequired: string;
+
+  confirmationStatus:
+    | "REQUIRED"
+    | "PENDING"
+    | "CONFIRMED"
+    | "NOT_REQUIRED";
+};
+
 type TradeSignal = {
-  direction: string;
-  confidence: string;
-  entry: string;
-  stopLoss: string;
-  tp1: string;
-  tp2: string;
-  finalTp: string;
+  direction: Direction;
+  confidence: number;
+
+  entry: number | null;
+  stopLoss: number | null;
+  risk: number | null;
+
+  tp1: number | null;
+  tp2: number | null;
+  finalTp: number | null;
+
   invalidation: string;
-  status: string;
+};
+
+type AnalysisResponse = {
+  success: boolean;
+
+  strategy: Strategy;
+
+  timeframe: Timeframe;
+
+  analysis: string;
+
+  tradeSignal: TradeSignal;
+
+  projection: Projection;
+
+  chartAnnotations: ChartAnnotation[];
+
+  marketState: string;
+
+  setup: string;
+
+  confirmedConditions: string[];
+
+  missingConditions: string[];
+
+  aiCoach: string;
 };
 
 const strategies: Record<
@@ -40,28 +150,32 @@ const strategies: Record<
 > = {
   killZone: {
     name: "Killer Zone",
-    description: "London Kill Zone model",
+    description:
+      "London Kill Zone model",
     detail:
       "Asian liquidity sweep → MSS → FVG → 50% FVG retracement → entry",
   },
 
   ema: {
     name: "EMA",
-    description: "EMA20 Pullback Morning Engine",
+    description:
+      "EMA20 Pullback Morning Engine",
     detail:
       "EMA20 pullback → rejection → break → UT Bot OR SMI confirmation",
   },
 
   continuation: {
     name: "Continuation",
-    description: "M15 Continuation model",
+    description:
+      "M15 Continuation model",
     detail:
       "Expansion → correction → structural support/resistance → recovery → confirmed continuation",
   },
 
   supplyDemand: {
     name: "Supply & Demand",
-    description: "Independent Supply & Demand Zone Engine",
+    description:
+      "Independent Supply & Demand Zone Engine",
     detail:
       "Swing-based zones → retest → reaction → zone hold → confirmed entry",
   },
@@ -78,162 +192,28 @@ const timeframes: Timeframe[] = [
   "D1",
 ];
 
-/* ============================================================
-   EXTRACT VALUE FROM AI RESPONSE
-============================================================ */
-
-function extractValue(
-  text: string,
-  patterns: RegExp[]
-): string {
-  for (const pattern of patterns) {
-    const match = text.match(pattern);
-
-    if (match?.[1]) {
-      return match[1].trim();
-    }
+function formatPrice(
+  value: number | null
+) {
+  if (
+    value === null ||
+    value === undefined ||
+    !Number.isFinite(value)
+  ) {
+    return "WAIT";
   }
 
-  return "—";
+  return value.toLocaleString(
+    undefined,
+    {
+      maximumFractionDigits: 5,
+    }
+  );
 }
 
-/* ============================================================
-   PARSE TRADE SIGNAL
-============================================================ */
-
-function parseTradeSignal(
-  text: string
-): TradeSignal {
-  const directionRaw = extractValue(text, [
-    /DIRECTION\s*[:\-]\s*([^\n]+)/i,
-    /TRADE\s*DIRECTION\s*[:\-]\s*([^\n]+)/i,
-    /SIGNAL\s*[:\-]\s*([^\n]+)/i,
-  ]);
-
-  const confidence = extractValue(text, [
-    /CONFIDENCE\s*[:\-]\s*([^\n]+)/i,
-    /CONFIDENCE\s* SCORE\s*[:\-]\s*([^\n]+)/i,
-  ]);
-
-  const entry = extractValue(text, [
-    /ENTRY\s*PRICE\s*[:\-]\s*([^\n]+)/i,
-    /ENTRY\s*[:\-]\s*([^\n]+)/i,
-  ]);
-
-  const stopLoss = extractValue(text, [
-    /STOP\s*LOSS\s*[:\-]\s*([^\n]+)/i,
-    /SL\s*[:\-]\s*([^\n]+)/i,
-  ]);
-
-  const tp1 = extractValue(text, [
-    /TP1\s*[:\-]\s*([^\n]+)/i,
-    /TAKE\s*PROFIT\s*1\s*[:\-]\s*([^\n]+)/i,
-  ]);
-
-  const tp2 = extractValue(text, [
-    /TP2\s*[:\-]\s*([^\n]+)/i,
-    /TAKE\s*PROFIT\s*2\s*[:\-]\s*([^\n]+)/i,
-  ]);
-
-  const finalTp = extractValue(text, [
-    /FINAL\s*TP\s*[:\-]\s*([^\n]+)/i,
-    /FINAL\s*TAKE\s*PROFIT\s*[:\-]\s*([^\n]+)/i,
-    /TP3\s*[:\-]\s*([^\n]+)/i,
-    /TAKE\s*PROFIT\s*3\s*[:\-]\s*([^\n]+)/i,
-  ]);
-
-  const invalidation = extractValue(text, [
-    /INVALIDATION\s*[:\-]\s*([^\n]+)/i,
-    /INVALIDATION\s*LEVEL\s*[:\-]\s*([^\n]+)/i,
-  ]);
-
-  const normalizedDirection =
-    directionRaw.toUpperCase().trim();
-
-  let direction = "NO TRADE";
-
-  if (
-    normalizedDirection.includes(
-      "BUY DEVELOPING"
-    ) ||
-    normalizedDirection.includes(
-      "LONG DEVELOPING"
-    )
-  ) {
-    direction = "BUY DEVELOPING";
-  } else if (
-    normalizedDirection.includes(
-      "SELL DEVELOPING"
-    ) ||
-    normalizedDirection.includes(
-      "SHORT DEVELOPING"
-    )
-  ) {
-    direction = "SELL DEVELOPING";
-  } else if (
-    normalizedDirection.includes("BUY") ||
-    normalizedDirection.includes("LONG")
-  ) {
-    direction = "BUY";
-  } else if (
-    normalizedDirection.includes("SELL") ||
-    normalizedDirection.includes("SHORT")
-  ) {
-    direction = "SELL";
-  } else if (
-    normalizedDirection.includes("WAIT")
-  ) {
-    direction = "WAITING";
-  } else if (
-    normalizedDirection.includes("NO TRADE")
-  ) {
-    direction = "NO TRADE";
-  }
-
-  let status = "WAIT FOR CONFIRMATION";
-
-  if (
-    direction === "BUY" ||
-    direction === "SELL"
-  ) {
-    if (
-      entry !== "—" &&
-      stopLoss !== "—" &&
-      (tp1 !== "—" || finalTp !== "—")
-    ) {
-      status = "READY TO EXECUTE";
-    }
-  } else if (
-    direction === "BUY DEVELOPING" ||
-    direction === "SELL DEVELOPING"
-  ) {
-    status = "SETUP DEVELOPING";
-  } else if (direction === "WAITING") {
-    status = "WAIT FOR CONFIRMATION";
-  } else {
-    status = "NO VALID SETUP";
-  }
-
-  return {
-    direction,
-    confidence,
-    entry,
-    stopLoss,
-    tp1,
-    tp2,
-    finalTp,
-    invalidation,
-    status,
-  };
-}
-
-/* ============================================================
-   SIGNAL CLASS
-============================================================ */
-
-function getSignalClass(
-  direction: string
-): string {
+function directionClass(
+  direction: Direction
+) {
   if (
     direction === "BUY" ||
     direction === "BUY DEVELOPING"
@@ -248,162 +228,349 @@ function getSignalClass(
     return "signal-sell";
   }
 
-  return "signal-neutral";
+  return "signal-wait";
 }
 
-/* ============================================================
-   MAIN PAGE
-============================================================ */
+function directionLabel(
+  direction: Direction
+) {
+  switch (direction) {
+    case "BUY":
+      return "BUY";
+
+    case "SELL":
+      return "SELL";
+
+    case "BUY DEVELOPING":
+      return "BUY DEVELOPING";
+
+    case "SELL DEVELOPING":
+      return "SELL DEVELOPING";
+
+    case "NO TRADE":
+      return "NO TRADE";
+
+    default:
+      return "WAITING";
+  }
+}
 
 export default function Home() {
-  const [strategy, setStrategy] =
-    useState<Strategy>("killZone");
+  const [
+    strategy,
+    setStrategy,
+  ] = useState<Strategy>(
+    "killZone"
+  );
 
-  const [timeframe, setTimeframe] =
-    useState<Timeframe>("M5");
+  const [
+    timeframe,
+    setTimeframe,
+  ] = useState<Timeframe>("M5");
 
-  const [chart, setChart] =
-    useState<string | null>(null);
+  const [
+    chart,
+    setChart,
+  ] = useState<string | null>(
+    null
+  );
 
-  const [selectedFile, setSelectedFile] =
-    useState<File | null>(null);
+  const [
+    selectedFile,
+    setSelectedFile,
+  ] = useState<File | null>(
+    null
+  );
 
-  const [fileName, setFileName] =
-    useState("");
+  const [
+    fileName,
+    setFileName,
+  ] = useState("");
 
-  const [analysis, setAnalysis] =
-    useState("");
+  const [
+    analysis,
+    setAnalysis,
+  ] = useState("");
 
-  const [loading, setLoading] =
-    useState(false);
+  const [
+    tradeSignal,
+    setTradeSignal,
+  ] = useState<TradeSignal | null>(
+    null
+  );
 
-  const [error, setError] =
-    useState("");
+  const [
+    projection,
+    setProjection,
+  ] = useState<Projection | null>(
+    null
+  );
 
-  /* ==========================================================
-     CHANGE STRATEGY
-  ========================================================== */
+  const [
+    annotations,
+    setAnnotations,
+  ] = useState<
+    ChartAnnotation[]
+  >([]);
+
+  const [
+    marketState,
+    setMarketState,
+  ] = useState("");
+
+  const [
+    setup,
+    setSetup,
+  ] = useState("");
+
+  const [
+    confirmedConditions,
+    setConfirmedConditions,
+  ] = useState<string[]>(
+    []
+  );
+
+  const [
+    missingConditions,
+    setMissingConditions,
+  ] = useState<string[]>(
+    []
+  );
+
+  const [
+    aiCoach,
+    setAiCoach,
+  ] = useState("");
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(false);
+
+  const [
+    error,
+    setError,
+  ] = useState("");
+
+
+  // ============================================================
+  // RESET RESULT
+  // ============================================================
+
+  function clearResults() {
+    setAnalysis("");
+    setTradeSignal(null);
+    setProjection(null);
+    setAnnotations([]);
+    setMarketState("");
+    setSetup("");
+    setConfirmedConditions([]);
+    setMissingConditions([]);
+    setAiCoach("");
+  }
+
+
+  // ============================================================
+  // CHANGE STRATEGY
+  // ============================================================
 
   function changeStrategy(
     nextStrategy: Strategy
   ) {
     setStrategy(nextStrategy);
-    setAnalysis("");
+    clearResults();
     setError("");
   }
 
-  /* ==========================================================
-     CHANGE TIMEFRAME
-  ========================================================== */
+
+  // ============================================================
+  // CHANGE TIMEFRAME
+  // ============================================================
 
   function changeTimeframe(
     nextTimeframe: Timeframe
   ) {
     setTimeframe(nextTimeframe);
-    setAnalysis("");
+    clearResults();
     setError("");
   }
 
-  /* ==========================================================
-     UPLOAD CHART
-  ========================================================== */
+
+  // ============================================================
+  // UPLOAD
+  // ============================================================
 
   function handleUpload(
     event: ChangeEvent<HTMLInputElement>
   ) {
-    const file = event.target.files?.[0];
+    const file =
+      event.target.files?.[0];
 
     if (!file) return;
 
-    if (!file.type.startsWith("image/")) {
-      alert("Please upload a chart image.");
+    if (
+      !file.type.startsWith(
+        "image/"
+      )
+    ) {
+      alert(
+        "Please upload a chart image."
+      );
+
       return;
     }
 
     setSelectedFile(file);
     setFileName(file.name);
-    setAnalysis("");
+
+    clearResults();
     setError("");
 
-    const reader = new FileReader();
+    const reader =
+      new FileReader();
 
     reader.onload = () => {
-      setChart(reader.result as string);
+      setChart(
+        reader.result as string
+      );
     };
 
     reader.readAsDataURL(file);
   }
 
-  /* ==========================================================
-     CLEAR CHART
-  ========================================================== */
+
+  // ============================================================
+  // CLEAR CHART
+  // ============================================================
 
   function clearChart() {
     setChart(null);
     setSelectedFile(null);
     setFileName("");
-    setAnalysis("");
+
+    clearResults();
+
     setError("");
 
-    const input = document.getElementById(
-      "chart-upload"
-    ) as HTMLInputElement | null;
+    const input =
+      document.getElementById(
+        "chart-upload"
+      ) as HTMLInputElement | null;
 
     if (input) {
       input.value = "";
     }
   }
 
-  /* ==========================================================
-     ANALYZE CHART
-  ========================================================== */
+
+  // ============================================================
+  // ANALYZE
+  // ============================================================
 
   async function analyzeChart() {
     if (!selectedFile) {
-      setError("Please upload a chart first.");
+      setError(
+        "Please upload a chart first."
+      );
+
       return;
     }
 
     setLoading(true);
-    setAnalysis("");
+    clearResults();
     setError("");
 
     try {
-      const formData = new FormData();
+      const formData =
+        new FormData();
 
-      formData.append("image", selectedFile);
-      formData.append("strategy", strategy);
-
-      /*
-       * The user's selected timeframe is explicitly
-       * sent to the analysis API.
-       */
-      formData.append("timeframe", timeframe);
-
-      const response = await fetch(
-        "/api/analyze",
-        {
-          method: "POST",
-          body: formData,
-        }
+      formData.append(
+        "image",
+        selectedFile
       );
 
-      const data = await response.json();
+      formData.append(
+        "strategy",
+        strategy
+      );
+
+      formData.append(
+        "timeframe",
+        timeframe
+      );
+
+      const response =
+        await fetch(
+          "/api/analyze",
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
+
+      const data =
+        (await response.json()) as
+          | AnalysisResponse
+          | {
+              error?: string;
+            };
 
       if (!response.ok) {
         throw new Error(
-          data?.error ||
-            "Unable to analyze the chart."
+          "error" in data &&
+          data.error
+            ? data.error
+            : "Unable to analyze the chart."
         );
       }
 
-      if (!data?.analysis) {
+      if (
+        !("analysis" in data) ||
+        !data.analysis
+      ) {
         throw new Error(
           "The analyzer returned an empty analysis."
         );
       }
 
-      setAnalysis(data.analysis);
+      setAnalysis(
+        data.analysis
+      );
+
+      setTradeSignal(
+        data.tradeSignal
+      );
+
+      setProjection(
+        data.projection
+      );
+
+      setAnnotations(
+        data.chartAnnotations ??
+          []
+      );
+
+      setMarketState(
+        data.marketState ?? ""
+      );
+
+      setSetup(
+        data.setup ?? ""
+      );
+
+      setConfirmedConditions(
+        data.confirmedConditions ??
+          []
+      );
+
+      setMissingConditions(
+        data.missingConditions ??
+          []
+      );
+
+      setAiCoach(
+        data.aiCoach ?? ""
+      );
     } catch (err) {
       console.error(
         "Chart analysis error:",
@@ -420,32 +587,221 @@ export default function Home() {
     }
   }
 
-  const tradeSignal = analysis
-    ? parseTradeSignal(analysis)
-    : null;
+
+  // ============================================================
+  // RENDER CHART ANNOTATIONS
+  // ============================================================
+
+  function renderAnnotations() {
+    if (!annotations.length) {
+      return null;
+    }
+
+    return annotations.map(
+      (annotation, index) => {
+        const points =
+          annotation.points ??
+          [];
+
+        if (
+          annotation.type ===
+            "zone" &&
+          points.length >= 4
+        ) {
+          const xs =
+            points.map(
+              (point) => point.x
+            );
+
+          const ys =
+            points.map(
+              (point) => point.y
+            );
+
+          const minX =
+            Math.min(...xs);
+
+          const maxX =
+            Math.max(...xs);
+
+          const minY =
+            Math.min(...ys);
+
+          const maxY =
+            Math.max(...ys);
+
+          return (
+            <div
+              key={`zone-${index}`}
+              className="chart-zone-overlay"
+              style={{
+                left: `${minX / 10}%`,
+                top: `${minY / 10}%`,
+                width: `${Math.max(
+                  2,
+                  (maxX - minX) /
+                    10
+                )}%`,
+                height: `${Math.max(
+                  2,
+                  (maxY - minY) /
+                    10
+                )}%`,
+              }}
+            >
+              <span>
+                {annotation.label}
+              </span>
+            </div>
+          );
+        }
+
+        if (
+          annotation.type ===
+            "entry" ||
+          annotation.type ===
+            "stopLoss" ||
+          annotation.type ===
+            "tp1" ||
+          annotation.type ===
+            "tp2" ||
+          annotation.type ===
+            "finalTp"
+        ) {
+          const point =
+            points[0];
+
+          if (!point) {
+            return null;
+          }
+
+          return (
+            <div
+              key={`level-${index}`}
+              className={`chart-level chart-level-${annotation.type}`}
+              style={{
+                top: `${point.y / 10}%`,
+              }}
+            >
+              <span>
+                {annotation.label}
+              </span>
+
+              {annotation.price !==
+                null &&
+                annotation.price !==
+                  undefined && (
+                  <strong>
+                    {formatPrice(
+                      annotation.price
+                    )}
+                  </strong>
+                )}
+            </div>
+          );
+        }
+
+        if (
+          annotation.type ===
+            "retest" ||
+          annotation.type ===
+            "confirmation"
+        ) {
+          const point =
+            points[0];
+
+          if (!point) {
+            return null;
+          }
+
+          return (
+            <div
+              key={`marker-${index}`}
+              className={`chart-marker chart-marker-${annotation.type}`}
+              style={{
+                left: `${point.x / 10}%`,
+                top: `${point.y / 10}%`,
+              }}
+            >
+              <span>
+                {annotation.label}
+              </span>
+            </div>
+          );
+        }
+
+        return null;
+      }
+    );
+  }
+
+
+  const currentDirection =
+    tradeSignal?.direction ??
+    "WAITING";
+
+  const isDeveloping =
+    currentDirection ===
+      "BUY DEVELOPING" ||
+    currentDirection ===
+      "SELL DEVELOPING";
+
+  const displayEntry =
+    isDeveloping
+      ? projection?.expectedEntry ??
+        null
+      : tradeSignal?.entry ??
+        null;
+
+  const displayStop =
+    isDeveloping
+      ? projection?.expectedStopLoss ??
+        null
+      : tradeSignal?.stopLoss ??
+        null;
+
+  const displayTp1 =
+    isDeveloping
+      ? projection?.expectedTp1 ??
+        null
+      : tradeSignal?.tp1 ??
+        null;
+
+  const displayTp2 =
+    isDeveloping
+      ? projection?.expectedTp2 ??
+        null
+      : tradeSignal?.tp2 ??
+        null;
+
+  const displayFinalTp =
+    isDeveloping
+      ? projection?.expectedFinalTp ??
+        null
+      : tradeSignal?.finalTp ??
+        null;
+
 
   return (
     <main className="shell">
 
-      {/* ======================================================
-          HEADER / BRAND
-      ====================================================== */}
+      {/* ========================================================
+          HEADER
+      ======================================================== */}
 
       <header className="header">
 
-        <div className="brand-block">
+        <div className="brand-area">
 
-          <img
-            src="/vaulttrades-logo.png"
-            alt="VaultTrades"
-            className="logo"
-          />
+          <div className="brand">
+            VAULTTRADES
+          </div>
 
-          <div className="tagline">
+          <div className="brand-subtitle">
             Built by Traders.
           </div>
 
-          <div className="slogan">
+          <div className="brand-slogan">
             Focus, discipline, consistency.
           </div>
 
@@ -458,15 +814,16 @@ export default function Home() {
       </header>
 
 
-      {/* ======================================================
+      {/* ========================================================
           MAIN GRID
-      ====================================================== */}
+      ======================================================== */}
 
       <div className="grid">
 
-        {/* ====================================================
+
+        {/* ======================================================
             STRATEGY PANEL
-        ==================================================== */}
+        ====================================================== */}
 
         <section className="card">
 
@@ -475,12 +832,12 @@ export default function Home() {
           </h2>
 
           <p className="muted">
-            Choose the independent strategy you
-            want the chart analyzer to apply.
+            Choose the independent strategy
+            the analyzer must apply.
           </p>
 
 
-          {/* KILLER ZONE */}
+          {/* KILL ZONE */}
 
           <button
             type="button"
@@ -490,10 +847,11 @@ export default function Home() {
                 : ""
             }`}
             onClick={() =>
-              changeStrategy("killZone")
+              changeStrategy(
+                "killZone"
+              )
             }
           >
-
             <strong>
               Killer Zone
             </strong>
@@ -502,7 +860,6 @@ export default function Home() {
               London liquidity sweep →
               MSS → FVG → entry
             </span>
-
           </button>
 
 
@@ -516,19 +873,20 @@ export default function Home() {
                 : ""
             }`}
             onClick={() =>
-              changeStrategy("ema")
+              changeStrategy(
+                "ema"
+              )
             }
           >
-
             <strong>
               EMA
             </strong>
 
             <span className="muted">
-              EMA20 pullback → rejection →
-              break → confirmation
+              EMA20 pullback →
+              rejection → break →
+              confirmation
             </span>
-
           </button>
 
 
@@ -537,7 +895,8 @@ export default function Home() {
           <button
             type="button"
             className={`strategy ${
-              strategy === "continuation"
+              strategy ===
+              "continuation"
                 ? "active"
                 : ""
             }`}
@@ -547,7 +906,6 @@ export default function Home() {
               )
             }
           >
-
             <strong>
               Continuation
             </strong>
@@ -556,7 +914,6 @@ export default function Home() {
               Expansion → correction →
               structure → continuation
             </span>
-
           </button>
 
 
@@ -565,7 +922,8 @@ export default function Home() {
           <button
             type="button"
             className={`strategy ${
-              strategy === "supplyDemand"
+              strategy ===
+              "supplyDemand"
                 ? "active"
                 : ""
             }`}
@@ -575,24 +933,22 @@ export default function Home() {
               )
             }
           >
-
             <strong>
               Supply & Demand
             </strong>
 
             <span className="muted">
-              Zones → retest → reaction →
-              confirmed entry
+              Zones → retest →
+              reaction → confirmed entry
             </span>
-
           </button>
 
         </section>
 
 
-        {/* ====================================================
+        {/* ======================================================
             CHART ANALYZER
-        ==================================================== */}
+        ====================================================== */}
 
         <section className="card">
 
@@ -601,111 +957,91 @@ export default function Home() {
           </h2>
 
           <p className="muted">
-            Select your timeframe, upload your
-            chart, then analyze.
+            Select your timeframe, upload
+            the chart, then analyze.
           </p>
 
 
-          {/* ==================================================
-              TIMEFRAME
-          ================================================== */}
+          {/* ====================================================
+              TIMEFRAME SELECTOR
+          ==================================================== */}
 
-          <div
-            style={{
-              marginTop: "20px",
-              marginBottom: "20px",
-            }}
-          >
+          <div className="timeframe-section">
 
-            <div
-              style={{
-                fontSize: "13px",
-                fontWeight: 700,
-                marginBottom: "10px",
-              }}
-            >
-              Select Timeframe
-            </div>
-
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns:
-                  "repeat(4, minmax(0, 1fr))",
-                gap: "8px",
-              }}
-            >
-
-              {timeframes.map(
-                (tf) => {
-
-                  const selected =
-                    timeframe === tf;
-
-                  return (
-                    <button
-                      key={tf}
-                      type="button"
-                      className={`timeframe-button ${
-                        selected
-                          ? "selected"
-                          : ""
-                      }`}
-                      aria-pressed={
-                        selected
-                      }
-                      disabled={loading}
-                      onClick={() =>
-                        changeTimeframe(tf)
-                      }
-                    >
-                      {tf}
-                    </button>
-                  );
-                }
-              )}
-
-            </div>
-
-
-            <div
-              style={{
-                display: "flex",
-                justifyContent:
-                  "space-between",
-                alignItems: "center",
-                gap: "12px",
-                marginTop: "12px",
-                padding: "10px 12px",
-                borderRadius: "8px",
-                background:
-                  "#080e17",
-                border:
-                  "1px solid #202b3a",
-              }}
-            >
+            <div className="timeframe-heading">
+              <strong>
+                Analysis Timeframe
+              </strong>
 
               <span className="muted">
-                Selected timeframe
+                User selected
               </span>
+            </div>
 
-              <strong
-                style={{
-                  color: "#d4af37",
-                }}
-              >
-                {timeframe}
-              </strong>
+            <div className="timeframe-grid">
+
+              {timeframes.map(
+                (tf) => (
+                  <button
+                    key={tf}
+                    type="button"
+                    className={`timeframe-button ${
+                      timeframe === tf
+                        ? "selected"
+                        : ""
+                    }`}
+                    onClick={() =>
+                      changeTimeframe(
+                        tf
+                      )
+                    }
+                  >
+                    {tf}
+                  </button>
+                )
+              )}
 
             </div>
 
           </div>
 
 
-          {/* ==================================================
+          {/* ====================================================
+              CURRENT SELECTION
+          ==================================================== */}
+
+          <div className="analysis-selection">
+
+            <div>
+              <span className="muted">
+                Strategy
+              </span>
+
+              <strong>
+                {
+                  strategies[
+                    strategy
+                  ].name
+                }
+              </strong>
+            </div>
+
+            <div>
+              <span className="muted">
+                Timeframe
+              </span>
+
+              <strong>
+                {timeframe}
+              </strong>
+            </div>
+
+          </div>
+
+
+          {/* ====================================================
               UPLOAD
-          ================================================== */}
+          ==================================================== */}
 
           <div
             className="upload"
@@ -723,12 +1059,13 @@ export default function Home() {
               type="file"
               accept="image/png,image/jpeg,image/webp"
               hidden
-              onChange={handleUpload}
+              onChange={
+                handleUpload
+              }
             />
 
             {!chart ? (
               <>
-
                 <strong>
                   Upload TradingView Chart
                 </strong>
@@ -736,20 +1073,33 @@ export default function Home() {
                 <div className="muted">
                   PNG, JPG or WebP
                 </div>
-
               </>
             ) : (
               <>
-
                 <strong>
                   {fileName}
                 </strong>
 
-                <img
-                  src={chart}
-                  alt="Uploaded trading chart"
-                  className="preview"
-                />
+                <div className="chart-wrapper">
+
+                  <img
+                    src={chart}
+                    alt="Uploaded trading chart"
+                    className="preview"
+                  />
+
+                  {/* ==================================================
+                      CHART MARKINGS
+                  ================================================== */}
+
+                  {annotations.length >
+                    0 && (
+                    <div className="chart-overlay">
+                      {renderAnnotations()}
+                    </div>
+                  )}
+
+                </div>
 
               </>
             )}
@@ -757,9 +1107,9 @@ export default function Home() {
           </div>
 
 
-          {/* ==================================================
+          {/* ====================================================
               ACTIONS
-          ================================================== */}
+          ==================================================== */}
 
           <div className="actions">
 
@@ -770,20 +1120,22 @@ export default function Home() {
                 !selectedFile ||
                 loading
               }
-              onClick={analyzeChart}
+              onClick={
+                analyzeChart
+              }
             >
-
               {loading
                 ? "Analyzing Chart..."
                 : "Analyze Chart"}
-
             </button>
 
 
             <button
               type="button"
               className="secondary"
-              onClick={clearChart}
+              onClick={
+                clearChart
+              }
               disabled={loading}
             >
               Clear
@@ -792,26 +1144,14 @@ export default function Home() {
           </div>
 
 
-          {/* ==================================================
+          {/* ====================================================
               ERROR
-          ================================================== */}
+          ==================================================== */}
 
           {error && (
+            <div className="error-box">
 
-            <div
-              className="card"
-              style={{
-                marginTop: "20px",
-                border:
-                  "1px solid #7f1d1d",
-              }}
-            >
-
-              <strong
-                style={{
-                  color: "#d4af37",
-                }}
-              >
+              <strong>
                 Analysis Error
               </strong>
 
@@ -820,7 +1160,6 @@ export default function Home() {
               </p>
 
             </div>
-
           )}
 
         </section>
@@ -828,360 +1167,324 @@ export default function Home() {
       </div>
 
 
-      {/* ======================================================
-          TRADE SIGNAL
-          THIS REPLACES THE OLD SELECTED STRATEGY CARD
-      ====================================================== */}
+      {/* ========================================================
+          DIRECT TRADE EXECUTION
+          THIS REPLACES "SELECTED STRATEGY"
+      ======================================================== */}
 
-      <section
-        className="card"
-        style={{
-          marginTop: "20px",
-        }}
-      >
+      {tradeSignal && (
+        <section
+          className="card execution-card"
+        >
 
-        <h2 className="title">
-          Trade Signal
-        </h2>
+          <div className="execution-header">
 
-
-        {!tradeSignal ? (
-
-          <div
-            style={{
-              padding: "18px 0",
-            }}
-          >
-
-            <strong
-              style={{
-                color: "#d4af37",
-              }}
-            >
-              Awaiting Analysis
-            </strong>
-
-            <p className="muted">
-              Upload a chart and analyze it
-              to receive the direct execution
-              result.
-            </p>
-
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: "8px",
-                marginTop: "14px",
-              }}
-            >
+            <div>
 
               <span className="muted">
-                Strategy:
+                Trade Signal
               </span>
 
-              <strong
-                style={{
-                  color: "#d4af37",
-                }}
+              <h2
+                className={`execution-direction ${directionClass(
+                  currentDirection
+                )}`}
               >
-                {strategies[
-                  strategy
-                ].name}
-              </strong>
+                {directionLabel(
+                  currentDirection
+                )}
+              </h2>
+
+            </div>
+
+            <div className="confidence">
 
               <span className="muted">
-                •
+                Confidence
               </span>
 
-              <span className="muted">
-                Timeframe:
-              </span>
-
-              <strong
-                style={{
-                  color: "#d4af37",
-                }}
-              >
-                {timeframe}
+              <strong>
+                {
+                  tradeSignal.confidence
+                }
+                %
               </strong>
 
             </div>
 
           </div>
 
-        ) : (
 
-          <div
-            style={{
-              marginTop: "10px",
-            }}
-          >
+          {/* ====================================================
+              EXPECTED / CONFIRMED STATUS
+          ==================================================== */}
 
-            {/* ==================================================
-                SIGNAL HEADER
-            ================================================== */}
+          {isDeveloping && (
+            <div className="developing-banner">
 
-            <div
-              className={getSignalClass(
-                tradeSignal.direction
-              )}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent:
-                  "space-between",
-                gap: "20px",
-                flexWrap: "wrap",
-                padding: "16px 18px",
-                borderRadius: "12px",
-                marginBottom: "18px",
-              }}
-            >
+              <strong>
+                EXPECTED EXECUTION
+              </strong>
 
-              <div>
-
-                <div
-                  style={{
-                    fontSize: "24px",
-                    fontWeight: 800,
-                    color: "#d4af37",
-                  }}
-                >
-                  {tradeSignal.direction}
-                </div>
-
-                <div
-                  className="muted"
-                  style={{
-                    marginTop: "4px",
-                  }}
-                >
-                  {strategies[
-                    strategy
-                  ].name}{" "}
-                  • {timeframe}
-                </div>
-
-              </div>
-
-
-              <div
-                style={{
-                  textAlign: "right",
-                }}
-              >
-
-                <div
-                  className="muted"
-                  style={{
-                    fontSize: "12px",
-                  }}
-                >
-                  CONFIDENCE
-                </div>
-
-                <strong
-                  style={{
-                    fontSize: "20px",
-                    color: "#d4af37",
-                  }}
-                >
-                  {
-                    tradeSignal.confidence
-                  }
-                </strong>
-
-              </div>
+              <span>
+                This setup is developing.
+                Wait for the required
+                confirmation before execution.
+              </span>
 
             </div>
+          )}
 
 
-            {/* ==================================================
-                EXECUTION VALUES
-            ================================================== */}
+          {currentDirection ===
+            "WAITING" && (
+            <div className="waiting-banner">
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns:
-                  "repeat(auto-fit, minmax(150px, 1fr))",
-                gap: "10px",
-              }}
-            >
+              <strong>
+                WAIT FOR SETUP
+              </strong>
 
-              <div className="card">
-
-                <div className="muted">
-                  Entry
-                </div>
-
-                <strong
-                  style={{
-                    color: "#d4af37",
-                  }}
-                >
-                  {tradeSignal.entry}
-                </strong>
-
-              </div>
-
-
-              <div className="card">
-
-                <div className="muted">
-                  Stop Loss
-                </div>
-
-                <strong
-                  style={{
-                    color: "#d4af37",
-                  }}
-                >
-                  {
-                    tradeSignal.stopLoss
-                  }
-                </strong>
-
-              </div>
-
-
-              <div className="card">
-
-                <div className="muted">
-                  TP1
-                </div>
-
-                <strong
-                  style={{
-                    color: "#d4af37",
-                  }}
-                >
-                  {tradeSignal.tp1}
-                </strong>
-
-              </div>
-
-
-              <div className="card">
-
-                <div className="muted">
-                  TP2
-                </div>
-
-                <strong
-                  style={{
-                    color: "#d4af37",
-                  }}
-                >
-                  {tradeSignal.tp2}
-                </strong>
-
-              </div>
-
-
-              <div className="card">
-
-                <div className="muted">
-                  Final TP
-                </div>
-
-                <strong
-                  style={{
-                    color: "#d4af37",
-                  }}
-                >
-                  {
-                    tradeSignal.finalTp
-                  }
-                </strong>
-
-              </div>
+              <span>
+                No valid execution has
+                been established yet.
+              </span>
 
             </div>
+          )}
 
 
-            {/* ==================================================
-                EXECUTION STATUS
-            ================================================== */}
+          {currentDirection ===
+            "NO TRADE" && (
+            <div className="waiting-banner">
 
-            <div
-              style={{
-                marginTop: "16px",
-                padding: "14px 16px",
-                borderRadius: "10px",
-                background: "#080e17",
-                border:
-                  "1px solid #202b3a",
-              }}
-            >
+              <strong>
+                NO VALID TRADE
+              </strong>
 
-              <div
-                className="muted"
-                style={{
-                  fontSize: "12px",
-                  marginBottom: "4px",
-                }}
-              >
-                EXECUTION STATUS
-              </div>
+              <span>
+                Current market conditions
+                do not satisfy the strategy.
+              </span>
 
-              <strong
-                style={{
-                  color: "#d4af37",
-                }}
-              >
-                {tradeSignal.status}
+            </div>
+          )}
+
+
+          {/* ====================================================
+              EXECUTION LEVELS
+          ==================================================== */}
+
+          <div className="execution-grid">
+
+            <div className="execution-item">
+
+              <span className="muted">
+                {isDeveloping
+                  ? "Expected Entry"
+                  : "Entry"}
+              </span>
+
+              <strong>
+                {formatPrice(
+                  displayEntry
+                )}
               </strong>
 
             </div>
 
 
-            {/* ==================================================
-                INVALIDATION
-            ================================================== */}
+            <div className="execution-item">
 
-            {tradeSignal.invalidation !==
-              "—" && (
+              <span className="muted">
+                {isDeveloping
+                  ? "Expected Stop Loss"
+                  : "Stop Loss"}
+              </span>
 
-              <div
-                style={{
-                  marginTop: "12px",
-                  fontSize: "13px",
-                }}
-              >
+              <strong>
+                {formatPrice(
+                  displayStop
+                )}
+              </strong>
 
-                <span className="muted">
-                  Invalidation:{" "}
-                </span>
+            </div>
 
-                <strong
-                  style={{
-                    color: "#d4af37",
-                  }}
-                >
-                  {
-                    tradeSignal.invalidation
-                  }
-                </strong>
+
+            <div className="execution-item">
+
+              <span className="muted">
+                {isDeveloping
+                  ? "Expected TP1"
+                  : "TP1"}
+              </span>
+
+              <strong>
+                {formatPrice(
+                  displayTp1
+                )}
+              </strong>
+
+            </div>
+
+
+            <div className="execution-item">
+
+              <span className="muted">
+                {isDeveloping
+                  ? "Expected TP2"
+                  : "TP2"}
+              </span>
+
+              <strong>
+                {formatPrice(
+                  displayTp2
+                )}
+              </strong>
+
+            </div>
+
+
+            <div className="execution-item">
+
+              <span className="muted">
+                {isDeveloping
+                  ? "Expected Final TP"
+                  : "Final TP"}
+              </span>
+
+              <strong>
+                {formatPrice(
+                  displayFinalTp
+                )}
+              </strong>
+
+            </div>
+
+          </div>
+
+
+          {/* ====================================================
+              SUPPLY / DEMAND ZONE
+          ==================================================== */}
+
+          {projection &&
+            projection.available &&
+            (projection.zoneLow !==
+              null ||
+              projection.zoneHigh !==
+                null) && (
+              <div className="projection-box">
+
+                <div className="projection-title">
+                  <strong>
+                    Projected Zone
+                  </strong>
+
+                  <span>
+                    {
+                      projection.setupType
+                    }
+                  </span>
+                </div>
+
+                <div className="projection-grid">
+
+                  <div>
+                    <span className="muted">
+                      Zone Low
+                    </span>
+
+                    <strong>
+                      {formatPrice(
+                        projection.zoneLow
+                      )}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span className="muted">
+                      Zone High
+                    </span>
+
+                    <strong>
+                      {formatPrice(
+                        projection.zoneHigh
+                      )}
+                    </strong>
+                  </div>
+
+                </div>
 
               </div>
-
             )}
 
-          </div>
 
-        )}
+          {/* ====================================================
+              RETEST
+          ==================================================== */}
 
-      </section>
+          {projection &&
+            projection.retestRequired && (
+              <div className="status-row">
+
+                <div>
+                  <span className="muted">
+                    Retest
+                  </span>
+
+                  <strong>
+                    {
+                      projection.retestStatus
+                    }
+                  </strong>
+                </div>
+
+                <div>
+                  <span className="muted">
+                    Confirmation
+                  </span>
+
+                  <strong>
+                    {
+                      projection.confirmationStatus
+                    }
+                  </strong>
+                </div>
+
+              </div>
+            )}
 
 
-      {/* ======================================================
-          TRADE ANALYSIS
-      ====================================================== */}
+          {/* ====================================================
+              CONFIRMATION REQUIRED
+          ==================================================== */}
 
-      {analysis && (
+          {projection &&
+            projection.confirmationRequired && (
+              <div className="confirmation-box">
 
+                <span className="muted">
+                  Confirmation Required
+                </span>
+
+                <strong>
+                  {
+                    projection.confirmationRequired
+                  }
+                </strong>
+
+              </div>
+            )}
+
+        </section>
+      )}
+
+
+      {/* ========================================================
+          MARKET STATE
+      ======================================================== */}
+
+      {tradeSignal && (
         <section
           className="card"
           style={{
@@ -1190,27 +1493,206 @@ export default function Home() {
         >
 
           <h2 className="title">
-            Trade Analysis
+            Market State
           </h2>
+
+          <p
+            style={{
+              lineHeight: 1.7,
+              marginBottom: 0,
+            }}
+          >
+            {marketState}
+          </p>
+
+        </section>
+      )}
+
+
+      {/* ========================================================
+          SETUP
+      ======================================================== */}
+
+      {tradeSignal && (
+        <section
+          className="card"
+          style={{
+            marginTop: "20px",
+          }}
+        >
+
+          <h2 className="title">
+            Setup
+          </h2>
+
+          <p
+            style={{
+              whiteSpace:
+                "pre-wrap",
+              lineHeight: 1.7,
+              marginBottom: 0,
+            }}
+          >
+            {setup}
+          </p>
+
+        </section>
+      )}
+
+
+      {/* ========================================================
+          AI TRADE ANALYSIS
+          DETAILED EXPLANATION REMAINS BELOW
+      ======================================================== */}
+
+      {analysis && (
+        <section
+          className="card analysis-card"
+          style={{
+            marginTop: "20px",
+          }}
+        >
+
+          <div className="analysis-heading">
+
+            <div>
+
+              <span className="muted">
+                Detailed Strategy Review
+              </span>
+
+              <h2 className="title">
+                Trade Analysis
+              </h2>
+
+            </div>
+
+            <div className="analysis-meta">
+
+              <span>
+                {
+                  strategies[
+                    strategy
+                  ].name
+                }
+              </span>
+
+              <strong>
+                {timeframe}
+              </strong>
+
+            </div>
+
+          </div>
+
 
           <div
             style={{
-              whiteSpace: "pre-wrap",
+              whiteSpace:
+                "pre-wrap",
               lineHeight: 1.7,
-              color: "#f8fafc",
             }}
           >
             {analysis}
           </div>
 
-        </section>
 
+          {/* ====================================================
+              CONDITIONS
+          ==================================================== */}
+
+          {(confirmedConditions.length >
+            0 ||
+            missingConditions.length >
+              0) && (
+            <div className="conditions-grid">
+
+              {confirmedConditions.length >
+                0 && (
+                <div className="condition-box">
+
+                  <strong>
+                    Confirmed Conditions
+                  </strong>
+
+                  <ul>
+                    {confirmedConditions.map(
+                      (
+                        condition,
+                        index
+                      ) => (
+                        <li
+                          key={
+                            `confirmed-${index}`
+                          }
+                        >
+                          {condition}
+                        </li>
+                      )
+                    )}
+                  </ul>
+
+                </div>
+              )}
+
+
+              {missingConditions.length >
+                0 && (
+                <div className="condition-box">
+
+                  <strong>
+                    Missing Conditions
+                  </strong>
+
+                  <ul>
+                    {missingConditions.map(
+                      (
+                        condition,
+                        index
+                      ) => (
+                        <li
+                          key={
+                            `missing-${index}`
+                          }
+                        >
+                          {condition}
+                        </li>
+                      )
+                    )}
+                  </ul>
+
+                </div>
+              )}
+
+            </div>
+          )}
+
+
+          {/* ====================================================
+              AI COACH
+          ==================================================== */}
+
+          {aiCoach && (
+            <div className="coach-box">
+
+              <span className="muted">
+                Trade Coach
+              </span>
+
+              <strong>
+                {aiCoach}
+              </strong>
+
+            </div>
+          )}
+
+        </section>
       )}
 
 
-      {/* ======================================================
-          FOOTER
-      ====================================================== */}
+      {/* ========================================================
+          DISCLAIMER
+      ======================================================== */}
 
       <footer className="footer">
 
@@ -1218,31 +1700,33 @@ export default function Home() {
           VAULTTRADES
         </div>
 
-        <div className="footer-disclaimer">
+        <p>
+          Built by Traders. Focus,
+          discipline, consistency.
+        </p>
 
+        <p className="disclaimer">
           <strong>
             Disclaimer:
           </strong>{" "}
+          VaultTrades is an analytical
+          tool designed to assist with
+          market analysis and strategy
+          evaluation. It does not
+          provide financial advice,
+          investment advice or a
+          guarantee of trading results.
+          Trading involves substantial
+          risk and users remain solely
+          responsible for their own
+          trading decisions.
+        </p>
 
-          VaultTrades provides market
-          analysis and educational
-          information only. Trading
-          involves substantial risk.
-          Signals and analysis are not
-          financial advice and should
-          not be considered a guarantee
-          of future results.
-
-        </div>
-
-        <div className="footer-copy">
-          © 2026 VaultTrades. All rights
+        <p className="copyright">
+          © {new Date().getFullYear()}{" "}
+          VaultTrades. All rights
           reserved.
-        </div>
-
-        <div className="footer-developed">
-          Built by Traders.
-        </div>
+        </p>
 
       </footer>
 
