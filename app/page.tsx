@@ -5,11 +5,13 @@ import {
   useState,
 } from "react";
 
+
 type Strategy =
   | "killZone"
   | "ema"
   | "continuation"
   | "supplyDemand";
+
 
 type Timeframe =
   | "M1"
@@ -21,6 +23,7 @@ type Timeframe =
   | "H4"
   | "D1";
 
+
 type Direction =
   | "BUY"
   | "SELL"
@@ -29,10 +32,12 @@ type Direction =
   | "WAITING"
   | "NO TRADE";
 
+
 type ChartPoint = {
   x: number;
   y: number;
 };
+
 
 type ChartAnnotation = {
   type:
@@ -59,8 +64,11 @@ type ChartAnnotation = {
     | "white";
 };
 
+
 type Projection = {
+
   available: boolean;
+
 
   setupType:
     | "demand"
@@ -72,17 +80,26 @@ type Projection = {
     | "ema"
     | "none";
 
+
   zoneLow: number | null;
+
   zoneHigh: number | null;
 
+
   expectedEntry: number | null;
+
   expectedStopLoss: number | null;
 
+
   expectedTp1: number | null;
+
   expectedTp2: number | null;
+
   expectedFinalTp: number | null;
 
+
   retestRequired: boolean;
+
 
   retestStatus:
     | "WAITING"
@@ -90,55 +107,86 @@ type Projection = {
     | "CONFIRMED"
     | "NOT_REQUIRED";
 
+
   confirmationRequired: string;
+
 
   confirmationStatus:
     | "REQUIRED"
     | "PENDING"
     | "CONFIRMED"
     | "NOT_REQUIRED";
+
 };
+
+
 
 type TradeSignal = {
+
   direction: Direction;
+
   confidence: number;
 
+
   entry: number | null;
+
   stopLoss: number | null;
+
   risk: number | null;
 
+
   tp1: number | null;
+
   tp2: number | null;
+
   finalTp: number | null;
 
+
   invalidation: string;
+
 };
 
+
+
 type AnalysisResponse = {
+
   success: boolean;
+
 
   strategy: Strategy;
 
   timeframe: Timeframe;
 
+
   analysis: string;
+
 
   tradeSignal: TradeSignal;
 
+
   projection: Projection;
+
 
   chartAnnotations: ChartAnnotation[];
 
+
   marketState: string;
+
 
   setup: string;
 
+
   confirmedConditions: string[];
+
 
   missingConditions: string[];
 
+
   aiCoach: string;
+
 };
+
+
 
 const strategies: Record<
   Strategy,
@@ -148,60 +196,99 @@ const strategies: Record<
     detail: string;
   }
 > = {
+
+
   killZone: {
+
     name: "Killer Zone",
+
     description:
       "London Kill Zone model",
+
     detail:
       "Asian liquidity sweep → MSS → FVG → 50% FVG retracement → entry",
+
   },
+
 
   ema: {
+
     name: "EMA",
+
     description:
       "EMA20 Pullback Morning Engine",
+
     detail:
       "EMA20 pullback → rejection → break → UT Bot OR SMI confirmation",
+
   },
+
 
   continuation: {
+
     name: "Continuation",
+
     description:
       "M15 Continuation model",
+
     detail:
       "Expansion → correction → structural support/resistance → recovery → confirmed continuation",
+
   },
+
 
   supplyDemand: {
+
     name: "Supply & Demand",
+
     description:
       "Independent Supply & Demand Zone Engine",
+
     detail:
       "Swing-based zones → retest → reaction → zone hold → confirmed entry",
+
   },
+
 };
 
+
+
 const timeframes: Timeframe[] = [
+
   "M1",
+
   "M5",
+
   "M10",
+
   "M15",
+
   "M30",
+
   "H1",
+
   "H4",
+
   "D1",
+
 ];
+
+
 
 function formatPrice(
   value: number | null
 ) {
+
   if (
     value === null ||
     value === undefined ||
     !Number.isFinite(value)
   ) {
+
     return "WAIT";
+
   }
+
 
   return value.toLocaleString(
     undefined,
@@ -209,83 +296,85 @@ function formatPrice(
       maximumFractionDigits: 5,
     }
   );
+
 }
+
+
 
 function directionClass(
   direction: Direction
 ) {
+
   if (
     direction === "BUY" ||
     direction === "BUY DEVELOPING"
   ) {
+
     return "signal-buy";
+
   }
+
 
   if (
     direction === "SELL" ||
     direction === "SELL DEVELOPING"
   ) {
+
     return "signal-sell";
+
   }
 
+
   return "signal-wait";
+
 }
+
+
 
 function directionLabel(
   direction: Direction
 ) {
-  switch (direction) {
+
+  switch(direction) {
+
     case "BUY":
+
       return "BUY";
 
+
     case "SELL":
+
       return "SELL";
 
+
     case "BUY DEVELOPING":
+
       return "BUY DEVELOPING";
 
+
     case "SELL DEVELOPING":
+
       return "SELL DEVELOPING";
 
+
     case "NO TRADE":
+
       return "NO TRADE";
 
+
     default:
+
       return "WAITING";
+
   }
+
 }
 
-function setupTypeLabel(
-  setupType: Projection["setupType"]
-) {
-  switch (setupType) {
-    case "demand":
-      return "Demand Zone";
 
-    case "supply":
-      return "Supply Zone";
-
-    case "long":
-      return "Long Setup";
-
-    case "short":
-      return "Short Setup";
-
-    case "continuation":
-      return "Continuation Setup";
-
-    case "killZone":
-      return "Killer Zone Setup";
-
-    case "ema":
-      return "EMA Setup";
-
-    default:
-      return "No Active Projection";
-  }
-}
 
 export default function Home() {
+
+
   const [
     strategy,
     setStrategy,
@@ -293,10 +382,14 @@ export default function Home() {
     "killZone"
   );
 
+
   const [
     timeframe,
     setTimeframe,
-  ] = useState<Timeframe>("M5");
+  ] = useState<Timeframe>(
+    "M5"
+  );
+
 
   const [
     chart,
@@ -305,6 +398,7 @@ export default function Home() {
     null
   );
 
+
   const [
     selectedFile,
     setSelectedFile,
@@ -312,15 +406,22 @@ export default function Home() {
     null
   );
 
+
   const [
     fileName,
     setFileName,
-  ] = useState("");
+  ] = useState(
+    ""
+  );
+
 
   const [
     analysis,
     setAnalysis,
-  ] = useState("");
+  ] = useState(
+    ""
+  );
+
 
   const [
     tradeSignal,
@@ -329,6 +430,7 @@ export default function Home() {
     null
   );
 
+
   const [
     projection,
     setProjection,
@@ -336,22 +438,30 @@ export default function Home() {
     null
   );
 
+
   const [
     annotations,
     setAnnotations,
-  ] = useState<
-    ChartAnnotation[]
-  >([]);
+  ] = useState<ChartAnnotation[]>(
+    []
+  );
+
 
   const [
     marketState,
     setMarketState,
-  ] = useState("");
+  ] = useState(
+    ""
+  );
+
 
   const [
     setup,
     setSetup,
-  ] = useState("");
+  ] = useState(
+    ""
+  );
+
 
   const [
     confirmedConditions,
@@ -360,6 +470,7 @@ export default function Home() {
     []
   );
 
+
   const [
     missingConditions,
     setMissingConditions,
@@ -367,23 +478,31 @@ export default function Home() {
     []
   );
 
+
   const [
     aiCoach,
     setAiCoach,
-  ] = useState("");
+  ] = useState(
+    ""
+  );
+
 
   const [
     loading,
     setLoading,
-  ] = useState(false);
+  ] = useState(
+    false
+  );
+
 
   const [
     error,
     setError,
-  ] = useState("");
+  ] = useState(
+    ""
+  );
 
-
-  // ============================================================
+    // ============================================================
   // RESET RESULT
   // ============================================================
 
@@ -433,16 +552,19 @@ export default function Home() {
   function handleUpload(
     event: ChangeEvent<HTMLInputElement>
   ) {
+
     const file =
       event.target.files?.[0];
 
     if (!file) return;
+
 
     if (
       !file.type.startsWith(
         "image/"
       )
     ) {
+
       alert(
         "Please upload a chart image."
       );
@@ -450,22 +572,35 @@ export default function Home() {
       return;
     }
 
+
     setSelectedFile(file);
-    setFileName(file.name);
+
+    setFileName(
+      file.name
+    );
 
     clearResults();
+
     setError("");
+
 
     const reader =
       new FileReader();
 
+
     reader.onload = () => {
+
       setChart(
         reader.result as string
       );
+
     };
 
-    reader.readAsDataURL(file);
+
+    reader.readAsDataURL(
+      file
+    );
+
   }
 
 
@@ -474,22 +609,30 @@ export default function Home() {
   // ============================================================
 
   function clearChart() {
+
     setChart(null);
+
     setSelectedFile(null);
+
     setFileName("");
 
     clearResults();
 
     setError("");
 
+
     const input =
       document.getElementById(
         "chart-upload"
       ) as HTMLInputElement | null;
 
+
     if (input) {
+
       input.value = "";
+
     }
+
   }
 
 
@@ -498,36 +641,48 @@ export default function Home() {
   // ============================================================
 
   async function analyzeChart() {
+
     if (!selectedFile) {
+
       setError(
         "Please upload a chart first."
       );
 
       return;
+
     }
 
+
     setLoading(true);
+
     clearResults();
+
     setError("");
 
+
     try {
+
       const formData =
         new FormData();
+
 
       formData.append(
         "image",
         selectedFile
       );
 
+
       formData.append(
         "strategy",
         strategy
       );
 
+
       formData.append(
         "timeframe",
         timeframe
       );
+
 
       const response =
         await fetch(
@@ -538,6 +693,7 @@ export default function Home() {
           }
         );
 
+
       const data =
         (await response.json()) as
           | AnalysisResponse
@@ -545,73 +701,95 @@ export default function Home() {
               error?: string;
             };
 
+
       if (!response.ok) {
+
         throw new Error(
           "error" in data &&
           data.error
             ? data.error
             : "Unable to analyze the chart."
         );
+
       }
+
 
       if (
         !("analysis" in data) ||
         !data.analysis
       ) {
+
         throw new Error(
           "The analyzer returned an empty analysis."
         );
+
       }
+
 
       setAnalysis(
         data.analysis
       );
 
+
       setTradeSignal(
         data.tradeSignal
       );
+
 
       setProjection(
         data.projection
       );
 
+
       setAnnotations(
         data.chartAnnotations ?? []
       );
+
 
       setMarketState(
         data.marketState ?? ""
       );
 
+
       setSetup(
         data.setup ?? ""
       );
+
 
       setConfirmedConditions(
         data.confirmedConditions ?? []
       );
 
+
       setMissingConditions(
         data.missingConditions ?? []
       );
 
+
       setAiCoach(
         data.aiCoach ?? ""
       );
+
     } catch (err) {
+
       console.error(
         "Chart analysis error:",
         err
       );
+
 
       setError(
         err instanceof Error
           ? err.message
           : "Unable to analyze the chart."
       );
+
     } finally {
+
       setLoading(false);
+
     }
+
   }
 
 
@@ -620,43 +798,63 @@ export default function Home() {
   // ============================================================
 
   function renderAnnotations() {
+
     if (!annotations.length) {
+
       return null;
+
     }
 
+
     return annotations.map(
-      (annotation, index) => {
+      (
+        annotation,
+        index
+      ) => {
+
         const points =
           annotation.points ?? [];
 
+
+        // ======================================================
+        // ZONE
+        // ======================================================
+
         if (
-          annotation.type ===
-            "zone" &&
+          annotation.type === "zone" &&
           points.length >= 4
         ) {
+
           const xs =
             points.map(
               (point) => point.x
             );
+
 
           const ys =
             points.map(
               (point) => point.y
             );
 
+
           const minX =
             Math.min(...xs);
+
 
           const maxX =
             Math.max(...xs);
 
+
           const minY =
             Math.min(...ys);
+
 
           const maxY =
             Math.max(...ys);
 
+
           return (
+
             <div
               key={`zone-${index}`}
               className="chart-zone-overlay"
@@ -673,12 +871,21 @@ export default function Home() {
                 )}%`,
               }}
             >
+
               <span>
                 {annotation.label}
               </span>
+
             </div>
+
           );
+
         }
+
+
+        // ======================================================
+        // EXECUTION LEVEL
+        // ======================================================
 
         if (
           annotation.type ===
@@ -692,14 +899,20 @@ export default function Home() {
           annotation.type ===
             "finalTp"
         ) {
+
           const point =
             points[0];
 
+
           if (!point) {
+
             return null;
+
           }
 
+
           return (
+
             <div
               key={`level-${index}`}
               className={`chart-level chart-level-${annotation.type}`}
@@ -707,23 +920,36 @@ export default function Home() {
                 top: `${point.y / 10}%`,
               }}
             >
+
               <span>
                 {annotation.label}
               </span>
 
-              {annotation.price !==
-                null &&
+
+              {annotation.price !== null &&
                 annotation.price !==
                   undefined && (
-                  <strong>
-                    {formatPrice(
-                      annotation.price
-                    )}
-                  </strong>
-                )}
+
+                <strong>
+
+                  {formatPrice(
+                    annotation.price
+                  )}
+
+                </strong>
+
+              )}
+
             </div>
+
           );
+
         }
+
+
+        // ======================================================
+        // RETEST / CONFIRMATION
+        // ======================================================
 
         if (
           annotation.type ===
@@ -731,14 +957,20 @@ export default function Home() {
           annotation.type ===
             "confirmation"
         ) {
+
           const point =
             points[0];
 
+
           if (!point) {
+
             return null;
+
           }
 
+
           return (
+
             <div
               key={`marker-${index}`}
               className={`chart-marker chart-marker-${annotation.type}`}
@@ -747,32 +979,83 @@ export default function Home() {
                 top: `${point.y / 10}%`,
               }}
             >
+
               <span>
                 {annotation.label}
               </span>
+
             </div>
+
           );
+
         }
 
+
+        // ======================================================
+        // STRUCTURE
+        // ======================================================
+
+        if (
+          annotation.type ===
+          "structure"
+        ) {
+
+          const point =
+            points[0];
+
+
+          if (!point) {
+
+            return null;
+
+          }
+
+
+          return (
+
+            <div
+              key={`structure-${index}`}
+              className="chart-marker chart-marker-structure"
+              style={{
+                left: `${point.x / 10}%`,
+                top: `${point.y / 10}%`,
+              }}
+            >
+
+              <span>
+                {annotation.label}
+              </span>
+
+            </div>
+
+          );
+
+        }
+
+
         return null;
+
       }
     );
+
   }
 
 
   // ============================================================
-  // RESULT VALUES
+  // CURRENT EXECUTION STATE
   // ============================================================
 
   const currentDirection =
     tradeSignal?.direction ??
     "WAITING";
 
+
   const isDeveloping =
     currentDirection ===
       "BUY DEVELOPING" ||
     currentDirection ===
       "SELL DEVELOPING";
+
 
   const displayEntry =
     isDeveloping
@@ -781,12 +1064,14 @@ export default function Home() {
       : tradeSignal?.entry ??
         null;
 
+
   const displayStop =
     isDeveloping
       ? projection?.expectedStopLoss ??
         null
       : tradeSignal?.stopLoss ??
         null;
+
 
   const displayTp1 =
     isDeveloping
@@ -795,12 +1080,14 @@ export default function Home() {
       : tradeSignal?.tp1 ??
         null;
 
+
   const displayTp2 =
     isDeveloping
       ? projection?.expectedTp2 ??
         null
       : tradeSignal?.tp2 ??
         null;
+
 
   const displayFinalTp =
     isDeveloping
@@ -810,14 +1097,34 @@ export default function Home() {
         null;
 
 
-  const hasProjectedZone =
-    !!projection &&
-    projection.available &&
-    (
-      projection.zoneLow !== null ||
-      projection.zoneHigh !== null
-    );
+  const executionEntryLabel =
+    isDeveloping
+      ? "Expected Entry"
+      : "Entry";
 
+
+  const executionStopLabel =
+    isDeveloping
+      ? "Expected Stop Loss"
+      : "Stop Loss";
+
+
+  const executionTp1Label =
+    isDeveloping
+      ? "Expected TP1"
+      : "TP1";
+
+
+  const executionTp2Label =
+    isDeveloping
+      ? "Expected TP2"
+      : "TP2";
+
+
+  const executionFinalTpLabel =
+    isDeveloping
+      ? "Expected Final TP"
+      : "Final TP";
 
   return (
     <main className="shell">
@@ -844,6 +1151,7 @@ export default function Home() {
 
         </div>
 
+
         <div className="badge">
           ANALYZER
         </div>
@@ -868,13 +1176,16 @@ export default function Home() {
             Select Strategy
           </h2>
 
+
           <p className="muted">
             Choose the independent strategy
             the analyzer must apply.
           </p>
 
 
-          {/* KILL ZONE */}
+          {/* ====================================================
+              KILLER ZONE
+          ==================================================== */}
 
           <button
             type="button"
@@ -889,18 +1200,23 @@ export default function Home() {
               )
             }
           >
+
             <strong>
               Killer Zone
             </strong>
+
 
             <span className="muted">
               London liquidity sweep →
               MSS → FVG → entry
             </span>
+
           </button>
 
 
-          {/* EMA */}
+          {/* ====================================================
+              EMA
+          ==================================================== */}
 
           <button
             type="button"
@@ -915,19 +1231,24 @@ export default function Home() {
               )
             }
           >
+
             <strong>
               EMA
             </strong>
+
 
             <span className="muted">
               EMA20 pullback →
               rejection → break →
               confirmation
             </span>
+
           </button>
 
 
-          {/* CONTINUATION */}
+          {/* ====================================================
+              CONTINUATION
+          ==================================================== */}
 
           <button
             type="button"
@@ -943,18 +1264,23 @@ export default function Home() {
               )
             }
           >
+
             <strong>
               Continuation
             </strong>
+
 
             <span className="muted">
               Expansion → correction →
               structure → continuation
             </span>
+
           </button>
 
 
-          {/* SUPPLY & DEMAND */}
+          {/* ====================================================
+              SUPPLY & DEMAND
+          ==================================================== */}
 
           <button
             type="button"
@@ -970,14 +1296,17 @@ export default function Home() {
               )
             }
           >
+
             <strong>
               Supply & Demand
             </strong>
+
 
             <span className="muted">
               Zones → retest →
               reaction → confirmed entry
             </span>
+
           </button>
 
         </section>
@@ -992,6 +1321,7 @@ export default function Home() {
           <h2 className="title">
             Chart Analyzer
           </h2>
+
 
           <p className="muted">
             Select your timeframe, upload
@@ -1011,16 +1341,19 @@ export default function Home() {
                 Analysis Timeframe
               </strong>
 
+
               <span className="muted">
                 User selected
               </span>
 
             </div>
 
+
             <div className="timeframe-grid">
 
               {timeframes.map(
                 (tf) => (
+
                   <button
                     key={tf}
                     type="button"
@@ -1037,6 +1370,7 @@ export default function Home() {
                   >
                     {tf}
                   </button>
+
                 )
               )}
 
@@ -1046,13 +1380,7 @@ export default function Home() {
 
 
           {/* ====================================================
-              NO DUPLICATE STRATEGY / TIMEFRAME BLOCK HERE
-              CHART FOLLOWS DIRECTLY
-          ==================================================== */}
-
-
-          {/* ====================================================
-              UPLOAD / CHART
+              UPLOAD
           ==================================================== */}
 
           <div
@@ -1076,21 +1404,30 @@ export default function Home() {
               }
             />
 
+
             {!chart ? (
+
               <>
+
                 <strong>
                   Upload TradingView Chart
                 </strong>
 
+
                 <div className="muted">
                   PNG, JPG or WebP
                 </div>
+
               </>
+
             ) : (
+
               <>
+
                 <strong>
                   {fileName}
                 </strong>
+
 
                 <div className="chart-wrapper">
 
@@ -1100,16 +1437,26 @@ export default function Home() {
                     className="preview"
                   />
 
+
+                  {/* ==================================================
+                      CHART MARKINGS
+                  ================================================== */}
+
                   {annotations.length >
                     0 && (
+
                     <div className="chart-overlay">
+
                       {renderAnnotations()}
+
                     </div>
+
                   )}
 
                 </div>
 
               </>
+
             )}
 
           </div>
@@ -1132,9 +1479,11 @@ export default function Home() {
                 analyzeChart
               }
             >
+
               {loading
                 ? "Analyzing Chart..."
                 : "Analyze Chart"}
+
             </button>
 
 
@@ -1157,17 +1506,20 @@ export default function Home() {
           ==================================================== */}
 
           {error && (
+
             <div className="error-box">
 
               <strong>
                 Analysis Error
               </strong>
 
+
               <p className="muted">
                 {error}
               </p>
 
             </div>
+
           )}
 
         </section>
@@ -1176,21 +1528,11 @@ export default function Home() {
 
 
       {/* ========================================================
-          IMMEDIATE TRADE / MARKET RESPONSE
-
-          This is intentionally BEFORE the long analysis.
-
-          It gives the trader an immediate answer about:
-          - current direction/state
-          - confidence
-          - active zone
-          - expected execution
-          - retest
-          - confirmation
-          - what to watch
+          TRADE EXECUTION
       ======================================================== */}
 
       {tradeSignal && (
+
         <section
           className="card execution-card"
         >
@@ -1200,20 +1542,24 @@ export default function Home() {
             <div>
 
               <span className="muted">
-                Current Market Read
+                Trade Signal
               </span>
+
 
               <h2
                 className={`execution-direction ${directionClass(
                   currentDirection
                 )}`}
               >
+
                 {directionLabel(
                   currentDirection
                 )}
+
               </h2>
 
             </div>
+
 
             <div className="confidence">
 
@@ -1221,169 +1567,14 @@ export default function Home() {
                 Confidence
               </span>
 
+
               <strong>
-                {
-                  tradeSignal.confidence
-                }
-                %
+                {tradeSignal.confidence}%
               </strong>
 
             </div>
 
           </div>
-
-
-          {/* ====================================================
-              HUMAN MARKET RESPONSE
-          ==================================================== */}
-
-          <div className="market-response">
-
-            <div className="market-response-heading">
-              <strong>
-                What the chart is showing now
-              </strong>
-            </div>
-
-            {marketState && (
-              <p>
-                {marketState}
-              </p>
-            )}
-
-          </div>
-
-
-          {/* ====================================================
-              ACTIVE / PROJECTED ZONE
-          ==================================================== */}
-
-          {hasProjectedZone && (
-            <div className="projection-box">
-
-              <div className="projection-title">
-
-                <strong>
-                  Current Zone / Trade Area
-                </strong>
-
-                <span>
-                  {setupTypeLabel(
-                    projection!.setupType
-                  )}
-                </span>
-
-              </div>
-
-              <div className="projection-grid">
-
-                <div>
-
-                  <span className="muted">
-                    Zone Low
-                  </span>
-
-                  <strong>
-                    {formatPrice(
-                      projection!.zoneLow
-                    )}
-                  </strong>
-
-                </div>
-
-                <div>
-
-                  <span className="muted">
-                    Zone High
-                  </span>
-
-                  <strong>
-                    {formatPrice(
-                      projection!.zoneHigh
-                    )}
-                  </strong>
-
-                </div>
-
-              </div>
-
-            </div>
-          )}
-
-
-          {/* ====================================================
-              DEVELOPING STATE
-          ==================================================== */}
-
-          {isDeveloping && (
-            <div className="developing-banner">
-
-              <strong>
-                SETUP DEVELOPING
-              </strong>
-
-              <span>
-                The strategy has identified a
-                potential trade area, but the
-                required confirmation has not
-                completed yet.
-              </span>
-
-            </div>
-          )}
-
-
-          {/* ====================================================
-              WAITING STATE
-
-              No generic "current market conditions..."
-              sentence. Explain using actual analysis.
-          ==================================================== */}
-
-          {currentDirection ===
-            "WAITING" && (
-            <div className="waiting-banner">
-
-              <strong>
-                WAIT FOR SETUP
-              </strong>
-
-              <span>
-                The chart is being monitored for
-                the conditions required by the
-                selected strategy.
-              </span>
-
-            </div>
-          )}
-
-
-          {/* ====================================================
-              NO TRADE STATE
-
-              Do NOT repeat:
-              "NO VALID TRADE — Current market
-              conditions do not satisfy the strategy."
-          ==================================================== */}
-
-          {currentDirection ===
-            "NO TRADE" && (
-            <div className="waiting-banner">
-
-              <strong>
-                NO TRADE
-              </strong>
-
-              <span>
-                {missingConditions.length >
-                0
-                  ? missingConditions[0]
-                  : tradeSignal.invalidation ||
-                    "The required strategy conditions are not currently aligned."}
-              </span>
-
-            </div>
-          )}
 
 
           {/* ====================================================
@@ -1392,13 +1583,13 @@ export default function Home() {
 
           <div className="execution-grid">
 
+
             <div className="execution-item">
 
               <span className="muted">
-                {isDeveloping
-                  ? "Expected Entry"
-                  : "Entry"}
+                {executionEntryLabel}
               </span>
+
 
               <strong>
                 {formatPrice(
@@ -1412,10 +1603,9 @@ export default function Home() {
             <div className="execution-item">
 
               <span className="muted">
-                {isDeveloping
-                  ? "Expected Stop Loss"
-                  : "Stop Loss"}
+                {executionStopLabel}
               </span>
+
 
               <strong>
                 {formatPrice(
@@ -1429,10 +1619,9 @@ export default function Home() {
             <div className="execution-item">
 
               <span className="muted">
-                {isDeveloping
-                  ? "Expected TP1"
-                  : "TP1"}
+                {executionTp1Label}
               </span>
+
 
               <strong>
                 {formatPrice(
@@ -1446,10 +1635,9 @@ export default function Home() {
             <div className="execution-item">
 
               <span className="muted">
-                {isDeveloping
-                  ? "Expected TP2"
-                  : "TP2"}
+                {executionTp2Label}
               </span>
+
 
               <strong>
                 {formatPrice(
@@ -1463,10 +1651,9 @@ export default function Home() {
             <div className="execution-item">
 
               <span className="muted">
-                {isDeveloping
-                  ? "Expected Final TP"
-                  : "Final TP"}
+                {executionFinalTpLabel}
               </span>
+
 
               <strong>
                 {formatPrice(
@@ -1480,18 +1667,97 @@ export default function Home() {
 
 
           {/* ====================================================
+              ACTIVE / PROJECTED ZONE
+          ==================================================== */}
+
+          {projection &&
+            projection.available &&
+            (
+              projection.zoneLow !==
+                null ||
+              projection.zoneHigh !==
+                null
+            ) && (
+
+            <div className="projection-box">
+
+              <div className="projection-title">
+
+                <strong>
+                  Active Zone
+                </strong>
+
+
+                <span>
+                  {projection.setupType}
+                </span>
+
+              </div>
+
+
+              <div className="projection-grid">
+
+
+                <div>
+
+                  <span className="muted">
+                    Zone Low
+                  </span>
+
+
+                  <strong>
+                    {formatPrice(
+                      projection.zoneLow
+                    )}
+                  </strong>
+
+                </div>
+
+
+                <div>
+
+                  <span className="muted">
+                    Zone High
+                  </span>
+
+
+                  <strong>
+                    {formatPrice(
+                      projection.zoneHigh
+                    )}
+                  </strong>
+
+                </div>
+
+
+              </div>
+
+            </div>
+
+          )}
+
+
+          {/* ====================================================
               RETEST / CONFIRMATION
           ==================================================== */}
 
           {projection &&
-            projection.retestRequired && (
-              <div className="status-row">
+            (
+              projection.retestRequired ||
+              projection.confirmationRequired
+            ) && (
+
+            <div className="status-row">
+
+
+              {projection.retestRequired && (
 
                 <div>
 
                   <span className="muted">
                     Retest
                   </span>
+
 
                   <strong>
                     {
@@ -1501,11 +1767,17 @@ export default function Home() {
 
                 </div>
 
+              )}
+
+
+              {projection.confirmationRequired && (
+
                 <div>
 
                   <span className="muted">
                     Confirmation
                   </span>
+
 
                   <strong>
                     {
@@ -1515,8 +1787,11 @@ export default function Home() {
 
                 </div>
 
-              </div>
-            )}
+              )}
+
+            </div>
+
+          )}
 
 
           {/* ====================================================
@@ -1525,113 +1800,35 @@ export default function Home() {
 
           {projection &&
             projection.confirmationRequired && (
-              <div className="confirmation-box">
 
-                <span className="muted">
-                  What to Watch
-                </span>
-
-                <strong>
-                  {
-                    projection.confirmationRequired
-                  }
-                </strong>
-
-              </div>
-            )}
-
-
-          {/* ====================================================
-              CONFIRMED CONDITIONS
-          ==================================================== */}
-
-          {confirmedConditions.length >
-            0 && (
-            <div className="condition-box">
-
-              <strong>
-                Conditions Already Detected
-              </strong>
-
-              <ul>
-                {confirmedConditions.map(
-                  (
-                    condition,
-                    index
-                  ) => (
-                    <li
-                      key={`immediate-confirmed-${index}`}
-                    >
-                      {condition}
-                    </li>
-                  )
-                )}
-              </ul>
-
-            </div>
-          )}
-
-
-          {/* ====================================================
-              MISSING CONDITIONS
-          ==================================================== */}
-
-          {missingConditions.length >
-            0 && (
-            <div className="condition-box">
-
-              <strong>
-                Still Required
-              </strong>
-
-              <ul>
-                {missingConditions.map(
-                  (
-                    condition,
-                    index
-                  ) => (
-                    <li
-                      key={`immediate-missing-${index}`}
-                    >
-                      {condition}
-                    </li>
-                  )
-                )}
-              </ul>
-
-            </div>
-          )}
-
-
-          {/* ====================================================
-              INVALIDATION
-          ==================================================== */}
-
-          {tradeSignal.invalidation && (
             <div className="confirmation-box">
 
               <span className="muted">
-                Setup Invalidation
+                Confirmation Required
               </span>
+
 
               <strong>
                 {
-                  tradeSignal.invalidation
+                  projection.confirmationRequired
                 }
               </strong>
 
             </div>
+
           )}
 
         </section>
+
       )}
 
 
       {/* ========================================================
-          SETUP
+          MARKET MAP
       ======================================================== */}
 
-      {tradeSignal && setup && (
+      {tradeSignal && (
+
         <section
           className="card"
           style={{
@@ -1640,171 +1837,554 @@ export default function Home() {
         >
 
           <h2 className="title">
-            Setup
+            Market Map
+          </h2>
+
+
+          <div className="market-map">
+
+
+            <div>
+
+              <span className="muted">
+                Current Market State
+              </span>
+
+
+              <strong>
+                {marketState || "WAIT"}
+              </strong>
+
+            </div>
+
+
+            <div>
+
+              <span className="muted">
+                Current Setup
+              </span>
+
+
+              <strong>
+                {setup || "WAIT"}
+              </strong>
+
+            </div>
+
+
+            {projection &&
+              projection.available && (
+
+              <div>
+
+                <span className="muted">
+                  Active / Expected Zone
+                </span>
+
+
+                <strong>
+
+                  {projection.zoneLow !==
+                    null
+                    ? formatPrice(
+                        projection.zoneLow
+                      )
+                    : "WAIT"}
+
+                  {" — "}
+
+                  {projection.zoneHigh !==
+                    null
+                    ? formatPrice(
+                        projection.zoneHigh
+                      )
+                    : "WAIT"}
+
+                </strong>
+
+              </div>
+
+            )}
+
+
+            <div>
+
+              <span className="muted">
+                Confirmed
+              </span>
+
+
+              <strong>
+
+                {confirmedConditions.length >
+                0
+                  ? confirmedConditions.join(
+                      " • "
+                    )
+                  : "No confirmed conditions yet"}
+
+              </strong>
+
+            </div>
+
+
+            <div>
+
+              <span className="muted">
+                What To Watch
+              </span>
+
+
+              <strong>
+
+                {missingConditions.length >
+                0
+                  ? missingConditions.join(
+                      " • "
+                    )
+                  : "Continue monitoring the selected strategy conditions"}
+
+              </strong>
+
+            </div>
+
+
+          </div>
+
+        </section>
+
+      )}
+
+            {/* ========================================================
+          MARKET STATE
+          ======================================================== */}
+
+      {tradeSignal && (
+        <section
+          className="card"
+          style={{
+            marginTop: "20px",
+          }}
+        >
+          <h2 className="title">
+            Market State
           </h2>
 
           <p
             style={{
-              whiteSpace:
-                "pre-wrap",
               lineHeight: 1.7,
               marginBottom: 0,
             }}
           >
-            {setup}
+            {marketState || "WAITING"}
           </p>
-
         </section>
       )}
 
 
       {/* ========================================================
-          AI TRADE ANALYSIS
-
-          Detailed explanation remains BELOW immediate result.
+          SETUP / TRADE ROADMAP
+          WARM RESPONSE — SHOW WHAT THE AI IS SEEING
       ======================================================== */}
 
-      {analysis && (
+      {tradeSignal && (
         <section
-          className="card analysis-card"
+          className="card"
           style={{
             marginTop: "20px",
           }}
         >
-
-          <div className="analysis-heading">
-
-            <div>
-
-              <span className="muted">
-                Detailed Strategy Review
-              </span>
-
-              <h2 className="title">
-                AI Trade Analysis
-              </h2>
-
-            </div>
-
-            <div className="analysis-meta">
-
-              <span>
-                {
-                  strategies[
-                    strategy
-                  ].name
-                }
-              </span>
-
-              <strong>
-                {timeframe}
-              </strong>
-
-            </div>
-
-          </div>
-
+          <h2 className="title">
+            Trade Roadmap
+          </h2>
 
           <div
             style={{
-              whiteSpace:
-                "pre-wrap",
-              lineHeight: 1.7,
+              display: "grid",
+              gap: "14px",
+              marginTop: "16px",
             }}
           >
-            {analysis}
-          </div>
-
-
-          {/* ====================================================
-              CONDITIONS
-          ==================================================== */}
-
-          {(confirmedConditions.length >
-            0 ||
-            missingConditions.length >
-              0) && (
-            <div className="conditions-grid">
-
-              {confirmedConditions.length >
-                0 && (
-                <div className="condition-box">
-
-                  <strong>
-                    Confirmed Conditions
-                  </strong>
-
-                  <ul>
-                    {confirmedConditions.map(
-                      (
-                        condition,
-                        index
-                      ) => (
-                        <li
-                          key={
-                            `confirmed-${index}`
-                          }
-                        >
-                          {condition}
-                        </li>
-                      )
-                    )}
-                  </ul>
-
-                </div>
-              )}
-
-
-              {missingConditions.length >
-                0 && (
-                <div className="condition-box">
-
-                  <strong>
-                    Missing Conditions
-                  </strong>
-
-                  <ul>
-                    {missingConditions.map(
-                      (
-                        condition,
-                        index
-                      ) => (
-                        <li
-                          key={
-                            `missing-${index}`
-                          }
-                        >
-                          {condition}
-                        </li>
-                      )
-                    )}
-                  </ul>
-
-                </div>
-              )}
-
-            </div>
-          )}
-
-
-          {/* ====================================================
-              AI COACH
-          ==================================================== */}
-
-          {aiCoach && (
-            <div className="coach-box">
-
-              <span className="muted">
-                Trade Coach
-              </span>
-
+            <div className="condition-box">
               <strong>
-                {aiCoach}
+                Current Setup
               </strong>
 
+              <p
+                style={{
+                  whiteSpace: "pre-wrap",
+                  lineHeight: 1.7,
+                  marginBottom: 0,
+                }}
+              >
+                {setup ||
+                  "The selected strategy is monitoring the chart for a valid setup."}
+              </p>
+            </div>
+
+            {confirmedConditions.length >
+              0 && (
+              <div className="condition-box">
+                <strong>
+                  What the Chart Has Confirmed
+                </strong>
+
+                <ul>
+                  {confirmedConditions.map(
+                    (
+                      condition,
+                      index
+                    ) => (
+                      <li
+                        key={`roadmap-confirmed-${index}`}
+                      >
+                        {condition}
+                      </li>
+                    )
+                  )}
+                </ul>
+              </div>
+            )}
+
+            {missingConditions.length >
+              0 && (
+              <div className="condition-box">
+                <strong>
+                  What the Chart Is Waiting For
+                </strong>
+
+                <ul>
+                  {missingConditions.map(
+                    (
+                      condition,
+                      index
+                    ) => (
+                      <li
+                        key={`roadmap-missing-${index}`}
+                      >
+                        {condition}
+                      </li>
+                    )
+                  )}
+                </ul>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+
+      {/* ========================================================
+          AI COACH
+          QUESTION / EXPLANATION LAYER
+      ======================================================== */}
+
+      {tradeSignal && (
+        <section
+          className="card"
+          style={{
+            marginTop: "20px",
+          }}
+        >
+          <div className="analysis-heading">
+            <div>
+              <span className="muted">
+                AI Coach
+              </span>
+
+              <h2 className="title">
+                Ask About This Setup
+              </h2>
+            </div>
+          </div>
+
+          <p
+            className="muted"
+            style={{
+              lineHeight: 1.6,
+            }}
+          >
+            Ask the AI Coach why the strategy is
+            waiting, what is developing, what
+            confirms the setup, or what would
+            invalidate it.
+          </p>
+
+          <div
+            style={{
+              display: "flex",
+              gap: "10px",
+              marginTop: "14px",
+              flexWrap: "wrap",
+            }}
+          >
+            <button
+              type="button"
+              className="secondary"
+              onClick={() =>
+                setAiCoach(
+                  currentDirection ===
+                    "WAITING"
+                    ? "The strategy is waiting because all required entry conditions have not yet been confirmed. Review the missing conditions above and watch for the next required event."
+                    : currentDirection ===
+                      "BUY DEVELOPING"
+                    ? "The BUY setup is developing. The conditions already confirmed are shown above. The missing conditions must occur before this becomes a confirmed BUY."
+                    : currentDirection ===
+                      "SELL DEVELOPING"
+                    ? "The SELL setup is developing. The conditions already confirmed are shown above. The missing conditions must occur before this becomes a confirmed SELL."
+                    : currentDirection ===
+                      "NO TRADE"
+                    ? "There is currently no valid trade because the selected strategy conditions are not satisfied or the setup has been invalidated."
+                    : `The ${currentDirection} is confirmed because the selected strategy has completed its required sequence.`
+                )
+              }
+            >
+              Explain This Setup
+            </button>
+
+            <button
+              type="button"
+              className="secondary"
+              onClick={() =>
+                setAiCoach(
+                  missingConditions.length >
+                    0
+                    ? `The next thing to watch is: ${missingConditions.join(
+                        "; "
+                      )}`
+                    : "There are no additional missing conditions reported by the analysis."
+                )
+              }
+            >
+              What Am I Waiting For?
+            </button>
+
+            <button
+              type="button"
+              className="secondary"
+              onClick={() =>
+                setAiCoach(
+                  tradeSignal.invalidation ||
+                    "No specific invalidation condition was returned by the analysis."
+                )
+              }
+            >
+              What Invalidates It?
+            </button>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              gap: "10px",
+              marginTop: "14px",
+            }}
+          >
+            <input
+              type="text"
+              placeholder="Ask the AI Coach a question..."
+              className="coach-input"
+              onKeyDown={async (
+                event
+              ) => {
+                if (
+                  event.key !==
+                  "Enter"
+                ) {
+                  return;
+                }
+
+                const question =
+                  event.currentTarget.value.trim();
+
+                if (!question) {
+                  return;
+                }
+
+                setAiCoach(
+                  "Analyzing your question..."
+                );
+
+                try {
+                  const response =
+                    await fetch(
+                      "/api/coach",
+                      {
+                        method: "POST",
+                        headers: {
+                          "Content-Type":
+                            "application/json",
+                        },
+                        body: JSON.stringify(
+                          {
+                            question,
+                            strategy,
+                            timeframe,
+                            direction:
+                              currentDirection,
+                            confidence:
+                              tradeSignal.confidence,
+                            analysis,
+                            marketState,
+                            setup,
+                            confirmedConditions,
+                            missingConditions,
+                            tradeSignal,
+                            projection,
+                            chartAnnotations:
+                              annotations,
+                          }
+                        ),
+                      }
+                    );
+
+                  const data =
+                    (await response.json()) as {
+                      answer?: string;
+                      error?: string;
+                    };
+
+                  if (
+                    !response.ok
+                  ) {
+                    throw new Error(
+                      data.error ||
+                        "Unable to answer the question."
+                    );
+                  }
+
+                  setAiCoach(
+                    data.answer ||
+                      "The AI Coach could not establish an answer from the current chart analysis."
+                  );
+                } catch (err) {
+                  console.error(
+                    "AI Coach error:",
+                    err
+                  );
+
+                  setAiCoach(
+                    err instanceof Error
+                      ? err.message
+                      : "Unable to answer the AI Coach question."
+                  );
+                }
+              }}
+            />
+
+            <button
+              type="button"
+              className="primary"
+              onClick={async () => {
+                const input =
+                  document.querySelector(
+                    ".coach-input"
+                  ) as HTMLInputElement | null;
+
+                const question =
+                  input?.value.trim();
+
+                if (!question) {
+                  return;
+                }
+
+                setAiCoach(
+                  "Analyzing your question..."
+                );
+
+                try {
+                  const response =
+                    await fetch(
+                      "/api/coach",
+                      {
+                        method: "POST",
+                        headers: {
+                          "Content-Type":
+                            "application/json",
+                        },
+                        body: JSON.stringify(
+                          {
+                            question,
+                            strategy,
+                            timeframe,
+                            direction:
+                              currentDirection,
+                            confidence:
+                              tradeSignal.confidence,
+                            analysis,
+                            marketState,
+                            setup,
+                            confirmedConditions,
+                            missingConditions,
+                            tradeSignal,
+                            projection,
+                            chartAnnotations:
+                              annotations,
+                          }
+                        ),
+                      }
+                    );
+
+                  const data =
+                    (await response.json()) as {
+                      answer?: string;
+                      error?: string;
+                    };
+
+                  if (
+                    !response.ok
+                  ) {
+                    throw new Error(
+                      data.error ||
+                        "Unable to answer the question."
+                    );
+                  }
+
+                  setAiCoach(
+                    data.answer ||
+                      "The AI Coach could not establish an answer from the current chart analysis."
+                  );
+                } catch (err) {
+                  console.error(
+                    "AI Coach error:",
+                    err
+                  );
+
+                  setAiCoach(
+                    err instanceof Error
+                      ? err.message
+                      : "Unable to answer the AI Coach question."
+                  );
+                }
+              }}
+            >
+              Ask
+            </button>
+          </div>
+
+          {aiCoach && (
+            <div
+              className="coach-box"
+              style={{
+                marginTop: "16px",
+              }}
+            >
+              <span className="muted">
+                AI Coach Response
+              </span>
+
+              <p
+                style={{
+                  whiteSpace:
+                    "pre-wrap",
+                  lineHeight: 1.7,
+                  marginBottom: 0,
+                }}
+              >
+                {aiCoach}
+              </p>
             </div>
           )}
-
         </section>
       )}
 
@@ -1825,11 +2405,9 @@ export default function Home() {
         </p>
 
         <p className="disclaimer">
-
           <strong>
             Disclaimer:
           </strong>{" "}
-
           VaultTrades is an analytical
           tool designed to assist with
           market analysis and strategy
@@ -1841,15 +2419,12 @@ export default function Home() {
           risk and users remain solely
           responsible for their own
           trading decisions.
-
         </p>
 
         <p className="copyright">
-
           © {new Date().getFullYear()}{" "}
           VaultTrades. All rights
           reserved.
-
         </p>
 
       </footer>
