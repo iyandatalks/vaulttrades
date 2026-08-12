@@ -18,6 +18,18 @@ type Timeframe =
   | "H4"
   | "D1";
 
+type TradeSignal = {
+  direction: string;
+  confidence: string;
+  entry: string;
+  stopLoss: string;
+  tp1: string;
+  tp2: string;
+  finalTp: string;
+  invalidation: string;
+  status: string;
+};
+
 const strategies: Record<
   Strategy,
   {
@@ -66,17 +78,9 @@ const timeframes: Timeframe[] = [
   "D1",
 ];
 
-type TradeSignal = {
-  direction: string;
-  confidence: string;
-  entry: string;
-  stopLoss: string;
-  tp1: string;
-  tp2: string;
-  finalTp: string;
-  status: string;
-  invalidation: string;
-};
+/* ============================================================
+   EXTRACT VALUE FROM AI RESPONSE
+============================================================ */
 
 function extractValue(
   text: string,
@@ -93,20 +97,26 @@ function extractValue(
   return "—";
 }
 
-function parseTradeSignal(text: string): TradeSignal {
+/* ============================================================
+   PARSE TRADE SIGNAL
+============================================================ */
+
+function parseTradeSignal(
+  text: string
+): TradeSignal {
   const directionRaw = extractValue(text, [
-    /DIRECTION\s*[:\-]\s*(.+)/i,
-    /TRADE\s*DIRECTION\s*[:\-]\s*(.+)/i,
-    /SIGNAL\s*[:\-]\s*(.+)/i,
+    /DIRECTION\s*[:\-]\s*([^\n]+)/i,
+    /TRADE\s*DIRECTION\s*[:\-]\s*([^\n]+)/i,
+    /SIGNAL\s*[:\-]\s*([^\n]+)/i,
   ]);
 
   const confidence = extractValue(text, [
     /CONFIDENCE\s*[:\-]\s*([^\n]+)/i,
-    /CONFIDENCE\s+SCORE\s*[:\-]\s*([^\n]+)/i,
+    /CONFIDENCE\s* SCORE\s*[:\-]\s*([^\n]+)/i,
   ]);
 
   const entry = extractValue(text, [
-    /ENTRY\s*(?:PRICE)?\s*[:\-]\s*([^\n]+)/i,
+    /ENTRY\s*PRICE\s*[:\-]\s*([^\n]+)/i,
     /ENTRY\s*[:\-]\s*([^\n]+)/i,
   ]);
 
@@ -143,13 +153,21 @@ function parseTradeSignal(text: string): TradeSignal {
   let direction = "NO TRADE";
 
   if (
-    normalizedDirection.includes("BUY DEVELOPING") ||
-    normalizedDirection.includes("LONG DEVELOPING")
+    normalizedDirection.includes(
+      "BUY DEVELOPING"
+    ) ||
+    normalizedDirection.includes(
+      "LONG DEVELOPING"
+    )
   ) {
     direction = "BUY DEVELOPING";
   } else if (
-    normalizedDirection.includes("SELL DEVELOPING") ||
-    normalizedDirection.includes("SHORT DEVELOPING")
+    normalizedDirection.includes(
+      "SELL DEVELOPING"
+    ) ||
+    normalizedDirection.includes(
+      "SHORT DEVELOPING"
+    )
   ) {
     direction = "SELL DEVELOPING";
   } else if (
@@ -174,7 +192,10 @@ function parseTradeSignal(text: string): TradeSignal {
 
   let status = "WAIT FOR CONFIRMATION";
 
-  if (direction === "BUY" || direction === "SELL") {
+  if (
+    direction === "BUY" ||
+    direction === "SELL"
+  ) {
     if (
       entry !== "—" &&
       stopLoss !== "—" &&
@@ -201,12 +222,18 @@ function parseTradeSignal(text: string): TradeSignal {
     tp1,
     tp2,
     finalTp,
-    status,
     invalidation,
+    status,
   };
 }
 
-function signalClass(direction: string) {
+/* ============================================================
+   SIGNAL CLASS
+============================================================ */
+
+function getSignalClass(
+  direction: string
+): string {
   if (
     direction === "BUY" ||
     direction === "BUY DEVELOPING"
@@ -223,6 +250,10 @@ function signalClass(direction: string) {
 
   return "signal-neutral";
 }
+
+/* ============================================================
+   MAIN PAGE
+============================================================ */
 
 export default function Home() {
   const [strategy, setStrategy] =
@@ -249,9 +280,9 @@ export default function Home() {
   const [error, setError] =
     useState("");
 
-  // ============================================================
-  // CHANGE STRATEGY
-  // ============================================================
+  /* ==========================================================
+     CHANGE STRATEGY
+  ========================================================== */
 
   function changeStrategy(
     nextStrategy: Strategy
@@ -261,9 +292,9 @@ export default function Home() {
     setError("");
   }
 
-  // ============================================================
-  // CHANGE TIMEFRAME
-  // ============================================================
+  /* ==========================================================
+     CHANGE TIMEFRAME
+  ========================================================== */
 
   function changeTimeframe(
     nextTimeframe: Timeframe
@@ -273,9 +304,9 @@ export default function Home() {
     setError("");
   }
 
-  // ============================================================
-  // UPLOAD
-  // ============================================================
+  /* ==========================================================
+     UPLOAD CHART
+  ========================================================== */
 
   function handleUpload(
     event: ChangeEvent<HTMLInputElement>
@@ -303,9 +334,9 @@ export default function Home() {
     reader.readAsDataURL(file);
   }
 
-  // ============================================================
-  // CLEAR
-  // ============================================================
+  /* ==========================================================
+     CLEAR CHART
+  ========================================================== */
 
   function clearChart() {
     setChart(null);
@@ -323,9 +354,9 @@ export default function Home() {
     }
   }
 
-  // ============================================================
-  // ANALYZE CHART
-  // ============================================================
+  /* ==========================================================
+     ANALYZE CHART
+  ========================================================== */
 
   async function analyzeChart() {
     if (!selectedFile) {
@@ -342,6 +373,11 @@ export default function Home() {
 
       formData.append("image", selectedFile);
       formData.append("strategy", strategy);
+
+      /*
+       * The user's selected timeframe is explicitly
+       * sent to the analysis API.
+       */
       formData.append("timeframe", timeframe);
 
       const response = await fetch(
@@ -363,7 +399,7 @@ export default function Home() {
 
       if (!data?.analysis) {
         throw new Error(
-          "The AI returned an empty analysis."
+          "The analyzer returned an empty analysis."
         );
       }
 
@@ -391,34 +427,46 @@ export default function Home() {
   return (
     <main className="shell">
 
-      {/* ========================================================
-          HEADER
-      ======================================================== */}
+      {/* ======================================================
+          HEADER / BRAND
+      ====================================================== */}
 
       <header className="header">
 
-        <div>
-          <div className="brand">
-            VAULTTRADES AI
+        <div className="brand-block">
+
+          <img
+            src="/vaulttrades-logo.png"
+            alt="VaultTrades"
+            className="logo"
+          />
+
+          <div className="tagline">
+            Built by Traders.
           </div>
 
-          <div className="muted">
-            Strategy-driven chart analysis
+          <div className="slogan">
+            Focus, discipline, consistency.
           </div>
+
         </div>
 
         <div className="badge">
-          AI ENGINE
+          ANALYZER
         </div>
 
       </header>
 
 
+      {/* ======================================================
+          MAIN GRID
+      ====================================================== */}
+
       <div className="grid">
 
-        {/* ======================================================
+        {/* ====================================================
             STRATEGY PANEL
-        ====================================================== */}
+        ==================================================== */}
 
         <section className="card">
 
@@ -427,10 +475,12 @@ export default function Home() {
           </h2>
 
           <p className="muted">
-            Choose the independent strategy you want
-            the chart analyzer to apply.
+            Choose the independent strategy you
+            want the chart analyzer to apply.
           </p>
 
+
+          {/* KILLER ZONE */}
 
           <button
             type="button"
@@ -443,6 +493,7 @@ export default function Home() {
               changeStrategy("killZone")
             }
           >
+
             <strong>
               Killer Zone
             </strong>
@@ -451,8 +502,11 @@ export default function Home() {
               London liquidity sweep →
               MSS → FVG → entry
             </span>
+
           </button>
 
+
+          {/* EMA */}
 
           <button
             type="button"
@@ -465,6 +519,7 @@ export default function Home() {
               changeStrategy("ema")
             }
           >
+
             <strong>
               EMA
             </strong>
@@ -473,8 +528,11 @@ export default function Home() {
               EMA20 pullback → rejection →
               break → confirmation
             </span>
+
           </button>
 
+
+          {/* CONTINUATION */}
 
           <button
             type="button"
@@ -489,6 +547,7 @@ export default function Home() {
               )
             }
           >
+
             <strong>
               Continuation
             </strong>
@@ -497,8 +556,11 @@ export default function Home() {
               Expansion → correction →
               structure → continuation
             </span>
+
           </button>
 
+
+          {/* SUPPLY & DEMAND */}
 
           <button
             type="button"
@@ -513,6 +575,7 @@ export default function Home() {
               )
             }
           >
+
             <strong>
               Supply & Demand
             </strong>
@@ -521,14 +584,15 @@ export default function Home() {
               Zones → retest → reaction →
               confirmed entry
             </span>
+
           </button>
 
         </section>
 
 
-        {/* ======================================================
+        {/* ====================================================
             CHART ANALYZER
-        ====================================================== */}
+        ==================================================== */}
 
         <section className="card">
 
@@ -542,9 +606,9 @@ export default function Home() {
           </p>
 
 
-          {/* ====================================================
-              TIMEFRAME SELECTOR
-          ==================================================== */}
+          {/* ==================================================
+              TIMEFRAME
+          ================================================== */}
 
           <div
             style={{
@@ -575,70 +639,26 @@ export default function Home() {
 
               {timeframes.map(
                 (tf) => {
-                  const isSelected =
+
+                  const selected =
                     timeframe === tf;
 
                   return (
                     <button
                       key={tf}
                       type="button"
+                      className={`timeframe-button ${
+                        selected
+                          ? "selected"
+                          : ""
+                      }`}
                       aria-pressed={
-                        isSelected
+                        selected
                       }
                       disabled={loading}
                       onClick={() =>
                         changeTimeframe(tf)
                       }
-                      style={{
-                        appearance:
-                          "none",
-                        WebkitAppearance:
-                          "none",
-                        display:
-                          "flex",
-                        alignItems:
-                          "center",
-                        justifyContent:
-                          "center",
-                        width:
-                          "100%",
-                        minHeight:
-                          "44px",
-                        padding:
-                          "8px 10px",
-                        borderRadius:
-                          "9px",
-                        border:
-                          isSelected
-                            ? "2px solid #ffffff"
-                            : "1px solid rgba(255,255,255,0.16)",
-                        background:
-                          isSelected
-                            ? "rgba(255,255,255,0.18)"
-                            : "rgba(255,255,255,0.04)",
-                        color:
-                          isSelected
-                            ? "#ffffff"
-                            : "rgba(255,255,255,0.7)",
-                        fontSize:
-                          "13px",
-                        fontWeight:
-                          isSelected
-                            ? 800
-                            : 600,
-                        cursor:
-                          loading
-                            ? "not-allowed"
-                            : "pointer",
-                        outline:
-                          "none",
-                        boxShadow:
-                          isSelected
-                            ? "0 0 0 1px rgba(255,255,255,0.15)"
-                            : "none",
-                        transition:
-                          "all 0.15s ease",
-                      }}
                     >
                       {tf}
                     </button>
@@ -649,38 +669,32 @@ export default function Home() {
             </div>
 
 
-            {/* CURRENT TIMEFRAME */}
-
             <div
               style={{
-                display:
-                  "flex",
-                alignItems:
-                  "center",
+                display: "flex",
                 justifyContent:
                   "space-between",
-                gap:
-                  "12px",
-                marginTop:
-                  "12px",
-                padding:
-                  "10px 12px",
-                borderRadius:
-                  "8px",
+                alignItems: "center",
+                gap: "12px",
+                marginTop: "12px",
+                padding: "10px 12px",
+                borderRadius: "8px",
                 background:
-                  "rgba(255,255,255,0.04)",
+                  "#080e17",
                 border:
-                  "1px solid rgba(255,255,255,0.08)",
+                  "1px solid #202b3a",
               }}
             >
 
-              <span
-                className="muted"
-              >
+              <span className="muted">
                 Selected timeframe
               </span>
 
-              <strong>
+              <strong
+                style={{
+                  color: "#d4af37",
+                }}
+              >
                 {timeframe}
               </strong>
 
@@ -689,9 +703,9 @@ export default function Home() {
           </div>
 
 
-          {/* ====================================================
-              UPLOAD AREA
-          ==================================================== */}
+          {/* ==================================================
+              UPLOAD
+          ================================================== */}
 
           <div
             className="upload"
@@ -714,6 +728,7 @@ export default function Home() {
 
             {!chart ? (
               <>
+
                 <strong>
                   Upload TradingView Chart
                 </strong>
@@ -721,9 +736,11 @@ export default function Home() {
                 <div className="muted">
                   PNG, JPG or WebP
                 </div>
+
               </>
             ) : (
               <>
+
                 <strong>
                   {fileName}
                 </strong>
@@ -733,15 +750,16 @@ export default function Home() {
                   alt="Uploaded trading chart"
                   className="preview"
                 />
+
               </>
             )}
 
           </div>
 
 
-          {/* ====================================================
+          {/* ==================================================
               ACTIONS
-          ==================================================== */}
+          ================================================== */}
 
           <div className="actions">
 
@@ -754,9 +772,11 @@ export default function Home() {
               }
               onClick={analyzeChart}
             >
+
               {loading
                 ? "Analyzing Chart..."
                 : "Analyze Chart"}
+
             </button>
 
 
@@ -772,22 +792,26 @@ export default function Home() {
           </div>
 
 
-          {/* ====================================================
+          {/* ==================================================
               ERROR
-          ==================================================== */}
+          ================================================== */}
 
           {error && (
+
             <div
               className="card"
               style={{
-                marginTop:
-                  "20px",
+                marginTop: "20px",
                 border:
-                  "1px solid #ef4444",
+                  "1px solid #7f1d1d",
               }}
             >
 
-              <strong>
+              <strong
+                style={{
+                  color: "#d4af37",
+                }}
+              >
                 Analysis Error
               </strong>
 
@@ -796,6 +820,7 @@ export default function Home() {
               </p>
 
             </div>
+
           )}
 
         </section>
@@ -803,10 +828,10 @@ export default function Home() {
       </div>
 
 
-      {/* ========================================================
+      {/* ======================================================
           TRADE SIGNAL
-          EXISTING SELECTED STRATEGY AREA
-      ======================================================== */}
+          THIS REPLACES THE OLD SELECTED STRATEGY CARD
+      ====================================================== */}
 
       <section
         className="card"
@@ -824,12 +849,15 @@ export default function Home() {
 
           <div
             style={{
-              padding:
-                "18px 0",
+              padding: "18px 0",
             }}
           >
 
-            <strong>
+            <strong
+              style={{
+                color: "#d4af37",
+              }}
+            >
               Awaiting Analysis
             </strong>
 
@@ -841,14 +869,10 @@ export default function Home() {
 
             <div
               style={{
-                display:
-                  "flex",
-                flexWrap:
-                  "wrap",
-                gap:
-                  "8px",
-                marginTop:
-                  "14px",
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "8px",
+                marginTop: "14px",
               }}
             >
 
@@ -856,7 +880,11 @@ export default function Home() {
                 Strategy:
               </span>
 
-              <strong>
+              <strong
+                style={{
+                  color: "#d4af37",
+                }}
+              >
                 {strategies[
                   strategy
                 ].name}
@@ -867,10 +895,14 @@ export default function Home() {
               </span>
 
               <span className="muted">
-                MTF:
+                Timeframe:
               </span>
 
-              <strong>
+              <strong
+                style={{
+                  color: "#d4af37",
+                }}
+              >
                 {timeframe}
               </strong>
 
@@ -882,34 +914,28 @@ export default function Home() {
 
           <div
             style={{
-              marginTop:
-                "10px",
+              marginTop: "10px",
             }}
           >
 
-            {/* SIGNAL HEADER */}
+            {/* ==================================================
+                SIGNAL HEADER
+            ================================================== */}
 
             <div
-              className={signalClass(
+              className={getSignalClass(
                 tradeSignal.direction
               )}
               style={{
-                display:
-                  "flex",
-                alignItems:
-                  "center",
+                display: "flex",
+                alignItems: "center",
                 justifyContent:
                   "space-between",
-                gap:
-                  "20px",
-                flexWrap:
-                  "wrap",
-                padding:
-                  "16px 18px",
-                borderRadius:
-                  "12px",
-                marginBottom:
-                  "18px",
+                gap: "20px",
+                flexWrap: "wrap",
+                padding: "16px 18px",
+                borderRadius: "12px",
+                marginBottom: "18px",
               }}
             >
 
@@ -917,10 +943,9 @@ export default function Home() {
 
                 <div
                   style={{
-                    fontSize:
-                      "24px",
-                    fontWeight:
-                      800,
+                    fontSize: "24px",
+                    fontWeight: 800,
+                    color: "#d4af37",
                   }}
                 >
                   {tradeSignal.direction}
@@ -929,8 +954,7 @@ export default function Home() {
                 <div
                   className="muted"
                   style={{
-                    marginTop:
-                      "4px",
+                    marginTop: "4px",
                   }}
                 >
                   {strategies[
@@ -944,16 +968,14 @@ export default function Home() {
 
               <div
                 style={{
-                  textAlign:
-                    "right",
+                  textAlign: "right",
                 }}
               >
 
                 <div
                   className="muted"
                   style={{
-                    fontSize:
-                      "12px",
+                    fontSize: "12px",
                   }}
                 >
                   CONFIDENCE
@@ -961,8 +983,8 @@ export default function Home() {
 
                 <strong
                   style={{
-                    fontSize:
-                      "20px",
+                    fontSize: "20px",
+                    color: "#d4af37",
                   }}
                 >
                   {
@@ -975,126 +997,157 @@ export default function Home() {
             </div>
 
 
-            {/* EXECUTION VALUES */}
+            {/* ==================================================
+                EXECUTION VALUES
+            ================================================== */}
 
             <div
               style={{
-                display:
-                  "grid",
+                display: "grid",
                 gridTemplateColumns:
                   "repeat(auto-fit, minmax(150px, 1fr))",
-                gap:
-                  "10px",
+                gap: "10px",
               }}
             >
 
               <div className="card">
+
                 <div className="muted">
                   Entry
                 </div>
 
-                <strong>
+                <strong
+                  style={{
+                    color: "#d4af37",
+                  }}
+                >
                   {tradeSignal.entry}
                 </strong>
+
               </div>
 
 
               <div className="card">
+
                 <div className="muted">
                   Stop Loss
                 </div>
 
-                <strong>
+                <strong
+                  style={{
+                    color: "#d4af37",
+                  }}
+                >
                   {
                     tradeSignal.stopLoss
                   }
                 </strong>
+
               </div>
 
 
               <div className="card">
+
                 <div className="muted">
                   TP1
                 </div>
 
-                <strong>
+                <strong
+                  style={{
+                    color: "#d4af37",
+                  }}
+                >
                   {tradeSignal.tp1}
                 </strong>
+
               </div>
 
 
               <div className="card">
+
                 <div className="muted">
                   TP2
                 </div>
 
-                <strong>
+                <strong
+                  style={{
+                    color: "#d4af37",
+                  }}
+                >
                   {tradeSignal.tp2}
                 </strong>
+
               </div>
 
 
               <div className="card">
+
                 <div className="muted">
                   Final TP
                 </div>
 
-                <strong>
+                <strong
+                  style={{
+                    color: "#d4af37",
+                  }}
+                >
                   {
                     tradeSignal.finalTp
                   }
                 </strong>
+
               </div>
 
             </div>
 
 
-            {/* EXECUTION STATUS */}
+            {/* ==================================================
+                EXECUTION STATUS
+            ================================================== */}
 
             <div
               style={{
-                marginTop:
-                  "16px",
-                padding:
-                  "14px 16px",
-                borderRadius:
-                  "10px",
-                background:
-                  "rgba(255,255,255,0.04)",
+                marginTop: "16px",
+                padding: "14px 16px",
+                borderRadius: "10px",
+                background: "#080e17",
                 border:
-                  "1px solid rgba(255,255,255,0.08)",
+                  "1px solid #202b3a",
               }}
             >
 
               <div
                 className="muted"
                 style={{
-                  fontSize:
-                    "12px",
-                  marginBottom:
-                    "4px",
+                  fontSize: "12px",
+                  marginBottom: "4px",
                 }}
               >
                 EXECUTION STATUS
               </div>
 
-              <strong>
+              <strong
+                style={{
+                  color: "#d4af37",
+                }}
+              >
                 {tradeSignal.status}
               </strong>
 
             </div>
 
 
-            {/* INVALIDATION */}
+            {/* ==================================================
+                INVALIDATION
+            ================================================== */}
 
             {tradeSignal.invalidation !==
               "—" && (
+
               <div
                 style={{
-                  marginTop:
-                    "12px",
-                  fontSize:
-                    "13px",
+                  marginTop: "12px",
+                  fontSize: "13px",
                 }}
               >
 
@@ -1102,13 +1155,18 @@ export default function Home() {
                   Invalidation:{" "}
                 </span>
 
-                <strong>
+                <strong
+                  style={{
+                    color: "#d4af37",
+                  }}
+                >
                   {
                     tradeSignal.invalidation
                   }
                 </strong>
 
               </div>
+
             )}
 
           </div>
@@ -1118,17 +1176,16 @@ export default function Home() {
       </section>
 
 
-      {/* ========================================================
+      {/* ======================================================
           TRADE ANALYSIS
-      ======================================================== */}
+      ====================================================== */}
 
       {analysis && (
 
         <section
           className="card"
           style={{
-            marginTop:
-              "20px",
+            marginTop: "20px",
           }}
         >
 
@@ -1138,10 +1195,9 @@ export default function Home() {
 
           <div
             style={{
-              whiteSpace:
-                "pre-wrap",
-              lineHeight:
-                1.7,
+              whiteSpace: "pre-wrap",
+              lineHeight: 1.7,
+              color: "#f8fafc",
             }}
           >
             {analysis}
@@ -1152,52 +1208,22 @@ export default function Home() {
       )}
 
 
-      {/* ========================================================
-          PROFESSIONAL FOOTER
-      ======================================================== */}
+      {/* ======================================================
+          FOOTER
+      ====================================================== */}
 
-      <footer
-        style={{
-          marginTop:
-            "40px",
-          padding:
-            "24px 10px 30px",
-          textAlign:
-            "center",
-          borderTop:
-            "1px solid rgba(255,255,255,0.08)",
-        }}
-      >
+      <footer className="footer">
 
-        <div
-          style={{
-            fontWeight:
-              700,
-            letterSpacing:
-              "0.04em",
-            marginBottom:
-              "8px",
-          }}
-        >
-          VAULTTRADES AI
+        <div className="footer-brand">
+          VAULTTRADES
         </div>
 
-        <div
-          className="muted"
-          style={{
-            maxWidth:
-              "760px",
-            margin:
-              "0 auto",
-            fontSize:
-              "12px",
-            lineHeight:
-              1.6,
-          }}
-        >
+        <div className="footer-disclaimer">
+
           <strong>
             Disclaimer:
           </strong>{" "}
+
           VaultTrades provides market
           analysis and educational
           information only. Trading
@@ -1206,31 +1232,16 @@ export default function Home() {
           financial advice and should
           not be considered a guarantee
           of future results.
+
         </div>
 
-        <div
-          className="muted"
-          style={{
-            marginTop:
-              "14px",
-            fontSize:
-              "12px",
-          }}
-        >
+        <div className="footer-copy">
           © 2026 VaultTrades. All rights
           reserved.
         </div>
 
-        <div
-          className="muted"
-          style={{
-            marginTop:
-              "4px",
-            fontSize:
-              "11px",
-          }}
-        >
-          Developed by VaultTrades
+        <div className="footer-developed">
+          Built by Traders.
         </div>
 
       </footer>
