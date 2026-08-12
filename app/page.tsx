@@ -137,9 +137,8 @@ function parseTradeSignal(text: string): TradeSignal {
     /INVALIDATION\s*LEVEL\s*[:\-]\s*([^\n]+)/i,
   ]);
 
-  const normalizedDirection = directionRaw
-    .toUpperCase()
-    .trim();
+  const normalizedDirection =
+    directionRaw.toUpperCase().trim();
 
   let direction = "NO TRADE";
 
@@ -343,10 +342,6 @@ export default function Home() {
 
       formData.append("image", selectedFile);
       formData.append("strategy", strategy);
-
-      // IMPORTANT:
-      // The selected timeframe is now explicitly sent
-      // to the analysis API.
       formData.append("timeframe", timeframe);
 
       const response = await fetch(
@@ -437,8 +432,6 @@ export default function Home() {
           </p>
 
 
-          {/* KILLER ZONE */}
-
           <button
             type="button"
             className={`strategy ${
@@ -461,8 +454,6 @@ export default function Home() {
           </button>
 
 
-          {/* EMA */}
-
           <button
             type="button"
             className={`strategy ${
@@ -484,8 +475,6 @@ export default function Home() {
             </span>
           </button>
 
-
-          {/* CONTINUATION */}
 
           <button
             type="button"
@@ -510,8 +499,6 @@ export default function Home() {
             </span>
           </button>
 
-
-          {/* SUPPLY & DEMAND */}
 
           <button
             type="button"
@@ -550,8 +537,8 @@ export default function Home() {
           </h2>
 
           <p className="muted">
-            Select the market timeframe before
-            uploading and analyzing your chart.
+            Select your timeframe, upload your
+            chart, then analyze.
           </p>
 
 
@@ -561,102 +548,143 @@ export default function Home() {
 
           <div
             style={{
-              marginTop: "18px",
-              marginBottom: "18px",
+              marginTop: "20px",
+              marginBottom: "20px",
             }}
           >
 
             <div
               style={{
                 fontSize: "13px",
-                fontWeight: 600,
+                fontWeight: 700,
                 marginBottom: "10px",
               }}
             >
-              Analysis Timeframe
+              Select Timeframe
             </div>
+
 
             <div
               style={{
-                display: "flex",
-                flexWrap: "wrap",
+                display: "grid",
+                gridTemplateColumns:
+                  "repeat(4, minmax(0, 1fr))",
                 gap: "8px",
               }}
             >
 
               {timeframes.map(
-                (tf) => (
-                  <button
-                    key={tf}
-                    type="button"
-                    onClick={() =>
-                      changeTimeframe(tf)
-                    }
-                    disabled={loading}
-                    style={{
-                      padding:
-                        "8px 13px",
-                      borderRadius:
-                        "8px",
-                      border:
-                        timeframe === tf
-                          ? "1px solid #ffffff"
-                          : "1px solid rgba(255,255,255,0.12)",
-                      background:
-                        timeframe === tf
-                          ? "rgba(255,255,255,0.12)"
-                          : "transparent",
-                      color:
-                        timeframe === tf
-                          ? "#ffffff"
-                          : "rgba(255,255,255,0.65)",
-                      fontWeight:
-                        timeframe === tf
-                          ? 700
-                          : 500,
-                      cursor:
-                        loading
-                          ? "not-allowed"
-                          : "pointer",
-                    }}
-                  >
-                    {tf}
-                  </button>
-                )
+                (tf) => {
+                  const isSelected =
+                    timeframe === tf;
+
+                  return (
+                    <button
+                      key={tf}
+                      type="button"
+                      aria-pressed={
+                        isSelected
+                      }
+                      disabled={loading}
+                      onClick={() =>
+                        changeTimeframe(tf)
+                      }
+                      style={{
+                        appearance:
+                          "none",
+                        WebkitAppearance:
+                          "none",
+                        display:
+                          "flex",
+                        alignItems:
+                          "center",
+                        justifyContent:
+                          "center",
+                        width:
+                          "100%",
+                        minHeight:
+                          "44px",
+                        padding:
+                          "8px 10px",
+                        borderRadius:
+                          "9px",
+                        border:
+                          isSelected
+                            ? "2px solid #ffffff"
+                            : "1px solid rgba(255,255,255,0.16)",
+                        background:
+                          isSelected
+                            ? "rgba(255,255,255,0.18)"
+                            : "rgba(255,255,255,0.04)",
+                        color:
+                          isSelected
+                            ? "#ffffff"
+                            : "rgba(255,255,255,0.7)",
+                        fontSize:
+                          "13px",
+                        fontWeight:
+                          isSelected
+                            ? 800
+                            : 600,
+                        cursor:
+                          loading
+                            ? "not-allowed"
+                            : "pointer",
+                        outline:
+                          "none",
+                        boxShadow:
+                          isSelected
+                            ? "0 0 0 1px rgba(255,255,255,0.15)"
+                            : "none",
+                        transition:
+                          "all 0.15s ease",
+                      }}
+                    >
+                      {tf}
+                    </button>
+                  );
+                }
               )}
 
             </div>
 
-          </div>
 
+            {/* CURRENT TIMEFRAME */}
 
-          {/* ====================================================
-              SELECTED CONTEXT
-          ==================================================== */}
+            <div
+              style={{
+                display:
+                  "flex",
+                alignItems:
+                  "center",
+                justifyContent:
+                  "space-between",
+                gap:
+                  "12px",
+                marginTop:
+                  "12px",
+                padding:
+                  "10px 12px",
+                borderRadius:
+                  "8px",
+                background:
+                  "rgba(255,255,255,0.04)",
+                border:
+                  "1px solid rgba(255,255,255,0.08)",
+              }}
+            >
 
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "12px",
-              padding: "12px 14px",
-              marginBottom: "16px",
-              borderRadius: "10px",
-              background:
-                "rgba(255,255,255,0.04)",
-              border:
-                "1px solid rgba(255,255,255,0.08)",
-            }}
-          >
+              <span
+                className="muted"
+              >
+                Selected timeframe
+              </span>
 
-            <span className="muted">
-              Analysis timeframe
-            </span>
+              <strong>
+                {timeframe}
+              </strong>
 
-            <strong>
-              {timeframe}
-            </strong>
+            </div>
 
           </div>
 
@@ -752,7 +780,8 @@ export default function Home() {
             <div
               className="card"
               style={{
-                marginTop: "20px",
+                marginTop:
+                  "20px",
                 border:
                   "1px solid #ef4444",
               }}
@@ -776,7 +805,7 @@ export default function Home() {
 
       {/* ========================================================
           TRADE SIGNAL
-          EXISTING "SELECTED STRATEGY" AREA REPURPOSED
+          EXISTING SELECTED STRATEGY AREA
       ======================================================== */}
 
       <section
@@ -790,7 +819,9 @@ export default function Home() {
           Trade Signal
         </h2>
 
+
         {!tradeSignal ? (
+
           <div
             style={{
               padding:
@@ -804,16 +835,20 @@ export default function Home() {
 
             <p className="muted">
               Upload a chart and analyze it
-              to receive the direct trade
-              execution result.
+              to receive the direct execution
+              result.
             </p>
 
             <div
               style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: "10px",
-                marginTop: "14px",
+                display:
+                  "flex",
+                flexWrap:
+                  "wrap",
+                gap:
+                  "8px",
+                marginTop:
+                  "14px",
               }}
             >
 
@@ -822,7 +857,9 @@ export default function Home() {
               </span>
 
               <strong>
-                {strategies[strategy].name}
+                {strategies[
+                  strategy
+                ].name}
               </strong>
 
               <span className="muted">
@@ -840,29 +877,33 @@ export default function Home() {
             </div>
 
           </div>
+
         ) : (
 
           <div
             style={{
-              marginTop: "10px",
+              marginTop:
+                "10px",
             }}
           >
 
-            {/* ==================================================
-                SIGNAL HEADER
-            ================================================== */}
+            {/* SIGNAL HEADER */}
 
             <div
               className={signalClass(
                 tradeSignal.direction
               )}
               style={{
-                display: "flex",
-                alignItems: "center",
+                display:
+                  "flex",
+                alignItems:
+                  "center",
                 justifyContent:
                   "space-between",
-                gap: "20px",
-                flexWrap: "wrap",
+                gap:
+                  "20px",
+                flexWrap:
+                  "wrap",
                 padding:
                   "16px 18px",
                 borderRadius:
@@ -880,8 +921,6 @@ export default function Home() {
                       "24px",
                     fontWeight:
                       800,
-                    letterSpacing:
-                      "0.02em",
                   }}
                 >
                   {tradeSignal.direction}
@@ -926,7 +965,9 @@ export default function Home() {
                       "20px",
                   }}
                 >
-                  {tradeSignal.confidence}
+                  {
+                    tradeSignal.confidence
+                  }
                 </strong>
 
               </div>
@@ -934,31 +975,20 @@ export default function Home() {
             </div>
 
 
-            {/* ==================================================
-                EXECUTION VALUES
-            ================================================== */}
+            {/* EXECUTION VALUES */}
 
             <div
               style={{
-                display: "grid",
+                display:
+                  "grid",
                 gridTemplateColumns:
                   "repeat(auto-fit, minmax(150px, 1fr))",
-                gap: "10px",
+                gap:
+                  "10px",
               }}
             >
 
-              <div
-                style={{
-                  padding:
-                    "14px",
-                  borderRadius:
-                    "10px",
-                  background:
-                    "rgba(255,255,255,0.04)",
-                  border:
-                    "1px solid rgba(255,255,255,0.08)",
-                }}
-              >
+              <div className="card">
                 <div className="muted">
                   Entry
                 </div>
@@ -969,40 +999,20 @@ export default function Home() {
               </div>
 
 
-              <div
-                style={{
-                  padding:
-                    "14px",
-                  borderRadius:
-                    "10px",
-                  background:
-                    "rgba(255,255,255,0.04)",
-                  border:
-                    "1px solid rgba(255,255,255,0.08)",
-                }}
-              >
+              <div className="card">
                 <div className="muted">
                   Stop Loss
                 </div>
 
                 <strong>
-                  {tradeSignal.stopLoss}
+                  {
+                    tradeSignal.stopLoss
+                  }
                 </strong>
               </div>
 
 
-              <div
-                style={{
-                  padding:
-                    "14px",
-                  borderRadius:
-                    "10px",
-                  background:
-                    "rgba(255,255,255,0.04)",
-                  border:
-                    "1px solid rgba(255,255,255,0.08)",
-                }}
-              >
+              <div className="card">
                 <div className="muted">
                   TP1
                 </div>
@@ -1013,18 +1023,7 @@ export default function Home() {
               </div>
 
 
-              <div
-                style={{
-                  padding:
-                    "14px",
-                  borderRadius:
-                    "10px",
-                  background:
-                    "rgba(255,255,255,0.04)",
-                  border:
-                    "1px solid rgba(255,255,255,0.08)",
-                }}
-              >
+              <div className="card">
                 <div className="muted">
                   TP2
                 </div>
@@ -1035,33 +1034,22 @@ export default function Home() {
               </div>
 
 
-              <div
-                style={{
-                  padding:
-                    "14px",
-                  borderRadius:
-                    "10px",
-                  background:
-                    "rgba(255,255,255,0.04)",
-                  border:
-                    "1px solid rgba(255,255,255,0.08)",
-                }}
-              >
+              <div className="card">
                 <div className="muted">
                   Final TP
                 </div>
 
                 <strong>
-                  {tradeSignal.finalTp}
+                  {
+                    tradeSignal.finalTp
+                  }
                 </strong>
               </div>
 
             </div>
 
 
-            {/* ==================================================
-                EXECUTION STATUS
-            ================================================== */}
+            {/* EXECUTION STATUS */}
 
             <div
               style={{
@@ -1097,9 +1085,7 @@ export default function Home() {
             </div>
 
 
-            {/* ==================================================
-                INVALIDATION
-            ================================================== */}
+            {/* INVALIDATION */}
 
             {tradeSignal.invalidation !==
               "—" && (
@@ -1126,6 +1112,7 @@ export default function Home() {
             )}
 
           </div>
+
         )}
 
       </section>
@@ -1133,7 +1120,6 @@ export default function Home() {
 
       {/* ========================================================
           TRADE ANALYSIS
-          EXISTING AI ANALYSIS AREA
       ======================================================== */}
 
       {analysis && (
@@ -1141,7 +1127,8 @@ export default function Home() {
         <section
           className="card"
           style={{
-            marginTop: "20px",
+            marginTop:
+              "20px",
           }}
         >
 
@@ -1216,9 +1203,9 @@ export default function Home() {
           information only. Trading
           involves substantial risk.
           Signals and analysis are not
-          financial advice and should not
-          be considered a guarantee of
-          future results.
+          financial advice and should
+          not be considered a guarantee
+          of future results.
         </div>
 
         <div
