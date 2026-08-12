@@ -1,26 +1,456 @@
-import { getStrategyRules, StrategyId } from "../../../lib/strategies";
+import {
+  getStrategyRules,
+  StrategyId,
+} from "../../../lib/strategies";
 
-export async function POST(request: Request) {
+type Timeframe =
+  | "M1"
+  | "M5"
+  | "M10"
+  | "M15"
+  | "M30"
+  | "H1"
+  | "H4"
+  | "D1";
+
+type Direction =
+  | "BUY"
+  | "SELL"
+  | "BUY DEVELOPING"
+  | "SELL DEVELOPING"
+  | "WAITING"
+  | "NO TRADE";
+
+type AnnotationType =
+  | "zone"
+  | "entry"
+  | "stopLoss"
+  | "tp1"
+  | "tp2"
+  | "finalTp"
+  | "retest"
+  | "confirmation"
+  | "structure";
+
+type ChartPoint = {
+  x: number;
+  y: number;
+};
+
+type ChartAnnotation = {
+  type: AnnotationType;
+  label: string;
+  price?: number | null;
+  points?: ChartPoint[];
+  color: "gold" | "green" | "red" | "white";
+};
+
+type StructuredAnalysis = {
+  direction: Direction;
+  confidence: number;
+
+  strategy: string;
+  timeframe: Timeframe;
+
+  marketState: string;
+  setup: string;
+
+  confirmedConditions: string[];
+  missingConditions: string[];
+
+  entry: number | null;
+  stopLoss: number | null;
+  risk: number | null;
+
+  tp1: number | null;
+  tp2: number | null;
+  finalTp: number | null;
+
+  finalTpReason: string;
+  invalidation: string;
+  aiCoach: string;
+
+  projection: {
+    available: boolean;
+
+    setupType:
+      | "demand"
+      | "supply"
+      | "long"
+      | "short"
+      | "continuation"
+      | "killZone"
+      | "ema"
+      | "none";
+
+    zoneLow: number | null;
+    zoneHigh: number | null;
+
+    expectedEntry: number | null;
+    expectedStopLoss: number | null;
+
+    expectedTp1: number | null;
+    expectedTp2: number | null;
+    expectedFinalTp: number | null;
+
+    retestRequired: boolean;
+    retestStatus:
+      | "WAITING"
+      | "TESTED"
+      | "CONFIRMED"
+      | "NOT_REQUIRED";
+
+    confirmationRequired: string;
+    confirmationStatus:
+      | "REQUIRED"
+      | "PENDING"
+      | "CONFIRMED"
+      | "NOT_REQUIRED";
+  };
+
+  chartAnnotations: ChartAnnotation[];
+};
+
+const VALID_TIMEFRAMES: Timeframe[] = [
+  "M1",
+  "M5",
+  "M10",
+  "M15",
+  "M30",
+  "H1",
+  "H4",
+  "D1",
+];
+
+/* ============================================================
+   HELPERS
+============================================================ */
+
+function isValidTimeframe(
+  value: unknown
+): value is Timeframe {
+  return (
+    typeof value === "string" &&
+    VALID_TIMEFRAMES.includes(
+      value as Timeframe
+    )
+  );
+}
+
+function cleanNumber(
+  value: unknown
+): number | null {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return null;
+  }
+
+  const number =
+    typeof value === "number"
+      ? value
+      : Number(value);
+
+  return Number.isFinite(number)
+    ? number
+    : null;
+}
+
+function cleanString(
+  value: unknown,
+  fallback = ""
+): string {
+  return typeof value === "string"
+    ? value.trim()
+    : fallback;
+}
+
+function cleanStringArray(
+  value: unknown
+): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter(
+      (item): item is string =>
+        typeof item === "string"
+    )
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function clampCoordinate(
+  value: unknown
+): number {
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return 0;
+  }
+
+  return Math.max(
+    0,
+    Math.min(1000, number)
+  );
+}
+
+function cleanPoints(
+  value: unknown
+): ChartPoint[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const points = value
+    .filter(
+      (point) =>
+        point &&
+        typeof point === "object"
+    )
+    .map((point: any) => ({
+      x: clampCoordinate(point.x),
+      y: clampCoordinate(point.y),
+    }));
+
+  return points.length > 0
+    ? points
+    : undefined;
+}
+
+function cleanAnnotations(
+  value: unknown
+): ChartAnnotation[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const allowedTypes: AnnotationType[] = [
+    "zone",
+    "entry",
+    "stopLoss",
+    "tp1",
+    "tp2",
+    "finalTp",
+    "retest",
+    "confirmation",
+    "structure",
+  ];
+
+  const allowedColors = [
+    "gold",
+    "green",
+    "red",
+    "white",
+  ] as const;
+
+  return value
+    .filter(
+      (item) =>
+        item &&
+        typeof item === "object"
+    )
+    .map((item: any) => {
+      const type = allowedTypes.includes(
+        item.type
+      )
+        ? item.type
+        : "structure";
+
+      const color =
+        allowedColors.includes(item.color)
+          ? item.color
+          : "gold";
+
+      const annotation: ChartAnnotation = {
+        type,
+        label: cleanString(
+          item.label,
+          "Market level"
+        ),
+        price: cleanNumber(item.price),
+        color,
+      };
+
+      const points = cleanPoints(
+        item.points
+      );
+
+      if (points) {
+        annotation.points = points;
+      }
+
+      return annotation;
+    });
+}
+
+function normalizeDirection(
+  value: unknown
+): Direction {
+  const direction =
+    cleanString(value)
+      .toUpperCase()
+      .trim();
+
+  if (direction === "BUY") {
+    return "BUY";
+  }
+
+  if (direction === "SELL") {
+    return "SELL";
+  }
+
+  if (
+    direction === "BUY DEVELOPING"
+  ) {
+    return "BUY DEVELOPING";
+  }
+
+  if (
+    direction === "SELL DEVELOPING"
+  ) {
+    return "SELL DEVELOPING";
+  }
+
+  if (direction === "NO TRADE") {
+    return "NO TRADE";
+  }
+
+  return "WAITING";
+}
+
+/* ============================================================
+   BUILD HUMAN-READABLE ANALYSIS
+============================================================ */
+
+function buildAnalysisText(
+  data: StructuredAnalysis
+): string {
+  const formatValue = (
+    value: number | null
+  ) =>
+    value === null
+      ? "WAIT"
+      : String(value);
+
+  return `
+DIRECTION:
+${data.direction}
+
+CONFIDENCE:
+${data.confidence}%
+
+STRATEGY:
+${data.strategy}
+
+TIMEFRAME:
+${data.timeframe}
+
+MARKET STATE:
+${data.marketState}
+
+SETUP:
+${data.setup}
+
+CONFIRMED CONDITIONS:
+${
+  data.confirmedConditions.length
+    ? data.confirmedConditions
+        .map(
+          (condition) =>
+            `- ${condition}`
+        )
+        .join("\n")
+    : "- None confirmed."
+}
+
+MISSING CONDITIONS:
+${
+  data.missingConditions.length
+    ? data.missingConditions
+        .map(
+          (condition) =>
+            `- ${condition}`
+        )
+        .join("\n")
+    : "- None."
+}
+
+ENTRY:
+${formatValue(data.entry)}
+
+STOP LOSS:
+${formatValue(data.stopLoss)}
+
+RISK:
+${formatValue(data.risk)}
+
+TP1:
+${formatValue(data.tp1)}
+
+TP2:
+${formatValue(data.tp2)}
+
+FINAL TP:
+${formatValue(data.finalTp)}
+
+FINAL TP REASON:
+${data.finalTpReason}
+
+INVALIDATION:
+${data.invalidation}
+
+AI COACH:
+${data.aiCoach}
+`.trim();
+}
+
+/* ============================================================
+   MAIN API
+============================================================ */
+
+export async function POST(
+  request: Request
+) {
   try {
-    const formData = await request.formData();
+    /* ========================================================
+       FORM DATA
+    ======================================================== */
 
-    const image = formData.get("image");
-    const strategy = formData.get("strategy");
+    const formData =
+      await request.formData();
 
-    // ============================================================
-    // VALIDATE IMAGE
-    // ============================================================
+    const image =
+      formData.get("image");
+
+    const strategy =
+      formData.get("strategy");
+
+    const timeframe =
+      formData.get("timeframe");
+
+
+    /* ========================================================
+       VALIDATE IMAGE
+    ======================================================== */
 
     if (!(image instanceof File)) {
       return Response.json(
-        { error: "Chart image is required." },
+        {
+          error:
+            "Chart image is required.",
+        },
         { status: 400 }
       );
     }
 
-    // ============================================================
-    // VALIDATE STRATEGY
-    // ============================================================
+
+    /* ========================================================
+       VALIDATE STRATEGY
+    ======================================================== */
 
     if (
       strategy !== "killZone" &&
@@ -29,58 +459,99 @@ export async function POST(request: Request) {
       strategy !== "supplyDemand"
     ) {
       return Response.json(
-        { error: "Invalid strategy selected." },
+        {
+          error:
+            "Invalid strategy selected.",
+        },
         { status: 400 }
       );
     }
 
-    // ============================================================
-    // API KEY
-    // ============================================================
 
-    const apiKey = process.env.OPENAI_API_KEY;
+    /* ========================================================
+       VALIDATE TIMEFRAME
+    ======================================================== */
+
+    if (!isValidTimeframe(timeframe)) {
+      return Response.json(
+        {
+          error:
+            "A valid timeframe must be selected.",
+        },
+        { status: 400 }
+      );
+    }
+
+
+    /* ========================================================
+       API KEY
+    ======================================================== */
+
+    const apiKey =
+      process.env.OPENAI_API_KEY;
 
     if (!apiKey) {
       return Response.json(
-        { error: "OpenAI API key is not configured." },
+        {
+          error:
+            "OpenAI API key is not configured.",
+        },
         { status: 500 }
       );
     }
 
-    // ============================================================
-    // IMAGE
-    // ============================================================
 
-    const imageBuffer = await image.arrayBuffer();
-    const base64Image = Buffer.from(imageBuffer).toString("base64");
+    /* ========================================================
+       IMAGE
+    ======================================================== */
 
-    const mimeType = image.type || "image/png";
+    const imageBuffer =
+      await image.arrayBuffer();
 
-    // ============================================================
-    // LOAD EXACT STRATEGY RULES
-    // ============================================================
+    const base64Image =
+      Buffer.from(
+        imageBuffer
+      ).toString("base64");
 
-    const selectedStrategy = strategy as StrategyId;
+    const mimeType =
+      image.type || "image/png";
 
-    const strategyRules = getStrategyRules(selectedStrategy);
 
-    // ============================================================
-    // VAULTTRADES AI MASTER ANALYSIS PROMPT
-    // ============================================================
+    /* ========================================================
+       LOAD EXACT STRATEGY RULES
+    ======================================================== */
+
+    const selectedStrategy =
+      strategy as StrategyId;
+
+    const selectedTimeframe =
+      timeframe as Timeframe;
+
+    const strategyRules =
+      getStrategyRules(
+        selectedStrategy
+      );
+
+
+    /* ========================================================
+       MASTER ANALYSIS PROMPT
+    ======================================================== */
 
     const systemPrompt = `
-You are VaultTrades AI.
+You are VaultTrades Analyzer.
 
-You are a chart-analysis engine, not a generic trading assistant.
+You are a professional chart-analysis engine.
 
-Your primary job is to analyze the uploaded chart according to the
-SELECTED STRATEGY ONLY.
+You are NOT a generic trading assistant.
 
-The strategy rules supplied below are the authoritative rules for this
-analysis.
+Your primary responsibility is to analyze the uploaded TradingView
+chart according to the SELECTED STRATEGY and the USER SELECTED
+TIMEFRAME.
 
-Do not replace them with generic ICT, Smart Money Concepts, forex,
-technical-analysis or trading assumptions.
+The strategy rules supplied below are authoritative.
+
+Do not replace them with generic ICT, Smart Money Concepts,
+forex, technical-analysis or trading assumptions.
 
 Do not add conditions that are not contained in the selected strategy.
 
@@ -88,63 +559,82 @@ Do not remove mandatory conditions from the selected strategy.
 
 Do not combine strategies.
 
-The user selected:
+============================================================
+USER SELECTION
+============================================================
 
+SELECTED STRATEGY:
 ${selectedStrategy}
 
-The exact strategy rules are:
+SELECTED TIMEFRAME:
+${selectedTimeframe}
 
----------------- STRATEGY RULES ----------------
+============================================================
+EXACT STRATEGY RULES
+============================================================
 
 ${strategyRules}
 
--------------- END STRATEGY RULES ---------------
+============================================================
+TIMEFRAME RULE
+============================================================
 
-KILLER ZONE:
-Works independently.
+The user explicitly selected:
 
-EMA:
-Works independently.
+${selectedTimeframe}
 
-CONTINUATION:
-Works independently.
+Analyze the chart in the context of this timeframe.
 
-SUPPLY & DEMAND:
-Works independently.
+The selected timeframe is authoritative.
 
-If a selected strategy happens to encounter a market condition that
-resembles another strategy, that does NOT automatically activate the
-other strategy.
+Do not silently switch to another timeframe because the uploaded
+image appears to contain information from another timeframe.
 
-Only analyze the strategy selected by the user.
+If the visible chart timeframe conflicts with the user's selected
+timeframe, state that clearly in MARKET STATE and reduce confidence
+where appropriate.
+
+============================================================
+CHART IS PRIMARY EVIDENCE
+============================================================
 
 The uploaded image is the primary evidence.
 
-Read the visible:
+Read only information that is actually visible or can be reliably
+inferred from the chart.
+
+Inspect:
 
 - Candlesticks
 - Price
 - Time
 - Market structure
-- Highs
-- Lows
+- Swing highs
+- Swing lows
 - EMA levels
 - FVGs
 - Order blocks
 - Liquidity
-- Session information
+- Sessions
 - Indicators
 - Previous highs/lows
 - Visible support/resistance
-- Volume when actually visible
-- Any other information actually displayed on the chart
+- Volume when visible
+- Supply zones
+- Demand zones
+- Retests
+- Reactions
+- Breakouts
+- Structure shifts
 
-Do not invent information that cannot be seen.
+Do not invent information.
 
-If the chart does not provide enough evidence to verify a condition,
-say so.
+If a condition cannot be reliably established from the uploaded
+chart, say so.
 
-Do not pretend a level exists if it cannot be identified reliably.
+============================================================
+TRADE STATES
+============================================================
 
 You MUST distinguish between:
 
@@ -157,7 +647,7 @@ You MUST distinguish between:
 
 A developing setup is NOT a confirmed trade.
 
-Do not convert a developing setup into a confirmed trade merely because
+Never convert a developing setup into a confirmed trade merely because
 price is moving in the expected direction.
 
 Do not produce BUY or SELL simply because:
@@ -169,85 +659,196 @@ Do not produce BUY or SELL simply because:
 - an indicator is bullish/bearish
 - price is near support/resistance
 
-The selected strategy's complete sequence must be satisfied.
+The selected strategy sequence must be satisfied.
 
-The entry must correspond to the actual strategy rules.
+============================================================
+IMPORTANT NEW REQUIREMENT:
+DEVELOPING TRADE PROJECTION
+============================================================
 
-Do not move the entry to a more convenient price.
+The application must be useful BEFORE a setup is confirmed.
 
-Do not use the current market price if the strategy requires a specific
-entry condition that has not yet occurred.
+If the selected strategy has enough visible evidence to establish
+a potential trade location, identify the EXPECTED execution plan.
 
-If the entry condition has not occurred:
+This is especially important for Supply & Demand.
 
-DIRECTION = BUY DEVELOPING
+For a developing setup, you may identify:
+
+- Expected entry
+- Expected stop loss
+- Expected TP1
+- Expected TP2
+- Expected final TP
+- Supply zone
+- Demand zone
+- Retest area
+- Required confirmation
+- Invalidation
+
+However:
+
+NEVER invent these values merely to fill the fields.
+
+Only project levels when they can be derived from visible chart
+structure AND the selected strategy rules.
+
+If a valid projected level cannot be established:
+
+return null for that level.
+
+============================================================
+SUPPLY & DEMAND PROJECTION
+============================================================
+
+When Supply & Demand is selected, specifically investigate whether
+a valid supply or demand zone can be established according to the
+strategy rules.
+
+If a valid zone exists but price has not yet retested it:
+
+DIRECTION may be:
+
+BUY DEVELOPING
+
 or
-DIRECTION = SELL DEVELOPING
-or
-DIRECTION = WAITING
 
-depending on what the chart actually shows.
+SELL DEVELOPING
+
+and projection data may contain:
+
+- zoneLow
+- zoneHigh
+- expectedEntry
+- expectedStopLoss
+- expectedTp1
+- expectedTp2
+- expectedFinalTp
+
+The projected entry should represent the price where the strategy
+expects execution/reaction, NOT simply the current market price.
+
+The stop must derive from the zone/strategy invalidation logic.
+
+Targets must be structurally logical and must not be placed on the
+wrong side of the trade.
+
+If the zone does not exist or cannot be reliably identified:
+
+do NOT invent a projected entry.
+
+Return:
+
+WAITING
+
+with projection.available = false.
+
+============================================================
+RETEST LOGIC
+============================================================
+
+Explicitly determine whether a retest is required.
+
+Possible retestStatus:
+
+WAITING
+TESTED
+CONFIRMED
+NOT_REQUIRED
+
+Examples:
+
+Zone identified but price has not returned:
+
+retestRequired = true
+retestStatus = WAITING
+
+Price has returned but confirmation is missing:
+
+retestRequired = true
+retestStatus = TESTED
+
+Price has retested and the required reaction occurred:
+
+retestRequired = true
+retestStatus = CONFIRMED
+
+============================================================
+CONFIRMATION LOGIC
+============================================================
+
+For developing trades, clearly identify what confirmation is still
+required.
+
+Examples:
+
+- Bullish reaction from demand
+- Bearish rejection from supply
+- MSS
+- BOS
+- FVG confirmation
+- EMA rejection
+- Strategy-specific confirmation
+
+Do not say simply "wait".
+
+Explain WHAT the trader is waiting for.
+
+============================================================
+EXPECTED LEVELS
+============================================================
+
+For a developing setup:
+
+ENTRY may remain null if no reliable expected entry can be established.
+
+If expected entry can be established, return it in:
+
+projection.expectedEntry
+
+The same applies to:
+
+projection.expectedStopLoss
+projection.expectedTp1
+projection.expectedTp2
+projection.expectedFinalTp
+
+IMPORTANT:
+
+Projected values are EXPECTED levels, not confirmed execution prices.
+
+The application must label them accordingly.
+
+============================================================
+CONFIRMED TRADE
+============================================================
+
+If the complete strategy sequence has occurred:
+
+DIRECTION must be:
+
+BUY
+
+or
+
+SELL
+
+Then return actual:
+
+entry
+stopLoss
+risk
+tp1
+tp2
+finalTp
+
+============================================================
+STOP LOSS
+============================================================
 
 The stop loss must be derived from the selected strategy.
 
-Do not arbitrarily choose a round-number stop.
-
-Do not place the stop at an unrelated support/resistance level.
-
-If the strategy's stop-loss condition cannot be identified from the
-chart, return:
-
-STOP LOSS:
-WAIT
-
-Do not manufacture a stop.
-
-TP targets must be derived from the selected strategy and visible
-market structure.
-
-The application must specifically look for:
-
-- Previous meaningful high
-- Previous meaningful low
-- Previous Day High (PDH)
-- Previous Day Low (PDL)
-- Structural highs
-- Structural lows
-- Liquidity objectives
-
-when those levels are relevant and visible.
-
-For BUY:
-
-Look for a valid previous meaningful high / PDH / upside liquidity
-objective that is ahead of the entry.
-
-For SELL:
-
-Look for a valid previous meaningful low / PDL / downside liquidity
-objective that is below the entry.
-
-Do not place the FINAL TP behind the entry.
-
-Do not select a target that has already been taken unless the strategy
-explicitly calls for it.
-
-If the previous high/low is not visible or cannot be reliably
-identified:
-
-FINAL TP:
-WAIT
-
-Do not invent it.
-
-If the selected strategy defines a fixed RR, follow that exact RR.
-
-Do not change the strategy's RR.
-
-If the strategy does not define a fixed RR, use structural/liquidity
-targets according to its rules.
-
-Calculate risk mathematically from the actual entry and stop.
+Never choose an arbitrary round number.
 
 For BUY:
 
@@ -257,245 +858,1238 @@ For SELL:
 
 Risk = Stop Loss - Entry
 
-Never report a negative risk.
+Never report negative risk.
 
-Never create an impossible TP.
+If the stop cannot be established:
 
-Confidence is NOT a prediction of guaranteed profit.
+stopLoss = null
 
-Confidence represents how completely the visible chart satisfies the
-selected strategy.
+============================================================
+TAKE PROFIT
+============================================================
+
+Targets must be derived from the selected strategy and visible
+market structure.
+
+Look for:
+
+- Previous meaningful highs
+- Previous meaningful lows
+- PDH
+- PDL
+- Structural highs
+- Structural lows
+- Liquidity objectives
+- Opposing zones
+
+For BUY:
+
+targets must be above entry.
+
+For SELL:
+
+targets must be below entry.
+
+Never invent a target.
+
+If no valid target can be established:
+
+return null.
+
+============================================================
+CONFIDENCE
+============================================================
+
+Confidence is NOT guaranteed profitability.
+
+Confidence represents how completely the visible chart satisfies
+the selected strategy.
 
 Consider:
 
-- Required conditions confirmed
+- Required conditions
 - Structure clarity
 - Entry confirmation
 - Invalidation clarity
 - Target clarity
-- Whether important information is missing
+- Missing information
+- Projection quality
 
-If critical conditions are missing, confidence must remain low and the
-trade should not be presented as confirmed.
+Critical missing conditions must keep confidence low.
 
-When the strategy conditions are incomplete:
+============================================================
+CHART ANNOTATIONS
+============================================================
 
-DO NOT FORCE A TRADE.
+The frontend will use your annotation data to mark the uploaded
+chart.
 
-Use:
+Return chartAnnotations only for levels or structures that can
+actually be identified.
 
-WAITING
+Coordinates MUST be normalized from 0 to 1000.
 
-or
+x = horizontal image position.
+y = vertical image position.
 
-BUY DEVELOPING
+0 = top/left edge.
+1000 = bottom/right edge.
 
-or
+Do not invent coordinates.
 
-SELL DEVELOPING
+Use approximate visible positions only when the relevant level or
+zone is actually visible.
 
-or
+For a zone, provide points describing the visible rectangle:
 
-NO TRADE
+top-left
+top-right
+bottom-right
+bottom-left
 
-according to the actual chart.
+For a horizontal price level, provide two points across the
+relevant chart width.
 
-Return ONLY the following structured analysis.
+For an entry/retest/confirmation point, provide a point at the
+relevant location.
 
-DIRECTION:
-One of:
+If a level is not visible or cannot be reliably located:
 
-BUY
-SELL
-BUY DEVELOPING
-SELL DEVELOPING
-WAITING
-NO TRADE
+DO NOT create an annotation for it.
 
-CONFIDENCE:
-0-100%
+============================================================
+ANNOTATION TYPES
+============================================================
 
-STRATEGY:
-Name of selected strategy.
+Allowed:
 
-MARKET STATE:
-Brief description of the current market condition.
+zone
+entry
+stopLoss
+tp1
+tp2
+finalTp
+retest
+confirmation
+structure
 
-SETUP:
-Explain the exact strategy sequence visible on the chart.
+Allowed colors:
 
-CONFIRMED CONDITIONS:
-List only conditions that are actually confirmed.
+gold
+green
+red
+white
 
-MISSING CONDITIONS:
-List required conditions that have NOT yet been confirmed.
+Suggested meaning:
 
-ENTRY:
-Exact price or WAIT.
+gold = projected/developing levels
+green = BUY / bullish
+red = SELL / bearish / invalidation
+white = structure/information
 
-STOP LOSS:
-Exact price or WAIT.
+============================================================
+NO FAKE PROJECTIONS
+============================================================
 
-RISK:
-Exact price distance or WAIT.
+This is critical.
 
-TP1:
-Exact price or WAIT.
+Do NOT return:
 
-TP2:
-Exact price or WAIT.
+ENTRY = 4000
+SL = 3995
+TP = 4100
 
-FINAL TP:
-Exact price or WAIT.
+just because the fields exist.
 
-FINAL TP REASON:
-Explain why the selected final target is valid.
+Every number must be supported by visible chart evidence and the
+selected strategy.
 
-If BUY:
-Identify the previous meaningful high / PDH / upside liquidity target
-when visible and valid.
+If the chart does not support it:
 
-If SELL:
-Identify the previous meaningful low / PDL / downside liquidity target
-when visible and valid.
+return null.
 
-INVALIDATION:
-State the exact condition that would invalidate the setup.
+============================================================
+OUTPUT
+============================================================
 
-AI COACH:
-Give ONE concise instruction telling the trader what to do next.
+Return ONLY valid JSON.
 
-NEVER manufacture:
+Do not use markdown.
 
-- direction
-- entry
-- stop loss
-- TP1
-- TP2
-- final TP
-- market structure
-- liquidity
-- previous high
-- previous low
+Do not use code fences.
 
-If the information cannot be reliably established from the chart,
-return WAIT.
+The JSON must follow this exact structure:
 
-The selected strategy rules always take priority over generic trading
-knowledge.
+{
+  "direction": "BUY | SELL | BUY DEVELOPING | SELL DEVELOPING | WAITING | NO TRADE",
+
+  "confidence": 0,
+
+  "strategy": "${selectedStrategy}",
+
+  "timeframe": "${selectedTimeframe}",
+
+  "marketState": "",
+
+  "setup": "",
+
+  "confirmedConditions": [],
+
+  "missingConditions": [],
+
+  "entry": null,
+
+  "stopLoss": null,
+
+  "risk": null,
+
+  "tp1": null,
+
+  "tp2": null,
+
+  "finalTp": null,
+
+  "finalTpReason": "",
+
+  "invalidation": "",
+
+  "aiCoach": "",
+
+  "projection": {
+    "available": false,
+
+    "setupType": "none",
+
+    "zoneLow": null,
+
+    "zoneHigh": null,
+
+    "expectedEntry": null,
+
+    "expectedStopLoss": null,
+
+    "expectedTp1": null,
+
+    "expectedTp2": null,
+
+    "expectedFinalTp": null,
+
+    "retestRequired": false,
+
+    "retestStatus": "NOT_REQUIRED",
+
+    "confirmationRequired": "",
+
+    "confirmationStatus": "NOT_REQUIRED"
+  },
+
+  "chartAnnotations": []
+}
+
+============================================================
+FINAL RULE
+============================================================
+
+The chart, projection, trade signal and analysis must agree.
+
+If there is no valid zone:
+
+do not create a projected zone.
+
+If there is a zone but no retest:
+
+show DEVELOPING and explain the expected execution area.
+
+If there is a retest but confirmation is missing:
+
+show DEVELOPING and explain the required confirmation.
+
+If all conditions are confirmed:
+
+show BUY or SELL.
+
+If the evidence is insufficient:
+
+show WAITING or NO TRADE.
+
+Never force a trade.
 `;
 
-    // ============================================================
-    // OPENAI VISION REQUEST
-    // ============================================================
 
-    const openAIResponse = await fetch(
-      "https://api.openai.com/v1/responses",
-      {
-        method: "POST",
+    /* ========================================================
+       OPENAI VISION REQUEST
+    ======================================================== */
 
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
+    const openAIResponse =
+      await fetch(
+        "https://api.openai.com/v1/responses",
+        {
+          method: "POST",
 
-        body: JSON.stringify({
-          model: "gpt-4.1-mini",
+          headers: {
+            "Content-Type":
+              "application/json",
 
-          input: [
-            {
-              role: "user",
+            Authorization:
+              `Bearer ${apiKey}`,
+          },
 
-              content: [
-                {
-                  type: "input_text",
-                  text: systemPrompt,
+          body: JSON.stringify({
+            model: "gpt-4.1-mini",
+
+            input: [
+              {
+                role: "user",
+
+                content: [
+                  {
+                    type: "input_text",
+                    text: systemPrompt,
+                  },
+
+                  {
+                    type: "input_image",
+                    image_url:
+                      `data:${mimeType};base64,${base64Image}`,
+                  },
+                ],
+              },
+            ],
+
+            max_output_tokens: 4000,
+
+            text: {
+              format: {
+                type: "json_schema",
+
+                name:
+                  "vaulttrades_chart_analysis",
+
+                strict: true,
+
+                schema: {
+                  type: "object",
+
+                  additionalProperties:
+                    false,
+
+                  properties: {
+                    direction: {
+                      type: "string",
+                      enum: [
+                        "BUY",
+                        "SELL",
+                        "BUY DEVELOPING",
+                        "SELL DEVELOPING",
+                        "WAITING",
+                        "NO TRADE",
+                      ],
+                    },
+
+                    confidence: {
+                      type: "number",
+                      minimum: 0,
+                      maximum: 100,
+                    },
+
+                    strategy: {
+                      type: "string",
+                    },
+
+                    timeframe: {
+                      type: "string",
+                      enum: VALID_TIMEFRAMES,
+                    },
+
+                    marketState: {
+                      type: "string",
+                    },
+
+                    setup: {
+                      type: "string",
+                    },
+
+                    confirmedConditions: {
+                      type: "array",
+                      items: {
+                        type: "string",
+                      },
+                    },
+
+                    missingConditions: {
+                      type: "array",
+                      items: {
+                        type: "string",
+                      },
+                    },
+
+                    entry: {
+                      type: [
+                        "number",
+                        "null",
+                      ],
+                    },
+
+                    stopLoss: {
+                      type: [
+                        "number",
+                        "null",
+                      ],
+                    },
+
+                    risk: {
+                      type: [
+                        "number",
+                        "null",
+                      ],
+                    },
+
+                    tp1: {
+                      type: [
+                        "number",
+                        "null",
+                      ],
+                    },
+
+                    tp2: {
+                      type: [
+                        "number",
+                        "null",
+                      ],
+                    },
+
+                    finalTp: {
+                      type: [
+                        "number",
+                        "null",
+                      ],
+                    },
+
+                    finalTpReason: {
+                      type: "string",
+                    },
+
+                    invalidation: {
+                      type: "string",
+                    },
+
+                    aiCoach: {
+                      type: "string",
+                    },
+
+                    projection: {
+                      type: "object",
+
+                      additionalProperties:
+                        false,
+
+                      properties: {
+                        available: {
+                          type: "boolean",
+                        },
+
+                        setupType: {
+                          type: "string",
+                          enum: [
+                            "demand",
+                            "supply",
+                            "long",
+                            "short",
+                            "continuation",
+                            "killZone",
+                            "ema",
+                            "none",
+                          ],
+                        },
+
+                        zoneLow: {
+                          type: [
+                            "number",
+                            "null",
+                          ],
+                        },
+
+                        zoneHigh: {
+                          type: [
+                            "number",
+                            "null",
+                          ],
+                        },
+
+                        expectedEntry: {
+                          type: [
+                            "number",
+                            "null",
+                          ],
+                        },
+
+                        expectedStopLoss: {
+                          type: [
+                            "number",
+                            "null",
+                          ],
+                        },
+
+                        expectedTp1: {
+                          type: [
+                            "number",
+                            "null",
+                          ],
+                        },
+
+                        expectedTp2: {
+                          type: [
+                            "number",
+                            "null",
+                          ],
+                        },
+
+                        expectedFinalTp: {
+                          type: [
+                            "number",
+                            "null",
+                          ],
+                        },
+
+                        retestRequired: {
+                          type: "boolean",
+                        },
+
+                        retestStatus: {
+                          type: "string",
+                          enum: [
+                            "WAITING",
+                            "TESTED",
+                            "CONFIRMED",
+                            "NOT_REQUIRED",
+                          ],
+                        },
+
+                        confirmationRequired: {
+                          type: "string",
+                        },
+
+                        confirmationStatus: {
+                          type: "string",
+                          enum: [
+                            "REQUIRED",
+                            "PENDING",
+                            "CONFIRMED",
+                            "NOT_REQUIRED",
+                          ],
+                        },
+                      },
+
+                      required: [
+                        "available",
+                        "setupType",
+                        "zoneLow",
+                        "zoneHigh",
+                        "expectedEntry",
+                        "expectedStopLoss",
+                        "expectedTp1",
+                        "expectedTp2",
+                        "expectedFinalTp",
+                        "retestRequired",
+                        "retestStatus",
+                        "confirmationRequired",
+                        "confirmationStatus",
+                      ],
+                    },
+
+                    chartAnnotations: {
+                      type: "array",
+
+                      items: {
+                        type: "object",
+
+                        additionalProperties:
+                          false,
+
+                        properties: {
+                          type: {
+                            type: "string",
+                            enum: [
+                              "zone",
+                              "entry",
+                              "stopLoss",
+                              "tp1",
+                              "tp2",
+                              "finalTp",
+                              "retest",
+                              "confirmation",
+                              "structure",
+                            ],
+                          },
+
+                          label: {
+                            type: "string",
+                          },
+
+                          price: {
+                            type: [
+                              "number",
+                              "null",
+                            ],
+                          },
+
+                          points: {
+                            type: "array",
+
+                            items: {
+                              type: "object",
+
+                              additionalProperties:
+                                false,
+
+                              properties: {
+                                x: {
+                                  type: "number",
+                                  minimum: 0,
+                                  maximum: 1000,
+                                },
+
+                                y: {
+                                  type: "number",
+                                  minimum: 0,
+                                  maximum: 1000,
+                                },
+                              },
+
+                              required: [
+                                "x",
+                                "y",
+                              ],
+                            },
+                          },
+
+                          color: {
+                            type: "string",
+                            enum: [
+                              "gold",
+                              "green",
+                              "red",
+                              "white",
+                            ],
+                          },
+                        },
+
+                        required: [
+                          "type",
+                          "label",
+                          "price",
+                          "points",
+                          "color",
+                        ],
+                      },
+                    },
+                  },
+
+                  required: [
+                    "direction",
+                    "confidence",
+                    "strategy",
+                    "timeframe",
+                    "marketState",
+                    "setup",
+                    "confirmedConditions",
+                    "missingConditions",
+                    "entry",
+                    "stopLoss",
+                    "risk",
+                    "tp1",
+                    "tp2",
+                    "finalTp",
+                    "finalTpReason",
+                    "invalidation",
+                    "aiCoach",
+                    "projection",
+                    "chartAnnotations",
+                  ],
                 },
-
-                {
-                  type: "input_image",
-                  image_url: `data:${mimeType};base64,${base64Image}`,
-                },
-              ],
+              },
             },
-          ],
+          }),
+        }
+      );
 
-          max_output_tokens: 2200,
-        }),
-      }
-    );
 
-    // ============================================================
-    // OPENAI ERROR
-    // ============================================================
+    /* ========================================================
+       OPENAI ERROR
+    ======================================================== */
 
     if (!openAIResponse.ok) {
-      const errorText = await openAIResponse.text();
+      const errorText =
+        await openAIResponse.text();
 
-      console.error("OpenAI API error:", errorText);
+      console.error(
+        "OpenAI API error:",
+        errorText
+      );
 
       return Response.json(
         {
-          error: "OpenAI analysis failed.",
+          error:
+            "OpenAI analysis failed.",
           details: errorText,
         },
         { status: 500 }
       );
     }
 
-    // ============================================================
-    // RESPONSE
-    // ============================================================
 
-    const result = await openAIResponse.json();
+    /* ========================================================
+       RESPONSE
+    ======================================================== */
 
-    // Extract text from the Responses API output array.
-    const analysis =
-      result.output
-        ?.flatMap((item: any) => item.content ?? [])
-        ?.filter(
-          (content: any) => content.type === "output_text"
-        )
-        ?.map(
-          (content: any) => content.text
-        )
-        ?.join("\n")
-        ?.trim() ?? "";
+    const result =
+      await openAIResponse.json();
 
-    // ============================================================
-    // EMPTY RESPONSE CHECK
-    // ============================================================
 
-    if (!analysis) {
+    /* ========================================================
+       EXTRACT STRUCTURED JSON
+    ======================================================== */
+
+    let parsed: any = null;
+
+    try {
+      const outputText =
+        result.output
+          ?.flatMap(
+            (item: any) =>
+              item.content ?? []
+          )
+          ?.filter(
+            (content: any) =>
+              content.type ===
+              "output_text"
+          )
+          ?.map(
+            (content: any) =>
+              content.text
+          )
+          ?.join("")
+          ?.trim() ?? "";
+
+      if (!outputText) {
+        throw new Error(
+          "No structured analysis returned."
+        );
+      }
+
+      parsed =
+        JSON.parse(outputText);
+    } catch (parseError) {
       console.error(
-        "OpenAI returned no analysis text:",
-        JSON.stringify(result, null, 2)
+        "Failed to parse structured OpenAI response:",
+        parseError
+      );
+
+      console.error(
+        "Raw OpenAI result:",
+        JSON.stringify(
+          result,
+          null,
+          2
+        )
       );
 
       return Response.json(
         {
-          error: "OpenAI returned no analysis text.",
+          error:
+            "The analyzer returned an invalid structured result.",
         },
         { status: 500 }
       );
     }
 
-    // ============================================================
-    // SUCCESS
-    // ============================================================
+
+    /* ========================================================
+       NORMALIZE RESULT
+    ======================================================== */
+
+    const normalizedDirection =
+      normalizeDirection(
+        parsed.direction
+      );
+
+    const confidenceRaw =
+      Number(parsed.confidence);
+
+    const confidence =
+      Number.isFinite(
+        confidenceRaw
+      )
+        ? Math.max(
+            0,
+            Math.min(
+              100,
+              Math.round(
+                confidenceRaw
+              )
+            )
+          )
+        : 0;
+
+    const projection =
+      parsed.projection ?? {};
+
+    const structuredAnalysis: StructuredAnalysis =
+      {
+        direction:
+          normalizedDirection,
+
+        confidence,
+
+        strategy:
+          selectedStrategy,
+
+        timeframe:
+          selectedTimeframe,
+
+        marketState:
+          cleanString(
+            parsed.marketState,
+            "Market state could not be established."
+          ),
+
+        setup:
+          cleanString(
+            parsed.setup,
+            "No reliable setup established."
+          ),
+
+        confirmedConditions:
+          cleanStringArray(
+            parsed.confirmedConditions
+          ),
+
+        missingConditions:
+          cleanStringArray(
+            parsed.missingConditions
+          ),
+
+        entry:
+          cleanNumber(
+            parsed.entry
+          ),
+
+        stopLoss:
+          cleanNumber(
+            parsed.stopLoss
+          ),
+
+        risk:
+          cleanNumber(
+            parsed.risk
+          ),
+
+        tp1:
+          cleanNumber(
+            parsed.tp1
+          ),
+
+        tp2:
+          cleanNumber(
+            parsed.tp2
+          ),
+
+        finalTp:
+          cleanNumber(
+            parsed.finalTp
+          ),
+
+        finalTpReason:
+          cleanString(
+            parsed.finalTpReason,
+            "No valid final target established."
+          ),
+
+        invalidation:
+          cleanString(
+            parsed.invalidation,
+            "No clear invalidation established."
+          ),
+
+        aiCoach:
+          cleanString(
+            parsed.aiCoach,
+            "Wait for the required strategy conditions."
+          ),
+
+        projection: {
+          available:
+            Boolean(
+              projection.available
+            ),
+
+          setupType:
+            [
+              "demand",
+              "supply",
+              "long",
+              "short",
+              "continuation",
+              "killZone",
+              "ema",
+              "none",
+            ].includes(
+              projection.setupType
+            )
+              ? projection.setupType
+              : "none",
+
+          zoneLow:
+            cleanNumber(
+              projection.zoneLow
+            ),
+
+          zoneHigh:
+            cleanNumber(
+              projection.zoneHigh
+            ),
+
+          expectedEntry:
+            cleanNumber(
+              projection.expectedEntry
+            ),
+
+          expectedStopLoss:
+            cleanNumber(
+              projection.expectedStopLoss
+            ),
+
+          expectedTp1:
+            cleanNumber(
+              projection.expectedTp1
+            ),
+
+          expectedTp2:
+            cleanNumber(
+              projection.expectedTp2
+            ),
+
+          expectedFinalTp:
+            cleanNumber(
+              projection.expectedFinalTp
+            ),
+
+          retestRequired:
+            Boolean(
+              projection.retestRequired
+            ),
+
+          retestStatus:
+            [
+              "WAITING",
+              "TESTED",
+              "CONFIRMED",
+              "NOT_REQUIRED",
+            ].includes(
+              projection.retestStatus
+            )
+              ? projection.retestStatus
+              : "NOT_REQUIRED",
+
+          confirmationRequired:
+            cleanString(
+              projection.confirmationRequired
+            ),
+
+          confirmationStatus:
+            [
+              "REQUIRED",
+              "PENDING",
+              "CONFIRMED",
+              "NOT_REQUIRED",
+            ].includes(
+              projection.confirmationStatus
+            )
+              ? projection.confirmationStatus
+              : "NOT_REQUIRED",
+        },
+
+        chartAnnotations:
+          cleanAnnotations(
+            parsed.chartAnnotations
+          ),
+      };
+
+
+    /* ========================================================
+       SAFETY / CONSISTENCY CHECKS
+    ======================================================== */
+
+    /*
+     * A developing trade can have projected levels,
+     * but it must not accidentally be treated as confirmed.
+     */
+
+    if (
+      normalizedDirection ===
+        "BUY DEVELOPING" ||
+      normalizedDirection ===
+        "SELL DEVELOPING"
+    ) {
+      structuredAnalysis.entry =
+        null;
+
+      structuredAnalysis.stopLoss =
+        null;
+
+      structuredAnalysis.risk =
+        null;
+
+      structuredAnalysis.tp1 =
+        null;
+
+      structuredAnalysis.tp2 =
+        null;
+
+      structuredAnalysis.finalTp =
+        null;
+    }
+
+
+    /*
+     * WAITING / NO TRADE cannot contain an
+     * accidental confirmed execution plan.
+     */
+
+    if (
+      normalizedDirection ===
+        "WAITING" ||
+      normalizedDirection ===
+        "NO TRADE"
+    ) {
+      structuredAnalysis.entry =
+        null;
+
+      structuredAnalysis.stopLoss =
+        null;
+
+      structuredAnalysis.risk =
+        null;
+
+      structuredAnalysis.tp1 =
+        null;
+
+      structuredAnalysis.tp2 =
+        null;
+
+      structuredAnalysis.finalTp =
+        null;
+    }
+
+
+    /*
+     * Calculate risk again on the server
+     * when a confirmed trade has valid levels.
+     */
+
+    if (
+      (
+        normalizedDirection ===
+          "BUY" ||
+        normalizedDirection ===
+          "SELL"
+      ) &&
+      structuredAnalysis.entry !==
+        null &&
+      structuredAnalysis.stopLoss !==
+        null
+    ) {
+      const calculatedRisk =
+        normalizedDirection ===
+          "BUY"
+          ? structuredAnalysis.entry -
+            structuredAnalysis.stopLoss
+          : structuredAnalysis.stopLoss -
+            structuredAnalysis.entry;
+
+      structuredAnalysis.risk =
+        calculatedRisk > 0
+          ? calculatedRisk
+          : null;
+    }
+
+
+    /*
+     * Remove impossible confirmed targets.
+     */
+
+    if (
+      normalizedDirection ===
+      "BUY"
+    ) {
+      if (
+        structuredAnalysis.tp1 !==
+          null &&
+        structuredAnalysis.entry !==
+          null &&
+        structuredAnalysis.tp1 <=
+          structuredAnalysis.entry
+      ) {
+        structuredAnalysis.tp1 =
+          null;
+      }
+
+      if (
+        structuredAnalysis.tp2 !==
+          null &&
+        structuredAnalysis.entry !==
+          null &&
+        structuredAnalysis.tp2 <=
+          structuredAnalysis.entry
+      ) {
+        structuredAnalysis.tp2 =
+          null;
+      }
+
+      if (
+        structuredAnalysis.finalTp !==
+          null &&
+        structuredAnalysis.entry !==
+          null &&
+        structuredAnalysis.finalTp <=
+          structuredAnalysis.entry
+      ) {
+        structuredAnalysis.finalTp =
+          null;
+      }
+    }
+
+
+    if (
+      normalizedDirection ===
+      "SELL"
+    ) {
+      if (
+        structuredAnalysis.tp1 !==
+          null &&
+        structuredAnalysis.entry !==
+          null &&
+        structuredAnalysis.tp1 >=
+          structuredAnalysis.entry
+      ) {
+        structuredAnalysis.tp1 =
+          null;
+      }
+
+      if (
+        structuredAnalysis.tp2 !==
+          null &&
+        structuredAnalysis.entry !==
+          null &&
+        structuredAnalysis.tp2 >=
+          structuredAnalysis.entry
+      ) {
+        structuredAnalysis.tp2 =
+          null;
+      }
+
+      if (
+        structuredAnalysis.finalTp !==
+          null &&
+        structuredAnalysis.entry !==
+          null &&
+        structuredAnalysis.finalTp >=
+          structuredAnalysis.entry
+      ) {
+        structuredAnalysis.finalTp =
+          null;
+      }
+    }
+
+
+    /* ========================================================
+       HUMAN-READABLE ANALYSIS
+    ======================================================== */
+
+    const analysis =
+      buildAnalysisText(
+        structuredAnalysis
+      );
+
+
+    /* ========================================================
+       SUCCESS
+    ======================================================== */
 
     return Response.json({
       success: true,
-      strategy: selectedStrategy,
+
+      strategy:
+        selectedStrategy,
+
+      timeframe:
+        selectedTimeframe,
+
       analysis,
+
+      tradeSignal: {
+        direction:
+          structuredAnalysis.direction,
+
+        confidence:
+          structuredAnalysis.confidence,
+
+        entry:
+          structuredAnalysis.entry,
+
+        stopLoss:
+          structuredAnalysis.stopLoss,
+
+        risk:
+          structuredAnalysis.risk,
+
+        tp1:
+          structuredAnalysis.tp1,
+
+        tp2:
+          structuredAnalysis.tp2,
+
+        finalTp:
+          structuredAnalysis.finalTp,
+
+        invalidation:
+          structuredAnalysis.invalidation,
+      },
+
+      projection:
+        structuredAnalysis.projection,
+
+      chartAnnotations:
+        structuredAnalysis.chartAnnotations,
+
+      marketState:
+        structuredAnalysis.marketState,
+
+      setup:
+        structuredAnalysis.setup,
+
+      confirmedConditions:
+        structuredAnalysis.confirmedConditions,
+
+      missingConditions:
+        structuredAnalysis.missingConditions,
+
+      aiCoach:
+        structuredAnalysis.aiCoach,
     });
 
+
   } catch (error) {
-    console.error("Chart analysis error:", error);
+
+    console.error(
+      "Chart analysis error:",
+      error
+    );
 
     return Response.json(
       {
-        error: "Unable to analyze the chart.",
+        error:
+          "Unable to analyze the chart.",
       },
       { status: 500 }
     );
