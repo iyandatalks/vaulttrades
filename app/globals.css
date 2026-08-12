@@ -6,9 +6,19 @@ html,
 body {
   margin: 0;
   min-height: 100%;
-  background: #f5f6f8;
-  color: #111827;
+  background: #070b12;
+  color: #f8fafc;
   font-family: Arial, Helvetica, sans-serif;
+}
+
+body {
+  background:
+    radial-gradient(
+      circle at top right,
+      rgba(212, 175, 55, 0.06),
+      transparent 32%
+    ),
+    #070b12;
 }
 
 button,
@@ -16,11 +26,19 @@ input {
   font: inherit;
 }
 
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
 .shell {
   max-width: 1180px;
   margin: 0 auto;
   padding: 28px 20px 60px;
 }
+
+/* ============================================================
+   HEADER
+============================================================ */
 
 .header {
   display: flex;
@@ -30,19 +48,55 @@ input {
   margin-bottom: 28px;
 }
 
-.brand {
+.brand-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.logo {
+  width: auto;
+  max-width: 210px;
+  height: 52px;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.brand-fallback {
   font-weight: 800;
   letter-spacing: -0.03em;
   font-size: 24px;
+  color: #d4af37;
+}
+
+.tagline {
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.slogan {
+  color: #d4af37;
+  font-size: 12px;
+  font-weight: 600;
+  font-style: italic;
 }
 
 .badge {
-  font-size: 12px;
-  padding: 6px 10px;
-  border: 1px solid #d1d5db;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 7px 12px;
+  border: 1px solid #d4af37;
   border-radius: 999px;
-  background: #fff;
+  background: #0b111b;
+  color: #d4af37;
 }
+
+/* ============================================================
+   MAIN GRID
+============================================================ */
 
 .grid {
   display: grid;
@@ -50,54 +104,100 @@ input {
   gap: 20px;
 }
 
+/* ============================================================
+   CARDS
+============================================================ */
+
 .card {
-  background: #fff;
-  border: 1px solid #e5e7eb;
+  background: #0d1420;
+  color: #f8fafc;
+  border: 1px solid #202b3a;
   border-radius: 16px;
   padding: 20px;
-  box-shadow: 0 5px 18px rgba(0, 0, 0, 0.04);
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.28);
 }
 
 .title {
   margin: 0 0 6px;
   font-size: 18px;
+  color: #ffffff;
+}
+
+.title::first-letter {
+  color: #d4af37;
 }
 
 .muted {
-  color: #6b7280;
+  color: #a7b0bd;
   font-size: 13px;
   line-height: 1.5;
 }
+
+/* ============================================================
+   STRATEGIES
+============================================================ */
 
 .strategy {
   width: 100%;
   text-align: left;
   padding: 14px;
-  border: 1px solid #e5e7eb;
-  background: #fff;
+  border: 1px solid #263244;
+  background: #0a111b;
+  color: #ffffff;
   border-radius: 12px;
   margin-top: 10px;
   cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    transform 0.15s ease;
+}
+
+.strategy:hover {
+  border-color: #a98620;
+  transform: translateY(-1px);
 }
 
 .strategy.active {
-  border-color: #111827;
-  background: #f3f4f6;
+  border-color: #d4af37;
+  background: #0a111b;
 }
 
 .strategy strong {
   display: block;
   margin-bottom: 4px;
+  color: #d4af37;
+  font-weight: 800;
 }
+
+/* ============================================================
+   UPLOAD
+============================================================ */
 
 .upload {
   display: block;
-  border: 2px dashed #d1d5db;
+  border: 2px dashed #334155;
+  background: #080e17;
+  color: #ffffff;
   border-radius: 14px;
   padding: 36px 20px;
   text-align: center;
   cursor: pointer;
   margin-top: 16px;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.upload:hover {
+  border-color: #d4af37;
+  background: #0a111b;
+}
+
+.upload strong {
+  color: #d4af37;
+  font-weight: 800;
 }
 
 .preview {
@@ -108,6 +208,10 @@ input {
   display: block;
 }
 
+/* ============================================================
+   ACTIONS
+============================================================ */
+
 .actions {
   display: flex;
   gap: 10px;
@@ -116,28 +220,156 @@ input {
 }
 
 .primary {
-  background: #111827;
-  color: #fff;
+  background: #d4af37;
+  color: #070b12;
   border: 0;
   border-radius: 10px;
   padding: 12px 16px;
   cursor: pointer;
-  font-weight: 700;
+  font-weight: 800;
+  transition:
+    background 0.15s ease,
+    transform 0.15s ease;
 }
 
-.secondary {
-  background: #fff;
-  color: #111827;
-  border: 1px solid #d1d5db;
-  border-radius: 10px;
-  padding: 12px 16px;
-  cursor: pointer;
+.primary:hover:not(:disabled) {
+  background: #e2c35a;
+  transform: translateY(-1px);
 }
 
 .primary:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
+
+.secondary {
+  background: #0a111b;
+  color: #ffffff;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  padding: 12px 16px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.secondary:hover:not(:disabled) {
+  border-color: #d4af37;
+  color: #d4af37;
+}
+
+.secondary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   TIMEFRAME BUTTONS
+============================================================ */
+
+.timeframe-button {
+  appearance: none;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  border: 1px solid #263244;
+  background: #080e17;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.timeframe-button:hover:not(:disabled) {
+  border-color: #a98620;
+  color: #d4af37;
+}
+
+.timeframe-button.selected {
+  border: 2px solid #d4af37;
+  background: #080e17;
+  color: #d4af37;
+  font-weight: 800;
+  box-shadow: none;
+}
+
+.timeframe-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* ============================================================
+   SIGNAL
+============================================================ */
+
+.signal-buy {
+  border: 1px solid #d4af37;
+  background: #0b1513;
+  color: #d4af37;
+}
+
+.signal-sell {
+  border: 1px solid #d4af37;
+  background: #160d0d;
+  color: #d4af37;
+}
+
+.signal-neutral {
+  border: 1px solid #334155;
+  background: #0a111b;
+  color: #ffffff;
+}
+
+/* ============================================================
+   FOOTER
+============================================================ */
+
+.footer {
+  margin-top: 40px;
+  padding: 28px 10px 30px;
+  text-align: center;
+  border-top: 1px solid #202b3a;
+}
+
+.footer-brand {
+  color: #d4af37;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.footer-disclaimer {
+  max-width: 760px;
+  margin: 0 auto;
+  color: #7f8a99;
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.footer-disclaimer strong {
+  color: #a7b0bd;
+}
+
+.footer-copy {
+  margin-top: 14px;
+  color: #697586;
+  font-size: 11px;
+}
+
+.footer-developed {
+  margin-top: 4px;
+  color: #596575;
+  font-size: 10px;
+}
+
+/* ============================================================
+   RESPONSIVE
+============================================================ */
 
 @media (max-width: 800px) {
   .grid {
@@ -147,5 +379,24 @@ input {
   .header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .logo {
+    max-width: 180px;
+    height: 46px;
+  }
+
+  .badge {
+    align-self: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .shell {
+    padding: 20px 14px 45px;
+  }
+
+  .card {
+    padding: 16px;
   }
 }
