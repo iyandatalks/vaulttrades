@@ -63,6 +63,7 @@ button {
 }
 
 .brand-fallback {
+  display: none;
   font-weight: 800;
   letter-spacing: -0.03em;
   font-size: 24px;
@@ -73,7 +74,6 @@ button {
   color: #ffffff;
   font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.01em;
 }
 
 .slogan {
@@ -124,14 +124,17 @@ button {
   color: #ffffff;
 }
 
-.title::first-letter {
-  color: #d4af37;
-}
-
 .muted {
   color: #a7b0bd;
   font-size: 13px;
   line-height: 1.5;
+}
+
+.section-label {
+  color: #d4af37;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
 }
 
 /* ============================================================
@@ -169,6 +172,72 @@ button {
   margin-bottom: 4px;
   color: #d4af37;
   font-weight: 800;
+}
+
+/* ============================================================
+   TIMEFRAME
+============================================================ */
+
+.timeframe-section {
+  margin-top: 18px;
+  padding: 14px;
+  border: 1px solid #202b3a;
+  border-radius: 12px;
+  background: #080e17;
+}
+
+.timeframe-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.timeframe-button {
+  appearance: none;
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  border: 1px solid #263244;
+  background: #080e17;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.timeframe-button:hover:not(:disabled) {
+  border-color: #a98620;
+  color: #d4af37;
+}
+
+.timeframe-button.selected {
+  border: 2px solid #d4af37;
+  background: #080e17;
+  color: #d4af37;
+  font-weight: 800;
+  box-shadow: none;
+}
+
+.timeframe-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.selected-timeframe {
+  margin-top: 10px;
+  color: #a7b0bd;
+  font-size: 11px;
+}
+
+.selected-timeframe strong {
+  color: #d4af37;
+  margin-left: 5px;
 }
 
 /* ============================================================
@@ -263,65 +332,237 @@ button {
 }
 
 /* ============================================================
-   TIMEFRAME BUTTONS
+   ERROR
 ============================================================ */
 
-.timeframe-button {
-  appearance: none;
-  width: 100%;
-  min-height: 44px;
-  padding: 8px 10px;
-  border-radius: 9px;
-  border: 1px solid #263244;
-  background: #080e17;
-  color: #ffffff;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  outline: none;
-  transition:
-    border-color 0.15s ease,
-    color 0.15s ease;
+.error-box {
+  margin-top: 18px;
+  padding: 14px;
+  border: 1px solid #7f1d1d;
+  background: #160d0d;
+  border-radius: 12px;
 }
 
-.timeframe-button:hover:not(:disabled) {
-  border-color: #a98620;
-  color: #d4af37;
-}
-
-.timeframe-button.selected {
-  border: 2px solid #d4af37;
-  background: #080e17;
-  color: #d4af37;
-  font-weight: 800;
-  box-shadow: none;
-}
-
-.timeframe-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
+.error-box strong {
+  color: #fca5a5;
 }
 
 /* ============================================================
-   SIGNAL
+   EXECUTION RESULT
 ============================================================ */
 
+.execution-card {
+  margin-top: 20px;
+  overflow: hidden;
+}
+
 .signal-buy {
-  border: 1px solid #d4af37;
+  border-color: #d4af37;
   background: #0b1513;
-  color: #d4af37;
 }
 
 .signal-sell {
-  border: 1px solid #d4af37;
+  border-color: #d4af37;
   background: #160d0d;
-  color: #d4af37;
 }
 
 .signal-neutral {
-  border: 1px solid #334155;
+  border-color: #334155;
   background: #0a111b;
+}
+
+.execution-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #202b3a;
+}
+
+.execution-label {
+  color: #a7b0bd;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.execution-direction {
+  margin-top: 5px;
+  color: #d4af37;
+  font-size: 30px;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.confidence-box {
+  text-align: right;
+}
+
+.confidence-box span {
+  display: block;
+  color: #a7b0bd;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.confidence-box strong {
+  display: block;
+  margin-top: 4px;
+  color: #d4af37;
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.execution-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.execution-item {
+  padding: 14px;
+  border: 1px solid #202b3a;
+  border-radius: 10px;
+  background: #080e17;
+}
+
+.execution-item span {
+  display: block;
+  color: #7f8a99;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.execution-item strong {
+  display: block;
+  margin-top: 6px;
   color: #ffffff;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.execution-item:nth-child(1) strong,
+.execution-item:nth-child(4) strong,
+.execution-item:nth-child(5) strong,
+.execution-item:nth-child(6) strong {
+  color: #d4af37;
+}
+
+.execution-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #202b3a;
+  color: #7f8a99;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.execution-status strong {
+  color: #d4af37;
+  margin-right: 12px;
+}
+
+/* ============================================================
+   TRADE ANALYSIS
+============================================================ */
+
+.analysis-card {
+  margin-top: 20px;
+}
+
+.analysis-text {
+  margin-top: 16px;
+  color: #e5e7eb;
+  font-size: 13px;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ============================================================
+   AI COACH
+============================================================ */
+
+.coach-card {
+  margin-top: 20px;
+}
+
+.coach-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.coach-question {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.coach-question input {
+  flex: 1;
+  min-width: 0;
+  background: #080e17;
+  color: #ffffff;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  padding: 12px 14px;
+  outline: none;
+}
+
+.coach-question input::placeholder {
+  color: #667085;
+}
+
+.coach-question input:focus {
+  border-color: #d4af37;
+}
+
+.coach-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.coach-suggestions button {
+  border: 1px solid #263244;
+  background: #080e17;
+  color: #a7b0bd;
+  border-radius: 999px;
+  padding: 7px 10px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.coach-suggestions button:hover {
+  border-color: #d4af37;
+  color: #d4af37;
+}
+
+.coach-response {
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid #263244;
+  border-radius: 12px;
+  background: #080e17;
+}
+
+.coach-response-text {
+  margin-top: 10px;
+  color: #f8fafc;
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
 }
 
 /* ============================================================
@@ -388,6 +629,33 @@ button {
 
   .badge {
     align-self: flex-start;
+  }
+
+  .execution-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .timeframe-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .execution-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .execution-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .confidence-box {
+    text-align: left;
+  }
+
+  .coach-question {
+    flex-direction: column;
   }
 }
 
