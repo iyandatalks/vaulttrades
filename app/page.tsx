@@ -14,9 +14,9 @@ const strategies = {
 
   ema: {
     name: "EMA",
-    description: "EMA trend model",
+    description: "EMA20 Pullback Morning Engine",
     detail:
-      "24-hour model requiring trend, volume and momentum confirmation",
+      "EMA20 pullback, market structure, rejection, break/reclaim, UT Bot OR SMI confirmation",
   },
 
   continuation: {
@@ -29,8 +29,22 @@ const strategies = {
 
 export default function Home() {
   const [strategy, setStrategy] = useState<Strategy>("killZone");
+
   const [chart, setChart] = useState<string | null>(null);
+
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
   const [fileName, setFileName] = useState("");
+
+  const [analysis, setAnalysis] = useState("");
+
+  const [loading, setLoading] = useState(false);
+
+  const [error, setError] = useState("");
+
+  // ============================================================
+  // UPLOAD
+  // ============================================================
 
   function handleUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -42,7 +56,10 @@ export default function Home() {
       return;
     }
 
+    setSelectedFile(file);
     setFileName(file.name);
+    setAnalysis("");
+    setError("");
 
     const reader = new FileReader();
 
@@ -53,13 +70,77 @@ export default function Home() {
     reader.readAsDataURL(file);
   }
 
+  // ============================================================
+  // CLEAR
+  // ============================================================
+
   function clearChart() {
     setChart(null);
+    setSelectedFile(null);
     setFileName("");
+    setAnalysis("");
+    setError("");
+  }
+
+  // ============================================================
+  // ANALYZE CHART
+  // ============================================================
+
+  async function analyzeChart() {
+    if (!selectedFile) {
+      setError("Please upload a chart first.");
+      return;
+    }
+
+    setLoading(true);
+    setAnalysis("");
+    setError("");
+
+    try {
+      const formData = new FormData();
+
+      formData.append("image", selectedFile);
+      formData.append("strategy", strategy);
+
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error || "Unable to analyze the chart."
+        );
+      }
+
+      if (!data?.analysis) {
+        throw new Error(
+          "The AI returned an empty analysis."
+        );
+      }
+
+      setAnalysis(data.analysis);
+    } catch (err) {
+      console.error("Chart analysis error:", err);
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to analyze the chart."
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
     <main className="shell">
+
+      {/* ========================================================
+          HEADER
+      ======================================================== */}
 
       <header className="header">
 
@@ -74,14 +155,17 @@ export default function Home() {
         </div>
 
         <div className="badge">
-          BUILD 1
+          AI ENGINE
         </div>
 
       </header>
 
+
       <div className="grid">
 
-        {/* STRATEGY PANEL */}
+        {/* ======================================================
+            STRATEGY PANEL
+        ====================================================== */}
 
         <section className="card">
 
@@ -93,12 +177,21 @@ export default function Home() {
             Choose the strategy you want the chart analyzer to apply.
           </p>
 
+
+          {/* KILLER ZONE */}
+
           <button
+            type="button"
             className={`strategy ${
               strategy === "killZone" ? "active" : ""
             }`}
-            onClick={() => setStrategy("killZone")}
+            onClick={() => {
+              setStrategy("killZone");
+              setAnalysis("");
+              setError("");
+            }}
           >
+
             <strong>
               Killer Zone
             </strong>
@@ -106,29 +199,49 @@ export default function Home() {
             <span className="muted">
               London Kill Zone model
             </span>
+
           </button>
 
+
+          {/* EMA */}
+
           <button
+            type="button"
             className={`strategy ${
               strategy === "ema" ? "active" : ""
             }`}
-            onClick={() => setStrategy("ema")}
+            onClick={() => {
+              setStrategy("ema");
+              setAnalysis("");
+              setError("");
+            }}
           >
+
             <strong>
               EMA
             </strong>
 
             <span className="muted">
-              24-hour trend, volume and momentum model
+              EMA20 pullback + structure + momentum model
             </span>
+
           </button>
 
+
+          {/* CONTINUATION */}
+
           <button
+            type="button"
             className={`strategy ${
               strategy === "continuation" ? "active" : ""
             }`}
-            onClick={() => setStrategy("continuation")}
+            onClick={() => {
+              setStrategy("continuation");
+              setAnalysis("");
+              setError("");
+            }}
           >
+
             <strong>
               Continuation
             </strong>
@@ -136,12 +249,15 @@ export default function Home() {
             <span className="muted">
               Expansion → correction → retest → continuation
             </span>
+
           </button>
 
         </section>
 
 
-        {/* CHART ANALYZER */}
+        {/* ======================================================
+            CHART ANALYZER
+        ====================================================== */}
 
         <section className="card">
 
@@ -151,10 +267,14 @@ export default function Home() {
 
           <p className="muted">
             Strategy selected:{" "}
+
             <strong>
               {strategies[strategy].name}
             </strong>
           </p>
+
+
+          {/* UPLOAD AREA */}
 
           <div
             className="upload"
@@ -200,35 +320,64 @@ export default function Home() {
           </div>
 
 
+          {/* ACTIONS */}
+
           <div className="actions">
 
             <button
+              type="button"
               className="primary"
-              disabled={!chart}
-              onClick={() =>
-                alert(
-                  "AI analysis engine will be connected in the next build."
-                )
-              }
+              disabled={!selectedFile || loading}
+              onClick={analyzeChart}
             >
-              Analyze Chart
+              {loading
+                ? "Analyzing Chart..."
+                : "Analyze Chart"}
             </button>
 
+
             <button
+              type="button"
               className="secondary"
               onClick={clearChart}
+              disabled={loading}
             >
               Clear
             </button>
 
           </div>
 
+
+          {/* ERROR */}
+
+          {error && (
+            <div
+              className="card"
+              style={{
+                marginTop: "20px",
+                border: "1px solid #ef4444",
+              }}
+            >
+
+              <strong>
+                Analysis Error
+              </strong>
+
+              <p className="muted">
+                {error}
+              </p>
+
+            </div>
+          )}
+
         </section>
 
       </div>
 
 
-      {/* CURRENT STRATEGY */}
+      {/* ========================================================
+          CURRENT STRATEGY
+      ======================================================== */}
 
       <section
         className="card"
@@ -254,6 +403,35 @@ export default function Home() {
         </p>
 
       </section>
+
+
+      {/* ========================================================
+          AI ANALYSIS RESULT
+      ======================================================== */}
+
+      {analysis && (
+
+        <section
+          className="card"
+          style={{ marginTop: "20px" }}
+        >
+
+          <h2 className="title">
+            AI Trade Analysis
+          </h2>
+
+          <div
+            style={{
+              whiteSpace: "pre-wrap",
+              lineHeight: 1.7,
+            }}
+          >
+            {analysis}
+          </div>
+
+        </section>
+
+      )}
 
     </main>
   );
