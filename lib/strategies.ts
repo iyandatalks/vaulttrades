@@ -1949,8 +1949,6 @@ export function getStrategyRules(strategy: StrategyId): string {
   return STRATEGY_RULES[strategy];
 }
 
-  `,
-};
 
 // ============================================================
 // AI COACH — TRADER QUESTION / EXPLANATION LAYER
