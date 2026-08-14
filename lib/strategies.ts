@@ -1942,8 +1942,6 @@ If evidence is insufficient:
 WAITING
 or
 NO TRADE.
-`,
-};
 
 export function getStrategyRules(strategy: StrategyId): string {
   return STRATEGY_RULES[strategy];
