@@ -1,233 +1,97 @@
 /**
  * VaultTrades — Sweep & Engulfing
- * Source of truth: supplied Pine Script v6 "Sweep and Engulfing".
- * Institutional liquidity sweep + strong displacement/engulfing + opposing liquidity.
- *
- * TradingView drawing/table/alert primitives are represented as structured
- * strategy state for VaultTrades. Entry, risk and target rules are preserved.
+ * Source of truth: supplied Pine Script v6 "Sweep and Engulfing" (2,574 lines).
+ * TradingView visual objects are represented as structured analysis state.
  */
+import type { StrategyRuleSet } from "./types";
 
 export const SWEEP_ENGULFING_ID = "sweepEngulfing" as const;
 export const SWEEP_ENGULFING_NAME = "Sweep and Engulfing" as const;
+export type SweepCandle={open:number;high:number;low:number;close:number;volume?:number;time?:number|string};
+export type StopLossMethod="Liquidity-Aware"|"ATR"|"Sweep";
+export type PreviousCandleDirection="Same Direction"|"Opposite Direction"|"Any";
 
-export type SweepDirection = "LONG" | "SHORT" | "NONE";
-export type StructureBias = "Bullish" | "Bearish" | "Neutral";
-export type StructureEvent = "BULL BOS" | "BEAR BOS" | "BULL CHOCH" | "BEAR CHOCH" | "NONE";
+export interface SweepEngulfingSettings{
+ enableEngine:boolean; minimumRR:number; maxDrawdown:number; stopLossMethod:StopLossMethod; atrLength:number; atrMultiplier:number; liquidityStopLookback:number; liquidityStopBufferATR:number; maxStopATR:number; tpMultiplier:number;
+ externalSwingLength:number; internalSwingLength:number; bosLookback:number; trendEMA:number;
+ requireLiquiditySweep:boolean; sweepConfirmationBody:boolean; sweepValidityBars:number;
+ volumeLength:number; volumeSpikeMultiplier:number; zoneVolumeWeight:number; minimumVolumeScore:number; requireVolumeConfirmation:boolean;
+ confirmationCandles:number; requireEngulfing:boolean; useEMAFilter:boolean; invertStrategy:boolean; previousCandleDirection:PreviousCandleDirection;
+ engulfBodyMultiplier:number; engulfATRMultiplier:number; requireFullBodyEngulf:boolean;
+ srLookback:number; srToleranceATR:number; srMinimumScore:number;
+}
+export const DEFAULT_SWEEP_ENGULFING_SETTINGS:SweepEngulfingSettings={enableEngine:true,minimumRR:1.63,maxDrawdown:5,stopLossMethod:"Liquidity-Aware",atrLength:14,atrMultiplier:1.8,liquidityStopLookback:20,liquidityStopBufferATR:.20,maxStopATR:2.5,tpMultiplier:2,externalSwingLength:10,internalSwingLength:3,bosLookback:50,trendEMA:200,requireLiquiditySweep:true,sweepConfirmationBody:true,sweepValidityBars:3,volumeLength:20,volumeSpikeMultiplier:1.5,zoneVolumeWeight:35,minimumVolumeScore:70,requireVolumeConfirmation:false,confirmationCandles:2,requireEngulfing:true,useEMAFilter:true,invertStrategy:false,previousCandleDirection:"Same Direction",engulfBodyMultiplier:1.2,engulfATRMultiplier:.5,requireFullBodyEngulf:true,srLookback:50,srToleranceATR:.25,srMinimumScore:40};
 
-export interface SweepCandle { open: number; high: number; low: number; close: number; volume?: number; time?: number | string; }
+export interface SweepEngulfingInput{candles:SweepCandle[];settings?:Partial<SweepEngulfingSettings>}
+export interface SweepResult{
+ strategyId:typeof SWEEP_ENGULFING_ID;strategyName:typeof SWEEP_ENGULFING_NAME;direction:"LONG"|"SHORT"|"NONE";signal:"BUY"|"SELL"|"WAIT";isNewSignal:boolean;
+ entryPrice:number|null;stopLoss:number|null;target1:number|null;target2:number|null;target3:number|null;riskReward:number|null;confidence:null;
+ structure:{bias:"Bullish"|"Bearish"|"Neutral";trend:-1|0|1;event:"BULL BOS"|"BEAR BOS"|"BULL CHOCH"|"BEAR CHOCH"|"NONE";bullishBOS:boolean;bearishBOS:boolean;bullishCHOCH:boolean;bearishCHOCH:boolean;bullishMSS:boolean;bearishMSS:boolean;externalHigh:number|null;externalLow:number|null;previousExternalHigh:number|null;previousExternalLow:number|null;higherHigh:boolean;lowerHigh:boolean;higherLow:boolean;lowerLow:boolean;strongHigh:boolean;weakHigh:boolean;strongLow:boolean;weakLow:boolean};
+ liquidity:{bullishSweepConfirmed:boolean;bearishSweepConfirmed:boolean;bullishSweepActive:boolean;bearishSweepActive:boolean;bullishSweepPrice:number|null;bearishSweepPrice:number|null};
+ engulfing:{bullish:boolean;bearish:boolean;body:number;previousBody:number;bodyVsATR:number;bodyExpansion:boolean};
+ volume:{averageVolume:number;relativeVolume:number;institutionalVolume:boolean;volumeScore:number;volumeConfirmed:boolean};
+ opposingLiquidity:number|null;
+ support:{level:number|null;strength:number;status:string;touch:boolean;reaction:boolean};resistance:{level:number|null;strength:number;status:string;touch:boolean;reaction:boolean};
+ evidence:string[];invalidation:string[];message:string;
+}
+interface State{externalHigh:number|null;externalLow:number|null;previousExternalHigh:number|null;previousExternalLow:number|null;externalHighBar:number|null;externalLowBar:number|null;previousExternalHighBar:number|null;previousExternalLowBar:number|null;internalHigh:number|null;internalLow:number|null;structureTrend:-1|0|1;bullishSweepBar:number|null;bearishSweepBar:number|null;bullishSweepPrice:number|null;bearishSweepPrice:number|null;prevFinalLong:boolean;prevFinalShort:boolean}
+function ema(v:number[],n:number){if(!v.length)return[];const r=new Array(v.length);const a=2/(n+1);r[0]=v[0];for(let i=1;i<v.length;i++)r[i]=a*v[i]+(1-a)*r[i-1];return r}
+function sma(v:number[],n:number,i:number){if(i+1<n)return NaN;let x=0;for(let j=i-n+1;j<=i;j++)x+=v[j];return x/n}
+function rma(v:number[],n:number){const r=new Array<number>(v.length).fill(NaN);if(!v.length)return r;let sum=0;for(let i=0;i<v.length;i++){if(i<n){sum+=v[i];if(i===n-1)r[i]=sum/n}else r[i]=(r[i-1]*(n-1)+v[i])/n}return r}
+function atrSeries(c:SweepCandle[],n:number){const tr=c.map((x,i)=>i?Math.max(x.high-x.low,Math.abs(x.high-c[i-1].close),Math.abs(x.low-c[i-1].close)):x.high-x.low);return rma(tr,n)}
+function pivotHigh(c:SweepCandle[],i:number,n:number){if(i<n||i+n>=c.length)return false;const x=c[i].high;for(let j=i-n;j<=i+n;j++)if(j!==i&&c[j].high>=x)return false;return true}
+function pivotLow(c:SweepCandle[],i:number,n:number){if(i<n||i+n>=c.length)return false;const x=c[i].low;for(let j=i-n;j<=i+n;j++)if(j!==i&&c[j].low<=x)return false;return true}
+function nearestHigh(e:number,a:number|null,b:number|null){const x=[a,b].filter((v):v is number=>v!==null&&v>e);return x.length?Math.min(...x):null}
+function nearestLow(e:number,a:number|null,b:number|null){const x=[a,b].filter((v):v is number=>v!==null&&v<e);return x.length?Math.max(...x):null}
+function sr(c:SweepCandle[],level:number|null,a:number,tolATR:number,look:number,support:boolean){if(level===null)return{score:0,touch:false,reaction:false};const tol=a*tolATR,start=Math.max(0,c.length-look),vol=c.map(x=>x.volume??0),av=vol.length?vol.reduce((x,y)=>x+y,0)/vol.length:0;let t=0,r=0,v=0,lt=false,lr=false;for(let i=start;i<c.length;i++){const x=c[i],touch=support?x.low<=level+tol&&x.high>=level-tol:x.high>=level-tol&&x.low<=level+tol,reaction=support?touch&&x.close>level:touch&&x.close<level;if(touch)t++;if(reaction)r++;if(reaction&&av>0&&(x.volume??0)/av>=1)v++;if(i===c.length-1){lt=touch;lr=reaction}}return{score:Math.min(100,Math.min(t*10,40)+Math.min(r*10,35)+Math.min(v*5,25)),touch:lt,reaction:lr}}
+function srStatus(x:number){return x>=80?"VERY STRONG":x>=65?"STRONG":x>=50?"MODERATE":"WEAK"}
 
-export interface SweepEngulfingSettings {
-  enableEngine: boolean; minimumRR: number; stopLossMethod: "ATR" | "Sweep"; atrLength: number; atrMultiplier: number; tpMultiplier: number;
-  externalSwingLength: number; internalSwingLength: number; trendEMA: number; requireLiquiditySweep: boolean; sweepConfirmationBody: boolean;
-  sweepValidityBars: number; volumeLength: number; volumeSpikeMultiplier: number; minimumVolumeScore: number; requireVolumeConfirmation: boolean;
-  requireEngulfing: boolean; useEMAFilter: boolean; invertStrategy: boolean; previousCandleDirection: "Same Direction" | "Opposite Direction" | "Any";
-  engulfBodyMultiplier: number; engulfATRMultiplier: number; requireFullBodyEngulf: boolean; srLookback: number; srToleranceATR: number; srMinimumScore: number;
+export function analyzeSweepEngulfing(input:SweepEngulfingInput):SweepResult{
+ const s={...DEFAULT_SWEEP_ENGULFING_SETTINGS,...(input.settings??{})},c=input.candles;if(!c.length)return emptyResult();
+ const st:State={externalHigh:null,externalLow:null,previousExternalHigh:null,previousExternalLow:null,externalHighBar:null,externalLowBar:null,previousExternalHighBar:null,previousExternalLowBar:null,internalHigh:null,internalLow:null,structureTrend:0,bullishSweepBar:null,bearishSweepBar:null,bullishSweepPrice:null,bearishSweepPrice:null,prevFinalLong:false,prevFinalShort:false};
+ let last:SweepResult=emptyResult();
+ for(let i=0;i<c.length;i++)last=evaluateBar(c,i,s,st);
+ return last;
+}
+function emptyResult():SweepResult{return{strategyId:SWEEP_ENGULFING_ID,strategyName:SWEEP_ENGULFING_NAME,direction:"NONE",signal:"WAIT",isNewSignal:false,entryPrice:null,stopLoss:null,target1:null,target2:null,target3:null,riskReward:null,confidence:null,structure:{bias:"Neutral",trend:0,event:"NONE",bullishBOS:false,bearishBOS:false,bullishCHOCH:false,bearishCHOCH:false,bullishMSS:false,bearishMSS:false,externalHigh:null,externalLow:null,previousExternalHigh:null,previousExternalLow:null,higherHigh:false,lowerHigh:false,higherLow:false,lowerLow:false,strongHigh:false,weakHigh:false,strongLow:false,weakLow:false},liquidity:{bullishSweepConfirmed:false,bearishSweepConfirmed:false,bullishSweepActive:false,bearishSweepActive:false,bullishSweepPrice:null,bearishSweepPrice:null},engulfing:{bullish:false,bearish:false,body:0,previousBody:0,bodyVsATR:0,bodyExpansion:false},volume:{averageVolume:0,relativeVolume:0,institutionalVolume:false,volumeScore:0,volumeConfirmed:false},opposingLiquidity:null,support:{level:null,strength:0,status:"WEAK",touch:false,reaction:false},resistance:{level:null,strength:0,status:"WEAK",touch:false,reaction:false},evidence:[],invalidation:[],message:"WAIT"}}
+
+function evaluateBar(c:SweepCandle[],i:number,s:SweepEngulfingSettings,st:State):SweepResult{
+ const x=c[i],p=i?c[i-1]:null,aS=atrSeries(c.slice(0,i+1),s.atrLength),atr=aS[i];const closes=c.slice(0,i+1).map(q=>q.close),trend=ema(closes,s.trendEMA)[i];const vols=c.slice(0,i+1).map(q=>q.volume??0),av=sma(vols,s.volumeLength,i),rv=Number.isFinite(av)&&av>0?(x.volume??0)/av:0,vs=Math.min(100,rv/s.volumeSpikeMultiplier*100),inst=rv>=s.volumeSpikeMultiplier,volumeOK=!s.requireVolumeConfirmation||vs>=s.minimumVolumeScore;
+ const oldHigh=st.externalHigh,oldLow=st.externalLow,oldHighBar=st.externalHighBar,oldLowBar=st.externalLowBar,prevTrend=st.structureTrend;
+ const ep=i-s.externalSwingLength,ip=i-s.internalSwingLength;let hh=false,lh=false,hl=false,ll=false;
+ if(ep>=0&&pivotHigh(c,ep,s.externalSwingLength)){st.previousExternalHigh=st.externalHigh;st.previousExternalHighBar=st.externalHighBar;st.externalHigh=c[ep].high;st.externalHighBar=ep}
+ if(ep>=0&&pivotLow(c,ep,s.externalSwingLength)){st.previousExternalLow=st.externalLow;st.previousExternalLowBar=st.externalLowBar;st.externalLow=c[ep].low;st.externalLowBar=ep}
+ if(ip>=0&&pivotHigh(c,ip,s.internalSwingLength))st.internalHigh=c[ip].high;if(ip>=0&&pivotLow(c,ip,s.internalSwingLength))st.internalLow=c[ip].low;
+ if(st.previousExternalHigh!==null&&st.externalHigh!==null){hh=st.externalHigh>st.previousExternalHigh;lh=st.externalHigh<st.previousExternalHigh}if(st.previousExternalLow!==null&&st.externalLow!==null){hl=st.externalLow>st.previousExternalLow;ll=st.externalLow<st.previousExternalLow}
+ if(hh&&hl)st.structureTrend=1;if(lh&&ll)st.structureTrend=-1;
+ const bullishBreak=oldHigh!==null&&p!==null&&x.close>oldHigh&&p.close<=oldHigh,bearishBreak=oldLow!==null&&p!==null&&x.close<oldLow&&p.close>=oldLow;let bullBOS=false,bearBOS=false,bullCHOCH=false,bearCHOCH=false,bullMSS=false,bearMSS=false;
+ if(bullishBreak){if(prevTrend===-1){bullCHOCH=true;bullMSS=true}else bullBOS=true;st.structureTrend=1}if(bearishBreak){if(prevTrend===1){bearCHOCH=true;bearMSS=true}else bearBOS=true;st.structureTrend=-1}
+ const sweepLow=oldLow,sweepHigh=oldHigh,bullSweep=sweepLow!==null&&x.low<sweepLow&&x.close>sweepLow,bearSweep=sweepHigh!==null&&x.high>sweepHigh&&x.close<sweepHigh,bullConfirmed=bullSweep&&(!s.sweepConfirmationBody||x.close>x.open),bearConfirmed=bearSweep&&(!s.sweepConfirmationBody||x.close<x.open);
+ if(bullConfirmed){st.bullishSweepBar=i;st.bullishSweepPrice=x.low}if(bearConfirmed){st.bearishSweepBar=i;st.bearishSweepPrice=x.high}const bullActive=st.bullishSweepBar!==null&&i-st.bullishSweepBar<=s.sweepValidityBars,bearActive=st.bearishSweepBar!==null&&i-st.bearishSweepBar<=s.sweepValidityBars;
+ const body=Math.abs(x.close-x.open),pb=p?Math.abs(p.close-p.open):0,currentBull=x.close>x.open,currentBear=x.close<x.open,prevBear=p?p.close<p.open:false,prevBull=p?p.close>p.open:false;
+ const bullEngulf=currentBull&&prevBear&&(s.requireFullBodyEngulf?x.open<=p!.close&&x.close>=p!.open:x.close>p!.close),bearEngulf=currentBear&&prevBull&&(s.requireFullBodyEngulf?x.open>=p!.close&&x.close<=p!.open:x.close<p!.close);
+ const bullStrong=pb>0&&body>=pb*s.engulfBodyMultiplier&&body>=atr*s.engulfATRMultiplier,bearStrong=pb>0&&body>=pb*s.engulfBodyMultiplier&&body>=atr*s.engulfATRMultiplier;
+ const bullPrevOK=s.previousCandleDirection==="Any"||(s.previousCandleDirection==="Opposite Direction"?prevBear:prevBull),bearPrevOK=s.previousCandleDirection==="Any"||(s.previousCandleDirection==="Opposite Direction"?prevBull:prevBear);
+ const strongBull=bullEngulf&&bullStrong&&bullPrevOK,strongBear=bearEngulf&&bearStrong&&bearPrevOK;
+ const longEMA=!s.useEMAFilter||x.close>trend,shortEMA=!s.useEMAFilter||x.close<trend,entry=x.close;
+ const longTarget=nearestHigh(entry,st.externalHigh,st.previousExternalHigh),shortTarget=nearestLow(entry,st.externalLow,st.previousExternalLow);
+ const recentLow=(()=>{let z=Infinity;for(let j=Math.max(0,i-s.liquidityStopLookback);j<i;j++)z=Math.min(z,c[j].low);return z})(),recentHigh=(()=>{let z=-Infinity;for(let j=Math.max(0,i-s.liquidityStopLookback);j<i;j++)z=Math.max(z,c[j].high);return z})();
+ let longLiq:number|null=st.bullishSweepPrice,shortLiq:number|null=st.bearishSweepPrice;const minLow=(v:number|null)=>{if(v!==null&&v<entry)longLiq=longLiq===null?v:Math.min(longLiq,v)},maxHigh=(v:number|null)=>{if(v!==null&&v>entry)shortLiq=shortLiq===null?v:Math.max(shortLiq,v)};minLow(st.externalLow);minLow(st.previousExternalLow);minLow(st.internalLow);minLow(Number.isFinite(recentLow)?recentLow:null);maxHigh(st.externalHigh);maxHigh(st.previousExternalHigh);maxHigh(st.internalHigh);maxHigh(Number.isFinite(recentHigh)?recentHigh:null);
+ const atrStopLong=entry-atr*s.atrMultiplier,atrStopShort=entry+atr*s.atrMultiplier,liqStopLong=longLiq!==null?longLiq-atr*s.liquidityStopBufferATR:atrStopLong,liqStopShort=shortLiq!==null?shortLiq+atr*s.liquidityStopBufferATR:atrStopShort;
+ const sweepStopLong=st.bullishSweepPrice!==null?st.bullishSweepPrice-atr*s.liquidityStopBufferATR:atrStopLong,sweepStopShort=st.bearishSweepPrice!==null?st.bearishSweepPrice+atr*s.liquidityStopBufferATR:atrStopShort;
+ const longStop=s.stopLossMethod==="ATR"?atrStopLong:s.stopLossMethod==="Sweep"?sweepStopLong:liqStopLong,shortStop=s.stopLossMethod==="ATR"?atrStopShort:s.stopLossMethod==="Sweep"?sweepStopShort:liqStopShort;
+ const longRisk=entry-longStop,shortRisk=shortStop-entry,longRR=longTarget!==null&&longRisk>0?(longTarget-entry)/longRisk:NaN,shortRR=shortTarget!==null&&shortRisk>0?(entry-shortTarget)/shortRisk:NaN,longWide=longRisk>atr*s.maxStopATR,shortWide=shortRisk>atr*s.maxStopATR;
+ const longBase=s.enableEngine&&bullActive&&strongBull&&longEMA&&volumeOK&&longTarget!==null&&longTarget>entry&&longRR>=s.minimumRR&&!longWide,shortBase=s.enableEngine&&bearActive&&strongBear&&shortEMA&&volumeOK&&shortTarget!==null&&shortTarget<entry&&shortRR>=s.minimumRR&&!shortWide;
+ const rawLong=s.requireLiquiditySweep?longBase:strongBull&&longEMA&&volumeOK,rawShort=s.requireLiquiditySweep?shortBase:strongBear&&shortEMA&&volumeOK,finalLong=s.invertStrategy?rawShort:rawLong,finalShort=s.invertStrategy?rawLong:rawShort,signalLong=finalLong&&!st.prevFinalLong,signalShort=finalShort&&!st.prevFinalShort;st.prevFinalLong=finalLong;st.prevFinalShort=finalShort;
+ const direction=signalLong||finalLong?"LONG":signalShort||finalShort?"SHORT":"NONE",signal=signalLong?"BUY":signalShort?"SELL":"WAIT",target=signalLong?longTarget:signalShort?shortTarget:null,stop=signalLong?longStop:signalShort?shortStop:null,rr=signalLong?longRR:signalShort?shortRR:null;
+ const sup=sr(c,st.externalLow,atr,s.srToleranceATR,s.srLookback,true),res=sr(c,st.externalHigh,atr,s.srToleranceATR,s.srLookback,false),bias: "Bullish"|"Bearish"|"Neutral"=st.structureTrend===1?"Bullish":st.structureTrend===-1?"Bearish":"Neutral";
+ const event=bullCHOCH?"BULL CHOCH":bearCHOCH?"BEAR CHOCH":bullBOS?"BULL BOS":bearBOS?"BEAR BOS":"NONE" as const,evidence:string[]=[],missing:string[]=[];
+ if(bullConfirmed)evidence.push("Sell-side liquidity swept and bullish sweep candle confirmed.");if(bearConfirmed)evidence.push("Buy-side liquidity swept and bearish sweep candle confirmed.");if(strongBull)evidence.push("Strong bullish engulfing confirmed.");if(strongBear)evidence.push("Strong bearish engulfing confirmed.");if(bullBOS||bullCHOCH)evidence.push("Bullish structure event confirmed.");if(bearBOS||bearCHOCH)evidence.push("Bearish structure event confirmed.");if(longTarget!==null)evidence.push(`Nearest opposing buy-side liquidity: ${longTarget}.`);if(shortTarget!==null)evidence.push(`Nearest opposing sell-side liquidity: ${shortTarget}.`);if(signalLong)evidence.push("NEW BUY event: qualified long condition transitioned true.");if(signalShort)evidence.push("NEW SELL event: qualified short condition transitioned true.");
+ if(s.requireLiquiditySweep&&!bullActive&&!bearActive)missing.push("Valid liquidity sweep.");if(s.requireEngulfing&&!strongBull&&!strongBear)missing.push("Strong engulfing condition.");if(s.useEMAFilter&&!longEMA&&!shortEMA)missing.push("EMA 200 directional filter.");if(s.requireVolumeConfirmation&&!volumeOK)missing.push("Institutional volume confirmation.");if(s.requireLiquiditySweep&&direction==="LONG"&&longTarget===null)missing.push("Opposing buy-side liquidity above entry.");if(s.requireLiquiditySweep&&direction==="SHORT"&&shortTarget===null)missing.push("Opposing sell-side liquidity below entry.");
+ const message=signalLong?"BUY — sell-side sweep + strong bullish engulfing + opposing liquidity + risk qualification.":signalShort?"SELL — buy-side sweep + strong bearish engulfing + opposing liquidity + risk qualification.":finalLong?"LONG QUALIFIED — setup remains active; BUY is emitted only on the qualification transition.":finalShort?"SHORT QUALIFIED — setup remains active; SELL is emitted only on the qualification transition.":bullActive?"BULLISH SWEEP ACTIVE — waiting for strong engulfing/qualification.":bearActive?"BEARISH SWEEP ACTIVE — waiting for strong engulfing/qualification.":"WAIT — no qualified Sweep & Engulfing entry.";
+ return{strategyId:SWEEP_ENGULFING_ID,strategyName:SWEEP_ENGULFING_NAME,direction,signal,isNewSignal:signalLong||signalShort,entryPrice:signalLong||signalShort?entry:null,stopLoss:signalLong||signalShort?stop:null,target1:signalLong||signalShort?target:null,target2:signalLong?entry+longRisk*Math.max(s.minimumRR+.5,s.tpMultiplier+.5):signalShort?entry-shortRisk*Math.max(s.minimumRR+.5,s.tpMultiplier+.5):null,target3:signalLong?entry+longRisk*Math.max(s.minimumRR+1,s.tpMultiplier+1):signalShort?entry-shortRisk*Math.max(s.minimumRR+1,s.tpMultiplier+1):null,riskReward:signalLong||signalShort?rr:null,confidence:null,structure:{bias,trend:st.structureTrend,event,bullishBOS:bullBOS,bearishBOS:bearBOS,bullishCHOCH:bullCHOCH,bearishCHOCH:bearCHOCH,bullishMSS:bullMSS,bearishMSS:bearMSS,externalHigh:st.externalHigh,externalLow:st.externalLow,previousExternalHigh:st.previousExternalHigh,previousExternalLow:st.previousExternalLow,higherHigh:hh,lowerHigh:lh,higherLow:hl,lowerLow:ll,strongHigh:st.structureTrend===-1&&st.externalHigh!==null,weakHigh:st.structureTrend===1&&st.externalHigh!==null,strongLow:st.structureTrend===1&&st.externalLow!==null,weakLow:st.structureTrend===-1&&st.externalLow!==null},liquidity:{bullishSweepConfirmed:bullConfirmed,bearishSweepConfirmed:bearConfirmed,bullishSweepActive:bullActive,bearishSweepActive:bearActive,bullishSweepPrice:st.bullishSweepPrice,bearishSweepPrice:st.bearishSweepPrice},engulfing:{bullish:strongBull,bearish:strongBear,body,previousBody:pb,bodyVsATR:atr>0?body/atr:0,bodyExpansion:bullStrong||bearStrong},volume:{averageVolume:Number.isFinite(av)?av:0,relativeVolume:rv,institutionalVolume:inst,volumeScore:vs,volumeConfirmed:volumeOK},opposingLiquidity:target,support:{level:st.externalLow,strength:sup.score,status:srStatus(sup.score),touch:sup.touch,reaction:sup.reaction},resistance:{level:st.externalHigh,strength:res.score,status:srStatus(res.score),touch:res.touch,reaction:res.reaction},evidence,invalidation:missing,message};
 }
 
-export const DEFAULT_SWEEP_ENGULFING_SETTINGS: SweepEngulfingSettings = {
-  enableEngine: true, minimumRR: 1.63, stopLossMethod: "ATR", atrLength: 14, atrMultiplier: 1.8, tpMultiplier: 2.0,
-  externalSwingLength: 10, internalSwingLength: 3, trendEMA: 200, requireLiquiditySweep: true, sweepConfirmationBody: true,
-  sweepValidityBars: 3, volumeLength: 20, volumeSpikeMultiplier: 1.5, minimumVolumeScore: 70, requireVolumeConfirmation: false,
-  requireEngulfing: true, useEMAFilter: true, invertStrategy: false, previousCandleDirection: "Same Direction",
-  engulfBodyMultiplier: 1.2, engulfATRMultiplier: 0.5, requireFullBodyEngulf: true, srLookback: 50, srToleranceATR: 0.25, srMinimumScore: 40,
-};
-
-export interface SweepStructureState {
-  bias: StructureBias; trend: -1 | 0 | 1; event: StructureEvent;
-  bullishBOS: boolean; bearishBOS: boolean; bullishCHOCH: boolean; bearishCHOCH: boolean; bullishMSS: boolean; bearishMSS: boolean;
-  externalHigh: number | null; externalLow: number | null; previousExternalHigh: number | null; previousExternalLow: number | null;
-  higherHigh: boolean; lowerHigh: boolean; higherLow: boolean; lowerLow: boolean;
-  strongHigh: boolean; weakHigh: boolean; strongLow: boolean; weakLow: boolean;
-}
-
-export interface SweepLiquidityState {
-  bullishSweepConfirmed: boolean; bearishSweepConfirmed: boolean; bullishSweepActive: boolean; bearishSweepActive: boolean;
-  bullishSweepPrice: number | null; bearishSweepPrice: number | null;
-}
-
-export interface SweepEngulfingResult {
-  strategyId: typeof SWEEP_ENGULFING_ID; strategyName: typeof SWEEP_ENGULFING_NAME; direction: SweepDirection;
-  signal: "BUY" | "SELL" | "WAIT"; isNewSignal: boolean; entryPrice: number | null; stopLoss: number | null;
-  target1: number | null; target2: number | null; target3: number | null; riskReward: number | null;
-  structure: SweepStructureState; liquidity: SweepLiquidityState;
-  engulfing: { bullish: boolean; bearish: boolean; body: number; previousBody: number; bodyVsATR: number; bodyExpansion: boolean };
-  volume: { averageVolume: number; relativeVolume: number; institutionalVolume: boolean; volumeScore: number; volumeConfirmed: boolean };
-  opposingLiquidity: number | null;
-  support: { level: number | null; strength: number; status: string; touch: boolean; reaction: boolean };
-  resistance: { level: number | null; strength: number; status: string; touch: boolean; reaction: boolean };
-  confidence: number; evidence: string[]; invalidation: string[]; message: string;
-}
-
-interface InternalState {
-  externalHigh: number | null; externalLow: number | null; previousExternalHigh: number | null; previousExternalLow: number | null;
-  externalHighBar: number | null; externalLowBar: number | null; previousExternalHighBar: number | null; previousExternalLowBar: number | null;
-  structureTrend: -1 | 0 | 1; bullishSweepBar: number | null; bearishSweepBar: number | null;
-  bullishSweepPrice: number | null; bearishSweepPrice: number | null; previousFinalLong: boolean; previousFinalShort: boolean;
-}
-
-function sma(values: number[], length: number, index: number): number {
-  const start = Math.max(0, index - length + 1); let total = 0; let count = 0;
-  for (let i = start; i <= index; i += 1) { const v = values[i]; if (Number.isFinite(v)) { total += v; count += 1; } }
-  return count ? total / count : 0;
-}
-function ema(values: number[], length: number): number[] {
-  if (!values.length) return []; const out = new Array<number>(values.length); const alpha = 2 / (length + 1); out[0] = values[0];
-  for (let i = 1; i < values.length; i += 1) out[i] = alpha * values[i] + (1 - alpha) * out[i - 1]; return out;
-}
-function atrSeries(candles: SweepCandle[], length: number): number[] {
-  const tr = candles.map((c, i) => i === 0 ? c.high - c.low : Math.max(c.high - c.low, Math.abs(c.high - candles[i - 1].close), Math.abs(c.low - candles[i - 1].close)));
-  return tr.map((_, i) => sma(tr, length, i));
-}
-function isPivotHigh(candles: SweepCandle[], index: number, length: number): boolean {
-  if (index - length < 0 || index + length >= candles.length) return false; const value = candles[index].high;
-  for (let i = index - length; i <= index + length; i += 1) if (i !== index && candles[i].high >= value) return false; return true;
-}
-function isPivotLow(candles: SweepCandle[], index: number, length: number): boolean {
-  if (index - length < 0 || index + length >= candles.length) return false; const value = candles[index].low;
-  for (let i = index - length; i <= index + length; i += 1) if (i !== index && candles[i].low <= value) return false; return true;
-}
-function round(value: number, decimals = 2): number { const factor = 10 ** decimals; return Math.round(value * factor) / factor; }
-function nearestHighAbove(entry: number, high: number | null, previousHigh: number | null): number | null {
-  const candidates = [high, previousHigh].filter((v): v is number => v !== null && v > entry); return candidates.length ? Math.min(...candidates) : null;
-}
-function nearestLowBelow(entry: number, low: number | null, previousLow: number | null): number | null {
-  const candidates = [low, previousLow].filter((v): v is number => v !== null && v < entry); return candidates.length ? Math.max(...candidates) : null;
-}
-function statusForStrength(score: number): string { return score >= 80 ? "VERY STRONG" : score >= 65 ? "STRONG" : score >= 50 ? "MODERATE" : "WEAK"; }
-function srStrength(candles: SweepCandle[], level: number | null, atr: number, lookback: number, toleranceATR: number, support: boolean) {
-  if (level === null) return { score: 0, touch: false, reaction: false };
-  const start = Math.max(0, candles.length - lookback); const tolerance = atr * toleranceATR;
-  const volumes = candles.map(c => c.volume ?? 0); const avg = volumes.length ? volumes.reduce((a, b) => a + b, 0) / volumes.length : 0;
-  let touches = 0, reactions = 0, volumeReactions = 0, latestTouch = false, latestReaction = false;
-  for (let i = start; i < candles.length; i += 1) {
-    const c = candles[i]; const touch = support ? c.low <= level + tolerance && c.high >= level - tolerance : c.high >= level - tolerance && c.low <= level + tolerance;
-    const reaction = support ? touch && c.close > level : touch && c.close < level;
-    if (touch) touches += 1; if (reaction) reactions += 1; if (reaction && avg > 0 && (c.volume ?? 0) / avg >= 1) volumeReactions += 1;
-    if (i === candles.length - 1) { latestTouch = touch; latestReaction = reaction; }
-  }
-  return { score: Math.min(100, Math.min(touches * 10, 40) + Math.min(reactions * 10, 35) + Math.min(volumeReactions * 5, 25)), touch: latestTouch, reaction: latestReaction };
-}
-
-function evaluate(candles: SweepCandle[], settings: SweepEngulfingSettings, state: InternalState, index: number): SweepEngulfingResult {
-  const c = candles[index], prev = index > 0 ? candles[index - 1] : null;
-  const atr = atrSeries(candles.slice(0, index + 1), settings.atrLength)[index] || Math.max(c.high - c.low, 1e-10);
-  const closes = candles.slice(0, index + 1).map(x => x.close); const emaTrend = ema(closes, settings.trendEMA)[index];
-  const volumes = candles.slice(0, index + 1).map(x => x.volume ?? 0); const averageVolume = sma(volumes, settings.volumeLength, index);
-  const relativeVolume = averageVolume > 0 ? (c.volume ?? 0) / averageVolume : 0; const volumeScore = Math.min(100, relativeVolume / settings.volumeSpikeMultiplier * 100);
-  const volumeOK = !settings.requireVolumeConfirmation || volumeScore >= settings.minimumVolumeScore;
-
-  let bullishBOS = false, bearishBOS = false, bullishCHOCH = false, bearishCHOCH = false, bullishMSS = false, bearishMSS = false;
-  let higherHigh = false, lowerHigh = false, higherLow = false, lowerLow = false;
-  const ph = index - settings.externalSwingLength, pl = index - settings.externalSwingLength;
-  if (ph >= 0 && isPivotHigh(candles, ph, settings.externalSwingLength)) { state.previousExternalHigh = state.externalHigh; state.previousExternalHighBar = state.externalHighBar; state.externalHigh = candles[ph].high; state.externalHighBar = ph; }
-  if (pl >= 0 && isPivotLow(candles, pl, settings.externalSwingLength)) { state.previousExternalLow = state.externalLow; state.previousExternalLowBar = state.externalLowBar; state.externalLow = candles[pl].low; state.externalLowBar = pl; }
-  if (state.previousExternalHigh !== null && state.externalHigh !== null) { higherHigh = state.externalHigh > state.previousExternalHigh; lowerHigh = state.externalHigh < state.previousExternalHigh; }
-  if (state.previousExternalLow !== null && state.externalLow !== null) { higherLow = state.externalLow > state.previousExternalLow; lowerLow = state.externalLow < state.previousExternalLow; }
-  if (higherHigh && higherLow) state.structureTrend = 1; if (lowerHigh && lowerLow) state.structureTrend = -1;
-  const previousTrend = state.structureTrend; const previousClose = prev?.close ?? null;
-  const bullishBreak = state.externalHigh !== null && previousClose !== null && c.close > state.externalHigh && previousClose <= state.externalHigh;
-  const bearishBreak = state.externalLow !== null && previousClose !== null && c.close < state.externalLow && previousClose >= state.externalLow;
-  if (bullishBreak) { if (previousTrend === -1) { bullishCHOCH = true; bullishMSS = true; } else bullishBOS = true; state.structureTrend = 1; }
-  if (bearishBreak) { if (previousTrend === 1) { bearishCHOCH = true; bearishMSS = true; } else bearishBOS = true; state.structureTrend = -1; }
-
-  const bullishSweep = state.externalLow !== null && c.low < state.externalLow && c.close > state.externalLow;
-  const bearishSweep = state.externalHigh !== null && c.high > state.externalHigh && c.close < state.externalHigh;
-  const bullishSweepConfirmed = bullishSweep && (!settings.sweepConfirmationBody || c.close > c.open);
-  const bearishSweepConfirmed = bearishSweep && (!settings.sweepConfirmationBody || c.close < c.open);
-  if (bullishSweepConfirmed) { state.bullishSweepBar = index; state.bullishSweepPrice = c.low; }
-  if (bearishSweepConfirmed) { state.bearishSweepBar = index; state.bearishSweepPrice = c.high; }
-  const bullishSweepActive = state.bullishSweepBar !== null && index - state.bullishSweepBar <= settings.sweepValidityBars;
-  const bearishSweepActive = state.bearishSweepBar !== null && index - state.bearishSweepBar <= settings.sweepValidityBars;
-
-  const body = Math.abs(c.close - c.open), previousBody = prev ? Math.abs(prev.close - prev.open) : 0;
-  const currentBullish = c.close > c.open, currentBearish = c.close < c.open;
-  const bullishBodyStrong = currentBullish && body >= atr * settings.engulfATRMultiplier;
-  const bearishBodyStrong = currentBearish && body >= atr * settings.engulfATRMultiplier;
-  const bullishBodyExpansion = currentBullish && (previousBody <= 0 || body >= previousBody * settings.engulfBodyMultiplier);
-  const bearishBodyExpansion = currentBearish && (previousBody <= 0 || body >= previousBody * settings.engulfBodyMultiplier);
-  const bullPrevOK = !prev || settings.previousCandleDirection === "Any" || (settings.previousCandleDirection === "Opposite Direction" ? prev.close < prev.open : prev.close > prev.open);
-  const bearPrevOK = !prev || settings.previousCandleDirection === "Any" || (settings.previousCandleDirection === "Opposite Direction" ? prev.close > prev.open : prev.close < prev.open);
-  const strongBullishEngulfing = currentBullish && bullishBodyStrong && bullishBodyExpansion && volumeOK && bullPrevOK;
-  const strongBearishEngulfing = currentBearish && bearishBodyStrong && bearishBodyExpansion && volumeOK && bearPrevOK;
-
-  const longEMAOK = !settings.useEMAFilter || c.close > emaTrend, shortEMAOK = !settings.useEMAFilter || c.close < emaTrend;
-  const candidateLongEntry = c.close, candidateShortEntry = c.close;
-  const longLiquidityTarget = nearestHighAbove(candidateLongEntry, state.externalHigh, state.previousExternalHigh);
-  const shortLiquidityTarget = nearestLowBelow(candidateShortEntry, state.externalLow, state.previousExternalLow);
-  const candidateLongStop = settings.stopLossMethod === "ATR" ? candidateLongEntry - atr * settings.atrMultiplier : (state.bullishSweepPrice !== null ? state.bullishSweepPrice - atr * 0.10 : candidateLongEntry - atr * settings.atrMultiplier);
-  const candidateShortStop = settings.stopLossMethod === "ATR" ? candidateShortEntry + atr * settings.atrMultiplier : (state.bearishSweepPrice !== null ? state.bearishSweepPrice + atr * 0.10 : candidateShortEntry + atr * settings.atrMultiplier);
-  const longRisk = candidateLongEntry - candidateLongStop, shortRisk = candidateShortStop - candidateShortEntry;
-  const longRR = longLiquidityTarget !== null && longRisk > 0 ? (longLiquidityTarget - candidateLongEntry) / longRisk : null;
-  const shortRR = shortLiquidityTarget !== null && shortRisk > 0 ? (candidateShortEntry - shortLiquidityTarget) / shortRisk : null;
-  const longQualified = settings.enableEngine && bullishSweepActive && strongBullishEngulfing && longEMAOK && volumeOK && longLiquidityTarget !== null && longLiquidityTarget > candidateLongEntry && longRR !== null && longRR >= settings.minimumRR;
-  const shortQualified = settings.enableEngine && bearishSweepActive && strongBearishEngulfing && shortEMAOK && volumeOK && shortLiquidityTarget !== null && shortLiquidityTarget < candidateShortEntry && shortRR !== null && shortRR >= settings.minimumRR;
-  const rawLong = settings.requireLiquiditySweep ? longQualified : strongBullishEngulfing && longEMAOK && volumeOK;
-  const rawShort = settings.requireLiquiditySweep ? shortQualified : strongBearishEngulfing && shortEMAOK && volumeOK;
-  const finalLong = settings.invertStrategy ? rawShort : rawLong, finalShort = settings.invertStrategy ? rawLong : rawShort;
-  const longSignal = finalLong && !state.previousFinalLong, shortSignal = finalShort && !state.previousFinalShort;
-  state.previousFinalLong = finalLong; state.previousFinalShort = finalShort;
-
-  const support = srStrength(candles.slice(0, index + 1), state.externalLow, atr, settings.srLookback, settings.srToleranceATR, true);
-  const resistance = srStrength(candles.slice(0, index + 1), state.externalHigh, atr, settings.srLookback, settings.srToleranceATR, false);
-  const direction: SweepDirection = longSignal ? "LONG" : shortSignal ? "SHORT" : "NONE";
-  const signal = longSignal ? "BUY" : shortSignal ? "SELL" : "WAIT";
-  const entry = longSignal ? candidateLongEntry : shortSignal ? candidateShortEntry : null;
-  const stop = longSignal ? candidateLongStop : shortSignal ? candidateShortStop : null;
-  const target1 = longSignal ? longLiquidityTarget : shortSignal ? shortLiquidityTarget : null;
-  const activeRR = longSignal ? longRR : shortSignal ? shortRR : null;
-  const risk = longSignal && longRisk > 0 ? longRisk : shortSignal && shortRisk > 0 ? shortRisk : null;
-  const target2 = entry !== null && risk !== null ? (longSignal ? entry + risk * Math.max(settings.minimumRR + 0.50, settings.tpMultiplier + 0.50) : entry - risk * Math.max(settings.minimumRR + 0.50, settings.tpMultiplier + 0.50)) : null;
-  const target3 = entry !== null && risk !== null ? (longSignal ? entry + risk * Math.max(settings.minimumRR + 1.00, settings.tpMultiplier + 1.00) : entry - risk * Math.max(settings.minimumRR + 1.00, settings.tpMultiplier + 1.00)) : null;
-  const evidence: string[] = [], invalidation: string[] = [];
-  if (bullishSweepConfirmed) evidence.push("Sell-side liquidity swept and price closed back above the confirmed low.");
-  if (bearishSweepConfirmed) evidence.push("Buy-side liquidity swept and price closed back below the confirmed high.");
-  if (strongBullishEngulfing) evidence.push("Strong bullish displacement/engulfing confirmation is present.");
-  if (strongBearishEngulfing) evidence.push("Strong bearish displacement/engulfing confirmation is present.");
-  if (bullishCHOCH) evidence.push("Bullish CHOCH/MSS confirmed."); if (bearishCHOCH) evidence.push("Bearish CHOCH/MSS confirmed.");
-  if (bullishBOS) evidence.push("Bullish BOS confirmed."); if (bearishBOS) evidence.push("Bearish BOS confirmed.");
-  if (longLiquidityTarget !== null) evidence.push(`Nearest opposing buy-side liquidity is ${round(longLiquidityTarget)}.`);
-  if (shortLiquidityTarget !== null) evidence.push(`Nearest opposing sell-side liquidity is ${round(shortLiquidityTarget)}.`);
-  if (!longSignal && !shortSignal) invalidation.push("A new signal requires the configured sweep + strong engulfing + filters + opposing liquidity + minimum RR qualification.");
-  if (settings.requireLiquiditySweep && !bullishSweepActive && !bearishSweepActive) invalidation.push("No active confirmed liquidity sweep within the configured validity window.");
-  if (settings.requireVolumeConfirmation && !volumeOK) invalidation.push(`Volume score ${round(volumeScore)} is below the required ${settings.minimumVolumeScore}.`);
-  const confidence = longSignal || shortSignal ? 100 : Math.min(99, Math.round((bullishSweepActive || bearishSweepActive ? 30 : 0) + (strongBullishEngulfing || strongBearishEngulfing ? 30 : 0) + (longEMAOK || shortEMAOK ? 15 : 0) + (volumeOK ? 10 : 0) + (longLiquidityTarget !== null || shortLiquidityTarget !== null ? 15 : 0)));
-  const message = longSignal ? "BUY — sell-side liquidity swept, bullish displacement/engulfing confirmed, opposing buy-side liquidity available, and minimum RR qualified." : shortSignal ? "SELL — buy-side liquidity swept, bearish displacement/engulfing confirmed, opposing sell-side liquidity available, and minimum RR qualified." : "WAIT — Sweep & Engulfing conditions are not fully qualified.";
-
-  return {
-    strategyId: SWEEP_ENGULFING_ID, strategyName: SWEEP_ENGULFING_NAME, direction, signal, isNewSignal: longSignal || shortSignal,
-    entryPrice: entry, stopLoss: stop, target1, target2, target3, riskReward: activeRR,
-    structure: { bias: state.structureTrend === 1 ? "Bullish" : state.structureTrend === -1 ? "Bearish" : "Neutral", trend: state.structureTrend,
-      event: bullishCHOCH ? "BULL CHOCH" : bearishCHOCH ? "BEAR CHOCH" : bullishBOS ? "BULL BOS" : bearishBOS ? "BEAR BOS" : "NONE",
-      bullishBOS, bearishBOS, bullishCHOCH, bearishCHOCH, bullishMSS, bearishMSS,
-      externalHigh: state.externalHigh, externalLow: state.externalLow, previousExternalHigh: state.previousExternalHigh, previousExternalLow: state.previousExternalLow,
-      higherHigh, lowerHigh, higherLow, lowerLow,
-      strongHigh: state.structureTrend === -1 && state.externalHigh !== null, weakHigh: state.structureTrend === 1 && state.externalHigh !== null,
-      strongLow: state.structureTrend === 1 && state.externalLow !== null, weakLow: state.structureTrend === -1 && state.externalLow !== null },
-    liquidity: { bullishSweepConfirmed, bearishSweepConfirmed, bullishSweepActive, bearishSweepActive, bullishSweepPrice: state.bullishSweepPrice, bearishSweepPrice: state.bearishSweepPrice },
-    engulfing: { bullish: strongBullishEngulfing, bearish: strongBearishEngulfing, body, previousBody, bodyVsATR: atr > 0 ? body / atr : 0, bodyExpansion: bullishBodyExpansion || bearishBodyExpansion },
-    volume: { averageVolume, relativeVolume, institutionalVolume: relativeVolume >= settings.volumeSpikeMultiplier, volumeScore, volumeConfirmed: volumeOK },
-    opposingLiquidity: target1,
-    support: { level: state.externalLow, strength: support.score, status: statusForStrength(support.score), touch: support.touch, reaction: support.reaction },
-    resistance: { level: state.externalHigh, strength: resistance.score, status: statusForStrength(resistance.score), touch: resistance.touch, reaction: resistance.reaction },
-    confidence, evidence, invalidation, message,
-  };
-}
-
-export function analyzeSweepEngulfing(candles: SweepCandle[], settingsInput: Partial<SweepEngulfingSettings> = {}): SweepEngulfingResult {
-  const settings = { ...DEFAULT_SWEEP_ENGULFING_SETTINGS, ...settingsInput };
-  if (candles.length < Math.max(settings.externalSwingLength * 2 + 1, settings.atrLength + 2)) return emptySweepResult();
-  const state: InternalState = { externalHigh: null, externalLow: null, previousExternalHigh: null, previousExternalLow: null, externalHighBar: null, externalLowBar: null, previousExternalHighBar: null, previousExternalLowBar: null, structureTrend: 0, bullishSweepBar: null, bearishSweepBar: null, bullishSweepPrice: null, bearishSweepPrice: null, previousFinalLong: false, previousFinalShort: false };
-  let result = emptySweepResult(); for (let i = 0; i < candles.length; i += 1) result = evaluate(candles, settings, state, i); return result;
-}
-
-function emptySweepResult(): SweepEngulfingResult {
-  return { strategyId: SWEEP_ENGULFING_ID, strategyName: SWEEP_ENGULFING_NAME, direction: "NONE", signal: "WAIT", isNewSignal: false, entryPrice: null, stopLoss: null, target1: null, target2: null, target3: null, riskReward: null,
-    structure: { bias: "Neutral", trend: 0, event: "NONE", bullishBOS: false, bearishBOS: false, bullishCHOCH: false, bearishCHOCH: false, bullishMSS: false, bearishMSS: false, externalHigh: null, externalLow: null, previousExternalHigh: null, previousExternalLow: null, higherHigh: false, lowerHigh: false, higherLow: false, lowerLow: false, strongHigh: false, weakHigh: false, strongLow: false, weakLow: false },
-    liquidity: { bullishSweepConfirmed: false, bearishSweepConfirmed: false, bullishSweepActive: false, bearishSweepActive: false, bullishSweepPrice: null, bearishSweepPrice: null },
-    engulfing: { bullish: false, bearish: false, body: 0, previousBody: 0, bodyVsATR: 0, bodyExpansion: false },
-    volume: { averageVolume: 0, relativeVolume: 0, institutionalVolume: false, volumeScore: 0, volumeConfirmed: false }, opposingLiquidity: null,
-    support: { level: null, strength: 0, status: "WEAK", touch: false, reaction: false }, resistance: { level: null, strength: 0, status: "WEAK", touch: false, reaction: false }, confidence: 0, evidence: [], invalidation: ["Insufficient candle history for Sweep & Engulfing evaluation."], message: "WAIT — insufficient market data." };
-}
-
-export const sweepEngulfingStrategy = { id: SWEEP_ENGULFING_ID, name: SWEEP_ENGULFING_NAME, description: "Institutional liquidity sweep + strong engulfing/displacement + opposing liquidity target.", timeframes: ["chart"] as const, analyze: analyzeSweepEngulfing };
+export const sweepEngulfingRules:StrategyRuleSet={id:SWEEP_ENGULFING_ID,name:SWEEP_ENGULFING_NAME,description:"Institutional liquidity sweep + strong engulfing + opposing liquidity target.",source:"PINE_SCRIPT",timeframes:["chart"],sequence:["Confirmed external structure","Liquidity sweep","Sweep confirmation","Strong engulfing","EMA/volume filters","Opposing liquidity","Risk/reward qualification","One-shot signal"],mandatoryRules:["Bullish sweep takes sell-side liquidity below the confirmed prior external low and closes back above it.","Bearish sweep takes buy-side liquidity above the confirmed prior external high and closes back below it.","Strong engulfing uses body engulfing, body expansion and ATR expansion.","When sweep is required, opposing liquidity and minimum RR must qualify.","Signal is an event: finalLongSignal and not finalLongSignal[1], or the short equivalent."],optionalConfluence:["EMA 200 filter when enabled","Institutional volume confirmation when enabled","Support/resistance strength is display-only"],invalidationRules:["No valid sweep when required","No strong engulfing","EMA filter failure","Volume failure when required","No opposing liquidity or insufficient RR","Stop wider than maximum ATR"],executionRules:["Normal mode trades bullish setup long and bearish setup short.","Invert mode swaps the final directions after underlying qualification."],riskRules:["Default risk is 0.50% per trade.","Default minimum RR is 1.63.","Default stop method is Liquidity-Aware.","Liquidity-aware stop uses relevant low/high pools plus ATR buffer.","Reject stops wider than 2.5 ATR.","TP1 is opposing liquidity; TP2/TP3 use the source multipliers."],aiInstructions:["Treat the source Pine rules as authoritative.","Do not convert BOS/CHOCH, S/R strength or sweep states into a trade unless the source qualification chain is satisfied.","S/R strength is informational only and does not modify entry, risk or target logic."]};
+export const sweepEngulfingStrategy={id:SWEEP_ENGULFING_ID,name:SWEEP_ENGULFING_NAME,description:sweepEngulfingRules.description,timeframes:["chart"] as const,analyze:analyzeSweepEngulfing,rules:sweepEngulfingRules};
 export default sweepEngulfingStrategy;
