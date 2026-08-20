@@ -1,4 +1,116 @@
 import { getStrategyRules, type StrategyId } from "../../../lib/strategies";
-const TIMEFRAMES=["M1","M5","M10","M15","M30","H1","H4","D1"] as const; type Timeframe=(typeof TIMEFRAMES)[number]; const STRATEGY_IDS=["killZone","ema20","continuation","supplyDemand","714Observing","sweepEngulfing","swingDeveloping","autoFibRetrace"] as const; type Direction="BUY"|"SELL"|"BUY DEVELOPING"|"SELL DEVELOPING"|"WAITING"|"NO TRADE";
-const num=(v:unknown)=>{const n=typeof v==="number"?v:Number(v);return Number.isFinite(n)?n:null}; const arr=(v:unknown)=>Array.isArray(v)?v.filter((x):x is string=>typeof x==="string").map(x=>x.trim()).filter(Boolean):[]; const dir=(v:unknown):Direction=>["BUY","SELL","BUY DEVELOPING","SELL DEVELOPING","WAITING","NO TRADE"].includes(String(v))?v as Direction:"WAITING";
-export async function POST(request:Request){try{const form=await request.formData();const image=form.get("image");const strategy=String(form.get("strategy")||"");const timeframe=String(form.get("timeframe")||"");if(!(image instanceof File))return Response.json({error:"Chart image is required."},{status:400});if(!STRATEGY_IDS.includes(strategy as any))return Response.json({error:"Invalid strategy selected."},{status:400});if(!TIMEFRAMES.includes(timeframe as Timeframe))return Response.json({error:"A valid timeframe must be selected."},{status:400});const apiKey=process.env.OPENAI_API_KEY;if(!apiKey)return Response.json({error:"OpenAI API key is not configured."},{status:500});const rules=getStrategyRules(strategy as StrategyId);const bytes=await image.arrayBuffer();const imageUrl=`data:${image.type||"image/png"};base64,${Buffer.from(bytes).toString("base64")}`;const prompt=`You are VaultTrades Analyzer. This is a learning-first chart analysis engine, not a signal generator. The selected strategy is the only source of truth. Do not combine strategies or invent conditions. Analyze only visible or reliably inferable evidence.\n\nSELECTED STRATEGY: ${strategy}\nSELECTED TIMEFRAME: ${timeframe}\n\nSTRATEGY RULES:\n${JSON.stringify(rules,null,2)}\n\nExplain WHY the strategy is confirmed, developing, waiting, or invalid. Never force a trade. If evidence is missing, explicitly name the missing condition and what the trader should wait for. Entry, SL and targets are only valid when supported by visible evidence and strategy rules. Confidence measures strategy-condition completeness, not profitability. Return ONLY JSON. decisionReason must begin with TAKE TRADE:, NO TRADE:, or WAIT:. Developing levels belong only in projection and are expected, not confirmed.`;const response=await fetch("https://api.openai.com/v1/responses",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${apiKey}`},body:JSON.stringify({model:"gpt-4.1-mini",input:[{role:"user",content:[{type:"input_text",text:prompt},{type:"input_image",image_url:imageUrl}]}],max_output_tokens:4000,text:{format:{type:"json_schema",name:"vaulttrades_learning_analysis",strict:true,schema:{type:"object",additionalProperties:false,properties:{direction:{type:"string",enum:["BUY","SELL","BUY DEVELOPING","SELL DEVELOPING","WAITING","NO TRADE"]},confidence:{type:"number",minimum:0,maximum:100},strategy:{type:"string"},timeframe:{type:"string"},decisionReason:{type:"string"},marketState:{type:"string"},setup:{type:"string"},confirmedConditions:{type:"array",items:{type:"string"}},missingConditions:{type:"array",items:{type:"string"}},invalidation:{type:"string"},entry:{type:["number","null"]},stopLoss:{type:["number","null"]},risk:{type:["number","null"]},tp1:{type:["number","null"]},tp2:{type:["number","null"]},finalTp:{type:["number","null"]},finalTpReason:{type:"string"},projection:{type:"object",additionalProperties:false,properties:{available:{type:"boolean"},setupType:{type:"string"},zoneLow:{type:["number","null"]},zoneHigh:{type:["number","null"]},expectedEntry:{type:["number","null"]},expectedStopLoss:{type:["number","null"]},expectedTp1:{type:["number","null"]},expectedTp2:{type:["number","null"]},expectedFinalTp:{type:["number","null"]},retestRequired:{type:"boolean"},retestStatus:{type:"string"},confirmationRequired:{type:"string"},confirmationStatus:{type:"string"}},required:["available","setupType","zoneLow","zoneHigh","expectedEntry","expectedStopLoss","expectedTp1","expectedTp2","expectedFinalTp","retestRequired","retestStatus","confirmationRequired","confirmationStatus"]},chartAnnotations:{type:"array",items:{type:"object",additionalProperties:false,properties:{type:{type:"string"},label:{type:"string"},price:{type:["number","null"]},points:{type:"array",items:{type:"object",additionalProperties:false,properties:{x:{type:"number"},y:{type:"number"}},required:["x","y"]}},color:{type:"string"}},required:["type","label","price","points","color"]}}},required:["direction","confidence","strategy","timeframe","decisionReason","marketState","setup","confirmedConditions","missingConditions","invalidation","entry","stopLoss","risk","tp1","tp2","finalTp","finalTpReason","projection","chartAnnotations"]}}}})});if(!response.ok){const details=await response.text();console.error("OpenAI analysis failed",details);return Response.json({error:"OpenAI analysis failed.",details},{status:500})}const result=await response.json();const text=result.output?.flatMap((item:any)=>item.content??[]).filter((c:any)=>c.type==="output_text").map((c:any)=>c.text).join("")?.trim();if(!text)return Response.json({error:"The analyzer returned no structured result."},{status:500});const parsed=JSON.parse(text);const d=dir(parsed.direction);const confirmed=d==="BUY"||d==="SELL";const entry=confirmed?num(parsed.entry):null;const stopLoss=confirmed?num(parsed.stopLoss):null;const risk=confirmed&&entry!==null&&stopLoss!==null?(d==="BUY"?entry-stopLoss:stopLoss-entry):null;const safeRisk=risk!==null&&risk>0?risk:null;const target=(v:unknown)=>{const n=num(v);if(!confirmed||n===null||entry===null)return null;return d==="BUY"?(n>entry?n:null):(n<entry?n:null)};return Response.json({success:true,strategy,timeframe,analysis:`${String(parsed.decisionReason||"")}\n\nMARKET STATE:\n${String(parsed.marketState||"")}\n\nSETUP:\n${String(parsed.setup||"")}`,tradeSignal:{direction:d,confidence:Math.max(0,Math.min(100,Math.round(Number(parsed.confidence)||0))),entry,stopLoss,risk:safeRisk,tp1:target(parsed.tp1),tp2:target(parsed.tp2),finalTp:target(parsed.finalTp),invalidation:String(parsed.invalidation||"")},decisionReason:String(parsed.decisionReason||""),marketState:String(parsed.marketState||""),setup:String(parsed.setup||""),confirmedConditions:arr(parsed.confirmedConditions),missingConditions:arr(parsed.missingConditions),projection:parsed.projection||null,chartAnnotations:Array.isArray(parsed.chartAnnotations)?parsed.chartAnnotations:[]})}catch(error){console.error("VaultTrades analysis error",error);return Response.json({error:"Unable to analyze the chart."},{status:500})}}
+import { STRATEGY_LEARNING_METADATA } from "../../../lib/strategies/learningMetadata";
+
+const TIMEFRAMES = ["M1", "M5", "M10", "M15", "M30", "H1", "H4", "D1"] as const;
+type Timeframe = (typeof TIMEFRAMES)[number];
+const STRATEGY_IDS = ["killZone", "ema20", "continuation", "supplyDemand", "714Observing", "sweepEngulfing", "swingDeveloping", "autoFibRetrace"] as const;
+type Direction = "BUY" | "SELL" | "BUY DEVELOPING" | "SELL DEVELOPING" | "WAITING" | "NO TRADE";
+
+const num = (v: unknown) => {
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+const arr = (v: unknown) => Array.isArray(v) ? v.filter((x): x is string => typeof x === "string").map(x => x.trim()).filter(Boolean) : [];
+const dir = (v: unknown): Direction => ["BUY", "SELL", "BUY DEVELOPING", "SELL DEVELOPING", "WAITING", "NO TRADE"].includes(String(v)) ? v as Direction : "WAITING";
+
+export async function POST(request: Request) {
+  try {
+    const form = await request.formData();
+    const image = form.get("image");
+    const strategy = String(form.get("strategy") || "");
+    const timeframe = String(form.get("timeframe") || "");
+    if (!(image instanceof File)) return Response.json({ error: "Chart image is required." }, { status: 400 });
+    if (!STRATEGY_IDS.includes(strategy as any)) return Response.json({ error: "Invalid strategy selected." }, { status: 400 });
+    if (!TIMEFRAMES.includes(timeframe as Timeframe)) return Response.json({ error: "A valid timeframe must be selected." }, { status: 400 });
+
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) return Response.json({ error: "OpenAI API key is not configured." }, { status: 500 });
+
+    const rules = getStrategyRules(strategy as StrategyId);
+    const learning = STRATEGY_LEARNING_METADATA[strategy as StrategyId];
+    const bytes = await image.arrayBuffer();
+    const imageUrl = `data:${image.type || "image/png"};base64,${Buffer.from(bytes).toString("base64")}`;
+
+    const prompt = `You are VaultTrades Analyzer. This is a learning-first chart analysis engine, not a signal generator. The selected strategy is the only source of truth. Do not combine strategies or invent conditions. Analyze only visible or reliably inferable evidence.
+
+SELECTED STRATEGY: ${strategy}
+SELECTED TIMEFRAME: ${timeframe}
+
+STRATEGY RULES:
+${JSON.stringify(rules, null, 2)}
+
+LEARNING PRESENTATION:
+${JSON.stringify(learning ?? {}, null, 2)}
+
+Your result must make WAIT useful. Explain WHY the strategy is confirmed, developing, waiting, or invalid; identify the exact condition being awaited and the anticipated entry/zone when the strategy supports one. Never force a trade. If evidence is missing, explicitly name the missing condition and what the trader should wait for. Entry, SL and targets are only valid when supported by visible evidence and strategy rules. Confidence measures strategy-condition completeness, not profitability.
+
+Also inspect the visible chart history for the MOST RECENT PRIOR SETUP that appears to satisfy this same strategy. This is historical context only. Do not invent a setup that is not visible. If no prior setup can be identified, set previousSetup.found=false and explain why. If a timestamp is visible, report it; otherwise use \"Timestamp not visible\". State whether the prior setup appears to have reached a target, invalidation, or remains unresolved based only on visible evidence.
+
+Return ONLY JSON. decisionReason must begin with TAKE TRADE:, NO TRADE:, or WAIT:. Developing levels belong only in projection and are expected, not confirmed.`;
+
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: "gpt-4.1-mini",
+        input: [{ role: "user", content: [{ type: "input_text", text: prompt }, { type: "input_image", image_url: imageUrl }] }],
+        max_output_tokens: 5000,
+        text: { format: { type: "json_schema", name: "vaulttrades_learning_analysis", strict: true, schema: {
+          type: "object", additionalProperties: false,
+          properties: {
+            direction: { type: "string", enum: ["BUY", "SELL", "BUY DEVELOPING", "SELL DEVELOPING", "WAITING", "NO TRADE"] },
+            confidence: { type: "number", minimum: 0, maximum: 100 }, strategy: { type: "string" }, timeframe: { type: "string" },
+            decisionReason: { type: "string" }, marketState: { type: "string" }, setup: { type: "string" },
+            confirmedConditions: { type: "array", items: { type: "string" } }, missingConditions: { type: "array", items: { type: "string" } },
+            invalidation: { type: "string" }, entry: { type: ["number", "null"] }, stopLoss: { type: ["number", "null"] }, risk: { type: ["number", "null"] },
+            tp1: { type: ["number", "null"] }, tp2: { type: ["number", "null"] }, finalTp: { type: ["number", "null"] }, finalTpReason: { type: "string" },
+            projection: { type: "object", additionalProperties: false, properties: {
+              available: { type: "boolean" }, setupType: { type: "string" }, zoneLow: { type: ["number", "null"] }, zoneHigh: { type: ["number", "null"] },
+              expectedEntry: { type: ["number", "null"] }, expectedStopLoss: { type: ["number", "null"] }, expectedTp1: { type: ["number", "null"] }, expectedTp2: { type: ["number", "null"] }, expectedFinalTp: { type: ["number", "null"] },
+              retestRequired: { type: "boolean" }, retestStatus: { type: "string" }, confirmationRequired: { type: "string" }, confirmationStatus: { type: "string" }
+            }, required: ["available", "setupType", "zoneLow", "zoneHigh", "expectedEntry", "expectedStopLoss", "expectedTp1", "expectedTp2", "expectedFinalTp", "retestRequired", "retestStatus", "confirmationRequired", "confirmationStatus"] },
+            previousSetup: { type: "object", additionalProperties: false, properties: {
+              found: { type: "boolean" }, timestamp: { type: "string" }, direction: { type: "string" }, entry: { type: ["number", "null"] }, stopLoss: { type: ["number", "null"] },
+              tp1: { type: ["number", "null"] }, tp2: { type: ["number", "null"] }, finalTp: { type: ["number", "null"] }, outcome: { type: "string" }, evidence: { type: "array", items: { type: "string" } }
+            }, required: ["found", "timestamp", "direction", "entry", "stopLoss", "tp1", "tp2", "finalTp", "outcome", "evidence"] },
+            chartAnnotations: { type: "array", items: { type: "object", additionalProperties: false, properties: {
+              type: { type: "string" }, label: { type: "string" }, price: { type: ["number", "null"] }, points: { type: "array", items: { type: "object", additionalProperties: false, properties: { x: { type: "number" }, y: { type: "number" } }, required: ["x", "y"] } }, color: { type: "string" }
+            }, required: ["type", "label", "price", "points", "color"] } }
+          },
+          required: ["direction", "confidence", "strategy", "timeframe", "decisionReason", "marketState", "setup", "confirmedConditions", "missingConditions", "invalidation", "entry", "stopLoss", "risk", "tp1", "tp2", "finalTp", "finalTpReason", "projection", "previousSetup", "chartAnnotations"]
+        } } }
+      })
+    });
+
+    if (!response.ok) {
+      const details = await response.text();
+      console.error("OpenAI analysis failed", details);
+      return Response.json({ error: "OpenAI analysis failed.", details }, { status: 500 });
+    }
+    const result = await response.json();
+    const text = result.output?.flatMap((item: any) => item.content ?? []).filter((c: any) => c.type === "output_text").map((c: any) => c.text).join("")?.trim();
+    if (!text) return Response.json({ error: "The analyzer returned no structured result." }, { status: 500 });
+
+    const parsed = JSON.parse(text);
+    const d = dir(parsed.direction);
+    const confirmed = d === "BUY" || d === "SELL";
+    const entry = confirmed ? num(parsed.entry) : null;
+    const stopLoss = confirmed ? num(parsed.stopLoss) : null;
+    const risk = confirmed && entry !== null && stopLoss !== null ? (d === "BUY" ? entry - stopLoss : stopLoss - entry) : null;
+    const safeRisk = risk !== null && risk > 0 ? risk : null;
+    const target = (v: unknown) => { const n = num(v); if (!confirmed || n === null || entry === null) return null; return d === "BUY" ? (n > entry ? n : null) : (n < entry ? n : null); };
+
+    return Response.json({
+      success: true, strategy, timeframe,
+      strategyInfo: { description: rules.description, shortExplanation: learning?.shortExplanation ?? rules.description, recommendedTradingTimes: learning?.recommendedTradingTimes ?? rules.timeframes },
+      analysis: `${String(parsed.decisionReason || "")}\n\nMARKET STATE:\n${String(parsed.marketState || "")}\n\nSETUP:\n${String(parsed.setup || "")}`,
+      tradeSignal: { direction: d, confidence: Math.max(0, Math.min(100, Math.round(Number(parsed.confidence) || 0))), entry, stopLoss, risk: safeRisk, tp1: target(parsed.tp1), tp2: target(parsed.tp2), finalTp: target(parsed.finalTp), invalidation: String(parsed.invalidation || "") },
+      decisionReason: String(parsed.decisionReason || ""), marketState: String(parsed.marketState || ""), setup: String(parsed.setup || ""),
+      confirmedConditions: arr(parsed.confirmedConditions), missingConditions: arr(parsed.missingConditions), projection: parsed.projection || null,
+      previousSetup: parsed.previousSetup || null, chartAnnotations: Array.isArray(parsed.chartAnnotations) ? parsed.chartAnnotations : []
+    });
+  } catch (error) {
+    console.error("VaultTrades analysis error", error);
+    return Response.json({ error: "Unable to analyze the chart." }, { status: 500 });
+  }
+}
