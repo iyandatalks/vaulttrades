@@ -17,6 +17,20 @@ type Result = {
 const TIMEFRAMES: Timeframe[] = ["M1", "M5", "M10", "M15", "M30", "H1", "H4", "D1"];
 const price = (v: number | null | undefined) => v == null || !Number.isFinite(v) ? "WAIT" : v.toLocaleString(undefined, { maximumFractionDigits: 5 });
 
+const tradingTimeHint = (id: StrategyId) => {
+  switch (id) {
+    case "killZone": return "Look for trades from 08:30–12:00 SAST";
+    case "ema20": return "Look for trades from 04:00–10:00 SAST";
+    case "continuation": return "Anytime";
+    case "supplyDemand": return "Anytime";
+    case "714": return "13:00 SAST — designed for holding longer positions";
+    case "sweepEngulfing": return "Best used during active London and New York sessions, especially around liquidity sweeps and session expansion";
+    case "swingDeveloping": return "Best checked on H4 for swing structure; use lower timeframes for entry confirmation";
+    case "autoFibRetrace": return "London: 09:00–12:00 SAST · New York: 14:30–19:00 SAST · Asia: 03:30–05:00 SAST";
+    default: return "Use the timeframe and session conditions defined by the selected strategy.";
+  }
+};
+
 export default function AnalyzerPage() {
   const [strategy, setStrategy] = useState<StrategyId>("killZone");
   const [timeframe, setTimeframe] = useState<Timeframe>("M5");
@@ -46,7 +60,7 @@ export default function AnalyzerPage() {
     <section className="card">
       <div className="section-label">STRATEGY LIBRARY</div><h1 className="title">Analyze by Strategy</h1>
       <p className="muted">The Analyzer applies one independent strategy at a time. It explains why a trade is valid, developing, waiting, or invalid.</p>
-      <div style={{ display: "grid", gap: 10, marginTop: 18 }}>{STRATEGY_LIST.map(({ rules }) => <button key={rules.id} type="button" className={`strategy ${strategy === rules.id ? "active" : ""}`} disabled={loading} onClick={() => { setStrategy(rules.id); setResult(null); }}><strong>{rules.name}</strong><span className="muted">{rules.description}</span></button>)}</div>
+      <div style={{ display: "grid", gap: 10, marginTop: 18 }}>{STRATEGY_LIST.map(({ rules }) => <button key={rules.id} type="button" className={`strategy ${strategy === rules.id ? "active" : ""}`} disabled={loading} onClick={() => { setStrategy(rules.id); setResult(null); }}><strong>{rules.name}</strong><span className="muted">{tradingTimeHint(rules.id)}</span></button>)}</div>
       {selected && <div className="condition-box" style={{ marginTop: 16 }}><strong>Required sequence</strong><p className="muted">{selected.sequence.join(" → ")}</p></div>}
     </section>
 
