@@ -1,0 +1,59 @@
+/**
+ * VaultTrades strategy registry.
+ *
+ * This file is only the selector/registry layer. Each strategy remains an
+ * independent source-of-truth module under lib/strategies/.
+ */
+import type { StrategyDefinition, StrategyId, StrategyRuleSet } from "./types";
+
+import killZoneRules from "./killZone";
+import ema20Rules from "./ema20";
+import continuationRules from "./continuation";
+import supplyDemandRules from "./supplyDemand";
+import observing714Rules from "./714Observing";
+import sweepEngulfingStrategy from "./sweepEngulfing";
+import swingDevelopingStrategy from "./swingDeveloping";
+import autoFibRetraceStrategy from "./autoFibRetrace";
+
+export const STRATEGIES: Readonly<Record<StrategyId, StrategyDefinition>> = {
+  killZone: { rules: killZoneRules },
+  ema20: { rules: ema20Rules },
+  continuation: { rules: continuationRules },
+  supplyDemand: { rules: supplyDemandRules },
+  "714Observing": { rules: observing714Rules },
+  sweepEngulfing: { rules: sweepEngulfingStrategy.rules },
+  swingDeveloping: { rules: swingDevelopingStrategy.rules },
+  autoFibRetrace: autoFibRetraceStrategy,
+};
+
+/** Stable order used by the Analyzer strategy selector. */
+export const STRATEGY_LIST: readonly StrategyDefinition[] = [
+  STRATEGIES.killZone,
+  STRATEGIES.ema20,
+  STRATEGIES.continuation,
+  STRATEGIES.supplyDemand,
+  STRATEGIES["714Observing"],
+  STRATEGIES.sweepEngulfing,
+  STRATEGIES.swingDeveloping,
+  STRATEGIES.autoFibRetrace,
+];
+
+export function getStrategy(strategyId: StrategyId): StrategyDefinition {
+  return STRATEGIES[strategyId];
+}
+
+export function getStrategyRules(strategyId: StrategyId): StrategyRuleSet {
+  return getStrategy(strategyId).rules;
+}
+
+export type { StrategyDefinition, StrategyId, StrategyRuleSet } from "./types";
+export { AI_COACH_RULES } from "./types";
+
+export { default as killZoneRules } from "./killZone";
+export { default as ema20Rules } from "./ema20";
+export { default as continuationRules } from "./continuation";
+export { default as supplyDemandRules } from "./supplyDemand";
+export { default as observing714Rules } from "./714Observing";
+export { default as sweepEngulfingStrategy } from "./sweepEngulfing";
+export { default as swingDevelopingStrategy } from "./swingDeveloping";
+export { default as autoFibRetraceStrategy } from "./autoFibRetrace";
