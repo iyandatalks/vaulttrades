@@ -23,7 +23,7 @@ const tradingTimeHint = (id: StrategyId) => {
     case "ema20": return "Look for trades from 04:00–10:00 SAST";
     case "continuation": return "Anytime";
     case "supplyDemand": return "Anytime";
-    case "714": return "13:00 SAST — designed for holding longer positions";
+    case "714Observing": return "13:00 SAST — designed for holding longer positions";
     case "sweepEngulfing": return "Best used during active London and New York sessions, especially around liquidity sweeps and session expansion";
     case "swingDeveloping": return "Best checked on H4 for swing structure; use lower timeframes for entry confirmation";
     case "autoFibRetrace": return "London: 09:00–12:00 SAST · New York: 14:30–19:00 SAST · Asia: 03:30–05:00 SAST";
