@@ -27,10 +27,27 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const isProtected = PROTECTED_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`));
 
-  if (isProtected && !user) {
+  if (!isProtected) return response;
+
+  if (!user) {
     const url = request.nextUrl.clone();
     url.pathname = "/join";
     url.searchParams.set("next", pathname);
+    return NextResponse.redirect(url);
+  }
+
+  const { data: activeSubscription } = await supabase
+    .from("subscriptions")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("status", "active")
+    .limit(1)
+    .maybeSingle();
+
+  if (!activeSubscription) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/subscription";
+    url.searchParams.set("required", "subscription");
     return NextResponse.redirect(url);
   }
 
