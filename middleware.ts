@@ -1,14 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-const protectedPaths = [
+const paidProtectedPaths = [
   "/analyzer",
   "/ai-coach",
   "/journal",
   "/strategies",
-  "/subscription",
-  "/profile",
 ];
+
+const authenticatedPaths = ["/profile", "/subscription"];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -33,11 +33,14 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
   const pathname = request.nextUrl.pathname;
-  const isProtected = protectedPaths.some(
+  const isPaidProtected = paidProtectedPaths.some(
+    (path) => pathname === path || pathname.startsWith(`${path}/`)
+  );
+  const isAuthenticatedOnly = authenticatedPaths.some(
     (path) => pathname === path || pathname.startsWith(`${path}/`)
   );
 
-  if (!isProtected) {
+  if (!isPaidProtected && !isAuthenticatedOnly) {
     return response;
   }
 
@@ -48,9 +51,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  if (isAuthenticatedOnly) {
+    return response;
+  }
+
   const { data: profile, error: profileError } = await supabase
     .from("users")
-    .select("license_status, is_active, role")
+    .select("license_status, is_active")
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
