@@ -51,6 +51,7 @@ export default function LoginForm() {
           {error && <p className="text-sm text-red-600" role="alert">{error}</p>}
           <button className="w-full rounded-md border px-4 py-3 font-medium disabled:opacity-50" disabled={loading} type="submit">{loading ? "Signing in…" : "Log in"}</button>
         </form>
+        <a className="text-sm underline" href="/auth/forgot-password">Forgot your password?</a>
         <p className="text-sm">Don&apos;t have an account? <a className="underline" href="/auth/register">Create an account</a></p>
       </div>
     </main>
