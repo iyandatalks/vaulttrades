@@ -37,11 +37,33 @@ export async function middleware(request: NextRequest) {
     (path) => pathname === path || pathname.startsWith(`${path}/`)
   );
 
-  if (isProtected && !user) {
+  if (!isProtected) {
+    return response;
+  }
+
+  if (!user) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/auth/login";
     loginUrl.searchParams.set("next", pathname);
     return NextResponse.redirect(loginUrl);
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("users")
+    .select("license_status, is_active, role")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+
+  const hasActiveMembership =
+    !profileError &&
+    profile?.is_active === true &&
+    profile?.license_status === "active";
+
+  if (!hasActiveMembership) {
+    const subscriptionUrl = request.nextUrl.clone();
+    subscriptionUrl.pathname = "/subscription";
+    subscriptionUrl.search = "";
+    return NextResponse.redirect(subscriptionUrl);
   }
 
   return response;
