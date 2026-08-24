@@ -28,10 +28,13 @@ export default function RegisterForm() {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
 
+    const confirmationRedirect = `${window.location.origin}/auth/callback`;
+
     const { data, error: signUpError } = await supabase.auth.signUp({
       email: email.trim(),
       password,
       options: {
+        emailRedirectTo: confirmationRedirect,
         data: {
           first_name: firstName.trim(),
           last_name: lastName.trim(),
