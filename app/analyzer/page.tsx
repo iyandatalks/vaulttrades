@@ -21,7 +21,6 @@ type Result = {
   missingConditions?: string[];
   projection?: { available?: boolean; setupType?: string; zoneLow?: number | null; zoneHigh?: number | null; expectedEntry?: number | null; expectedStopLoss?: number | null; expectedTp1?: number | null; expectedTp2?: number | null; expectedFinalTp?: number | null; retestRequired?: boolean; retestStatus?: string; confirmationRequired?: string; confirmationStatus?: string } | null;
   previousSetup?: { found?: boolean; timestamp?: string; direction?: string; entry?: number | null; stopLoss?: number | null; tp1?: number | null; tp2?: number | null; finalTp?: number | null; outcome?: string; evidence?: string[] } | null;
-  historicalFootprints?: { timestamp: string; direction: "BUY" | "SELL" | "UNKNOWN"; setupType: string; entry: number | null; stopLoss: number | null; tp1: number | null; tp2: number | null; finalTp: number | null; lifecycle: string; evidence: string[] }[];
   currentState?: CurrentState;
   currentTrade?: { visible?: boolean; direction?: string; entry?: number | null; stopLoss?: number | null; tp1?: number | null; tp2?: number | null; finalTp?: number | null; progress?: string; status?: string; evidence?: string[] } | null;
   nextAction?: string;
@@ -246,30 +245,7 @@ export default function AnalyzerPage() {
               <p><strong>Outcome:</strong> {result.previousSetup.outcome}</p>
               {result.previousSetup.evidence?.length ? <ul>{result.previousSetup.evidence.map(x => <li key={x}>{x}</li>)}</ul> : null}
             </div>
-          : <div className="condition-box"><strong>No prior setup confirmed</strong><p className="muted">The uploaded chart does not show enough reliable history to identify a prior qualifying setup. VaultTrades will not manufacture one.</p></div>}
-      </section>
-
-      <section className="card">
-        <div className="section-label">STRATEGY FOOTPRINT HISTORY</div>
-        <h2 className="title">Traceable Setup History</h2>
-        <p className="muted">The Analyzer scans the visible chart history for strategy-generated footprints so the customer can compare the reported setup with the same area on the TradingView chart.</p>
-        {result.historicalFootprints?.length ? <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
-          {result.historicalFootprints.map((footprint, index) => <div key={footprint.timestamp + "-" + index} className="condition-box" style={{ borderLeft: "4px solid " + (footprint.direction === "SELL" ? "#ef4444" : footprint.direction === "BUY" ? "#3b82f6" : "#94a3b8") }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-              <strong>{footprint.direction} · {footprint.setupType}</strong>
-              <strong>{footprint.lifecycle}</strong>
-            </div>
-            <p className="muted" style={{ marginTop: 4 }}>{footprint.timestamp}</p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 8, marginTop: 8 }}>
-              <span>Entry: <strong>{price(footprint.entry)}</strong></span>
-              <span>SL: <strong>{price(footprint.stopLoss)}</strong></span>
-              <span>TP1: <strong>{price(footprint.tp1)}</strong></span>
-              <span>TP2: <strong>{price(footprint.tp2)}</strong></span>
-              <span>Final: <strong>{price(footprint.finalTp)}</strong></span>
-            </div>
-            {footprint.evidence?.length ? <ul style={{ marginTop: 8 }}>{footprint.evidence.map(e => <li key={e}>{e}</li>)}</ul> : null}
-          </div>)}
-        </div> : <div className="condition-box"><strong>No reliable historical footprint visible</strong><p className="muted">The Analyzer will not fabricate a prior setup. Upload a chart with sufficient visible history, including the strategy's labels, execution levels or state information.</p></div>}
+          : <div className="condition-box"><strong>No prior setup confirmed</strong><p className="muted">The visible market history is not sufficient to reconstruct a prior qualifying setup from the selected strategy rules.</p></div>}
       </section>
 
       <section className="card">
