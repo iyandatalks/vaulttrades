@@ -29,6 +29,37 @@ function calculateChannel(candles: Array<{ high: number; low: number; close: num
   return { upper, lower, middle: (upper + lower) / 2 };
 }
 
+function derivePriceLevels(candles: Array<{ high: number; low: number; close: number }>, current: number | null, pivotLength = 3) {
+  if (candles.length < pivotLength * 2 + 3 || current === null) return { support: null, resistance: null };
+  const highs: number[] = [], lows: number[] = [];
+  const start = Math.max(pivotLength, candles.length - 150);
+  for (let i = start; i < candles.length - pivotLength; i++) {
+    let highPivot = true, lowPivot = true;
+    for (let j = 1; j <= pivotLength; j++) {
+      if (candles[i].high <= candles[i - j].high || candles[i].high <= candles[i + j].high) highPivot = false;
+      if (candles[i].low >= candles[i - j].low || candles[i].low >= candles[i + j].low) lowPivot = false;
+    }
+    if (highPivot) highs.push(candles[i].high);
+    if (lowPivot) lows.push(candles[i].low);
+  }
+
+  const recent = candles.slice(-80);
+  const supportCandidates = lows.filter(v => v < current).sort((a, b) => b - a);
+  const resistanceCandidates = highs.filter(v => v > current).sort((a, b) => a - b);
+  let support = supportCandidates[0] ?? recent.map(c => c.low).filter(v => v < current).sort((a, b) => b - a)[0] ?? null;
+  let resistance = resistanceCandidates[0] ?? recent.map(c => c.high).filter(v => v > current).sort((a, b) => a - b)[0] ?? null;
+
+  // A level labelled support must be below price and resistance must be above price.
+  // Never allow the two displayed levels to collapse onto the same number.
+  if (support !== null && support >= current) support = null;
+  if (resistance !== null && resistance <= current) resistance = null;
+  if (support !== null && resistance !== null && support >= resistance) {
+    support = recent.map(c => c.low).filter(v => v < current).sort((a, b) => b - a)[0] ?? null;
+    resistance = recent.map(c => c.high).filter(v => v > current).sort((a, b) => a - b)[0] ?? null;
+  }
+  return { support, resistance };
+}
+
 function tradeMath(direction: Direction, entry: number | null, stop: number | null, tp: number | null, current: number | null) {
   if (direction === "NO TRADE" || entry === null || stop === null || tp === null) {
     return { valid: false, rr: null, risk: null, reward: null, slPct: null, entryDistancePct: null };
@@ -64,7 +95,7 @@ export async function POST(request: Request) {
     if (!profile) return Response.json({ error: "Invalid strategy selected." }, { status: 400 });
     if (!symbol) return Response.json({ error: "Select or enter a market symbol." }, { status: 400 });
     if (marketType === "SYNTHETIC") {
-      return Response.json({ error: "Synthetic indices require the Synthetic/Broker provider connection. Twelve Data is not used for synthetic markets." }, { status: 400 });
+      return Response.json({ error: "Synthetic indices require the Synthetic/Broker provider connection." }, { status: 400 });
     }
 
     const providerRoute = getMarketProviderRoute(marketType);
@@ -78,9 +109,12 @@ export async function POST(request: Request) {
 
     const selectedIndicators = profile.defaultIndicators;
     const context = buildAnalyzerMarketContext(market.candles, market.symbol, timeframe, selectedIndicators);
-    const channel = calculateChannel(market.candles);
+    const liveCurrentPrice = market.currentPrice ?? market.candles.at(-1)?.close ?? null;
     const latest = market.candles.at(-1)!;
     const previous = market.candles.at(-2)!;
+    const channel = calculateChannel(market.candles);
+    const priceLevels = derivePriceLevels(market.candles, liveCurrentPrice, 3);
+    const lockedStructure = { ...context.structure, support: priceLevels.support, resistance: priceLevels.resistance };
 
     const sourceRules = profile.sourceIds.map((id: StrategyId) => getStrategyRules(id));
     const indicatorEvidence = context.selectedIndicators.map((i) => ({ name: i.name, value: i.value, signal: i.signal, parameters: profile.indicatorSpecs.find(s => s.name === i.name)?.parameters ?? "source-defined" }));
@@ -101,8 +135,8 @@ ${JSON.stringify({ focus: profile.focus, rules: profile.rules, indicatorSpecs: p
 
 LIVE CALCULATED MARKET CONTEXT
 ${JSON.stringify({
-  currentPrice: context.currentPrice,
-  structure: context.structure,
+  currentPrice: liveCurrentPrice,
+  structure: lockedStructure,
   volatility: context.volatility,
   selectedIndicators: indicatorEvidence,
   channel20High: channel.upper,
@@ -111,6 +145,9 @@ ${JSON.stringify({
   previousCandle: previous,
   recentCandles: market.candles.slice(-60),
 })}
+
+PRICE LEVEL INTEGRITY — MANDATORY
+The current price above is the authoritative live price for this response. The supplied support and resistance are deterministic levels calculated from the chronological live candles. Treat them as locked factual values: do not replace them with guesses or make support equal resistance. Support must be below current price. Resistance must be above current price. If a structural level is not available, return null rather than inventing one.
 
 UNIVERSAL ANALYZER RULES 1-6 — MANDATORY FOR EVERY STRATEGY
 1. Visual/market analysis: classify Uptrend, Downtrend, Ranging or Choppy; identify concrete support/resistance and recent price action. More than 5 consecutive inside bars OR material conflict across 3+ selected/derived timeframes = NO TRADE.
@@ -127,7 +164,7 @@ CRITICAL LIFECYCLE RULE
 DEVELOPING, READY, WATCHING and ACTIVE are not the same as a NEW BUY/SELL. Only return BUY/SELL when the source strategy state and Universal Rules 1-6 all pass. If not, return NO TRADE and explain exactly what is missing.
 
 EDUCATIONAL COMMUNICATION
-The user should learn from the result. Include concrete support/resistance and likely next zones if price breaks and closes beyond a level. Avoid repeating market/provider information. Do not reveal the data provider to the user.
+The user should learn from the result. Include concrete support/resistance and the next meaningful zone if price breaks and CLOSES beyond the relevant level. Explain what confirmation would change the state. Avoid generic filler and avoid repeating market/provider information. Do not reveal the data provider to the user.
 
 Return JSON only.`;
 
@@ -191,19 +228,19 @@ Return JSON only.`;
     const entry = typeof ai.entry === "number" ? ai.entry : null;
     const stopLoss = typeof ai.stopLoss === "number" ? ai.stopLoss : null;
     const finalTp = typeof ai.finalTp === "number" ? ai.finalTp : typeof ai.tp2 === "number" ? ai.tp2 : null;
-    const math = tradeMath(direction, entry, stopLoss, finalTp, context.currentPrice);
+    const math = tradeMath(direction, entry, stopLoss, finalTp, liveCurrentPrice);
 
     const strongSmc = [ai.bos, ai.choch, ai.orderBlock, ai.fvg, ai.liquiditySweep, ai.displacement].filter((x: unknown) => typeof x === "number" && x >= 7).length;
     const universalTradeGate = direction !== "NO TRADE" && strongSmc >= 2 && math.valid;
     const finalDirection: Direction = universalTradeGate && ai.decision === "TRADE" ? direction : "NO TRADE";
 
     return Response.json({
-      market: { type: marketType, asset: market.symbol, timeframe, currentPrice: context.currentPrice, directionalBias: ai.directionalBias, session: ai.session },
+      market: { type: marketType, asset: market.symbol, timeframe, currentPrice: liveCurrentPrice, directionalBias: ai.directionalBias, session: ai.session },
       strategy: { id: strategyId, name: profile.name, category: profile.category },
       sourceIndicators: profile.indicatorSpecs,
       indicatorReadings: context.selectedIndicators,
       chart: { candles: market.candles, channel20: channel },
-      structure: { ...context.structure, support: ai.support ?? context.structure.support, resistance: ai.resistance ?? context.structure.resistance },
+      structure: { ...lockedStructure },
       volatility: context.volatility,
       decision: finalDirection === "NO TRADE" ? "NO TRADE" : "TRADE",
       direction: finalDirection,
