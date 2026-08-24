@@ -27,8 +27,12 @@ export default function SubscriptionPage() {
         <p style={{ color: "#aeb5c6", lineHeight: 1.7 }}>Your VaultTrades subscription gives you access to the paid application, including Analyzer, Strategies, AI Coach, Journal and Profile.</p>
         <div style={{ marginTop: 24, padding: 22, borderRadius: 12, border: "1px solid rgba(212,166,55,.3)", background: "#050812" }}>
           <div style={{ color: "#aeb5c6", fontSize: 13 }}>VaultTrades Monthly</div>
-          <div style={{ marginTop: 8, color: "#d4a637", fontSize: 34, fontWeight: 800 }}>$73.99 <span style={{ color: "#aeb5c6", fontSize: 14, fontWeight: 500 }}>/ month</span></div>
-          <div style={{ marginTop: 10, color: "#7f8799", fontSize: 12 }}>Sandbox testing uses the configured test amount and never changes the production price.</div>
+          <div style={{ marginTop: 8, color: "#d4a637", fontSize: 34, fontWeight: 800 }}>
+            $73.99 <span style={{ color: "#aeb5c6", fontSize: 14, fontWeight: 500 }}>/ month</span>
+          </div>
+          <div style={{ marginTop: 10, color: "#7f8799", fontSize: 12 }}>
+            Production membership price: $73.99/month. In PayPal Sandbox, the VaultTrades admin test checkout uses the configured $1.00 test amount; production pricing is not changed.
+          </div>
         </div>
         <button onClick={() => void startPayPal()} disabled={loading} style={{ width: "100%", border: 0, cursor: loading ? "wait" : "pointer", marginTop: 24, padding: "15px 18px", borderRadius: 9, background: "#d4a637", color: "#050812", fontWeight: 800 }}>{loading ? "Opening PayPal..." : "Continue with PayPal"}</button>
         {error && <div style={{ marginTop: 16, padding: 14, borderRadius: 9, background: "rgba(220,70,70,.12)", color: "#ffb5b5" }}>{error}</div>}
