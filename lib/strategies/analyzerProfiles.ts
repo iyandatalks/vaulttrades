@@ -24,19 +24,9 @@ export interface AnalyzerStrategyProfile {
 /**
  * CUSTOMER STRATEGY -> AUTHORITATIVE INTERNAL SOURCE
  *
- * Volatility & Breakout -> supplied V75 Pine source, represented internally
- * as volatilityBreakoutRules.
- * Continuation -> continuation source script.
- * Swing / Engulfing -> Sweep & Engulfing source.
- * FIB Retracement -> Vault Auto Fib Retrace source.
- * Proprietary Flow -> current proprietary observation source. The internal
- * implementation name is deliberately not shown to customers.
- * Institutional -> existing institutional composite of authoritative Vault
- * source modules; it is not AI-invented.
- *
- * No customer-selectable strategy may exist without sourceIds. If an intended
- * strategy has no authoritative source, it must be flagged as unmapped rather
- * than fabricated by AI.
+ * Every customer-selectable strategy must resolve to one or more authoritative
+ * source modules. AI interprets the chart through those rules; it is not the
+ * source of the strategy itself.
  */
 export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
   {
@@ -58,14 +48,16 @@ export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
     id: "institutional",
     name: "Institutional",
     category: "MY CUSTOM STRATEGIES",
-    sourceIds: ["sweepEngulfing", "supplyDemand", "continuation"],
+    sourceIds: ["institutional"],
     defaultIndicators: ["VWAP", "EMA", "ATR"],
-    focus: ["market structure", "liquidity", "displacement", "supply/demand", "execution zones", "confirmation"],
+    focus: ["market structure", "BOS/CHoCH", "liquidity", "order block", "FVG", "displacement", "session confluence", "risk validation"],
     rules: [
-      "Resolve institutional analysis from the mapped internal source engines.",
-      "Market structure and liquidity have priority over standalone indicators.",
-      "Require a coherent execution zone and source-defined confirmation sequence before a trade verdict.",
-      "AI must not invent an institutional setup when the mapped source evidence is absent."
+      "Use the authoritative Institutional source contract supplied by the developer.",
+      "Score BOS, CHoCH, Order Block, FVG, Liquidity Sweep and Displacement from visible evidence.",
+      "Require at least two SMC components scoring 7/10 or higher for a new directional trade.",
+      "Validate session context, entry proximity, SL/TP geometry and R:R >= 1:2.",
+      "Active and historical setup lifecycle must be communicated separately from a new trade verdict.",
+      "AI must not invent an institutional setup when source evidence is absent."
     ]
   },
   {
