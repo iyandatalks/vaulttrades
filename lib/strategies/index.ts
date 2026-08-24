@@ -15,6 +15,7 @@ import observing714Rules from "./714Observing";
 import sweepEngulfingStrategy from "./sweepEngulfing";
 import swingDevelopingStrategy from "./swingDeveloping";
 import autoFibRetraceStrategy from "./autoFibRetrace";
+import institutionalRules from "./institutional";
 
 export const STRATEGIES: Readonly<Record<StrategyId, StrategyDefinition>> = {
   volatilityBreakout: { rules: volatilityBreakoutRules },
@@ -26,6 +27,7 @@ export const STRATEGIES: Readonly<Record<StrategyId, StrategyDefinition>> = {
   sweepEngulfing: { rules: sweepEngulfingStrategy.rules },
   swingDeveloping: { rules: swingDevelopingStrategy.rules },
   autoFibRetrace: autoFibRetraceStrategy,
+  institutional: { rules: institutionalRules },
 };
 
 /** Stable order used by internal consumers. */
@@ -39,6 +41,7 @@ export const STRATEGY_LIST: readonly StrategyDefinition[] = [
   STRATEGIES.killZone,
   STRATEGIES.ema20,
   STRATEGIES.supplyDemand,
+  STRATEGIES.institutional,
 ];
 
 export function getStrategy(strategyId: StrategyId): StrategyDefinition {
@@ -61,3 +64,4 @@ export { default as observing714Rules } from "./714Observing";
 export { default as sweepEngulfingStrategy } from "./sweepEngulfing";
 export { default as swingDevelopingStrategy } from "./swingDeveloping";
 export { default as autoFibRetraceStrategy } from "./autoFibRetrace";
+export { default as institutionalRules } from "./institutional";
