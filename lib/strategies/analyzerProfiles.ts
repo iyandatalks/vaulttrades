@@ -78,6 +78,24 @@ export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
     ]
   },
   {
+    id: "sweepDeveloping",
+    name: "Sweep Developing",
+    category: "MY CUSTOM STRATEGIES",
+    sourceIds: ["swingDeveloping"],
+    defaultIndicators: ["EMA", "RSI"],
+    focus: ["H1 direction", "M15 alignment", "EMA 9/15 pullback", "EMA 9 recovery", "M15 SMI confirmation", "developing setup lifecycle"],
+    rules: [
+      "Sweep Developing is a separate strategy from Swing / Engulfing and must never resolve to sweepEngulfing.",
+      "Use the authoritative swingDeveloping source module as the strategy engine; the internal module name is not customer-facing.",
+      "Follow the source sequence: H1 direction -> M15 alignment -> M15 EMA 9/15 pullback -> recovery through EMA 9 -> M15 SMI confirmation -> new BUY/SELL transition.",
+      "DIRECTION, PULLBACK and ENTRY READY are developing/non-entry states and must not be promoted to BUY or SELL.",
+      "A prior pullback is required by the source entry transition; do not infer an entry from EMA alignment alone.",
+      "Preserve the source lifecycle so historical Sweep Developing setups can be identified as developing, entry-ready, entered or completed where chart evidence permits.",
+      "The source Pine strategy defines no SL/TP/RR; do not invent strategy-native risk levels. Universal Analyzer risk validation may reject an otherwise executable signal if required risk geometry is unavailable.",
+      "When no new entry exists, report the current developing state and the most recent traceable source footprint instead of saying there is no setup without checking history."
+    ]
+  },
+  {
     id: "fibRetracement",
     name: "FIB Retracement",
     category: "ADVANCED",
