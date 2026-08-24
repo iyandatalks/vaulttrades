@@ -101,8 +101,35 @@ Return tradeDecision=NO TRADE when the selected strategy conditions are not sati
 TRADE RULE:
 Return tradeDecision=TRADE only when the selected strategy has sufficient visible confluence and a coherent entry, invalidation and target structure. Direction must be BUY or SELL. Never represent a setup as guaranteed or certain financial advice.
 
+ACTIVE / EXISTING SETUP COMMUNICATION — CRITICAL:
+The uploaded screenshot is NOT merely a trigger for a new trade. It may contain a communicative strategy dashboard, execution table, labels, entry/SL/TP lines, state text, reason text, historical trade tags, or a currently running trade. Read those elements as first-class evidence.
+
+Before deciding NO TRADE, explicitly determine whether the chart/dashboard shows:
+- an ACTIVE/RUNNING trade;
+- its direction (LONG/SHORT or BUY/SELL);
+- entry;
+- stop loss;
+- TP1/TP2/TP3 or final TP;
+- whether TP1, TP2, or another target has already been hit;
+- whether the setup is still active, completed, invalidated, or waiting;
+- the latest previous setup and its visible outcome.
+
+If an active trade is visible, NEVER describe the result as "no information" and NEVER erase the active trade simply because there is no new entry event. The correct customer-facing outcome is usually:
+- tradeDecision = NO TRADE when the user should not enter/chase an already-running trade;
+- currentState = ACTIVE;
+- currentTrade contains the visible direction, entry, SL, targets and progress;
+- decisionReason clearly explains that the existing trade is already underway and whether TP1/TP2 has been reached;
+- nextAction tells the user whether to HOLD/OBSERVE, WAIT FOR COMPLETION, or WAIT FOR A NEW SETUP.
+
+An ACTIVE trade is different from a NEW TRADE. "NO TRADE" must mean "do not open a new position now", not "there is nothing happening."
+
+If the dashboard shows a completed historical trade, report it under previousSetup and explain its outcome. If it shows a setup developing but not yet executable, use currentState = DEVELOPING or WAITING and explain exactly what event/confirmation is still required.
+
+The strategy source is intended to be communicative. Translate the source engine's state machine into useful customer-facing language:
+WAIT/CHANNEL, DIRECTION, BREAKOUT, REVERSAL, READY, ACTIVE, TP1 HIT, TP2 HIT, TP3 HIT/COMPLETED, STOP LOSS/INVALIDATED, and previous setup where visible. Do not expose proprietary source-code names or implementation details.
+
 ANTICIPATED SETUP:
-Keep anticipated setup separate from confirmed trade. A projected setup is a plan for what must happen next, not an active trade.
+Keep anticipated setup separate from confirmed trade. A projected setup is a plan for what must happen next, not an active trade. If an active trade exists, anticipated setup must describe the next legitimate opportunity rather than pretending the active trade is a new entry.
 
 PREVIOUS SETUP:
 Inspect the visible chart history for the most recent prior setup using the same selected framework. Do not invent one. If a timestamp is visible, report it; otherwise say Timestamp not visible. State whether it appears to have reached a target, invalidation, or remains unresolved based only on visible evidence.
@@ -137,9 +164,16 @@ Return ONLY JSON matching the schema.`;
             projection: { type: "object", additionalProperties: false, properties: {
               available: { type: "boolean" }, setupType: { type: "string" }, zoneLow: { type: ["number", "null"] }, zoneHigh: { type: ["number", "null"] }, expectedEntry: { type: ["number", "null"] }, expectedStopLoss: { type: ["number", "null"] }, expectedTp1: { type: ["number", "null"] }, expectedTp2: { type: ["number", "null"] }, expectedFinalTp: { type: ["number", "null"] }, retestRequired: { type: "boolean" }, retestStatus: { type: "string" }, confirmationRequired: { type: "string" }, confirmationStatus: { type: "string" }
             }, required: ["available", "setupType", "zoneLow", "zoneHigh", "expectedEntry", "expectedStopLoss", "expectedTp1", "expectedTp2", "expectedFinalTp", "retestRequired", "retestStatus", "confirmationRequired", "confirmationStatus"] },
-            previousSetup: { type: "object", additionalProperties: false, properties: { found: { type: "boolean" }, timestamp: { type: "string" }, direction: { type: "string" }, entry: { type: ["number", "null"] }, stopLoss: { type: ["number", "null"] }, tp1: { type: ["number", "null"] }, tp2: { type: ["number", "null"] }, finalTp: { type: ["number", "null"] }, outcome: { type: "string" }, evidence: { type: "array", items: { type: "string" } } }, required: ["found", "timestamp", "direction", "entry", "stopLoss", "tp1", "tp2", "finalTp", "outcome", "evidence"] }
+            previousSetup: { type: "object", additionalProperties: false, properties: { found: { type: "boolean" }, timestamp: { type: "string" }, direction: { type: "string" }, entry: { type: ["number", "null"] }, stopLoss: { type: ["number", "null"] }, tp1: { type: ["number", "null"] }, tp2: { type: ["number", "null"] }, finalTp: { type: ["number", "null"] }, outcome: { type: "string" }, evidence: { type: "array", items: { type: "string" } } }, required: ["found", "timestamp", "direction", "entry", "stopLoss", "tp1", "tp2", "finalTp", "outcome", "evidence"] },
+            currentState: { type: "string", enum: ["WAITING", "DEVELOPING", "READY", "ACTIVE", "COMPLETED", "INVALIDATED"] },
+            currentTrade: { type: "object", additionalProperties: false, properties: {
+              visible: { type: "boolean" }, direction: { type: "string" }, entry: { type: ["number", "null"] }, stopLoss: { type: ["number", "null"] },
+              tp1: { type: ["number", "null"] }, tp2: { type: ["number", "null"] }, finalTp: { type: ["number", "null"] },
+              progress: { type: "string" }, status: { type: "string" }, evidence: { type: "array", items: { type: "string" } }
+            }, required: ["visible", "direction", "entry", "stopLoss", "tp1", "tp2", "finalTp", "progress", "status", "evidence"] },
+            nextAction: { type: "string" }
           },
-          required: ["tradeDecision", "direction", "confidence", "asset", "timeframe", "marketCondition", "directionalBias", "decisionReason", "marketState", "setup", "confirmedConditions", "missingConditions", "invalidation", "entry", "stopLoss", "tp1", "tp2", "finalTp", "strategyAnalysis", "aiIndicators", "bollinger", "projection", "previousSetup"]
+          required: ["tradeDecision", "direction", "confidence", "asset", "timeframe", "marketCondition", "directionalBias", "decisionReason", "marketState", "setup", "confirmedConditions", "missingConditions", "invalidation", "entry", "stopLoss", "tp1", "tp2", "finalTp", "strategyAnalysis", "aiIndicators", "bollinger", "projection", "previousSetup", "currentState", "currentTrade", "nextAction"]
         } } }
       })
     });
@@ -179,7 +213,21 @@ Return ONLY JSON matching the schema.`;
       decision: safeDecision,
       tradeSignal: { direction: safeDirection, confidence: Math.max(0, Math.min(100, Math.round(Number(parsed.confidence) || 0))), entry: safeEntry, stopLoss: safeStop, risk: safeDecision === "TRADE" && coherentRisk ? risk : null, tp1: safeTp1, tp2: safeTp2, finalTp: safeFinalTp, invalidation: String(parsed.invalidation || "") },
       decisionReason: String(parsed.decisionReason || ""), marketState: String(parsed.marketState || ""), setup: String(parsed.setup || ""),
-      confirmedConditions: arr(parsed.confirmedConditions), missingConditions: arr(parsed.missingConditions), projection, previousSetup: parsed.previousSetup || null
+      confirmedConditions: arr(parsed.confirmedConditions), missingConditions: arr(parsed.missingConditions), projection, previousSetup: parsed.previousSetup || null,
+      currentState: ["WAITING", "DEVELOPING", "READY", "ACTIVE", "COMPLETED", "INVALIDATED"].includes(String(parsed.currentState)) ? parsed.currentState : "WAITING",
+      currentTrade: parsed.currentTrade && typeof parsed.currentTrade === "object" ? {
+        visible: Boolean(parsed.currentTrade.visible),
+        direction: String(parsed.currentTrade.direction || "NONE"),
+        entry: num(parsed.currentTrade.entry),
+        stopLoss: num(parsed.currentTrade.stopLoss),
+        tp1: num(parsed.currentTrade.tp1),
+        tp2: num(parsed.currentTrade.tp2),
+        finalTp: num(parsed.currentTrade.finalTp),
+        progress: String(parsed.currentTrade.progress || ""),
+        status: String(parsed.currentTrade.status || ""),
+        evidence: arr(parsed.currentTrade.evidence)
+      } : { visible: false, direction: "NONE", entry: null, stopLoss: null, tp1: null, tp2: null, finalTp: null, progress: "", status: "", evidence: [] },
+      nextAction: String(parsed.nextAction || "Wait for the next valid strategy event.")
     });
   } catch (error) {
     console.error("VaultTrades analysis error", error);
