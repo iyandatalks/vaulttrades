@@ -14,13 +14,6 @@ export type StrategyId =
 export type StrategySignal = "BUY" | "SELL" | "NONE";
 export type StrategyState = "WAITING" | "DEVELOPING" | "ENTRY_READY" | "BUY" | "SELL" | "NO_TRADE";
 
-/**
- * Indicator dependency extracted from the strategy source.
- *
- * This is deliberately more precise than a generic indicator name: the
- * Analyzer needs the source formula, role and exact parameters before it
- * can ask the market-data layer to calculate anything.
- */
 export interface StrategyIndicatorRequirement {
   name: string;
   role: "PRIMARY" | "REQUIRED" | "CONTEXT";
@@ -34,8 +27,8 @@ export interface StrategyRuleSet {
   description: string;
   source: "PINE_SCRIPT" | "VAULTTRADES_RULES";
   timeframes: readonly string[];
-  /** Exact calculated indicators/components required by the source. */
-  indicatorRequirements: readonly StrategyIndicatorRequirement[];
+  /** Exact calculated indicators/components required by the source when available. */
+  indicatorRequirements?: readonly StrategyIndicatorRequirement[];
   sequence: readonly string[];
   mandatoryRules: readonly string[];
   optionalConfluence: readonly string[];
@@ -65,9 +58,7 @@ export interface StrategyAnalysis {
   message: string;
 }
 
-export interface StrategyDefinition {
-  rules: StrategyRuleSet;
-}
+export interface StrategyDefinition { rules: StrategyRuleSet; }
 
 export const AI_COACH_RULES = [
   "The selected strategy engine is the source of truth.",
@@ -78,6 +69,4 @@ export const AI_COACH_RULES = [
   "Never revive an invalidated setup without a new valid sequence.",
 ] as const;
 
-export function createStrategyDefinition(rules: StrategyRuleSet): StrategyDefinition {
-  return { rules };
-}
+export function createStrategyDefinition(rules: StrategyRuleSet): StrategyDefinition { return { rules }; }
