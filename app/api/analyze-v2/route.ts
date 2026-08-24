@@ -12,7 +12,7 @@ const arr = (v: unknown) => Array.isArray(v) ? v.filter((x): x is string => type
 const validTimeframes = (v: unknown): Timeframe[] => Array.isArray(v) ? v.filter((x): x is Timeframe => typeof x === "string" && TIMEFRAMES.includes(x as Timeframe)).slice(0, 2) : [];
 const validIndicators = (v: unknown): IndicatorName[] => Array.isArray(v) ? v.filter((x): x is IndicatorName => typeof x === "string" && INDICATORS.includes(x as IndicatorName)).slice(0, 3) : [];
 
-function normalizeProjection(raw: any, direction: Direction, strategy: string) {
+function normalizeProjection(raw: any, direction: "BUY" | "SELL" | "NO TRADE", strategy: string) {
   if (!raw || typeof raw !== "object") return null;
   const p = {
     available: Boolean(raw.available), setupType: String(raw.setupType || ""), zoneLow: num(raw.zoneLow), zoneHigh: num(raw.zoneHigh),
@@ -123,7 +123,7 @@ If an active trade is visible, NEVER describe the result as "no information" and
 
 An ACTIVE trade is different from a NEW TRADE. "NO TRADE" must mean "do not open a new position now", not "there is nothing happening."
 
-If the dashboard shows a completed historical trade, report it under previousSetup and explain its outcome. If it shows a setup developing but not yet executable, use currentState = DEVELOPING or WAITING and explain exactly what event/confirmation is still required.
+If the visible chart contains enough price history to reconstruct an earlier qualifying setup using the selected source rules, report that setup under previousSetup and explain its outcome. The customer is never required to provide indicator output, prior analysis, labels, execution tables, or strategy artifacts. The Analyzer must derive the interpretation from the uploaded market chart plus the authoritative internal source rules. If the visible price history is genuinely insufficient to reconstruct a prior setup, state that limitation without asking the customer to provide proprietary strategy information.
 
 The strategy source is intended to be communicative. Translate the source engine's state machine into useful customer-facing language:
 WAIT/CHANNEL, DIRECTION, BREAKOUT, REVERSAL, READY, ACTIVE, TP1 HIT, TP2 HIT, TP3 HIT/COMPLETED, STOP LOSS/INVALIDATED, and previous setup where visible. Do not expose proprietary source-code names or implementation details.
@@ -221,7 +221,8 @@ Return ONLY JSON matching the schema.`;
     const safeTp1 = safeDecision === "TRADE" ? target(parsed.tp1) : null;
     const safeTp2 = safeDecision === "TRADE" ? target(parsed.tp2) : null;
     const safeFinalTp = safeDecision === "TRADE" ? target(parsed.finalTp) : null;
-    const projection = normalizeProjection(parsed.projection, safeDirection, profile.name);
+    const projectionDirection: "BUY" | "SELL" | "NO TRADE" = parsed.direction === "BUY" || parsed.direction === "SELL" ? parsed.direction : "NO TRADE";
+    const projection = normalizeProjection(parsed.projection, projectionDirection, profile.name);
     const aiIndicators = Array.isArray(parsed.aiIndicators) ? parsed.aiIndicators.filter((x: any) => typeof x?.name === "string").slice(0, 3).map((x: any) => ({ name: x.name, selected: true, reason: String(x.reason || "Strategy-aligned confirmation") })) : activeIndicators.map(name => ({ name, selected: true, reason: "Strategy-aligned confirmation" }));
     const bollinger = parsed.bollinger && typeof parsed.bollinger === "object" ? parsed.bollinger : { status: "NOT REQUIRED", period: null, standardDeviation: null, series: "", maType: "", reason: "Not required by the selected strategy.", optimized: false };
     const historicalFootprints = Array.isArray(parsed.historicalFootprints) ? parsed.historicalFootprints.slice(0, 5).map((x: any) => ({ timestamp: String(x?.timestamp || "Timestamp not visible"), direction: ["BUY", "SELL", "UNKNOWN"].includes(String(x?.direction)) ? String(x.direction) : "UNKNOWN", setupType: String(x?.setupType || "Historical setup"), entry: num(x?.entry), stopLoss: num(x?.stopLoss), tp1: num(x?.tp1), tp2: num(x?.tp2), finalTp: num(x?.finalTp), lifecycle: String(x?.lifecycle || "UNRESOLVED"), evidence: arr(x?.evidence) })) : [];
