@@ -5,12 +5,14 @@ import { ANALYZER_CATEGORIES, ANALYZER_STRATEGIES, ANALYZER_STRATEGY_MAP, type I
 import { StrategyPipeline } from "./StrategyPipeline";
 
 type Timeframe = "1m" | "5m" | "15m" | "30m" | "1H" | "4H" | "1D" | "1W" | "1M";
+type MarketType = "FOREX" | "INDICES" | "CRYPTO" | "STOCKS" | "SYNTHETIC";
 type Decision = "TRADE" | "NO TRADE";
 type CurrentState = "WAITING" | "DEVELOPING" | "READY" | "ACTIVE" | "COMPLETED" | "INVALIDATED";
 type Result = {
-  market?: { asset?: string; timeframe?: string; marketCondition?: string; directionalBias?: string; session?: string };
+  market?: { type?: MarketType; provider?: string; asset?: string; timeframe?: string; marketCondition?: string; directionalBias?: string; session?: string };
   strategy?: { id?: string; name?: string; category?: string };
   aiIndicators?: { name: string; selected: boolean; reason?: string; reading?: string }[];
+  autoIndicators?: IndicatorName[];
   bollinger?: { status: string; period: number | null; standardDeviation: number | null; series: string; maType: string; reason: string; optimized: boolean };
   strategyAnalysis?: { marketStructure?: string; priceAction?: string; liquidity?: string; momentum?: string; volatility?: string; indicatorConfirmation?: string };
   smcScores?: { BOS?: number; CHoCH?: number; OrderBlock?: number; FVG?: number; LiquiditySweep?: number; Displacement?: number };
@@ -30,6 +32,7 @@ type Result = {
 };
 
 const TIMEFRAMES: Timeframe[] = ["1m", "5m", "15m", "30m", "1H", "4H", "1D", "1W", "1M"];
+const MARKET_TYPES: MarketType[] = ["FOREX", "INDICES", "CRYPTO", "STOCKS", "SYNTHETIC"];
 const INDICATORS: IndicatorName[] = ["SMA", "EMA", "Ichimoku", "Bollinger Bands", "ATR", "VWAP", "Supertrend", "SAR", "RSI", "MACD", "KST", "Stochastic", "ADX", "Percent B", "MFI", "DPO", "RVOL", "A/D", "SMI"];
 const price = (v: number | null | undefined) => v == null || !Number.isFinite(v) ? "Information unavailable" : v.toLocaleString(undefined, { maximumFractionDigits: 5 });
 
@@ -43,6 +46,7 @@ function confluence(result: Result) {
 }
 
 export default function AnalyzerPage() {
+  const [marketType, setMarketType] = useState<MarketType>("FOREX");
   const [strategy, setStrategy] = useState(ANALYZER_STRATEGIES[0].id);
   const [timeframes, setTimeframes] = useState<Timeframe[]>(["5m"]);
   const [indicatorMode, setIndicatorMode] = useState<"AUTO" | "MANUAL">("AUTO");
@@ -57,17 +61,19 @@ export default function AnalyzerPage() {
   const manualWarning = useMemo(() => manualIndicators.length > 0 && manualIndicators.some(i => !selected.defaultIndicators.includes(i)), [manualIndicators, selected]);
 
   const toggleTimeframe = (tf: Timeframe) => setTimeframes(current => current.includes(tf) ? current.filter(x => x !== tf) : current.length < 2 ? [...current, tf] : current);
-  const toggleIndicator = (indicator: IndicatorName) => setManualIndicators(current => current.includes(indicator) ? current.filter(x => x !== indicator) : current.length < 3 ? [...current, indicator] : current);
+  const toggleIndicator = (indicator: IndicatorName) => setManualIndicators(current => current.includes(indicator) ? current.filter(x => x !== indicator) : current.length < 20 ? [...current, indicator] : current);
 
   const analyze = async () => {
     if (!file) { setError("Please upload a TradingView chart first."); return; }
     setLoading(true); setError(""); setResult(null);
     try {
       const form = new FormData();
-      form.append("image", file); form.append("strategy", strategy); form.append("timeframes", JSON.stringify(timeframes));
-      form.append("indicatorMode", indicatorMode); form.append("manualIndicators", JSON.stringify(manualIndicators));
-      // Live analyzer is the production data path: it identifies the asset and
-      // retrieves deterministic OHLCV/indicator evidence from Twelve Data.
+      form.append("image", file);
+      form.append("marketType", marketType);
+      form.append("strategy", strategy);
+      form.append("timeframes", JSON.stringify(timeframes));
+      form.append("indicatorMode", indicatorMode);
+      form.append("manualIndicators", JSON.stringify(manualIndicators));
       const res = await fetch("/api/analyze-live", { method: "POST", body: form });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Unable to analyze the chart.");
@@ -80,8 +86,18 @@ export default function AnalyzerPage() {
     <header className="header"><div className="brand-block"><img src="/vaulttrades-logo.png" alt="VaultTrades" className="logo"/><div className="tagline">Built by Traders.</div><div className="slogan">Focus, discipline, consistency.</div></div><div className="badge">ANALYZER</div></header>
 
     <section className="card">
+      <div className="section-label">MARKET</div>
+      <h1 className="title">Select Market</h1>
+      <p className="muted">Market selection chooses the data provider. It does not change the selected strategy or its rules.</p>
+      <select value={marketType} disabled={loading} onChange={e => { setMarketType(e.target.value as MarketType); setResult(null); }} style={{ width: "100%", marginTop: 16, padding: 14, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}>
+        {MARKET_TYPES.map(m => <option key={m} value={m}>{m === "FOREX" ? "Forex" : m === "INDICES" ? "Indices" : m === "CRYPTO" ? "Crypto" : m === "STOCKS" ? "Stocks" : "Synthetic indices"}</option>)}
+      </select>
+      <div className="condition-box" style={{ marginTop: 14 }}><strong>Market-data provider</strong><p className="muted">{marketType === "SYNTHETIC" ? "Synthetic/Broker Provider — separate provider route; not Twelve Data." : "Twelve Data — live/historical OHLCV for the selected market."}</p></div>
+    </section>
+
+    <section className="card">
       <div className="section-label">CHOOSE STRATEGY</div>
-      <h1 className="title">AI-Driven Chart Analyzer</h1>
+      <h2 className="title">AI-Driven Chart Analyzer</h2>
       <p className="muted">Select the analytical framework. VaultTrades determines the relevant evidence and indicators automatically; the selected strategy remains the primary decision engine.</p>
       <select value={strategy} disabled={loading} onChange={e => { setStrategy(e.target.value); setResult(null); }} style={{ width: "100%", marginTop: 16, padding: 14, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}>
         {ANALYZER_CATEGORIES.map(category => <optgroup key={category} label={category}>{ANALYZER_STRATEGIES.filter(s => s.category === category).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</optgroup>)}
@@ -99,10 +115,10 @@ export default function AnalyzerPage() {
     <section className="card">
       <div className="section-label">INDICATORS</div>
       <div style={{ display: "flex", gap: 8, marginTop: 10 }}><button className={indicatorMode === "AUTO" ? "primary" : "secondary"} type="button" onClick={() => setIndicatorMode("AUTO")} disabled={loading}>AUTO</button><button className={indicatorMode === "MANUAL" ? "primary" : "secondary"} type="button" onClick={() => setIndicatorMode("MANUAL")} disabled={loading}>MANUAL</button></div>
-      {indicatorMode === "AUTO" ? <div className="condition-box" style={{ marginTop: 14 }}><strong>AI SELECTED — STRATEGY REQUIRED</strong><p>{selected.defaultIndicators.map(i => `${i} — required strategy evidence`).join(" · ")}</p><p className="muted">There is no fixed three-indicator rule. The selected strategy determines the indicator set. Structural/SMC evidence is evaluated separately when required by Rules 1–6.</p></div> : <>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 8, marginTop: 14 }}>{INDICATORS.map(i => <button key={i} type="button" className={`secondary ${manualIndicators.includes(i) ? "selected" : ""}`} onClick={() => toggleIndicator(i)} disabled={loading || (!manualIndicators.includes(i) && manualIndicators.length >= 3)}>{i}</button>)}</div>
+      {indicatorMode === "AUTO" ? <div className="condition-box" style={{ marginTop: 14 }}><strong>AI SELECTED — STRATEGY REQUIRED</strong><p>{selected.defaultIndicators.map(i => `${i} — required by ${selected.name}`).join(" · ")}</p><p className="muted">The number of indicators is strategy-dependent. There is no fixed three-indicator rule. Structural evidence such as liquidity, BOS/CHoCH, zones and displacement is selected separately when the strategy requires it.</p></div> : <>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 8, marginTop: 14 }}>{INDICATORS.map(i => <button key={i} type="button" className={`secondary ${manualIndicators.includes(i) ? "selected" : ""}`} onClick={() => toggleIndicator(i)} disabled={loading || (!manualIndicators.includes(i) && manualIndicators.length >= 20)}>{i}</button>)}</div>
         <div className="muted" style={{ marginTop: 10 }}>Selected: {manualIndicators.length ? manualIndicators.join(" · ") : "None"}</div>
-        {manualWarning && <div className="condition-box" style={{ marginTop: 12 }}><strong>Indicator alignment notice</strong><p>These indicators may provide weaker confirmation for the selected strategy.</p></div>}
+        {manualWarning && <div className="condition-box" style={{ marginTop: 12 }}><strong>Indicator alignment notice</strong><p>Manual indicators can supplement the strategy but do not replace required strategy evidence.</p></div>}
       </>}
     </section>
 
@@ -150,6 +166,7 @@ export default function AnalyzerPage() {
           <div className="execution-item"><span>MARKET CONDITION</span><strong>{result.market?.marketCondition || "Information unavailable"}</strong></div>
           <div className="execution-item"><span>DIRECTIONAL BIAS</span><strong>{result.market?.directionalBias || "Information unavailable"}</strong></div>
           <div className="execution-item"><span>STATE</span><strong>{result.currentState || "WAITING"}</strong></div>
+          <div className="execution-item"><span>MARKET / PROVIDER</span><strong>{result.market?.type || marketType} · {result.market?.provider || (marketType === "SYNTHETIC" ? "SYNTHETIC_BROKER" : "TWELVE_DATA")}</strong></div>
           <div className="execution-item"><span>ASSET</span><strong>{result.market?.asset || "Information unavailable"}</strong></div>
           <div className="execution-item"><span>TIMEFRAME</span><strong>{result.market?.timeframe || timeframes.join(" + ") || "Information unavailable"}</strong></div>
         </div>
