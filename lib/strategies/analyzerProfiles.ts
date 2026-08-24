@@ -3,10 +3,9 @@ import type { StrategyId } from "./types";
 /**
  * Analyzer-facing strategy registry.
  *
- * IMPORTANT: sourceIds are internal implementation mappings. They are never
- * exposed to customers. The Analyzer uses these mappings to resolve the
- * proprietary Strategy Library source-of-truth before asking AI to interpret
- * chart evidence.
+ * sourceIds are internal implementation mappings and are never exposed to
+ * customers. The Analyzer resolves the selected customer strategy to these
+ * authoritative VaultTrades source modules before AI interprets chart evidence.
  */
 export type AnalyzerCategory = "MY CUSTOM STRATEGIES" | "ADVANCED";
 export type IndicatorName = "SMA" | "EMA" | "Ichimoku" | "Bollinger Bands" | "ATR" | "VWAP" | "Supertrend" | "SAR" | "RSI" | "MACD" | "KST" | "Stochastic" | "ADX" | "Percent B" | "MFI" | "DPO" | "RVOL" | "A/D";
@@ -23,41 +22,55 @@ export interface AnalyzerStrategyProfile {
 }
 
 /**
- * CUSTOMER STRATEGY LIST -> PROPRIETARY SOURCE-OF-TRUTH MAPPING
+ * CUSTOMER STRATEGY -> AUTHORITATIVE INTERNAL SOURCE
  *
- * 1. Institutional Execution Pipeline
- *    -> composite of Sweep & Engulfing + Supply & Demand + Continuation
+ * Volatility & Breakout -> supplied V75 Pine source, represented internally
+ * as volatilityBreakoutRules.
+ * Continuation -> continuation source script.
+ * Swing / Engulfing -> Sweep & Engulfing source.
+ * FIB Retracement -> Vault Auto Fib Retrace source.
+ * Proprietary Flow -> current proprietary observation source. The internal
+ * implementation name is deliberately not shown to customers.
+ * Institutional -> existing institutional composite of authoritative Vault
+ * source modules; it is not AI-invented.
  *
- * 2. Swing & Engulfing
- *    -> Sweep & Engulfing source module
- *
- * 3. FIB Retracement
- *    -> Vault Auto Fib Retrace + TP Ladder source module
- *
- * 4. 714 Method
- *    -> 714 Observation / Clean Core source module
- *
- * Do not add a customer-selectable strategy without an internal sourceIds
- * mapping. A missing source is a configuration error, not NO TRADE.
+ * No customer-selectable strategy may exist without sourceIds. If an intended
+ * strategy has no authoritative source, it must be flagged as unmapped rather
+ * than fabricated by AI.
  */
 export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
   {
-    id: "institutionalExecution",
-    name: "Institutional Execution Pipeline",
+    id: "volatilityBreakout",
+    name: "Volatility & Breakout",
+    category: "MY CUSTOM STRATEGIES",
+    sourceIds: ["volatilityBreakout"],
+    defaultIndicators: ["EMA", "ATR", "RVOL"],
+    focus: ["directional structure", "20/20 channel", "breakout", "location safety", "momentum", "order-block confirmation", "trade lifecycle"],
+    rules: [
+      "Use the supplied Volatility & Breakout source as the primary authority.",
+      "A channel break alone is not a trade; location, momentum and confirmation must qualify the setup.",
+      "Respect the source continuation and W/M reversal paths.",
+      "Respect source-defined entry, invalidation, SL and TP lifecycle logic.",
+      "AI may explain visible evidence but may not replace or override the source engine."
+    ]
+  },
+  {
+    id: "institutional",
+    name: "Institutional",
     category: "MY CUSTOM STRATEGIES",
     sourceIds: ["sweepEngulfing", "supplyDemand", "continuation"],
     defaultIndicators: ["VWAP", "EMA", "ATR"],
-    focus: ["institutional positioning", "market structure", "liquidity", "displacement", "premium/discount", "execution zones"],
+    focus: ["market structure", "liquidity", "displacement", "supply/demand", "execution zones", "confirmation"],
     rules: [
-      "Resolve the selected institutional framework from its internal source-of-truth modules.",
+      "Resolve institutional analysis from the mapped internal source engines.",
       "Market structure and liquidity have priority over standalone indicators.",
-      "Require a coherent execution zone and confirmation sequence before a trade verdict.",
-      "AI may explain the evidence but may not replace or override the source strategy rules."
+      "Require a coherent execution zone and source-defined confirmation sequence before a trade verdict.",
+      "AI must not invent an institutional setup when the mapped source evidence is absent."
     ]
   },
   {
     id: "swingEngulfing",
-    name: "Swing & Engulfing",
+    name: "Swing / Engulfing",
     category: "MY CUSTOM STRATEGIES",
     sourceIds: ["sweepEngulfing"],
     defaultIndicators: ["EMA", "ATR", "VWAP"],
@@ -82,16 +95,31 @@ export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
     ]
   },
   {
-    id: "714Method",
-    name: "714 Method",
+    id: "continuation",
+    name: "Continuation",
+    category: "MY CUSTOM STRATEGIES",
+    sourceIds: ["continuation"],
+    defaultIndicators: ["EMA", "ATR", "VWAP"],
+    focus: ["expansion", "correction", "structural hold", "recovery", "confirmed continuation", "entry event"],
+    rules: [
+      "Use the internal Continuation source as the sole primary authority.",
+      "Expansion, correction, structural hold, recovery and confirmed break must remain separate states.",
+      "Do not turn every breakout into continuation.",
+      "Do not shift a source-defined locked entry or fabricate structural risk levels."
+    ]
+  },
+  {
+    id: "proprietaryFlow",
+    name: "Proprietary Flow",
     category: "MY CUSTOM STRATEGIES",
     sourceIds: ["714Observing"],
     defaultIndicators: ["EMA", "ATR", "RSI"],
-    focus: ["13:00 SAST observation", "locked bias", "active support/resistance", "liquidity event", "rejection", "displacement", "confirmation"],
+    focus: ["observation window", "locked directional bias", "support/resistance", "liquidity event", "rejection", "displacement", "confirmation"],
     rules: [
-      "The internal 714 source is the strategy authority.",
+      "Use the mapped proprietary observation source as the strategy authority.",
       "Observation, bias lock, execution level and qualification remain separate states.",
-      "The Analyzer must preserve the source-defined direction mapping and event sequence."
+      "The Analyzer must preserve the source-defined direction mapping and event sequence.",
+      "The internal source implementation name must never be exposed in customer-facing analysis."
     ]
   }
 ];
