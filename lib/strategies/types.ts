@@ -8,7 +8,6 @@ export type StrategyId =
   | "714Observing"
   | "sweepEngulfing"
   | "swingDeveloping"
-  | "sweepDeveloping"
   | "autoFibRetrace"
   | "institutional";
 
