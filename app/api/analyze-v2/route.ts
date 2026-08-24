@@ -224,6 +224,9 @@ Return ONLY JSON matching the schema.`;
     const projection = normalizeProjection(parsed.projection, safeDirection, profile.name);
     const aiIndicators = Array.isArray(parsed.aiIndicators) ? parsed.aiIndicators.filter((x: any) => typeof x?.name === "string").slice(0, 3).map((x: any) => ({ name: x.name, selected: true, reason: String(x.reason || "Strategy-aligned confirmation") })) : activeIndicators.map(name => ({ name, selected: true, reason: "Strategy-aligned confirmation" }));
     const bollinger = parsed.bollinger && typeof parsed.bollinger === "object" ? parsed.bollinger : { status: "NOT REQUIRED", period: null, standardDeviation: null, series: "", maType: "", reason: "Not required by the selected strategy.", optimized: false };
+    const historicalFootprints = Array.isArray(parsed.historicalFootprints) ? parsed.historicalFootprints.slice(0, 5).map((x: any) => ({ timestamp: String(x?.timestamp || "Timestamp not visible"), direction: ["BUY", "SELL", "UNKNOWN"].includes(String(x?.direction)) ? String(x.direction) : "UNKNOWN", setupType: String(x?.setupType || "Historical setup"), entry: num(x?.entry), stopLoss: num(x?.stopLoss), tp1: num(x?.tp1), tp2: num(x?.tp2), finalTp: num(x?.finalTp), lifecycle: String(x?.lifecycle || "UNRESOLVED"), evidence: arr(x?.evidence) })) : [];
+    const historicalPrior = historicalFootprints.find((x: any) => !["ACTIVE", "DEVELOPING"].includes(x.lifecycle));
+    const normalizedPreviousSetup = parsed.previousSetup?.found ? parsed.previousSetup : historicalPrior ? { found: true, timestamp: historicalPrior.timestamp, direction: historicalPrior.direction, entry: historicalPrior.entry, stopLoss: historicalPrior.stopLoss, tp1: historicalPrior.tp1, tp2: historicalPrior.tp2, finalTp: historicalPrior.finalTp, outcome: historicalPrior.lifecycle, evidence: historicalPrior.evidence } : parsed.previousSetup || null;
 
     return Response.json({
       success: true,
@@ -234,8 +237,8 @@ Return ONLY JSON matching the schema.`;
       decision: safeDecision,
       tradeSignal: { direction: safeDirection, confidence: Math.max(0, Math.min(100, Math.round(Number(parsed.confidence) || 0))), entry: safeEntry, stopLoss: safeStop, risk: safeDecision === "TRADE" && coherentRisk ? risk : null, tp1: safeTp1, tp2: safeTp2, finalTp: safeFinalTp, invalidation: String(parsed.invalidation || "") },
       decisionReason: String(parsed.decisionReason || ""), marketState: String(parsed.marketState || ""), setup: String(parsed.setup || ""),
-      confirmedConditions: arr(parsed.confirmedConditions), missingConditions: arr(parsed.missingConditions), projection, previousSetup: parsed.previousSetup || null,
-      historicalFootprints: Array.isArray(parsed.historicalFootprints) ? parsed.historicalFootprints.slice(0, 5).map((x: any) => ({ timestamp: String(x?.timestamp || "Timestamp not visible"), direction: ["BUY", "SELL", "UNKNOWN"].includes(String(x?.direction)) ? String(x.direction) : "UNKNOWN", setupType: String(x?.setupType || "Historical setup"), entry: num(x?.entry), stopLoss: num(x?.stopLoss), tp1: num(x?.tp1), tp2: num(x?.tp2), finalTp: num(x?.finalTp), lifecycle: String(x?.lifecycle || "UNRESOLVED"), evidence: arr(x?.evidence) })) : [],
+      confirmedConditions: arr(parsed.confirmedConditions), missingConditions: arr(parsed.missingConditions), projection, previousSetup: normalizedPreviousSetup,
+      historicalFootprints,
       currentState: ["WAITING", "DEVELOPING", "READY", "ACTIVE", "COMPLETED", "INVALIDATED"].includes(String(parsed.currentState)) ? parsed.currentState : "WAITING",
       currentTrade: parsed.currentTrade && typeof parsed.currentTrade === "object" ? {
         visible: Boolean(parsed.currentTrade.visible),
