@@ -37,11 +37,12 @@ export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
     defaultIndicators: ["EMA", "ATR", "RVOL"],
     focus: ["directional structure", "20/20 channel", "breakout", "location safety", "momentum", "order-block confirmation", "trade lifecycle"],
     rules: [
-      "Use the supplied Volatility & Breakout source as the primary authority.",
-      "A channel break alone is not a trade; location, momentum and confirmation must qualify the setup.",
-      "Respect the source continuation and W/M reversal paths.",
-      "Respect source-defined entry, invalidation, SL and TP lifecycle logic.",
-      "AI may explain visible evidence but may not replace or override the source engine."
+      "Use the authoritative Volatility & Breakout source as the primary decision engine.",
+      "Translate its state machine into customer-facing states: direction, channel, breakout, reversal, ready, active, target progress, completion or invalidation.",
+      "A channel break alone is not a trade; location, momentum, confirmation and the source qualification path must agree.",
+      "When a current trade is visible, report its lifecycle instead of treating the absence of a new signal as an empty result.",
+      "When no new trade exists, identify the most recent source-consistent footprint and the next source-defined event required for a new opportunity.",
+      "Projected entry, SL and TP values must be derived from the source execution rules and visible levels; never manufacture them."
     ]
   },
   {
@@ -52,12 +53,15 @@ export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
     defaultIndicators: ["VWAP", "EMA", "ATR"],
     focus: ["market structure", "BOS/CHoCH", "liquidity", "order block", "FVG", "displacement", "session confluence", "risk validation"],
     rules: [
-      "Use the authoritative Institutional source contract supplied by the developer.",
-      "Score BOS, CHoCH, Order Block, FVG, Liquidity Sweep and Displacement from visible evidence.",
+      "Use the authoritative Institutional source contract as the primary decision engine.",
+      "Score BOS, CHoCH, Order Block, FVG, Liquidity Sweep and Displacement from visible evidence on a 1-10 scale.",
       "Require at least two SMC components scoring 7/10 or higher for a new directional trade.",
-      "Validate session context, entry proximity, SL/TP geometry and R:R >= 1:2.",
-      "Active and historical setup lifecycle must be communicated separately from a new trade verdict.",
-      "AI must not invent an institutional setup when source evidence is absent."
+      "Evaluate market structure first, then SMC confluence, then session/context, then entry/invalidation/targets.",
+      "Apply the source session rules: London/New York overlap is preferred; Asian setups require exceptional confluence under the source rules.",
+      "Validate entry proximity, SL/TP geometry and R:R mathematically before returning a new trade.",
+      "Confidence must reflect confluence completeness and evidence quality, not the model's optimism or probability of profit.",
+      "A completed prior setup, an active setup, and a new setup are separate lifecycle states and must never be collapsed into one verdict.",
+      "AI may explain the institutional evidence but may not invent BOS, CHoCH, OB, FVG, sweep or displacement when they are not visible."
     ]
   },
   {
@@ -70,6 +74,7 @@ export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
     rules: [
       "The internal Sweep & Engulfing source is the strategy authority.",
       "A liquidity event and valid engulfing/displacement confirmation must be respected.",
+      "Preserve the source lifecycle: prior setup, current state, confirmation, active trade and next setup.",
       "Do not create a signal from an indicator alone."
     ]
   },
@@ -83,7 +88,8 @@ export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
     rules: [
       "The internal Vault Auto Fib Retrace source is the strategy authority.",
       "A Fib range is not automatically an entry.",
-      "Only coherent retracement structure and source-defined confirmation may produce a verdict."
+      "Only coherent retracement structure and source-defined confirmation may produce a verdict.",
+      "Report prior Fib setups and their visible outcome when the chart history supports them."
     ]
   },
   {
@@ -97,7 +103,8 @@ export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
       "Use the internal Continuation source as the sole primary authority.",
       "Expansion, correction, structural hold, recovery and confirmed break must remain separate states.",
       "Do not turn every breakout into continuation.",
-      "Do not shift a source-defined locked entry or fabricate structural risk levels."
+      "Do not shift a source-defined locked entry or fabricate structural risk levels.",
+      "Translate an existing continuation trade and its target progress before considering a new entry."
     ]
   },
   {
