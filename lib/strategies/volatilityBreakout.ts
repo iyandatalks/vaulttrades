@@ -5,12 +5,7 @@ import type { StrategyRuleSet } from "./types";
  *
  * Source of truth: the supplied Pine Script v6
  * "Synthetic Market Direction & Execution Engine | V75 | M15 | LOGICAL".
- *
- * The customer-facing name intentionally does not expose the source method
- * name. This module preserves the source logic as an internal TypeScript
- * strategy specification for the Analyzer and Strategy Library.
  */
-
 export const VOLATILITY_BREAKOUT_ID = "volatilityBreakout" as const;
 export const VOLATILITY_BREAKOUT_NAME = "Volatility & Breakout" as const;
 
@@ -21,6 +16,26 @@ export const volatilityBreakoutRules: StrategyRuleSet = {
     "Directional structure, 20/20 channel breakout, location safety, momentum, volume, rejection, order-block confirmation and explicit trade lifecycle for M15 execution.",
   source: "PINE_SCRIPT",
   timeframes: ["M15"],
+  indicatorRequirements: [
+    {
+      name: "Moving Average Channel",
+      role: "PRIMARY",
+      source: "20/20 channel over candle highs and lows",
+      parameters: { length: 20, maType: "EMA", upperInput: "high", lowerInput: "low" },
+    },
+    {
+      name: "ATR",
+      role: "REQUIRED",
+      source: "source ATR volatility and breakout-distance engine",
+      parameters: { length: 14 },
+    },
+    {
+      name: "Volume",
+      role: "REQUIRED",
+      source: "volume expansion confirmation when enabled",
+      parameters: { movingAverageLength: 20, expansionMultiplier: 1.2 },
+    },
+  ],
   sequence: [
     "Daily direction reset / structural direction",
     "20/20 channel context",
@@ -87,9 +102,10 @@ export const volatilityBreakoutRules: StrategyRuleSet = {
     "Evaluate structure, channel, breakout/acceptance, location, momentum, confirmation and order-block context before issuing a trade verdict.",
     "Distinguish BULLISH BREAKOUT, BEARISH BREAKOUT, W/M STRUCTURE, READY and ACTIVE states from a new execution signal.",
     "Do not turn a channel break by itself into a trade.",
-    "Do not use indicators as a substitute for the source price-action sequence.",
+    "Do not use generic indicators as a substitute for the source price-action sequence.",
+    "The Moving Average Channel is the PRIMARY calculated indicator. EMA, ATR, ADX, RVOL and VWAP must not be auto-added unless the source explicitly requires them.",
     "Do not expose the internal source method name, Pine code, proprietary parameter recipes or internal module names to customers.",
-    "If the screenshot does not contain enough evidence for the source rules, return NO TRADE or an appropriate waiting state rather than inventing evidence.",
+    "If the market data does not contain enough evidence for the source rules, return NO TRADE or an appropriate waiting state rather than inventing evidence.",
   ],
 };
 
