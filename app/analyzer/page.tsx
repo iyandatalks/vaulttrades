@@ -1,185 +1,158 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { ANALYZER_CATEGORIES, ANALYZER_STRATEGIES, ANALYZER_STRATEGY_MAP, type IndicatorName } from "../../lib/strategies/analyzerProfiles";
-import { StrategyPipeline } from "./StrategyPipeline";
+import { useState } from "react";
+import { ANALYZER_CATEGORIES, ANALYZER_STRATEGIES, ANALYZER_STRATEGY_MAP } from "../../lib/strategies/analyzerProfiles";
+import { LiveMarketChart } from "./LiveMarketChart";
 
 type Timeframe = "1m" | "5m" | "15m" | "30m" | "1H" | "4H" | "1D" | "1W" | "1M";
 type MarketType = "FOREX" | "INDICES" | "CRYPTO" | "STOCKS" | "SYNTHETIC";
-type Decision = "TRADE" | "NO TRADE";
-type CurrentState = "WAITING" | "DEVELOPING" | "READY" | "ACTIVE" | "COMPLETED" | "INVALIDATED";
+type Candle = { datetime: string; open: number; high: number; low: number; close: number; volume: number | null };
 type Result = {
-  market?: { type?: MarketType; provider?: string; asset?: string; timeframe?: string; marketCondition?: string; directionalBias?: string; session?: string };
+  market?: { type?: MarketType; asset?: string; timeframe?: string; currentPrice?: number | null; directionalBias?: string; session?: string };
   strategy?: { id?: string; name?: string; category?: string };
-  aiIndicators?: { name: string; selected: boolean; reason?: string; reading?: string }[];
-  autoIndicators?: IndicatorName[];
-  bollinger?: { status: string; period: number | null; standardDeviation: number | null; series: string; maType: string; reason: string; optimized: boolean };
-  strategyAnalysis?: { marketStructure?: string; priceAction?: string; liquidity?: string; momentum?: string; volatility?: string; indicatorConfirmation?: string };
-  smcScores?: { BOS?: number; CHoCH?: number; OrderBlock?: number; FVG?: number; LiquiditySweep?: number; Displacement?: number };
-  smcEvidence?: { BOS?: string; CHoCH?: string; OrderBlock?: string; FVG?: string; LiquiditySweep?: string; Displacement?: string };
-  decision?: Decision;
-  tradeSignal?: { direction: "BUY" | "SELL" | "NO TRADE"; confidence: number; entry: number | null; stopLoss: number | null; risk: number | null; tp1: number | null; tp2: number | null; finalTp: number | null; invalidation: string };
-  decisionReason?: string;
-  marketState?: string;
+  sourceIndicators?: { name: string; purpose: string; parameters: string; required: boolean }[];
+  indicatorReadings?: { name: string; value: number | null; signal: string; reason: string; values?: Record<string, number | null> }[];
+  chart?: { candles: Candle[]; channel20?: { upper: number | null; lower: number | null; middle: number | null } };
+  structure?: { trend?: string; support?: number | null; resistance?: number | null; latestHigh?: number | null; latestLow?: number | null };
+  volatility?: { atr?: number | null; atrPct?: number | null; breakout?: string };
+  decision?: "TRADE" | "NO TRADE";
+  direction?: "BUY" | "SELL" | "NO TRADE";
+  confidence?: number;
   setup?: string;
+  marketCondition?: string;
+  marketStructure?: string;
+  recentPriceAction?: string;
   confirmedConditions?: string[];
   missingConditions?: string[];
-  projection?: { available?: boolean; setupType?: string; zoneLow?: number | null; zoneHigh?: number | null; expectedEntry?: number | null; expectedStopLoss?: number | null; expectedTp1?: number | null; expectedTp2?: number | null; expectedFinalTp?: number | null; retestRequired?: boolean; retestStatus?: string; confirmationRequired?: string; confirmationStatus?: string } | null;
-  previousSetup?: { found?: boolean; timestamp?: string; direction?: string; entry?: number | null; stopLoss?: number | null; tp1?: number | null; tp2?: number | null; finalTp?: number | null; outcome?: string; evidence?: string[] } | null;
-  currentState?: CurrentState;
-  currentTrade?: { visible?: boolean; direction?: string; entry?: number | null; stopLoss?: number | null; tp1?: number | null; tp2?: number | null; finalTp?: number | null; progress?: string; status?: string; evidence?: string[] } | null;
+  smcScores?: Record<string, number>;
+  pipeline?: string[];
+  nextZone?: string;
+  invalidation?: string;
+  entry?: number | null;
+  stopLoss?: number | null;
+  tp1?: number | null;
+  tp2?: number | null;
+  finalTp?: number | null;
+  rr?: number | null;
+  slDistancePct?: number | null;
+  entryDistancePct?: number | null;
   nextAction?: string;
+  educationalNote?: string;
+  qualityChecks?: { smcStrongCount?: number; rrValid?: boolean; slDistanceValid?: boolean; entryDistanceValid?: boolean; universalTradeGate?: boolean };
 };
 
 const TIMEFRAMES: Timeframe[] = ["1m", "5m", "15m", "30m", "1H", "4H", "1D", "1W", "1M"];
 const MARKET_TYPES: MarketType[] = ["FOREX", "INDICES", "CRYPTO", "STOCKS", "SYNTHETIC"];
-const INDICATORS: IndicatorName[] = ["SMA", "EMA", "Ichimoku", "Bollinger Bands", "ATR", "VWAP", "Supertrend", "SAR", "RSI", "MACD", "KST", "Stochastic", "ADX", "Percent B", "MFI", "DPO", "RVOL", "A/D", "SMI"];
-const price = (v: number | null | undefined) => v == null || !Number.isFinite(v) ? "Information unavailable" : v.toLocaleString(undefined, { maximumFractionDigits: 5 });
-
-function confluence(result: Result) {
-  const scores = Object.values(result.smcScores || {}).filter((x): x is number => typeof x === "number" && Number.isFinite(x));
-  const strong = scores.filter(x => x >= 7).length;
-  if (strong >= 3) return "VERY HIGH";
-  if (strong >= 2) return "HIGH";
-  if (strong === 1) return "MEDIUM";
-  return result.confirmedConditions && result.confirmedConditions.length >= 3 ? "MEDIUM" : "LOW";
-}
+const DEFAULT_SYMBOLS: Record<MarketType, string[]> = {
+  FOREX: ["XAU/USD", "EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD"],
+  INDICES: ["NASDAQ", "SPX", "DOW", "FTSE"],
+  CRYPTO: ["BTC/USD", "ETH/USD", "SOL/USD"],
+  STOCKS: ["AAPL", "MSFT", "NVDA", "TSLA", "AMZN"],
+  SYNTHETIC: ["V75", "V100", "Boom 1000", "Crash 1000"],
+};
+const fmt = (v: number | null | undefined) => v == null || !Number.isFinite(v) ? "—" : v.toLocaleString(undefined, { maximumFractionDigits: 5 });
 
 export default function AnalyzerPage() {
   const [marketType, setMarketType] = useState<MarketType>("FOREX");
+  const [symbol, setSymbol] = useState("XAU/USD");
+  const [timeframe, setTimeframe] = useState<Timeframe>("15m");
   const [strategy, setStrategy] = useState(ANALYZER_STRATEGIES[0].id);
-  const [timeframes, setTimeframes] = useState<Timeframe[]>(["5m"]);
-  const [indicatorMode, setIndicatorMode] = useState<"AUTO" | "MANUAL">("AUTO");
-  const [manualIndicators, setManualIndicators] = useState<IndicatorName[]>([]);
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState("");
   const [result, setResult] = useState<Result | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const selected = ANALYZER_STRATEGY_MAP[strategy];
-  const manualWarning = useMemo(() => manualIndicators.length > 0 && manualIndicators.some(i => !selected.defaultIndicators.includes(i)), [manualIndicators, selected]);
-
-  const toggleTimeframe = (tf: Timeframe) => setTimeframes(current => current.includes(tf) ? current.filter(x => x !== tf) : current.length < 2 ? [...current, tf] : current);
-  const toggleIndicator = (indicator: IndicatorName) => setManualIndicators(current => current.includes(indicator) ? current.filter(x => x !== indicator) : current.length < 20 ? [...current, indicator] : current);
-
-  const analyze = async () => {
-    if (!file) { setError("Please upload a TradingView chart first."); return; }
+  const runAnalysis = async () => {
+    if (!symbol.trim()) { setError("Select a market symbol first."); return; }
+    if (marketType === "SYNTHETIC") { setError("Synthetic indices need the separate Synthetic/Broker data connection."); return; }
     setLoading(true); setError(""); setResult(null);
     try {
-      const form = new FormData();
-      form.append("image", file);
-      form.append("marketType", marketType);
-      form.append("strategy", strategy);
-      form.append("timeframes", JSON.stringify(timeframes));
-      form.append("indicatorMode", indicatorMode);
-      form.append("manualIndicators", JSON.stringify(manualIndicators));
-      const res = await fetch("/api/analyze-live", { method: "POST", body: form });
+      const res = await fetch("/api/analyze-market", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ marketType, symbol, timeframe, strategy }) });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Unable to analyze the chart.");
+      if (!res.ok) throw new Error(data.error || "Unable to analyze live market data.");
       setResult(data);
-    } catch (e) { setError(e instanceof Error ? e.message : "Unable to analyze the chart."); }
+    } catch (e) { setError(e instanceof Error ? e.message : "Unable to analyze live market data."); }
     finally { setLoading(false); }
   };
+
+  const changeMarket = (value: MarketType) => { setMarketType(value); setSymbol(DEFAULT_SYMBOLS[value][0]); setResult(null); setError(""); };
 
   return <main className="shell">
     <header className="header"><div className="brand-block"><img src="/vaulttrades-logo.png" alt="VaultTrades" className="logo"/><div className="tagline">Built by Traders.</div><div className="slogan">Focus, discipline, consistency.</div></div><div className="badge">ANALYZER</div></header>
 
     <section className="card">
-      <div className="section-label">MARKET</div>
-      <h1 className="title">Select Market</h1>
-      <p className="muted">Market selection chooses the data provider. It does not change the selected strategy or its rules.</p>
-      <select value={marketType} disabled={loading} onChange={e => { setMarketType(e.target.value as MarketType); setResult(null); }} style={{ width: "100%", marginTop: 16, padding: 14, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}>
-        {MARKET_TYPES.map(m => <option key={m} value={m}>{m === "FOREX" ? "Forex" : m === "INDICES" ? "Indices" : m === "CRYPTO" ? "Crypto" : m === "STOCKS" ? "Stocks" : "Synthetic indices"}</option>)}
-      </select>
-      <div className="condition-box" style={{ marginTop: 14 }}><strong>Market-data provider</strong><p className="muted">{marketType === "SYNTHETIC" ? "Synthetic/Broker Provider — separate provider route; not Twelve Data." : "Twelve Data — live/historical OHLCV for the selected market."}</p></div>
+      <div className="section-label">LIVE MARKET</div>
+      <h1 className="title">Analyze the market, not a screenshot</h1>
+      <p className="muted">Select the market, timeframe and strategy. VaultTrades then analyzes real OHLCV candles and calculates the indicators required by the selected strategy before applying Analyzer Rules 1–6.</p>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12, marginTop: 18 }}>
+        <label className="muted">Market<select value={marketType} disabled={loading} onChange={e => changeMarket(e.target.value as MarketType)} style={{ width: "100%", marginTop: 7, padding: 13, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}>{MARKET_TYPES.map(m => <option key={m} value={m}>{m === "SYNTHETIC" ? "Synthetic indices" : m.charAt(0) + m.slice(1).toLowerCase()}</option>)}</select></label>
+        <label className="muted">Symbol<input value={symbol} disabled={loading || marketType === "SYNTHETIC"} onChange={e => setSymbol(e.target.value)} list="symbols" placeholder="e.g. XAU/USD" style={{ width: "100%", marginTop: 7, padding: 13, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}/><datalist id="symbols">{DEFAULT_SYMBOLS[marketType].map(s => <option key={s} value={s}/>)}</datalist></label>
+        <label className="muted">Timeframe<select value={timeframe} disabled={loading} onChange={e => { setTimeframe(e.target.value as Timeframe); setResult(null); }} style={{ width: "100%", marginTop: 7, padding: 13, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}>{TIMEFRAMES.map(tf => <option key={tf} value={tf}>{tf}</option>)}</select></label>
+      </div>
     </section>
 
     <section className="card">
-      <div className="section-label">CHOOSE STRATEGY</div>
-      <h2 className="title">AI-Driven Chart Analyzer</h2>
-      <p className="muted">Select the analytical framework. VaultTrades determines the relevant evidence and indicators automatically; the selected strategy remains the primary decision engine.</p>
-      <select value={strategy} disabled={loading} onChange={e => { setStrategy(e.target.value); setResult(null); }} style={{ width: "100%", marginTop: 16, padding: 14, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}>
-        {ANALYZER_CATEGORIES.map(category => <optgroup key={category} label={category}>{ANALYZER_STRATEGIES.filter(s => s.category === category).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</optgroup>)}
-      </select>
-      <div className="condition-box" style={{ marginTop: 14 }}><strong>Analysis framework</strong><p className="muted">{selected.focus.join(" · ")}</p></div>
+      <div className="section-label">STRATEGY</div>
+      <h2 className="title">Choose the strategy first</h2>
+      <select value={strategy} disabled={loading} onChange={e => { setStrategy(e.target.value); setResult(null); }} style={{ width: "100%", marginTop: 14, padding: 14, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}>{ANALYZER_CATEGORIES.map(category => <optgroup key={category} label={category}>{ANALYZER_STRATEGIES.filter(s => s.category === category).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</optgroup>)}</select>
+      <div className="condition-box" style={{ marginTop: 14 }}><strong>Strategy evidence</strong><p className="muted">{selected.focus.join(" · ")}</p><div style={{ marginTop: 8 }}><strong>Source-required indicators</strong><p>{selected.indicatorSpecs.length ? selected.indicatorSpecs.map(i => `${i.name} (${i.parameters})${i.required ? " · required" : " · optional"}`).join(" · ") : "None — this strategy is price/structure based."}</p></div></div>
     </section>
 
     <section className="card">
-      <div className="section-label">MULTIPLE TIMEFRAMES (MAX 2)</div>
-      <p className="muted">When two are selected, the higher timeframe supplies market context and the lower timeframe supplies setup/entry context.</p>
-      <div className="timeframe-grid" style={{ marginTop: 14 }}>{TIMEFRAMES.map(tf => <button key={tf} type="button" className={`timeframe-button ${timeframes.includes(tf) ? "selected" : ""}`} onClick={() => toggleTimeframe(tf)} disabled={loading}>{tf}</button>)}</div>
-      <div className="muted" style={{ marginTop: 10 }}>Selected: {timeframes.length ? timeframes.join(" + ") : "Application default"}</div>
-    </section>
-
-    <section className="card">
-      <div className="section-label">INDICATORS</div>
-      <div style={{ display: "flex", gap: 8, marginTop: 10 }}><button className={indicatorMode === "AUTO" ? "primary" : "secondary"} type="button" onClick={() => setIndicatorMode("AUTO")} disabled={loading}>AUTO</button><button className={indicatorMode === "MANUAL" ? "primary" : "secondary"} type="button" onClick={() => setIndicatorMode("MANUAL")} disabled={loading}>MANUAL</button></div>
-      {indicatorMode === "AUTO" ? <div className="condition-box" style={{ marginTop: 14 }}><strong>AI SELECTED — STRATEGY REQUIRED</strong><p>{selected.defaultIndicators.map(i => `${i} — required by ${selected.name}`).join(" · ")}</p><p className="muted">The number of indicators is strategy-dependent. There is no fixed three-indicator rule. Structural evidence such as liquidity, BOS/CHoCH, zones and displacement is selected separately when the strategy requires it.</p></div> : <>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 8, marginTop: 14 }}>{INDICATORS.map(i => <button key={i} type="button" className={`secondary ${manualIndicators.includes(i) ? "selected" : ""}`} onClick={() => toggleIndicator(i)} disabled={loading || (!manualIndicators.includes(i) && manualIndicators.length >= 20)}>{i}</button>)}</div>
-        <div className="muted" style={{ marginTop: 10 }}>Selected: {manualIndicators.length ? manualIndicators.join(" · ") : "None"}</div>
-        {manualWarning && <div className="condition-box" style={{ marginTop: 12 }}><strong>Indicator alignment notice</strong><p>Manual indicators can supplement the strategy but do not replace required strategy evidence.</p></div>}
-      </>}
-    </section>
-
-    <section className="card">
-      <div className="section-label">SCREENSHOT ANALYSIS + LIVE MARKET DATA</div>
-      <label className="upload" style={{ marginTop: 14 }}><input type="file" accept="image/png,image/jpeg,image/webp" hidden disabled={loading} onChange={e => { const f = e.target.files?.[0]; if (!f) return; setFile(f); setPreview(URL.createObjectURL(f)); setResult(null); setError(""); }} />{preview ? <><strong>{file?.name}</strong><img src={preview} alt="Trading chart preview" className="preview"/></> : <><strong>Upload TradingView Chart</strong><div className="muted">PNG, JPG or WebP</div></>}</label>
-      <div className="actions"><button className="primary" type="button" disabled={!file || loading} onClick={() => void analyze()}>{loading ? "Analyzing Live Market Data..." : "Analyze Chart"}</button><button className="secondary" type="button" disabled={loading} onClick={() => { setFile(null); setPreview(""); setResult(null); setError(""); }}>Clear</button></div>
-      {error && <div className="error-box"><strong>Analysis Error</strong><p className="muted">{error}</p></div>}
+      <div className="actions"><button className="primary" type="button" disabled={loading || marketType === "SYNTHETIC"} onClick={() => void runAnalysis()}>{loading ? "Analyzing live market..." : "Analyze Live Market"}</button></div>
+      {marketType === "SYNTHETIC" && <div className="condition-box" style={{ marginTop: 12 }}><strong>Synthetic market connection</strong><p className="muted">This route deliberately does not substitute another provider. Connect the Synthetic/Broker provider before enabling synthetic analysis.</p></div>}
+      {error && <div className="error-box" style={{ marginTop: 12 }}><strong>Analysis Error</strong><p className="muted">{error}</p></div>}
     </section>
 
     {result && <>
+      <section className="card">
+        <div className="section-label">LIVE CHART</div>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}><div><h2 className="title" style={{ marginBottom: 3 }}>{result.market?.asset}</h2><div className="muted">{result.market?.timeframe} · Current price {fmt(result.market?.currentPrice)}</div></div><div className="condition-box" style={{ padding: "10px 14px" }}><strong>Strategy: {result.strategy?.name}</strong></div></div>
+        <LiveMarketChart candles={result.chart?.candles || []} channel={result.chart?.channel20} />
+      </section>
+
       <section className="card execution-card" style={{ border: "1px solid rgba(212,166,55,.28)", background: "linear-gradient(145deg, rgba(10,16,30,.98), rgba(5,8,18,.98))" }}>
-        <div className="section-label">VERDICT</div>
-        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 16, alignItems: "center", marginTop: 8 }}>
-          <div>
-            <div style={{ fontSize: 12, letterSpacing: ".14em", color: "#9aa4b2", fontWeight: 700 }}>CURRENT DECISION</div>
-            <h2 className="title" style={{ marginBottom: 4 }}>{result.currentTrade?.visible ? `${result.currentTrade.direction || "TRADE"} TRADE ACTIVE` : result.decision === "TRADE" ? `${result.tradeSignal?.direction || "TRADE"} TRADE READY` : `WATCH — ${result.currentState === "DEVELOPING" ? "SETUP DEVELOPING" : "NO NEW ENTRY"}`}</h2>
-            <div className="muted">{result.market?.asset || "Asset unavailable"} · {result.market?.timeframe || timeframes.join(" + ")} · {result.market?.directionalBias || "Bias unavailable"}</div>
-          </div>
-          <div style={{ minWidth: 150, padding: "12px 16px", borderRadius: 12, textAlign: "center", fontWeight: 800, letterSpacing: ".08em", background: result.tradeSignal?.direction === "BUY" ? "rgba(34,197,94,.16)" : result.tradeSignal?.direction === "SELL" ? "rgba(239,68,68,.16)" : "rgba(148,163,184,.12)", border: result.tradeSignal?.direction === "BUY" ? "1px solid rgba(34,197,94,.45)" : result.tradeSignal?.direction === "SELL" ? "1px solid rgba(239,68,68,.45)" : "1px solid rgba(148,163,184,.25)", color: result.tradeSignal?.direction === "BUY" ? "#4ade80" : result.tradeSignal?.direction === "SELL" ? "#f87171" : "#cbd5e1" }}>{result.currentTrade?.visible ? "ACTIVE" : result.decision === "TRADE" ? "NEW TRADE" : "NO NEW ENTRY"}</div>
+        <div className="section-label">RESULT</div>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
+          <div><h2 className="title" style={{ marginBottom: 4 }}>{result.direction === "BUY" ? "BUY" : result.direction === "SELL" ? "SELL" : "WATCH"}</h2><div className="muted">{result.marketCondition} · {result.market?.directionalBias}</div></div>
+          <div style={{ minWidth: 150, textAlign: "center", padding: 12, borderRadius: 12, background: "rgba(212,166,55,.10)", border: "1px solid rgba(212,166,55,.35)" }}><span className="muted">QUALITY</span><div style={{ fontSize: 28, fontWeight: 900 }}>{Math.round(result.confidence ?? 0)}<span style={{ fontSize: 15 }}>/100</span></div></div>
         </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 10, marginTop: 18 }}>
-          <div className="execution-item"><span>QUALITY / CONFIDENCE</span><strong style={{ fontSize: 26 }}>{Math.round(result.tradeSignal?.confidence ?? 0)}<small style={{ fontSize: 14 }}>/100</small></strong></div>
-          <div className="execution-item"><span>CONFLUENCE</span><strong>{confluence(result)}</strong><small className="muted">{result.confirmedConditions?.length ? `${result.confirmedConditions.length} conditions confirmed` : "Evidence still developing"}</small></div>
-          <div className="execution-item"><span>STATE</span><strong>{result.currentState || "WAITING"}</strong><small className="muted">{result.market?.session || "Session unavailable"}</small></div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10, marginTop: 18 }}>
+          <div className="execution-item"><span>ENTRY</span><strong>{fmt(result.entry)}</strong></div><div className="execution-item"><span>STOP LOSS</span><strong>{fmt(result.stopLoss)}</strong></div><div className="execution-item"><span>TP1</span><strong>{fmt(result.tp1)}</strong></div><div className="execution-item"><span>TP2</span><strong>{fmt(result.tp2)}</strong></div><div className="execution-item"><span>FINAL TP</span><strong>{fmt(result.finalTp)}</strong></div><div className="execution-item"><span>R:R</span><strong>{result.rr == null ? "—" : `1:${result.rr.toFixed(2)}`}</strong></div>
         </div>
-
-        <div style={{ marginTop: 18 }}><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: 10 }}>
-          {[
-            ["ENTRY", result.currentTrade?.visible ? result.currentTrade.entry : result.decision === "TRADE" ? result.tradeSignal?.entry : result.projection?.expectedEntry],
-            ["STOP LOSS", result.currentTrade?.visible ? result.currentTrade.stopLoss : result.decision === "TRADE" ? result.tradeSignal?.stopLoss : result.projection?.expectedStopLoss],
-            ["TP1", result.currentTrade?.visible ? result.currentTrade.tp1 : result.decision === "TRADE" ? result.tradeSignal?.tp1 : result.projection?.expectedTp1],
-            ["TP2", result.currentTrade?.visible ? result.currentTrade.tp2 : result.decision === "TRADE" ? result.tradeSignal?.tp2 : result.projection?.expectedTp2],
-            ["FINAL TP", result.currentTrade?.visible ? result.currentTrade.finalTp : result.decision === "TRADE" ? result.tradeSignal?.finalTp : result.projection?.expectedFinalTp]
-          ].map(([label, value]) => <div key={String(label)} className="execution-item"><span>{label}</span><strong style={{ fontSize: 18 }}>{price(value as number | null | undefined)}</strong></div>)}
-        </div></div>
-
-        <StrategyPipeline result={result} />
       </section>
 
       <section className="card">
-        <div className="section-label">ANALYSIS</div>
-        <div className="execution-grid">
-          <div className="execution-item"><span>MARKET CONDITION</span><strong>{result.market?.marketCondition || "Information unavailable"}</strong></div>
-          <div className="execution-item"><span>DIRECTIONAL BIAS</span><strong>{result.market?.directionalBias || "Information unavailable"}</strong></div>
-          <div className="execution-item"><span>STATE</span><strong>{result.currentState || "WAITING"}</strong></div>
-          <div className="execution-item"><span>MARKET / PROVIDER</span><strong>{result.market?.type || marketType} · {result.market?.provider || (marketType === "SYNTHETIC" ? "SYNTHETIC_BROKER" : "TWELVE_DATA")}</strong></div>
-          <div className="execution-item"><span>ASSET</span><strong>{result.market?.asset || "Information unavailable"}</strong></div>
-          <div className="execution-item"><span>TIMEFRAME</span><strong>{result.market?.timeframe || timeframes.join(" + ") || "Information unavailable"}</strong></div>
-        </div>
-        {(["marketStructure","priceAction","liquidity","momentum","volatility","indicatorConfirmation"] as const).map(key => <div key={key} className="condition-box" style={{ marginTop: 10 }}><strong>{key.replace(/([A-Z])/g, " $1").toUpperCase()}</strong><p>{result.strategyAnalysis?.[key] || "Information unavailable from the uploaded chart."}</p></div>)}
+        <div className="section-label">PIPELINE</div>
+        <h2 className="title">{result.strategy?.name} — current state</h2>
+        <div style={{ display: "grid", gap: 9, marginTop: 14 }}>{(result.pipeline || []).map((line, i) => <div key={i} className="condition-box" style={{ margin: 0 }}><strong>{line}</strong></div>)}</div>
+        <div className="condition-box" style={{ marginTop: 12 }}><strong>What to watch next</strong><p>{result.nextAction}</p><p className="muted">{result.nextZone}</p></div>
       </section>
 
-      {result.currentTrade?.visible && <section className="card execution-card"><div className="section-label">TRADE STATE</div><h2 className="title">{result.currentTrade.direction || "ACTIVE"} · {result.currentTrade.status || "ACTIVE"}</h2><div className="condition-box"><strong>Trade progress</strong><p>{result.currentTrade.progress || "Active trade detected from the strategy information."}</p>{result.currentTrade.evidence?.length ? <ul>{result.currentTrade.evidence.map(x => <li key={x}>{x}</li>)}</ul> : null}</div></section>}
+      <section className="card">
+        <div className="section-label">MARKET STRUCTURE</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 10 }}><div className="condition-box"><strong>Structure</strong><p>{result.marketStructure}</p></div><div className="condition-box"><strong>Support</strong><p>{fmt(result.structure?.support)}</p></div><div className="condition-box"><strong>Resistance</strong><p>{fmt(result.structure?.resistance)}</p></div><div className="condition-box"><strong>Next zone</strong><p>{result.nextZone}</p></div></div>
+        <div className="condition-box" style={{ marginTop: 10 }}><strong>Recent price action</strong><p>{result.recentPriceAction}</p></div>
+      </section>
 
-      <section className="card"><div className="section-label">PIPELINE / NEXT STATE</div><h2 className="title">{result.setup || "Next valid strategy opportunity"}</h2><div className="condition-box">{result.projection?.available ? <><p><strong>Projected entry zone:</strong> {price(result.projection.zoneLow)} – {price(result.projection.zoneHigh)}</p><p><strong>Expected entry:</strong> {price(result.projection.expectedEntry)}</p><p><strong>Expected stop loss:</strong> {price(result.projection.expectedStopLoss)}</p><p><strong>Expected TP1:</strong> {price(result.projection.expectedTp1)} · <strong>TP2:</strong> {price(result.projection.expectedTp2)} · <strong>Final TP:</strong> {price(result.projection.expectedFinalTp)}</p><p><strong>Pullback / retest:</strong> {result.projection.retestStatus || (result.projection.retestRequired ? "Required" : "Not required")}</p><p><strong>Confirmation:</strong> {result.projection.confirmationStatus || result.projection.confirmationRequired || "Awaiting strategy confirmation"}</p></> : <p>{result.nextAction || "No new entry is confirmed at the current price."}</p>}</div></section>
+      <section className="card">
+        <div className="section-label">SMC CONFLUENCE</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 8 }}>{Object.entries(result.smcScores || {}).map(([name, score]) => <div className="condition-box" key={name}><strong>{name}</strong><div style={{ fontSize: 22, fontWeight: 800 }}>{score}/10</div></div>)}</div>
+        <p className="muted" style={{ marginTop: 12 }}>A new BUY/SELL is allowed only when at least two SMC signals score 7 or higher and the price-validation gates also pass.</p>
+      </section>
 
-      <section className="card"><div className="section-label">PREVIOUS SETUP</div><h2 className="title">Latest Visible Setup</h2>{result.previousSetup?.found ? <div className="condition-box"><strong>{result.previousSetup.direction} · {result.previousSetup.timestamp}</strong><p>Entry: {price(result.previousSetup.entry)} · SL: {price(result.previousSetup.stopLoss)}</p><p>TP1: {price(result.previousSetup.tp1)} · TP2: {price(result.previousSetup.tp2)} · Final: {price(result.previousSetup.finalTp)}</p><p><strong>Outcome:</strong> {result.previousSetup.outcome}</p>{result.previousSetup.evidence?.length ? <ul>{result.previousSetup.evidence.map(x => <li key={x}>{x}</li>)}</ul> : null}</div> : <div className="condition-box"><strong>No prior setup confirmed</strong><p className="muted">The visible market history is not sufficient to reconstruct a prior qualifying setup from the selected strategy rules.</p></div>}</section>
+      <section className="card">
+        <div className="section-label">STRATEGY INDICATORS</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 9 }}>{(result.indicatorReadings || []).map(i => <div className="condition-box" key={i.name}><strong>{i.name}</strong><div className="muted">{i.signal} · {fmt(i.value)}</div><p style={{ fontSize: 13 }}>{i.reason}</p></div>)}</div>
+      </section>
 
-      <section className="card"><div className="section-label">EDUCATIONAL BREAKDOWN</div><div className="condition-box"><strong>Confirmed Conditions</strong>{result.confirmedConditions?.length ? <ul>{result.confirmedConditions.map(x => <li key={x}>✓ {x}</li>)}</ul> : <p className="muted">No required conditions are confirmed yet.</p>}</div><div className="condition-box" style={{ marginTop: 12 }}><strong>Conditions Still Required</strong>{result.missingConditions?.length ? <ul>{result.missingConditions.map(x => <li key={x}>• {x}</li>)}</ul> : <p className="muted">No additional conditions reported.</p>}</div><div className="condition-box" style={{ marginTop: 12 }}><strong>Invalidation</strong><p>{result.tradeSignal?.invalidation || "Information unavailable from the uploaded chart."}</p></div></section>
+      <section className="card">
+        <div className="section-label">VALIDATION</div>
+        <div className="condition-box"><strong>{result.decision === "TRADE" ? "TRADE VALIDATION PASSED" : "NO TRADE — WAIT FOR THE MISSING CONDITIONS"}</strong><p>{result.setup}</p></div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 10, marginTop: 10 }}><div className="condition-box"><strong>Confirmed</strong><ul>{(result.confirmedConditions || []).map((x, i) => <li key={i}>{x}</li>)}</ul></div><div className="condition-box"><strong>Still required</strong><ul>{(result.missingConditions || []).map((x, i) => <li key={i}>{x}</li>)}</ul></div></div>
+        <div className="condition-box" style={{ marginTop: 10 }}><strong>Invalidation</strong><p>{result.invalidation}</p></div>
+        <div className="condition-box" style={{ marginTop: 10 }}><strong>Educational note</strong><p>{result.educationalNote}</p></div>
+      </section>
     </>}
   </main>;
 }
