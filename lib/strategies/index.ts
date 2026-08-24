@@ -6,6 +6,7 @@
  */
 import type { StrategyDefinition, StrategyId, StrategyRuleSet } from "./types";
 
+import volatilityBreakoutRules from "./volatilityBreakout";
 import killZoneRules from "./killZone";
 import ema20Rules from "./ema20";
 import continuationRules from "./continuation";
@@ -16,6 +17,7 @@ import swingDevelopingStrategy from "./swingDeveloping";
 import autoFibRetraceStrategy from "./autoFibRetrace";
 
 export const STRATEGIES: Readonly<Record<StrategyId, StrategyDefinition>> = {
+  volatilityBreakout: { rules: volatilityBreakoutRules },
   killZone: { rules: killZoneRules },
   ema20: { rules: ema20Rules },
   continuation: { rules: continuationRules },
@@ -26,16 +28,17 @@ export const STRATEGIES: Readonly<Record<StrategyId, StrategyDefinition>> = {
   autoFibRetrace: autoFibRetraceStrategy,
 };
 
-/** Stable order used by the Analyzer strategy selector. */
+/** Stable order used by internal consumers. */
 export const STRATEGY_LIST: readonly StrategyDefinition[] = [
+  STRATEGIES.volatilityBreakout,
+  STRATEGIES.continuation,
+  STRATEGIES.sweepEngulfing,
+  STRATEGIES.autoFibRetrace,
+  STRATEGIES["714Observing"],
+  STRATEGIES.swingDeveloping,
   STRATEGIES.killZone,
   STRATEGIES.ema20,
-  STRATEGIES.continuation,
   STRATEGIES.supplyDemand,
-  STRATEGIES["714Observing"],
-  STRATEGIES.sweepEngulfing,
-  STRATEGIES.swingDeveloping,
-  STRATEGIES.autoFibRetrace,
 ];
 
 export function getStrategy(strategyId: StrategyId): StrategyDefinition {
@@ -49,6 +52,7 @@ export function getStrategyRules(strategyId: StrategyId): StrategyRuleSet {
 export type { StrategyDefinition, StrategyId, StrategyRuleSet } from "./types";
 export { AI_COACH_RULES } from "./types";
 
+export { default as volatilityBreakoutRules } from "./volatilityBreakout";
 export { default as killZoneRules } from "./killZone";
 export { default as ema20Rules } from "./ema20";
 export { default as continuationRules } from "./continuation";
