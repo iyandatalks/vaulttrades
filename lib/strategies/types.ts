@@ -1,5 +1,6 @@
 /** VaultTrades shared strategy contract. */
 export type StrategyId =
+  | "volatilityBreakout"
   | "killZone"
   | "ema20"
   | "continuation"
