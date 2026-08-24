@@ -3,33 +3,58 @@ import { getStrategyRules, type StrategyId } from "../../../lib/strategies";
 
 const TIMEFRAMES = ["1m", "5m", "15m", "30m", "1H", "4H", "1D", "1W", "1M"] as const;
 type Timeframe = (typeof TIMEFRAMES)[number];
-const INDICATORS: IndicatorName[] = ["SMA", "EMA", "Ichimoku", "Bollinger Bands", "ATR", "VWAP", "Supertrend", "SAR", "RSI", "MACD", "KST", "Stochastic", "ADX", "Percent B", "MFI", "DPO", "RVOL", "A/D"];
+const INDICATORS: IndicatorName[] = ["SMA", "EMA", "Ichimoku", "Bollinger Bands", "ATR", "VWAP", "Supertrend", "SAR", "RSI", "MACD", "KST", "Stochastic", "ADX", "Percent B", "MFI", "DPO", "RVOL", "A/D", "SMI"];
 const STRATEGY_IDS = Object.keys(ANALYZER_STRATEGY_MAP);
+type Decision = "TRADE" | "NO TRADE";
 type Direction = "BUY" | "SELL" | "NO TRADE";
+type CurrentState = "WAITING" | "DEVELOPING" | "READY" | "ACTIVE" | "COMPLETED" | "INVALIDATED";
 
-const num = (v: unknown) => { const n = typeof v === "number" ? v : Number(v); return Number.isFinite(n) ? n : null; };
+const num = (v: unknown) => {
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n : null;
+};
 const arr = (v: unknown) => Array.isArray(v) ? v.filter((x): x is string => typeof x === "string").map(x => x.trim()).filter(Boolean) : [];
 const validTimeframes = (v: unknown): Timeframe[] => Array.isArray(v) ? v.filter((x): x is Timeframe => typeof x === "string" && TIMEFRAMES.includes(x as Timeframe)).slice(0, 2) : [];
-const validIndicators = (v: unknown): IndicatorName[] => Array.isArray(v) ? v.filter((x): x is IndicatorName => typeof x === "string" && INDICATORS.includes(x as IndicatorName)).slice(0, 3) : [];
+const validIndicators = (v: unknown): IndicatorName[] => Array.isArray(v) ? v.filter((x): x is IndicatorName => typeof x === "string" && INDICATORS.includes(x as IndicatorName)).slice(0, 12) : [];
 
-function normalizeProjection(raw: any, direction: "BUY" | "SELL" | "NO TRADE", strategy: string) {
+function parseJsonField(form: FormData, key: string, fallback: unknown) {
+  try { return JSON.parse(String(form.get(key) || JSON.stringify(fallback))); } catch { return fallback; }
+}
+
+function tradeMath(direction: Direction, entry: number | null, stopLoss: number | null, tp: number | null, currentPrice: number | null) {
+  if ((direction !== "BUY" && direction !== "SELL") || entry === null || stopLoss === null || tp === null) {
+    return { valid: false, reason: "Entry, stop and TP are not all available." , risk: null, reward: null, rr: null, slPct: null, entryDistancePct: null };
+  }
+  const risk = direction === "BUY" ? entry - stopLoss : stopLoss - entry;
+  const reward = direction === "BUY" ? tp - entry : entry - tp;
+  const rr = risk > 0 ? reward / risk : null;
+  const slPct = entry !== 0 ? Math.abs(entry - stopLoss) / Math.abs(entry) * 100 : null;
+  const entryDistancePct = currentPrice !== null && currentPrice !== 0 ? Math.abs(entry - currentPrice) / Math.abs(currentPrice) * 100 : null;
+  const validGeometry = risk > 0 && reward > 0;
+  const validSl = slPct !== null && slPct >= 0.1;
+  const validEntry = entryDistancePct === null || entryDistancePct <= 0.5;
+  const validRr = rr !== null && rr >= 2;
+  return { valid: validGeometry && validSl && validEntry && validRr, reason: !validGeometry ? "Entry/SL/TP geometry is invalid." : !validSl ? "Stop loss is less than the required 0.1% from entry." : !validEntry ? "Entry is more than 0.5% from current price." : !validRr ? "R:R is below the required 1:2." : "All measurable price-level rules passed.", risk, reward, rr, slPct, entryDistancePct };
+}
+
+function normalizeProjection(raw: any, direction: Direction, strategy: string) {
   if (!raw || typeof raw !== "object") return null;
   const p = {
-    available: Boolean(raw.available), setupType: String(raw.setupType || ""), zoneLow: num(raw.zoneLow), zoneHigh: num(raw.zoneHigh),
-    expectedEntry: num(raw.expectedEntry), expectedStopLoss: num(raw.expectedStopLoss), expectedTp1: num(raw.expectedTp1), expectedTp2: num(raw.expectedTp2), expectedFinalTp: num(raw.expectedFinalTp),
-    retestRequired: Boolean(raw.retestRequired), retestStatus: String(raw.retestStatus || ""), confirmationRequired: String(raw.confirmationRequired || ""), confirmationStatus: String(raw.confirmationStatus || "")
+    available: Boolean(raw.available),
+    setupType: String(raw.setupType || "none"),
+    zoneLow: num(raw.zoneLow), zoneHigh: num(raw.zoneHigh),
+    expectedEntry: num(raw.expectedEntry), expectedStopLoss: num(raw.expectedStopLoss),
+    expectedTp1: num(raw.expectedTp1), expectedTp2: num(raw.expectedTp2), expectedFinalTp: num(raw.expectedFinalTp),
+    retestRequired: Boolean(raw.retestRequired), retestStatus: String(raw.retestStatus || "NOT_REQUIRED"),
+    confirmationRequired: String(raw.confirmationRequired || ""), confirmationStatus: String(raw.confirmationStatus || "NOT_REQUIRED"),
   };
   if (!p.available) return p;
-  const { zoneLow, zoneHigh, expectedEntry: entry, expectedStopLoss: sl, expectedTp1: tp1, expectedTp2: tp2, expectedFinalTp: finalTp } = p;
-  if ([zoneLow, zoneHigh, entry, sl, tp1, tp2, finalTp].some(v => v === null)) return { ...p, available: false, setupType: `${p.setupType || strategy} — projected levels incomplete` };
-  const validZone = (zoneLow as number) < (zoneHigh as number) && (entry as number) >= (zoneLow as number) && (entry as number) <= (zoneHigh as number);
-  const coherent = direction === "BUY"
-    ? validZone && (sl as number) < (zoneLow as number) && (tp1 as number) > (zoneHigh as number) && (tp2 as number) >= (tp1 as number) && (finalTp as number) >= (tp2 as number)
-    : direction === "SELL"
-      ? validZone && (sl as number) > (zoneHigh as number) && (tp1 as number) < (zoneLow as number) && (tp2 as number) <= (tp1 as number) && (finalTp as number) <= (tp2 as number)
-      : false;
-  if (!coherent) return { ...p, available: false, setupType: `${p.setupType || strategy} — projected levels rejected because the risk structure is incoherent`, zoneLow: null, zoneHigh: null, expectedEntry: null, expectedStopLoss: null, expectedTp1: null, expectedTp2: null, expectedFinalTp: null };
-  return p;
+  const values = [p.zoneLow, p.zoneHigh, p.expectedEntry, p.expectedStopLoss, p.expectedTp1, p.expectedTp2, p.expectedFinalTp];
+  if (values.some(v => v === null)) return { ...p, available: false, setupType: `${strategy} — projection incomplete` };
+  const zLow = p.zoneLow as number, zHigh = p.zoneHigh as number, entry = p.expectedEntry as number, sl = p.expectedStopLoss as number, tp1 = p.expectedTp1 as number, tp2 = p.expectedTp2 as number, finalTp = p.expectedFinalTp as number;
+  const inZone = zLow < zHigh && entry >= zLow && entry <= zHigh;
+  const coherent = direction === "BUY" ? inZone && sl < zLow && tp1 > entry && tp2 >= tp1 && finalTp >= tp2 : direction === "SELL" ? inZone && sl > zHigh && tp1 < entry && tp2 <= tp1 && finalTp <= tp2 : false;
+  return coherent ? p : { ...p, available: false, setupType: `${strategy} — projection rejected by geometry`, zoneLow: null, zoneHigh: null, expectedEntry: null, expectedStopLoss: null, expectedTp1: null, expectedTp2: null, expectedFinalTp: null };
 }
 
 export async function POST(request: Request) {
@@ -37,126 +62,148 @@ export async function POST(request: Request) {
     const form = await request.formData();
     const image = form.get("image");
     const strategyId = String(form.get("strategy") || "");
-    const selectedTimeframes = validTimeframes(JSON.parse(String(form.get("timeframes") || "[]")));
+    const selectedTimeframes = validTimeframes(parseJsonField(form, "timeframes", []));
     const indicatorMode = String(form.get("indicatorMode") || "AUTO") === "MANUAL" ? "MANUAL" : "AUTO";
-    const manualIndicators = validIndicators(JSON.parse(String(form.get("manualIndicators") || "[]")));
+    const manualIndicators = validIndicators(parseJsonField(form, "manualIndicators", []));
+
     if (!(image instanceof File)) return Response.json({ error: "Chart image is required." }, { status: 400 });
     if (!STRATEGY_IDS.includes(strategyId)) return Response.json({ error: "Invalid strategy selected." }, { status: 400 });
     if (!selectedTimeframes.length) return Response.json({ error: "Select at least one timeframe." }, { status: 400 });
 
     const profile = ANALYZER_STRATEGY_MAP[strategyId];
-    const activeIndicators = indicatorMode === "AUTO" ? profile.defaultIndicators : manualIndicators;
+    const candidateIndicators = indicatorMode === "AUTO" ? profile.defaultIndicators : manualIndicators;
+    const sourceRules = profile.sourceIds.map((id: StrategyId) => getStrategyRules(id));
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) return Response.json({ error: "OpenAI API key is not configured." }, { status: 500 });
 
-    const sourceRules = profile.sourceIds.map((id: StrategyId) => getStrategyRules(id));
     const bytes = await image.arrayBuffer();
     const imageUrl = `data:${image.type || "image/png"};base64,${Buffer.from(bytes).toString("base64")}`;
     const higher = selectedTimeframes.length === 2 ? selectedTimeframes[1] : selectedTimeframes[0];
-    const lower = selectedTimeframes.length === 2 ? selectedTimeframes[0] : selectedTimeframes[0];
+    const lower = selectedTimeframes[0];
 
-    const prompt = `You are VaultTrades Analyzer, an AI-powered trading chart analysis and education system. The selected strategy is the primary analytical framework. The system must determine whether a valid setup exists; it must be comfortable returning NO TRADE. Never invent information from a screenshot.
+    const prompt = `
+You are VaultTrades Analyzer. You are a chart interpretation engine, not a generic indicator chatbot.
 
-DISPLAY STRATEGY: ${profile.name}
+SELECTED STRATEGY: ${profile.name}
 CATEGORY: ${profile.category}
-TIMEFRAMES SELECTED: ${selectedTimeframes.join(" + ")}
-HIGHER TIMEFRAME CONTEXT: ${higher}
-LOWER TIMEFRAME SETUP/ENTRY: ${lower}
+TIMEFRAMES: ${selectedTimeframes.join(" + ")}
+HIGHER-TIMEFRAME CONTEXT: ${higher}
+LOWER-TIMEFRAME SETUP/ENTRY: ${lower}
 INDICATOR MODE: ${indicatorMode}
-INDICATORS AVAILABLE: ${activeIndicators.length ? activeIndicators.join(", ") : "None"}
-DEFAULT STRATEGY INDICATORS: ${profile.defaultIndicators.join(", ")}
+STRATEGY-RELEVANT INDICATOR CANDIDATES: ${candidateIndicators.length ? candidateIndicators.join(", ") : "None"}
 STRATEGY FOCUS: ${JSON.stringify(profile.focus)}
-STRATEGY GUARDRAILS: ${JSON.stringify(profile.rules)}
+STRATEGY RULES: ${JSON.stringify(profile.rules)}
+SOURCE-OF-TRUTH RULES: ${JSON.stringify(sourceRules)}
 
-INTERNAL SOURCE-OF-TRUTH RULES (use only to improve accuracy; do not expose internal strategy names, proprietary sequences, parameter recipes, or source-code details in the user-facing output):
-${JSON.stringify(sourceRules, null, 2)}
+============================================================
+UNIVERSAL ANALYZER RULES 1–6 — MANDATORY FOR EVERY STRATEGY
+============================================================
 
-ANALYSIS HIERARCHY:
-1. MARKET STRUCTURE — bullish, bearish, ranging or transitional; HH/HL/LH/LL, support, resistance, breakout, rejection, consolidation.
-2. SELECTED STRATEGY CONDITIONS — determine whether the selected framework is actually present.
-3. PRICE ACTION — rejection, momentum, displacement, consolidation, breakout, retest, reversal, continuation.
-4. INDICATOR CONFIRMATION — confirm or contradict the price-action thesis; indicators never create the trade by themselves.
-5. VOLATILITY — ATR/Bollinger where relevant.
-6. ENTRY — logical entry zone/level only when supported.
-7. INVALIDATION — logical invalidation/stop zone.
-8. TARGETS — logical targets only when supported.
-9. RISK/REWARD — calculate only when the necessary numbers are reliable.
-10. CONFIDENCE — score strategy-condition completeness, not profitability.
+RULE 1 — VISUAL CHART ANALYSIS
+1. Describe actual market structure: Uptrend, Downtrend, Ranging, Choppy or transitional.
+2. Identify visible key support/resistance and recent price action.
+3. If there are >5 consecutive inside bars OR materially conflicting signals across 3+ visible timeframes, the final NEW TRADE decision is NO TRADE for choppy/insufficient clarity.
+4. Do not use generic filler such as “ranging with no sustained higher highs” unless the image actually demonstrates that condition.
 
-AUTO INDICATOR RULE:
-When AUTO is selected, choose up to three indicators from the available list that best align with the selected strategy, normally using the profile defaults. You may replace one only when screenshot/timeframe/asset conditions make another listed indicator more appropriate. Explain the reason briefly. When MANUAL is selected, use only the supplied indicators and warn if they are poorly aligned.
+RULE 2 — SMC DETECTION
+Score ALL six when visible, 1–10:
+- BOS
+- CHoCH
+- Order Block
+- FVG
+- Liquidity Sweep
+- Displacement
+Provide concise evidence for every score. A score is not a reason by itself.
+NEW BUY/SELL GATE: at least TWO SMC scores must be >=7. If fewer than two are >=7, NEW TRADE MUST be NO TRADE.
+The SMC gate is universal, but SMC observations must still be interpreted in the context of the selected strategy rather than replacing its lifecycle.
 
-BOLLINGER RULE:
-If Bollinger Bands are relevant to the strategy or manually selected, use AUTO CONFIGURATION with default Period 20, Standard Deviation 2, Series Close, MA Type SMA, but dynamically optimize when the visible chart/strategy/timeframe provides a reason. State the chosen settings. If not relevant, status is NOT REQUIRED.
+RULE 3 — SESSION & CONFLUENCE
+Identify London, New York or Asian session when the chart time permits. State higher-timeframe alignment. Mention visible/known news only when genuinely available; never invent news. State risk-on/risk-off only when supported by visible or reliable context.
+Asian: trade only if confluence >=9/10 AND a major news event is genuinely established.
+London/NY overlap: preferred.
+Pre-London 07:00–08:00 GMT: acceptable only for an exceptional setup.
 
-MULTI-TIMEFRAME RULE:
-If two timeframes are selected, higher timeframe = market context and directional bias; lower timeframe = setup/entry. Do not reverse this relationship. If only one is selected, use it for both.
+RULE 4 — SIGNAL VALIDATION
+For a NEW BUY/SELL, calculate:
+BUY risk = Entry - SL; BUY reward = TP1 - Entry.
+SELL risk = SL - Entry; SELL reward = Entry - TP1.
+R:R = reward / risk and must be >=2.0.
+SL distance must be >=0.1% from entry.
+Entry must be within 0.5% of current price when current price is visible/reliable.
+Risk per trade must not exceed 1.5% of account equity. If account equity/position sizing is not supplied, say “Account-risk sizing not verifiable from the chart” rather than claiming it passed.
+BUY means every strategy-specific condition AND every measurable universal gate passed. SELL is the bearish equivalent. Otherwise NO TRADE.
 
-NEVER INVENT INFORMATION:
-If asset, price, timeframe, indicator values, support/resistance or entry levels are not clearly visible/reliably inferable, say "Information unavailable from the uploaded chart." Do not manufacture values. Only calculate when the necessary information is reliable.
+RULE 5 — CONFIDENCE
+90–100 = multiple strong confluences/perfect setup.
+80–89 = strong with 2–3 solid confirmations.
+70–79 = decent, minor issues.
+60–69 = marginal, wait for clarity.
+50–59 = weak/high failure risk.
+30–49 = poor/avoid.
+10–29 = very poor or image quality too low.
+Confidence must reflect actual evidence completeness. Do not inflate it because an indicator is aligned.
 
-NO-TRADE RULE:
-Return tradeDecision=NO TRADE when the selected strategy conditions are not satisfied, the market is incompatible with the strategy, a required event is not visible, the screenshot is insufficient, or risk structure cannot be established. Examples include trend-following in a range, mean reversion during a strong trend, breakout-retest without an identifiable original breakout, liquidity sweep without a meaningful sweep, divergence without reliable divergence, or insufficient chart information.
+RULE 6 — QUALITY CHECK
+Before returning JSON, re-check R:R math, SL/TP geometry, minimum SL distance, entry proximity, risk sizing when measurable, SMC >=7 count, confidence versus evidence, and whether the narrative logically matches structure, price action, liquidity, momentum, volatility and the selected strategy lifecycle.
 
-TRADE RULE:
-Return tradeDecision=TRADE only when the selected strategy has sufficient visible confluence and a coherent entry, invalidation and target structure. Direction must be BUY or SELL. Never represent a setup as guaranteed or certain financial advice.
+============================================================
+STRATEGY-SPECIFIC INTELLIGENCE
+============================================================
 
-ACTIVE / EXISTING SETUP COMMUNICATION — CRITICAL:
-The uploaded screenshot is NOT merely a trigger for a new trade. It may contain a communicative strategy dashboard, execution table, labels, entry/SL/TP lines, state text, reason text, historical trade tags, or a currently running trade. Read those elements as first-class evidence.
+The selected strategy is the PRIMARY THESIS. Use its authoritative source sequence exactly. Do not combine strategies. Do not invent mandatory conditions. Do not reduce the strategy to its indicators.
 
-Before deciding NO TRADE, explicitly determine whether the chart/dashboard shows:
-- an ACTIVE/RUNNING trade;
-- its direction (LONG/SHORT or BUY/SELL);
-- entry;
-- stop loss;
-- TP1/TP2/TP3 or final TP;
-- whether TP1, TP2, or another target has already been hit;
-- whether the setup is still active, completed, invalidated, or waiting;
-- the latest previous setup and its visible outcome.
+Indicators are SUPPORTING EVIDENCE, not the strategy itself. AUTO does NOT mean “always three indicators.” Select every candidate indicator that materially helps evaluate this strategy and the visible chart; the number may be 0, 1, 2, 3, 4 or more. Do not select an indicator just to fill a quota. For each selected indicator, state why it matters and whether it confirms, contradicts or is unavailable.
 
-If an active trade is visible, NEVER describe the result as "no information" and NEVER erase the active trade simply because there is no new entry event. The correct customer-facing outcome is usually:
-- tradeDecision = NO TRADE when the user should not enter/chase an already-running trade;
-- currentState = ACTIVE;
-- currentTrade contains the visible direction, entry, SL, targets and progress;
-- decisionReason clearly explains that the existing trade is already underway and whether TP1/TP2 has been reached;
-- nextAction tells the user whether to HOLD/OBSERVE, WAIT FOR COMPLETION, or WAIT FOR A NEW SETUP.
+For example, an Institutional setup may need EMA context + ATR + ADX + RVOL + VWAP because those answer different questions; another strategy may require fewer. The strategy decides the evidence set.
 
-An ACTIVE trade is different from a NEW TRADE. "NO TRADE" must mean "do not open a new position now", not "there is nothing happening."
+If MANUAL indicators are selected, use them as supplemental evidence, but do not pretend they replace mandatory source conditions.
 
-If the visible chart contains enough price history to reconstruct an earlier qualifying setup using the selected source rules, report that setup under previousSetup and explain its outcome. The customer is never required to provide indicator output, prior analysis, labels, execution tables, or strategy artifacts. The Analyzer must derive the interpretation from the uploaded market chart plus the authoritative internal source rules. If the visible price history is genuinely insufficient to reconstruct a prior setup, state that limitation without asking the customer to provide proprietary strategy information.
+============================================================
+STATE / LIFECYCLE COMMUNICATION
+============================================================
 
-The strategy source is intended to be communicative. Translate the source engine's state machine into useful customer-facing language:
-WAIT/CHANNEL, DIRECTION, BREAKOUT, REVERSAL, READY, ACTIVE, TP1 HIT, TP2 HIT, TP3 HIT/COMPLETED, STOP LOSS/INVALIDATED, and previous setup where visible. Do not expose proprietary source-code names or implementation details.
+Distinguish:
+WAITING = no meaningful setup evidence yet.
+DEVELOPING = strategy thesis is forming but trigger is incomplete.
+READY = all strategy conditions except final execution event are satisfied.
+ACTIVE = a trade is visibly already running; this is NOT a new entry.
+COMPLETED = visible previous trade reached its objective.
+INVALIDATED = visible previous/current setup failed its invalidation condition.
 
-ANTICIPATED SETUP:
-Keep anticipated setup separate from confirmed trade. A projected setup is a plan for what must happen next, not an active trade. If an active trade exists, anticipated setup must describe the next legitimate opportunity rather than pretending the active trade is a new entry.
+A DEVELOPING or READY state must never be converted into BUY/SELL merely because price moved in the expected direction.
 
-PREVIOUS SETUP:
-Inspect the visible chart history for the most recent prior setup using the same selected framework. Do not invent one. If a timestamp is visible, report it; otherwise say Timestamp not visible. State whether it appears to have reached a target, invalidation, or remains unresolved based only on visible evidence.
+The uploaded chart is a historical record. Scan the entire visible chart from older candles to the current candle. Identify the most recent reliable historical strategy footprint and its lifecycle/outcome when visible. If a dashboard, label, entry, SL, TP, state text or other strategy artifact is visible, treat it as high-value evidence. Do not say “no information” merely because there is no new signal on the current candle.
 
+If an ACTIVE trade is visible, return tradeDecision=NO TRADE for a NEW position, currentState=ACTIVE, populate currentTrade, explain its progress and tell the user whether to HOLD/OBSERVE, WAIT FOR COMPLETION or wait for a new setup. Do not erase the active trade.
 
-HISTORICAL FOOTPRINT SCAN — CRITICAL:
-The chart image is a historical record, not only a snapshot of the current candle. Scan the ENTIRE visible chart area from oldest visible candles to the current candle and reconstruct the most recent qualifying setup(s) that can be supported by visible evidence from the selected strategy. The purpose is to leave a verifiable footprint that a customer can compare against the same area on their TradingView chart.
+============================================================
+LEVELS / PROJECTIONS
+============================================================
 
-For every historical setup you report, identify only what is visibly supported:
-- approximate timestamp/date if visible; otherwise "Timestamp not visible";
-- direction BUY/SELL;
-- setup type in customer-safe language;
-- visible entry price if shown;
-- visible SL and TP1/TP2/TP3/final target if shown;
-- lifecycle state: ACTIVE, TP1 HIT, TP2 HIT, FINAL TP HIT, STOP LOSS, INVALIDATED, DEVELOPING, or UNRESOLVED;
-- concise evidence explaining which visible strategy footprint supports it.
+Confirmed entry/SL/TP values must come from visible chart evidence or a clearly visible strategy execution level. Never manufacture numbers.
+For BUY: SL below entry; TP above entry.
+For SELL: SL above entry; TP below entry.
+If a level is not reliable, return null.
 
-Scan backward far enough to find the latest completed setup before the current setup/state. Do not stop at the current candle. Do not call a historical setup "untraceable" merely because there is no new trade at the current candle. If the source indicator/dashboard contains historical labels, result tags, entry/SL/TP lines, state text, breakout markers, structure markers, or other strategy-generated footprints, treat those as high-value evidence.
+A projected/developing plan is educational and separate from a confirmed trade. Project only when the strategy gives a logical location and the chart provides the level. Projection levels must also have coherent geometry; otherwise projection.available=false.
 
-If multiple footprints are visible, return them in chronological order, newest first. Prefer up to 5 reliable footprints. If a footprint cannot be verified from the image, omit it rather than guessing. If no reliable historical footprint is visible, explicitly say that the visible chart history is insufficient; do not manufacture history.
+============================================================
+OUTPUT QUALITY
+============================================================
 
-The historical footprint is evidence for the Analyzer, not a new trading signal. A completed previous setup plus no current qualifying setup means the market may be developing, consolidating, ranging, or awaiting the next source-defined event. Explain which one is supported by the visible evidence.
+The user needs communicative reasoning. Do not return only “WATCH — 65”. Explain:
+- what the market is doing;
+- what the selected strategy sees;
+- what is confirmed;
+- what is missing;
+- which SMC evidence is strong;
+- what the exact trigger is;
+- where the setup becomes invalid;
+- whether a valid trade geometry exists;
+- what the trader should do next.
 
-USER-FACING LANGUAGE:
-Do NOT expose proprietary internal source strategy names, internal sequence labels, exact Pine implementation details, or private strategy parameters. Explain the market evidence in educational terms. Keep the dashboard sections: ANTICIPATED SETUP, MARKET STATE, PREVIOUS SETUP, EDUCATIONAL BREAKDOWN.
-
-Return ONLY JSON matching the schema.`;
+Return ONLY JSON matching the schema.
+`;
 
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
@@ -164,99 +211,122 @@ Return ONLY JSON matching the schema.`;
       body: JSON.stringify({
         model: "gpt-4.1-mini",
         input: [{ role: "user", content: [{ type: "input_text", text: prompt }, { type: "input_image", image_url: imageUrl }] }],
-        max_output_tokens: 6000,
+        max_output_tokens: 7000,
         text: { format: { type: "json_schema", name: "vaulttrades_analyzer", strict: true, schema: {
           type: "object", additionalProperties: false,
           properties: {
             tradeDecision: { type: "string", enum: ["TRADE", "NO TRADE"] },
             direction: { type: "string", enum: ["BUY", "SELL", "NO TRADE"] },
             confidence: { type: "number", minimum: 0, maximum: 100 },
-            asset: { type: "string" }, timeframe: { type: "string" }, marketCondition: { type: "string" }, directionalBias: { type: "string" },
+            asset: { type: "string" }, timeframe: { type: "string" }, currentPrice: { type: ["number", "null"] }, marketCondition: { type: "string" }, directionalBias: { type: "string" },
+            session: { type: "string" }, htfAlignment: { type: "string" }, newsContext: { type: "string" }, sentiment: { type: "string" },
             decisionReason: { type: "string" }, marketState: { type: "string" }, setup: { type: "string" },
-            confirmedConditions: { type: "array", items: { type: "string" } }, missingConditions: { type: "array", items: { type: "string" } }, invalidation: { type: "string" },
-            entry: { type: ["number", "null"] }, stopLoss: { type: ["number", "null"] }, tp1: { type: ["number", "null"] }, tp2: { type: ["number", "null"] }, finalTp: { type: ["number", "null"] },
-            strategyAnalysis: { type: "object", additionalProperties: false, properties: {
-              marketStructure: { type: "string" }, priceAction: { type: "string" }, liquidity: { type: "string" }, momentum: { type: "string" }, volatility: { type: "string" }, indicatorConfirmation: { type: "string" }
-            }, required: ["marketStructure", "priceAction", "liquidity", "momentum", "volatility", "indicatorConfirmation"] },
-            aiIndicators: { type: "array", items: { type: "object", additionalProperties: false, properties: { name: { type: "string" }, reason: { type: "string" } }, required: ["name", "reason"] } },
-            bollinger: { type: "object", additionalProperties: false, properties: { status: { type: "string" }, period: { type: ["number", "null"] }, standardDeviation: { type: ["number", "null"] }, series: { type: "string" }, maType: { type: "string" }, reason: { type: "string" }, optimized: { type: "boolean" } }, required: ["status", "period", "standardDeviation", "series", "maType", "reason", "optimized"] },
-            projection: { type: "object", additionalProperties: false, properties: {
-              available: { type: "boolean" }, setupType: { type: "string" }, zoneLow: { type: ["number", "null"] }, zoneHigh: { type: ["number", "null"] }, expectedEntry: { type: ["number", "null"] }, expectedStopLoss: { type: ["number", "null"] }, expectedTp1: { type: ["number", "null"] }, expectedTp2: { type: ["number", "null"] }, expectedFinalTp: { type: ["number", "null"] }, retestRequired: { type: "boolean" }, retestStatus: { type: "string" }, confirmationRequired: { type: "string" }, confirmationStatus: { type: "string" }
-            }, required: ["available", "setupType", "zoneLow", "zoneHigh", "expectedEntry", "expectedStopLoss", "expectedTp1", "expectedTp2", "expectedFinalTp", "retestRequired", "retestStatus", "confirmationRequired", "confirmationStatus"] },
+            confirmedConditions: { type: "array", items: { type: "string" } }, missingConditions: { type: "array", items: { type: "string" } }, invalidation: { type: "string" }, aiCoach: { type: "string" },
+            entry: { type: ["number", "null"] }, stopLoss: { type: ["number", "null"] }, risk: { type: ["number", "null"] }, tp1: { type: ["number", "null"] }, tp2: { type: ["number", "null"] }, finalTp: { type: ["number", "null"] },
+            rr: { type: ["number", "null"] }, slDistancePct: { type: ["number", "null"] }, entryDistancePct: { type: ["number", "null"] },
+            strategyAnalysis: { type: "object", additionalProperties: false, properties: { marketStructure: { type: "string" }, priceAction: { type: "string" }, liquidity: { type: "string" }, momentum: { type: "string" }, volatility: { type: "string" }, indicatorConfirmation: { type: "string" } }, required: ["marketStructure", "priceAction", "liquidity", "momentum", "volatility", "indicatorConfirmation"] },
+            smcScores: { type: "object", additionalProperties: false, properties: { BOS: { type: "number", minimum: 1, maximum: 10 }, CHoCH: { type: "number", minimum: 1, maximum: 10 }, OrderBlock: { type: "number", minimum: 1, maximum: 10 }, FVG: { type: "number", minimum: 1, maximum: 10 }, LiquiditySweep: { type: "number", minimum: 1, maximum: 10 }, Displacement: { type: "number", minimum: 1, maximum: 10 } }, required: ["BOS", "CHoCH", "OrderBlock", "FVG", "LiquiditySweep", "Displacement"] },
+            smcEvidence: { type: "array", items: { type: "string" } },
+            aiIndicators: { type: "array", items: { type: "object", additionalProperties: false, properties: { name: { type: "string", enum: INDICATORS }, selected: { type: "boolean" }, reason: { type: "string" }, reading: { type: "string" } }, required: ["name", "selected", "reason", "reading"] } },
+            bollinger: { type: "object", additionalProperties: false, properties: { status: { type: "string", enum: ["USED", "NOT REQUIRED", "UNAVAILABLE"] }, period: { type: ["number", "null"] }, standardDeviation: { type: ["number", "null"] }, series: { type: "string" }, maType: { type: "string" }, reason: { type: "string" }, optimized: { type: "boolean" } }, required: ["status", "period", "standardDeviation", "series", "maType", "reason", "optimized"] },
             previousSetup: { type: "object", additionalProperties: false, properties: { found: { type: "boolean" }, timestamp: { type: "string" }, direction: { type: "string" }, entry: { type: ["number", "null"] }, stopLoss: { type: ["number", "null"] }, tp1: { type: ["number", "null"] }, tp2: { type: ["number", "null"] }, finalTp: { type: ["number", "null"] }, outcome: { type: "string" }, evidence: { type: "array", items: { type: "string" } } }, required: ["found", "timestamp", "direction", "entry", "stopLoss", "tp1", "tp2", "finalTp", "outcome", "evidence"] },
-            historicalFootprints: { type: "array", items: { type: "object", additionalProperties: false, properties: { timestamp: { type: "string" }, direction: { type: "string", enum: ["BUY", "SELL", "UNKNOWN"] }, setupType: { type: "string" }, entry: { type: ["number", "null"] }, stopLoss: { type: ["number", "null"] }, tp1: { type: ["number", "null"] }, tp2: { type: ["number", "null"] }, finalTp: { type: ["number", "null"] }, lifecycle: { type: "string" }, evidence: { type: "array", items: { type: "string" } } }, required: ["timestamp", "direction", "setupType", "entry", "stopLoss", "tp1", "tp2", "finalTp", "lifecycle", "evidence"] } },
-
             currentState: { type: "string", enum: ["WAITING", "DEVELOPING", "READY", "ACTIVE", "COMPLETED", "INVALIDATED"] },
-            currentTrade: { type: "object", additionalProperties: false, properties: {
-              visible: { type: "boolean" }, direction: { type: "string" }, entry: { type: ["number", "null"] }, stopLoss: { type: ["number", "null"] },
-              tp1: { type: ["number", "null"] }, tp2: { type: ["number", "null"] }, finalTp: { type: ["number", "null"] },
-              progress: { type: "string" }, status: { type: "string" }, evidence: { type: "array", items: { type: "string" } }
-            }, required: ["visible", "direction", "entry", "stopLoss", "tp1", "tp2", "finalTp", "progress", "status", "evidence"] },
-            nextAction: { type: "string" }
+            currentTrade: { type: "object", additionalProperties: false, properties: { visible: { type: "boolean" }, direction: { type: "string" }, entry: { type: ["number", "null"] }, stopLoss: { type: ["number", "null"] }, tp1: { type: ["number", "null"] }, tp2: { type: ["number", "null"] }, finalTp: { type: ["number", "null"] }, progress: { type: "string" }, status: { type: "string" }, evidence: { type: "array", items: { type: "string" } } }, required: ["visible", "direction", "entry", "stopLoss", "tp1", "tp2", "finalTp", "progress", "status", "evidence"] },
+            nextAction: { type: "string" },
+            projection: { type: "object", additionalProperties: false, properties: { available: { type: "boolean" }, setupType: { type: "string" }, zoneLow: { type: ["number", "null"] }, zoneHigh: { type: ["number", "null"] }, expectedEntry: { type: ["number", "null"] }, expectedStopLoss: { type: ["number", "null"] }, expectedTp1: { type: ["number", "null"] }, expectedTp2: { type: ["number", "null"] }, expectedFinalTp: { type: ["number", "null"] }, retestRequired: { type: "boolean" }, retestStatus: { type: "string" }, confirmationRequired: { type: "string" }, confirmationStatus: { type: "string" } }, required: ["available", "setupType", "zoneLow", "zoneHigh", "expectedEntry", "expectedStopLoss", "expectedTp1", "expectedTp2", "expectedFinalTp", "retestRequired", "retestStatus", "confirmationRequired", "confirmationStatus"] },
+            chartAnnotations: { type: "array", items: { type: "object", additionalProperties: false, properties: { type: { type: "string" }, label: { type: "string" }, price: { type: ["number", "null"] }, points: { type: "array", items: { type: "object", additionalProperties: false, properties: { x: { type: "number", minimum: 0, maximum: 1000 }, y: { type: "number", minimum: 0, maximum: 1000 } }, required: ["x", "y"] } }, color: { type: "string" } }, required: ["type", "label", "price", "points", "color"] } },
           },
-          required: ["tradeDecision", "direction", "confidence", "asset", "timeframe", "marketCondition", "directionalBias", "decisionReason", "marketState", "setup", "confirmedConditions", "missingConditions", "invalidation", "entry", "stopLoss", "tp1", "tp2", "finalTp", "strategyAnalysis", "aiIndicators", "bollinger", "projection", "previousSetup", "historicalFootprints", "currentState", "currentTrade", "nextAction"]
-        } } }
-      })
+          required: ["tradeDecision", "direction", "confidence", "asset", "timeframe", "currentPrice", "marketCondition", "directionalBias", "session", "htfAlignment", "newsContext", "sentiment", "decisionReason", "marketState", "setup", "confirmedConditions", "missingConditions", "invalidation", "aiCoach", "entry", "stopLoss", "risk", "tp1", "tp2", "finalTp", "rr", "slDistancePct", "entryDistancePct", "strategyAnalysis", "smcScores", "smcEvidence", "aiIndicators", "bollinger", "previousSetup", "currentState", "currentTrade", "nextAction", "projection", "chartAnnotations"],
+        } } },
+      }),
     });
 
-    if (!response.ok) { const details = await response.text(); console.error("OpenAI analysis failed", details); return Response.json({ error: "OpenAI analysis failed." }, { status: 500 }); }
-    const result = await response.json();
-    const text = result.output?.flatMap((item: any) => item.content ?? []).filter((c: any) => c.type === "output_text").map((c: any) => c.text).join("")?.trim();
-    if (!text) return Response.json({ error: "The analyzer returned no structured result." }, { status: 500 });
-    const parsed = JSON.parse(text);
+    if (!response.ok) {
+      const details = await response.text();
+      console.error("OpenAI analyzer error", details);
+      return Response.json({ error: "OpenAI analysis failed.", details }, { status: 500 });
+    }
 
-    const requestedDirection: Direction = parsed.direction === "BUY" || parsed.direction === "SELL" ? parsed.direction : "NO TRADE";
-    const tradeDecision = parsed.tradeDecision === "TRADE" && requestedDirection !== "NO TRADE" ? "TRADE" : "NO TRADE";
-    const confirmed = tradeDecision === "TRADE";
-    const direction: Direction = confirmed ? requestedDirection : "NO TRADE";
-    const entry = confirmed ? num(parsed.entry) : null;
-    const stopLoss = confirmed ? num(parsed.stopLoss) : null;
-    const target = (v: unknown) => { const n = num(v); if (!confirmed || n === null || entry === null) return null; return direction === "BUY" ? (n > entry ? n : null) : (n < entry ? n : null); };
-    const risk = confirmed && entry !== null && stopLoss !== null ? direction === "BUY" ? entry - stopLoss : stopLoss - entry : null;
-    const coherentRisk = risk !== null && risk > 0;
-    const safeDecision = confirmed && coherentRisk ? "TRADE" : "NO TRADE";
-    const safeDirection: Direction = safeDecision === "TRADE" ? direction : "NO TRADE";
-    const safeEntry = safeDecision === "TRADE" ? entry : null;
-    const safeStop = safeDecision === "TRADE" ? stopLoss : null;
-    const safeTp1 = safeDecision === "TRADE" ? target(parsed.tp1) : null;
-    const safeTp2 = safeDecision === "TRADE" ? target(parsed.tp2) : null;
-    const safeFinalTp = safeDecision === "TRADE" ? target(parsed.finalTp) : null;
-    const projectionDirection: "BUY" | "SELL" | "NO TRADE" = parsed.direction === "BUY" || parsed.direction === "SELL" ? parsed.direction : "NO TRADE";
-    const projection = normalizeProjection(parsed.projection, projectionDirection, profile.name);
-    const aiIndicators = Array.isArray(parsed.aiIndicators) ? parsed.aiIndicators.filter((x: any) => typeof x?.name === "string").slice(0, 3).map((x: any) => ({ name: x.name, selected: true, reason: String(x.reason || "Strategy-aligned confirmation") })) : activeIndicators.map(name => ({ name, selected: true, reason: "Strategy-aligned confirmation" }));
-    const bollinger = parsed.bollinger && typeof parsed.bollinger === "object" ? parsed.bollinger : { status: "NOT REQUIRED", period: null, standardDeviation: null, series: "", maType: "", reason: "Not required by the selected strategy.", optimized: false };
-    const historicalFootprints = Array.isArray(parsed.historicalFootprints) ? parsed.historicalFootprints.slice(0, 5).map((x: any) => ({ timestamp: String(x?.timestamp || "Timestamp not visible"), direction: ["BUY", "SELL", "UNKNOWN"].includes(String(x?.direction)) ? String(x.direction) : "UNKNOWN", setupType: String(x?.setupType || "Historical setup"), entry: num(x?.entry), stopLoss: num(x?.stopLoss), tp1: num(x?.tp1), tp2: num(x?.tp2), finalTp: num(x?.finalTp), lifecycle: String(x?.lifecycle || "UNRESOLVED"), evidence: arr(x?.evidence) })) : [];
-    const historicalPrior = historicalFootprints.find((x: any) => !["ACTIVE", "DEVELOPING"].includes(x.lifecycle));
-    const normalizedPreviousSetup = parsed.previousSetup?.found ? parsed.previousSetup : historicalPrior ? { found: true, timestamp: historicalPrior.timestamp, direction: historicalPrior.direction, entry: historicalPrior.entry, stopLoss: historicalPrior.stopLoss, tp1: historicalPrior.tp1, tp2: historicalPrior.tp2, finalTp: historicalPrior.finalTp, outcome: historicalPrior.lifecycle, evidence: historicalPrior.evidence } : parsed.previousSetup || null;
+    const raw = await response.json();
+    const outputText = raw.output?.flatMap((item: any) => item.content ?? []).filter((c: any) => c.type === "output_text").map((c: any) => c.text).join("").trim();
+    if (!outputText) return Response.json({ error: "The analyzer returned no structured result." }, { status: 500 });
 
-    return Response.json({
+    const parsed = JSON.parse(outputText);
+    const direction: Direction = parsed.direction === "BUY" || parsed.direction === "SELL" ? parsed.direction : "NO TRADE";
+    const currentPrice = num(parsed.currentPrice);
+    const entry = num(parsed.entry), stopLoss = num(parsed.stopLoss), tp1 = num(parsed.tp1), tp2 = num(parsed.tp2), finalTp = num(parsed.finalTp);
+    const math = tradeMath(direction, entry, stopLoss, tp1, currentPrice);
+    const smc = parsed.smcScores || {};
+    const strongSmcCount = [smc.BOS, smc.CHoCH, smc.OrderBlock, smc.FVG, smc.LiquiditySweep, smc.Displacement].filter((v: any) => Number(v) >= 7).length;
+    const currentTrade = parsed.currentTrade && typeof parsed.currentTrade === "object" ? parsed.currentTrade : { visible: false, direction: "", entry: null, stopLoss: null, tp1: null, tp2: null, finalTp: null, progress: "", status: "", evidence: [] };
+    const activeVisible = Boolean(currentTrade.visible);
+
+    let tradeDecision: Decision = parsed.tradeDecision === "TRADE" ? "TRADE" : "NO TRADE";
+    let finalDirection: Direction = direction;
+    const gateFailures: string[] = [];
+    if (tradeDecision === "TRADE") {
+      if (strongSmcCount < 2) gateFailures.push(`SMC confluence failed: only ${strongSmcCount} SMC signal(s) scored 7/10 or higher; at least 2 are required.`);
+      if (!math.valid) gateFailures.push(math.reason);
+      if (entry === null || stopLoss === null || tp1 === null) gateFailures.push("Confirmed trade geometry is incomplete.");
+      if (activeVisible) gateFailures.push("A visible active trade is already underway; do not open a new position.");
+      if (gateFailures.length) { tradeDecision = "NO TRADE"; finalDirection = "NO TRADE"; }
+    }
+
+    const confidenceRaw = Number(parsed.confidence);
+    let confidence = Number.isFinite(confidenceRaw) ? Math.max(0, Math.min(100, Math.round(confidenceRaw))) : 0;
+    if (strongSmcCount < 2) confidence = Math.min(confidence, 69);
+    if (tradeDecision !== "TRADE" && !activeVisible && parsed.currentState === "WAITING") confidence = Math.min(confidence, 69);
+
+    const normalizedMathRisk = math.risk !== null && math.risk > 0 ? math.risk : null;
+    const normalizedProjection = normalizeProjection(parsed.projection, finalDirection, profile.name);
+    const confirmedConditions = arr(parsed.confirmedConditions);
+    const missingConditions = [...arr(parsed.missingConditions), ...gateFailures];
+    const analysisDirection = activeVisible ? "NO TRADE" : finalDirection;
+    const currentState: CurrentState = activeVisible ? "ACTIVE" : parsed.currentState;
+
+    const responsePayload = {
       success: true,
-      strategy: { id: profile.id, name: profile.name, category: profile.category },
-      market: { asset: String(parsed.asset || "Information unavailable"), timeframe: String(parsed.timeframe || selectedTimeframes.join(" + ")), marketCondition: String(parsed.marketCondition || "Information unavailable"), directionalBias: String(parsed.directionalBias || "Information unavailable") },
-      aiIndicators, bollinger,
-      strategyAnalysis: parsed.strategyAnalysis,
-      decision: safeDecision,
-      tradeSignal: { direction: safeDirection, confidence: Math.max(0, Math.min(100, Math.round(Number(parsed.confidence) || 0))), entry: safeEntry, stopLoss: safeStop, risk: safeDecision === "TRADE" && coherentRisk ? risk : null, tp1: safeTp1, tp2: safeTp2, finalTp: safeFinalTp, invalidation: String(parsed.invalidation || "") },
-      decisionReason: String(parsed.decisionReason || ""), marketState: String(parsed.marketState || ""), setup: String(parsed.setup || ""),
-      confirmedConditions: arr(parsed.confirmedConditions), missingConditions: arr(parsed.missingConditions), projection, previousSetup: normalizedPreviousSetup,
-      historicalFootprints,
-      currentState: ["WAITING", "DEVELOPING", "READY", "ACTIVE", "COMPLETED", "INVALIDATED"].includes(String(parsed.currentState)) ? parsed.currentState : "WAITING",
-      currentTrade: parsed.currentTrade && typeof parsed.currentTrade === "object" ? {
-        visible: Boolean(parsed.currentTrade.visible),
-        direction: String(parsed.currentTrade.direction || "NONE"),
-        entry: num(parsed.currentTrade.entry),
-        stopLoss: num(parsed.currentTrade.stopLoss),
-        tp1: num(parsed.currentTrade.tp1),
-        tp2: num(parsed.currentTrade.tp2),
-        finalTp: num(parsed.currentTrade.finalTp),
-        progress: String(parsed.currentTrade.progress || ""),
-        status: String(parsed.currentTrade.status || ""),
-        evidence: arr(parsed.currentTrade.evidence)
-      } : { visible: false, direction: "NONE", entry: null, stopLoss: null, tp1: null, tp2: null, finalTp: null, progress: "", status: "", evidence: [] },
-      nextAction: String(parsed.nextAction || "Wait for the next valid strategy event.")
-    });
+      strategy: { id: strategyId, name: profile.name, category: profile.category },
+      market: { asset: String(parsed.asset || "Information unavailable"), timeframe: String(parsed.timeframe || selectedTimeframes.join(" + ")), marketCondition: String(parsed.marketCondition || ""), directionalBias: String(parsed.directionalBias || "") },
+      session: { name: String(parsed.session || "Information unavailable"), higherTimeframeAlignment: String(parsed.htfAlignment || "Information unavailable"), newsContext: String(parsed.newsContext || "No reliable news context visible"), sentiment: String(parsed.sentiment || "Information unavailable") },
+      aiIndicators: Array.isArray(parsed.aiIndicators) ? parsed.aiIndicators : [],
+      bollinger: parsed.bollinger || { status: "NOT REQUIRED", period: null, standardDeviation: null, series: "Close", maType: "SMA", reason: "Not relevant to the selected strategy.", optimized: false },
+      smcScores: smc,
+      smcEvidence: arr(parsed.smcEvidence),
+      strategyAnalysis: parsed.strategyAnalysis || {},
+      decision: tradeDecision,
+      tradeSignal: {
+        direction: analysisDirection,
+        confidence,
+        entry: tradeDecision === "TRADE" ? entry : null,
+        stopLoss: tradeDecision === "TRADE" ? stopLoss : null,
+        risk: tradeDecision === "TRADE" ? normalizedMathRisk : null,
+        tp1: tradeDecision === "TRADE" ? tp1 : null,
+        tp2: tradeDecision === "TRADE" ? tp2 : null,
+        finalTp: tradeDecision === "TRADE" ? finalTp : null,
+        rr: tradeDecision === "TRADE" ? math.rr : null,
+        slDistancePct: tradeDecision === "TRADE" ? math.slPct : null,
+        entryDistancePct: tradeDecision === "TRADE" ? math.entryDistancePct : null,
+        invalidation: String(parsed.invalidation || "")
+      },
+      decisionReason: activeVisible ? `An existing ${String(currentTrade.direction || "").toUpperCase()} trade is visible. No new entry should be opened; interpret its lifecycle instead.` : tradeDecision === "TRADE" ? String(parsed.decisionReason || "All selected strategy and universal gates passed.") : [String(parsed.decisionReason || "The selected strategy is not fully confirmed."), ...gateFailures].filter(Boolean).join(" "),
+      marketState: String(parsed.marketState || "Market state unavailable."),
+      setup: String(parsed.setup || "No reliable setup established."),
+      confirmedConditions,
+      missingConditions,
+      invalidation: String(parsed.invalidation || "No clear invalidation established."),
+      aiCoach: String(parsed.aiCoach || "Wait for the next strategy-defined confirmation."),
+      previousSetup: parsed.previousSetup || { found: false, timestamp: "Timestamp not visible", direction: "NO TRADE", entry: null, stopLoss: null, tp1: null, tp2: null, finalTp: null, outcome: "No reliable previous setup found.", evidence: [] },
+      currentState,
+      currentTrade: activeVisible ? currentTrade : { ...currentTrade, visible: false },
+      nextAction: String(parsed.nextAction || (activeVisible ? "Observe the active trade lifecycle; do not chase a new entry." : "Wait for the exact missing strategy confirmation.")),
+      projection: normalizedProjection,
+      chartAnnotations: Array.isArray(parsed.chartAnnotations) ? parsed.chartAnnotations : [],
+    };
+
+    return Response.json(responsePayload);
   } catch (error) {
-    console.error("VaultTrades analysis error", error);
+    console.error("Analyzer error", error);
     return Response.json({ error: "Unable to analyze the chart." }, { status: 500 });
   }
 }
