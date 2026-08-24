@@ -20,27 +20,49 @@ const text = (value?: string | null, fallback = "Not clearly confirmed from the 
 const score = (result: PipelineResult, key: keyof NonNullable<PipelineResult["smcScores"]>) => result.smcScores?.[key] ?? null;
 const scoreText = (result: PipelineResult, key: keyof NonNullable<PipelineResult["smcScores"]>, label: string) => { const value = score(result, key); return value == null ? `${label}: not clearly scored` : `${label}: ${value}/10`; };
 function evidence(result: PipelineResult, label: string, preferred?: string[]) { const candidates = [...(preferred || []), ...(result.confirmedConditions || []), ...(result.missingConditions || [])].filter(Boolean); const hit = candidates.find(x => x.toLowerCase().includes(label.toLowerCase())); return hit || "No explicit confirmation recorded."; }
-const fmt = (value: number | null | undefined) => value == null || !Number.isFinite(value) ? "—" : value.toLocaleString(undefined, { maximumFractionDigits: 5 });
+
+function priceDecimals(value: number): number {
+  const abs = Math.abs(value);
+  if (abs >= 1000) return 2;
+  if (abs >= 100) return 2;
+  if (abs >= 10) return 3;
+  if (abs >= 1) return 4;
+  return 5;
+}
+
+const fmt = (value: number | null | undefined) => value == null || !Number.isFinite(value)
+  ? "—"
+  : value.toLocaleString(undefined, { minimumFractionDigits: priceDecimals(value), maximumFractionDigits: priceDecimals(value) });
 
 function priceMap(result: PipelineResult): Stage[] {
   const s = result.marketData?.structure;
-  const atr = result.marketData?.volatility?.atr ?? null;
+  const atr = s && result.marketData?.volatility?.atr != null && Number.isFinite(result.marketData.volatility.atr) ? result.marketData.volatility.atr : null;
   const support = s?.support ?? null;
   const resistance = s?.resistance ?? null;
-  const range = support != null && resistance != null && resistance > support ? resistance - support : null;
-  const upperLow = resistance != null && range != null ? resistance : null;
-  const upperHigh = resistance != null && range != null ? resistance + range * 0.5 : resistance != null && atr != null ? resistance + atr : null;
-  const lowerHigh = support != null && range != null ? support : null;
-  const lowerLow = support != null && range != null ? support - range * 0.5 : support != null && atr != null ? support - atr : null;
-  const projected = result.projection?.zoneLow != null && result.projection?.zoneHigh != null
-    ? `${fmt(result.projection.zoneLow)} – ${fmt(result.projection.zoneHigh)}`
-    : "No strategy-specific setup zone confirmed yet.";
+  const hasDistinctLevels = support != null && resistance != null && resistance > support;
+  const range = hasDistinctLevels ? resistance - support : null;
+
+  // Zones are deliberately derived from structural boundaries, not from the
+  // latest candle high/low. If a strategy supplied a projection, it wins.
+  const projectedLow = result.projection?.zoneLow ?? null;
+  const projectedHigh = result.projection?.zoneHigh ?? null;
+  const currentZone = projectedLow != null && projectedHigh != null && projectedHigh > projectedLow
+    ? `${fmt(projectedLow)} – ${fmt(projectedHigh)}`
+    : hasDistinctLevels
+      ? `${fmt(support)} – ${fmt(resistance)}`
+      : "No strategy-specific setup zone confirmed yet.";
+
+  const upperLow = resistance;
+  const upperHigh = resistance != null && range != null ? resistance + Math.max(range * 0.5, atr ?? 0) : null;
+  const lowerHigh = support;
+  const lowerLow = support != null && range != null ? support - Math.max(range * 0.5, atr ?? 0) : null;
+
   return [
-    { label: "Support", value: support != null ? fmt(support) : "No reliable support level identified" },
-    { label: "Resistance", value: resistance != null ? fmt(resistance) : "No reliable resistance level identified" },
-    { label: "Break above", value: upperLow != null && upperHigh != null ? `If price closes above ${fmt(resistance)}, next area: ${fmt(upperLow)} – ${fmt(upperHigh)}` : "Await a confirmed resistance level." },
-    { label: "Break below", value: lowerLow != null && lowerHigh != null ? `If price closes below ${fmt(support)}, next area: ${fmt(lowerLow)} – ${fmt(lowerHigh)}` : "Await a confirmed support level." },
-    { label: "Current setup zone", value: projected },
+    { label: "Support", value: support != null ? fmt(support) : "No reliable structural support identified" },
+    { label: "Resistance", value: resistance != null ? fmt(resistance) : "No reliable structural resistance identified" },
+    { label: "Break above", value: upperLow != null && upperHigh != null ? `Close above ${fmt(upperLow)} → next structural area ${fmt(upperLow)} – ${fmt(upperHigh)}` : "Await a confirmed resistance level." },
+    { label: "Break below", value: lowerLow != null && lowerHigh != null ? `Close below ${fmt(lowerHigh)} → next structural area ${fmt(lowerLow)} – ${fmt(lowerHigh)}` : "Await a confirmed support level." },
+    { label: "Current setup zone", value: currentZone },
   ];
 }
 
