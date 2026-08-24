@@ -134,6 +134,25 @@ Keep anticipated setup separate from confirmed trade. A projected setup is a pla
 PREVIOUS SETUP:
 Inspect the visible chart history for the most recent prior setup using the same selected framework. Do not invent one. If a timestamp is visible, report it; otherwise say Timestamp not visible. State whether it appears to have reached a target, invalidation, or remains unresolved based only on visible evidence.
 
+
+HISTORICAL FOOTPRINT SCAN — CRITICAL:
+The chart image is a historical record, not only a snapshot of the current candle. Scan the ENTIRE visible chart area from oldest visible candles to the current candle and reconstruct the most recent qualifying setup(s) that can be supported by visible evidence from the selected strategy. The purpose is to leave a verifiable footprint that a customer can compare against the same area on their TradingView chart.
+
+For every historical setup you report, identify only what is visibly supported:
+- approximate timestamp/date if visible; otherwise "Timestamp not visible";
+- direction BUY/SELL;
+- setup type in customer-safe language;
+- visible entry price if shown;
+- visible SL and TP1/TP2/TP3/final target if shown;
+- lifecycle state: ACTIVE, TP1 HIT, TP2 HIT, FINAL TP HIT, STOP LOSS, INVALIDATED, DEVELOPING, or UNRESOLVED;
+- concise evidence explaining which visible strategy footprint supports it.
+
+Scan backward far enough to find the latest completed setup before the current setup/state. Do not stop at the current candle. Do not call a historical setup "untraceable" merely because there is no new trade at the current candle. If the source indicator/dashboard contains historical labels, result tags, entry/SL/TP lines, state text, breakout markers, structure markers, or other strategy-generated footprints, treat those as high-value evidence.
+
+If multiple footprints are visible, return them in chronological order, newest first. Prefer up to 5 reliable footprints. If a footprint cannot be verified from the image, omit it rather than guessing. If no reliable historical footprint is visible, explicitly say that the visible chart history is insufficient; do not manufacture history.
+
+The historical footprint is evidence for the Analyzer, not a new trading signal. A completed previous setup plus no current qualifying setup means the market may be developing, consolidating, ranging, or awaiting the next source-defined event. Explain which one is supported by the visible evidence.
+
 USER-FACING LANGUAGE:
 Do NOT expose proprietary internal source strategy names, internal sequence labels, exact Pine implementation details, or private strategy parameters. Explain the market evidence in educational terms. Keep the dashboard sections: ANTICIPATED SETUP, MARKET STATE, PREVIOUS SETUP, EDUCATIONAL BREAKDOWN.
 
@@ -165,6 +184,8 @@ Return ONLY JSON matching the schema.`;
               available: { type: "boolean" }, setupType: { type: "string" }, zoneLow: { type: ["number", "null"] }, zoneHigh: { type: ["number", "null"] }, expectedEntry: { type: ["number", "null"] }, expectedStopLoss: { type: ["number", "null"] }, expectedTp1: { type: ["number", "null"] }, expectedTp2: { type: ["number", "null"] }, expectedFinalTp: { type: ["number", "null"] }, retestRequired: { type: "boolean" }, retestStatus: { type: "string" }, confirmationRequired: { type: "string" }, confirmationStatus: { type: "string" }
             }, required: ["available", "setupType", "zoneLow", "zoneHigh", "expectedEntry", "expectedStopLoss", "expectedTp1", "expectedTp2", "expectedFinalTp", "retestRequired", "retestStatus", "confirmationRequired", "confirmationStatus"] },
             previousSetup: { type: "object", additionalProperties: false, properties: { found: { type: "boolean" }, timestamp: { type: "string" }, direction: { type: "string" }, entry: { type: ["number", "null"] }, stopLoss: { type: ["number", "null"] }, tp1: { type: ["number", "null"] }, tp2: { type: ["number", "null"] }, finalTp: { type: ["number", "null"] }, outcome: { type: "string" }, evidence: { type: "array", items: { type: "string" } } }, required: ["found", "timestamp", "direction", "entry", "stopLoss", "tp1", "tp2", "finalTp", "outcome", "evidence"] },
+            historicalFootprints: { type: "array", items: { type: "object", additionalProperties: false, properties: { timestamp: { type: "string" }, direction: { type: "string", enum: ["BUY", "SELL", "UNKNOWN"] }, setupType: { type: "string" }, entry: { type: ["number", "null"] }, stopLoss: { type: ["number", "null"] }, tp1: { type: ["number", "null"] }, tp2: { type: ["number", "null"] }, finalTp: { type: ["number", "null"] }, lifecycle: { type: "string" }, evidence: { type: "array", items: { type: "string" } } }, required: ["timestamp", "direction", "setupType", "entry", "stopLoss", "tp1", "tp2", "finalTp", "lifecycle", "evidence"] } },
+
             currentState: { type: "string", enum: ["WAITING", "DEVELOPING", "READY", "ACTIVE", "COMPLETED", "INVALIDATED"] },
             currentTrade: { type: "object", additionalProperties: false, properties: {
               visible: { type: "boolean" }, direction: { type: "string" }, entry: { type: ["number", "null"] }, stopLoss: { type: ["number", "null"] },
@@ -173,7 +194,7 @@ Return ONLY JSON matching the schema.`;
             }, required: ["visible", "direction", "entry", "stopLoss", "tp1", "tp2", "finalTp", "progress", "status", "evidence"] },
             nextAction: { type: "string" }
           },
-          required: ["tradeDecision", "direction", "confidence", "asset", "timeframe", "marketCondition", "directionalBias", "decisionReason", "marketState", "setup", "confirmedConditions", "missingConditions", "invalidation", "entry", "stopLoss", "tp1", "tp2", "finalTp", "strategyAnalysis", "aiIndicators", "bollinger", "projection", "previousSetup", "currentState", "currentTrade", "nextAction"]
+          required: ["tradeDecision", "direction", "confidence", "asset", "timeframe", "marketCondition", "directionalBias", "decisionReason", "marketState", "setup", "confirmedConditions", "missingConditions", "invalidation", "entry", "stopLoss", "tp1", "tp2", "finalTp", "strategyAnalysis", "aiIndicators", "bollinger", "projection", "previousSetup", "historicalFootprints", "currentState", "currentTrade", "nextAction"]
         } } }
       })
     });
@@ -214,6 +235,7 @@ Return ONLY JSON matching the schema.`;
       tradeSignal: { direction: safeDirection, confidence: Math.max(0, Math.min(100, Math.round(Number(parsed.confidence) || 0))), entry: safeEntry, stopLoss: safeStop, risk: safeDecision === "TRADE" && coherentRisk ? risk : null, tp1: safeTp1, tp2: safeTp2, finalTp: safeFinalTp, invalidation: String(parsed.invalidation || "") },
       decisionReason: String(parsed.decisionReason || ""), marketState: String(parsed.marketState || ""), setup: String(parsed.setup || ""),
       confirmedConditions: arr(parsed.confirmedConditions), missingConditions: arr(parsed.missingConditions), projection, previousSetup: parsed.previousSetup || null,
+      historicalFootprints: Array.isArray(parsed.historicalFootprints) ? parsed.historicalFootprints.slice(0, 5).map((x: any) => ({ timestamp: String(x?.timestamp || "Timestamp not visible"), direction: ["BUY", "SELL", "UNKNOWN"].includes(String(x?.direction)) ? String(x.direction) : "UNKNOWN", setupType: String(x?.setupType || "Historical setup"), entry: num(x?.entry), stopLoss: num(x?.stopLoss), tp1: num(x?.tp1), tp2: num(x?.tp2), finalTp: num(x?.finalTp), lifecycle: String(x?.lifecycle || "UNRESOLVED"), evidence: arr(x?.evidence) })) : [],
       currentState: ["WAITING", "DEVELOPING", "READY", "ACTIVE", "COMPLETED", "INVALIDATED"].includes(String(parsed.currentState)) ? parsed.currentState : "WAITING",
       currentTrade: parsed.currentTrade && typeof parsed.currentTrade === "object" ? {
         visible: Boolean(parsed.currentTrade.visible),
