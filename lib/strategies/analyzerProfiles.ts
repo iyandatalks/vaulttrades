@@ -5,6 +5,11 @@ import type { StrategyId } from "./types";
  *
  * The profile describes HOW the Analyzer should interpret the selected
  * strategy. It does not replace the authoritative source state machine.
+ *
+ * defaultIndicators is the AUTO-selected set. There is deliberately no
+ * three-indicator quota: the strategy source determines which calculated
+ * indicators are materially required. Structural/SMC evidence is evaluated
+ * by the analyzer independently of this technical-indicator list.
  */
 export type AnalyzerCategory = "MY CUSTOM STRATEGIES" | "ADVANCED";
 export type IndicatorName = "SMA" | "EMA" | "Ichimoku" | "Bollinger Bands" | "ATR" | "VWAP" | "Supertrend" | "SAR" | "RSI" | "MACD" | "KST" | "Stochastic" | "ADX" | "Percent B" | "MFI" | "DPO" | "RVOL" | "A/D" | "SMI";
@@ -14,7 +19,7 @@ export interface AnalyzerStrategyProfile {
   name: string;
   category: AnalyzerCategory;
   sourceIds: StrategyId[];
-  /** Strategy-relevant indicator candidates. This is not a 3-indicator cap. */
+  /** Strategy-required AUTO indicators. This is not a 3-indicator cap. */
   defaultIndicators: IndicatorName[];
   focus: string[];
   rules: string[];
@@ -31,7 +36,7 @@ const UNIVERSAL_ANALYZER_RULES = [
   "RULE 4 — R:R MATH: BUY risk = Entry - SL and reward = TP - Entry. SELL risk = SL - Entry and reward = Entry - TP. R:R = reward / risk and must be >=2.0. Never trust a displayed RR label without recalculating it.",
   "RULE 4 — RISK: Maximum account risk is 1.5%. If account equity/position-size inputs are unavailable, explicitly mark sizing as unverified rather than claiming that the 1.5% limit has been validated.",
   "RULE 4 — SIGNAL TYPES: BUY/SELL means the strategy lifecycle AND all applicable universal gates passed. NO TRADE means a required source condition or universal gate failed. DEVELOPING/WAITING states are not confirmed entries.",
-  "RULE 5 — CONFIDENCE: 90–100 multiple strong confluences/perfect setup; 80–89 strong with 2–3 solid confirmations; 70–79 decent with minor issues; 60–69 marginal/wait; 50–59 weak; 30–49 poor/avoid; 10–29 very poor or image quality too low. Confidence measures evidence completeness, not profitability.",
+  "RULE 5 — CONFIDENCE: 90–100 multiple strong confluences/perfect setup; 80–89 strong with 2–3 solid confirmations; 70–79 decent with minor issues; 60–69 marginal/wait; 50–59 weak; 30–49 poor; 10–29 very poor or image quality too low. Confidence measures evidence completeness, not profitability.",
   "RULE 6 — QUALITY CHECK: Before finalizing, validate R:R math, SL/TP geometry, minimum SL distance, entry proximity, risk sizing when measurable, SMC confluence, confidence versus evidence and logical consistency between structure, price action, liquidity, momentum, volatility and the selected lifecycle.",
   "RULE 6 — COMMUNICATION: Never output generic market filler when strategy-specific evidence is available. Explain what is confirmed, what is missing, what state the setup is in, what invalidates it and the exact next event/zone required.",
   "RULE 6 — NO TRADE IS INFORMATIVE: NO TRADE must still communicate market state, strategy state, confirmed evidence, failed/missing conditions, invalidation and next actionable event when visible.",
@@ -50,7 +55,7 @@ export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
       "Use the authoritative Volatility & Breakout source as the primary decision engine.",
       "Translate its state machine into direction, channel, breakout, reversal, ready, active, target progress, completion or invalidation.",
       "A channel break alone is not a trade; location, momentum, confirmation and the source qualification path must agree.",
-      "Use ATR/ADX/RVOL/VWAP only as evidence when their visible readings are actually available and relevant; indicators never replace the source event sequence.",
+      "AUTO indicators are strategy-selected: EMA for direction/location, ATR for volatility and geometry, ADX for trend strength, RVOL for participation and VWAP for price-location context.",
     ],
   },
   {
@@ -58,12 +63,13 @@ export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
     name: "Institutional",
     category: "MY CUSTOM STRATEGIES",
     sourceIds: ["institutional"],
-    defaultIndicators: ["EMA", "ATR", "ADX", "RVOL", "VWAP"],
+    defaultIndicators: ["EMA", "ATR", "RVOL"],
     focus: ["MMA EMA context", "session ranges", "institutional volume control", "liquidity sweeps", "session/swing liquidity targets", "bounce/rejection zones", "4H target context", "signal lifecycle"],
     rules: [
       ...UNIVERSAL_ANALYZER_RULES,
       "Use the supplied Pine-derived Institutional source as the primary decision engine; do not replace it with a generic SMC template.",
-      "Interpret EMA context, session ranges, institutional volume/direction, liquidity sweeps, liquidity targets and bounce/rejection zones as source-native evidence.",
+      "AUTO indicators are source-driven: EMA represents the six source MMA EMAs, ATR represents the source ATR(14), and RVOL represents the source volume/SMA participation calculation.",
+      "Session ranges, liquidity sweeps, displacement, buyer/seller control, zones and higher-timeframe pivots are structural evidence engines, not substitutes for the technical-indicator list.",
       "Preserve BUY NOW, SELL NOW, BUY SETUP, SELL SETUP, BUY BOUNCE, SELL BOUNCE and rejection states when visible, but only classify a NEW TRADE after universal validation passes.",
       "A liquidity level, EMA or volume reading alone is not a trade; the source combined-signal logic must qualify the state.",
       "Read historical chart evidence to reconstruct prior source footprints before declaring that no setup is traceable.",
@@ -74,11 +80,12 @@ export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
     name: "Swing / Engulfing",
     category: "MY CUSTOM STRATEGIES",
     sourceIds: ["sweepEngulfing"],
-    defaultIndicators: ["EMA", "ATR", "ADX", "VWAP"],
+    defaultIndicators: ["EMA", "ATR", "RVOL"],
     focus: ["liquidity sweep", "market structure", "displacement", "engulfing confirmation", "trend context", "risk structure"],
     rules: [
       ...UNIVERSAL_ANALYZER_RULES,
       "The internal Sweep & Engulfing source is the strategy authority.",
+      "AUTO indicators are source-driven: EMA(200) for trend filter, ATR(14) for displacement/stop geometry and RVOL for the source volume-strength calculation.",
       "Respect the source sequence: meaningful liquidity event -> reaction/structure shift -> engulfing/displacement confirmation -> entry lifecycle.",
       "Preserve prior setup, current state, confirmation, active trade and next setup as separate states.",
       "Do not create a signal from an indicator alone.",
@@ -89,12 +96,13 @@ export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
     name: "Sweep Developing",
     category: "MY CUSTOM STRATEGIES",
     sourceIds: ["swingDeveloping"],
-    defaultIndicators: ["EMA", "SMI", "ATR", "ADX"],
+    defaultIndicators: ["EMA", "SMI", "ATR"],
     focus: ["H1 direction", "M15 alignment", "EMA 9/15 pullback", "EMA 9 recovery", "M15 SMI confirmation", "developing setup lifecycle"],
     rules: [
       ...UNIVERSAL_ANALYZER_RULES,
       "Sweep Developing is a separate strategy from Swing / Engulfing and must never resolve to sweepEngulfing.",
       "Use the authoritative swingDeveloping source module as the strategy engine.",
+      "AUTO indicators are source-driven: EMA covers H1/M15 direction and EMA 9/15 recovery, SMI covers the M15 momentum gate, and ATR supports the source trade-risk geometry.",
       "Follow the source lifecycle: H1 direction -> M15 alignment -> M15 EMA 9/15 pullback -> recovery through EMA 9 -> M15 SMI confirmation -> new BUY/SELL transition.",
       "DIRECTION, PULLBACK and ENTRY READY are developing/non-entry states and must not be promoted to BUY or SELL.",
       "A prior pullback is required by the source entry transition; EMA alignment alone is insufficient.",
@@ -111,6 +119,7 @@ export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
     rules: [
       ...UNIVERSAL_ANALYZER_RULES,
       "The internal Vault Auto Fib Retrace source is the strategy authority.",
+      "AUTO indicators are strategy-selected for trend, volatility, momentum and price-location context; the Fib engine itself remains the primary structural evidence.",
       "A Fib range is not automatically an entry; coherent retracement structure and source-defined confirmation are required.",
       "Report prior Fib setups and their visible outcome when the chart history supports them.",
     ],
@@ -125,6 +134,7 @@ export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
     rules: [
       ...UNIVERSAL_ANALYZER_RULES,
       "Use the internal Continuation source as the sole primary authority.",
+      "AUTO indicators are selected for direction, volatility, trend strength and price-location context; they do not replace the continuation state machine.",
       "Expansion, correction, structural hold, recovery and confirmed break must remain separate states.",
       "Do not turn every breakout into continuation.",
       "Do not shift a source-defined locked entry or fabricate structural risk levels.",
@@ -140,6 +150,7 @@ export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
     rules: [
       ...UNIVERSAL_ANALYZER_RULES,
       "Use the mapped proprietary observation source as the strategy authority.",
+      "AUTO indicators are selected for the source's direction, volatility, momentum and trend-strength context.",
       "Observation, bias lock, execution level and qualification remain separate states.",
       "The Analyzer must preserve the source-defined direction mapping and event sequence.",
     ],
