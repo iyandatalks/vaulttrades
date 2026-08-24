@@ -46,11 +46,9 @@ function derivePriceLevels(candles: Array<{ high: number; low: number; close: nu
   const recent = candles.slice(-80);
   const supportCandidates = lows.filter(v => v < current).sort((a, b) => b - a);
   const resistanceCandidates = highs.filter(v => v > current).sort((a, b) => a - b);
-  let support = supportCandidates[0] ?? recent.map(c => c.low).filter(v => v < current).sort((a, b) => b - a)[0] ?? null;
-  let resistance = resistanceCandidates[0] ?? recent.map(c => c.high).filter(v => v > current).sort((a, b) => a - b)[0] ?? null;
+  let support: number | null = supportCandidates[0] ?? recent.map(c => c.low).filter(v => v < current).sort((a, b) => b - a)[0] ?? null;
+  let resistance: number | null = resistanceCandidates[0] ?? recent.map(c => c.high).filter(v => v > current).sort((a, b) => a - b)[0] ?? null;
 
-  // A level labelled support must be below price and resistance must be above price.
-  // Never allow the two displayed levels to collapse onto the same number.
   if (support !== null && support >= current) support = null;
   if (resistance !== null && resistance <= current) resistance = null;
   if (support !== null && resistance !== null && support >= resistance) {
@@ -94,9 +92,7 @@ export async function POST(request: Request) {
     const profile = ANALYZER_STRATEGY_MAP[strategyId];
     if (!profile) return Response.json({ error: "Invalid strategy selected." }, { status: 400 });
     if (!symbol) return Response.json({ error: "Select or enter a market symbol." }, { status: 400 });
-    if (marketType === "SYNTHETIC") {
-      return Response.json({ error: "Synthetic indices require the Synthetic/Broker provider connection." }, { status: 400 });
-    }
+    if (marketType === "SYNTHETIC") return Response.json({ error: "Synthetic indices require the Synthetic/Broker provider connection." }, { status: 400 });
 
     const providerRoute = getMarketProviderRoute(marketType);
     if (!providerRoute.available) return Response.json({ error: providerRoute.reason || "Market data is unavailable." }, { status: 503 });
@@ -134,24 +130,14 @@ STRATEGY PROFILE
 ${JSON.stringify({ focus: profile.focus, rules: profile.rules, indicatorSpecs: profile.indicatorSpecs })}
 
 LIVE CALCULATED MARKET CONTEXT
-${JSON.stringify({
-  currentPrice: liveCurrentPrice,
-  structure: lockedStructure,
-  volatility: context.volatility,
-  selectedIndicators: indicatorEvidence,
-  channel20High: channel.upper,
-  channel20Low: channel.lower,
-  latestCandle: latest,
-  previousCandle: previous,
-  recentCandles: market.candles.slice(-60),
-})}
+${JSON.stringify({ currentPrice: liveCurrentPrice, structure: lockedStructure, volatility: context.volatility, selectedIndicators: indicatorEvidence, channel20High: channel.upper, channel20Low: channel.lower, latestCandle: latest, previousCandle: previous, recentCandles: market.candles.slice(-60) })}
 
 PRICE LEVEL INTEGRITY — MANDATORY
-The current price above is the authoritative live price for this response. The supplied support and resistance are deterministic levels calculated from the chronological live candles. Treat them as locked factual values: do not replace them with guesses or make support equal resistance. Support must be below current price. Resistance must be above current price. If a structural level is not available, return null rather than inventing one.
+The current price above is the authoritative live price for this response. The supplied support and resistance are deterministic levels calculated from chronological live candles. Treat them as locked factual values. Support must be below current price. Resistance must be above current price. Never make support equal resistance. If a structural level is not available, return null rather than inventing one.
 
 UNIVERSAL ANALYZER RULES 1-6 — MANDATORY FOR EVERY STRATEGY
 1. Visual/market analysis: classify Uptrend, Downtrend, Ranging or Choppy; identify concrete support/resistance and recent price action. More than 5 consecutive inside bars OR material conflict across 3+ selected/derived timeframes = NO TRADE.
-2. SMC: score BOS, CHoCH, Order Block, FVG, Liquidity Sweep and Displacement 1-10 only from evidence. A NEW BUY/SELL requires at least TWO scores >=7. Do not manufacture SMC scores just to satisfy the gate.
+2. SMC: score BOS, CHoCH, Order Block, FVG, Liquidity Sweep and Displacement 1-10 only from evidence. A NEW BUY/SELL requires at least TWO scores >=7. Do not manufacture SMC scores.
 3. Session/confluence: identify London, New York or Asian from candle timestamps; explain higher-timeframe alignment if data is available; do not invent news. Asian requires >=9/10 AND a major news event. London/NY overlap is preferred.
 4. Price validation: entry <=0.5% from current price; SL >=0.1% from entry; TP >=2x SL distance; R:R must be mathematically >=1:2. Max account risk 1.5%; if equity is not supplied, sizing is unverified.
 5. Confidence: 90-100 exceptional, 80-89 strong, 70-79 decent, 60-69 marginal, 50-59 weak, 30-49 poor, 10-29 very poor. Confidence must match evidence.
@@ -171,47 +157,13 @@ Return JSON only.`;
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: "gpt-4.1-mini",
-        input: [{ role: "user", content: [{ type: "input_text", text: prompt }] }],
-        max_output_tokens: 6000,
-        text: { format: { type: "json_schema", name: "vaulttrades_live_market_analysis", strict: true, schema: {
-          type: "object", additionalProperties: false,
-          properties: {
-            direction: { type: "string", enum: ["BUY", "SELL", "NO TRADE"] },
-            decision: { type: "string", enum: ["TRADE", "NO TRADE"] },
-            confidence: { type: "number", minimum: 0, maximum: 100 },
-            marketCondition: { type: "string" },
-            directionalBias: { type: "string" },
-            session: { type: "string" },
-            higherTimeframe: { type: "string" },
-            marketStructure: { type: "string" },
-            support: { type: ["number", "null"] },
-            resistance: { type: ["number", "null"] },
-            recentPriceAction: { type: "string" },
-            setup: { type: "string" },
-            confirmedConditions: { type: "array", items: { type: "string" } },
-            missingConditions: { type: "array", items: { type: "string" } },
-            bos: { type: "number", minimum: 1, maximum: 10 },
-            choch: { type: "number", minimum: 1, maximum: 10 },
-            orderBlock: { type: "number", minimum: 1, maximum: 10 },
-            fvg: { type: "number", minimum: 1, maximum: 10 },
-            liquiditySweep: { type: "number", minimum: 1, maximum: 10 },
-            displacement: { type: "number", minimum: 1, maximum: 10 },
-            pipeline: { type: "array", items: { type: "string" } },
-            nextZone: { type: "string" },
-            invalidation: { type: "string" },
-            entry: { type: ["number", "null"] },
-            stopLoss: { type: ["number", "null"] },
-            tp1: { type: ["number", "null"] },
-            tp2: { type: ["number", "null"] },
-            finalTp: { type: ["number", "null"] },
-            nextAction: { type: "string" },
-            educationalNote: { type: "string" }
-          },
-          required: ["direction","decision","confidence","marketCondition","directionalBias","session","higherTimeframe","marketStructure","support","resistance","recentPriceAction","setup","confirmedConditions","missingConditions","bos","choch","orderBlock","fvg","liquiditySweep","displacement","pipeline","nextZone","invalidation","entry","stopLoss","tp1","tp2","finalTp","nextAction","educationalNote"]
-        } } }
-      }),
+      body: JSON.stringify({ model: "gpt-4.1-mini", input: [{ role: "user", content: [{ type: "input_text", text: prompt }] }], max_output_tokens: 6000, text: { format: { type: "json_schema", name: "vaulttrades_live_market_analysis", strict: true, schema: {
+        type: "object", additionalProperties: false,
+        properties: {
+          direction: { type: "string", enum: ["BUY", "SELL", "NO TRADE"] }, decision: { type: "string", enum: ["TRADE", "NO TRADE"] }, confidence: { type: "number", minimum: 0, maximum: 100 }, marketCondition: { type: "string" }, directionalBias: { type: "string" }, session: { type: "string" }, higherTimeframe: { type: "string" }, marketStructure: { type: "string" }, support: { type: ["number", "null"] }, resistance: { type: ["number", "null"] }, recentPriceAction: { type: "string" }, setup: { type: "string" }, confirmedConditions: { type: "array", items: { type: "string" } }, missingConditions: { type: "array", items: { type: "string" } }, bos: { type: "number", minimum: 1, maximum: 10 }, choch: { type: "number", minimum: 1, maximum: 10 }, orderBlock: { type: "number", minimum: 1, maximum: 10 }, fvg: { type: "number", minimum: 1, maximum: 10 }, liquiditySweep: { type: "number", minimum: 1, maximum: 10 }, displacement: { type: "number", minimum: 1, maximum: 10 }, pipeline: { type: "array", items: { type: "string" } }, nextZone: { type: "string" }, invalidation: { type: "string" }, entry: { type: ["number", "null"] }, stopLoss: { type: ["number", "null"] }, tp1: { type: ["number", "null"] }, tp2: { type: ["number", "null"] }, finalTp: { type: ["number", "null"] }, nextAction: { type: "string" }, educationalNote: { type: "string" }
+        },
+        required: ["direction","decision","confidence","marketCondition","directionalBias","session","higherTimeframe","marketStructure","support","resistance","recentPriceAction","setup","confirmedConditions","missingConditions","bos","choch","orderBlock","fvg","liquiditySweep","displacement","pipeline","nextZone","invalidation","entry","stopLoss","tp1","tp2","finalTp","nextAction","educationalNote"]
+      } } } }
     });
 
     if (!response.ok) {
@@ -229,7 +181,6 @@ Return JSON only.`;
     const stopLoss = typeof ai.stopLoss === "number" ? ai.stopLoss : null;
     const finalTp = typeof ai.finalTp === "number" ? ai.finalTp : typeof ai.tp2 === "number" ? ai.tp2 : null;
     const math = tradeMath(direction, entry, stopLoss, finalTp, liveCurrentPrice);
-
     const strongSmc = [ai.bos, ai.choch, ai.orderBlock, ai.fvg, ai.liquiditySweep, ai.displacement].filter((x: unknown) => typeof x === "number" && x >= 7).length;
     const universalTradeGate = direction !== "NO TRADE" && strongSmc >= 2 && math.valid;
     const finalDirection: Direction = universalTradeGate && ai.decision === "TRADE" ? direction : "NO TRADE";
@@ -250,11 +201,7 @@ Return JSON only.`;
       marketStructure: ai.marketStructure,
       recentPriceAction: ai.recentPriceAction,
       confirmedConditions: ai.confirmedConditions,
-      missingConditions: [
-        ...ai.missingConditions,
-        ...(strongSmc < 2 ? ["Universal SMC gate: fewer than two SMC signals scored 7 or higher."] : []),
-        ...(!math.valid && direction !== "NO TRADE" ? [math.rr !== null && math.rr < 2 ? "Universal price validation: R:R is below 1:2." : "Universal price validation: entry/SL/TP geometry did not pass all gates."] : []),
-      ],
+      missingConditions: [...ai.missingConditions, ...(strongSmc < 2 ? ["Universal SMC gate: fewer than two SMC signals scored 7 or higher."] : []), ...(!math.valid && direction !== "NO TRADE" ? [math.rr !== null && math.rr < 2 ? "Universal price validation: R:R is below 1:2." : "Universal price validation: entry/SL/TP geometry did not pass all gates."] : [])],
       smcScores: { BOS: ai.bos, CHoCH: ai.choch, OrderBlock: ai.orderBlock, FVG: ai.fvg, LiquiditySweep: ai.liquiditySweep, Displacement: ai.displacement },
       pipeline: ai.pipeline,
       nextZone: ai.nextZone,
