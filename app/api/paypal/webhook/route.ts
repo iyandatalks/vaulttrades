@@ -1,18 +1,64 @@
 import { NextResponse } from "next/server";
+import { createAdminClient } from "../../../../../lib/supabase/admin";
+import { paypalRequest } from "../../../../../lib/paypal";
 
 export async function POST(request: Request) {
-  // PayPal will POST subscription lifecycle events here.
-  // Verification and subscription-state updates will be enabled once
-  // the PayPal REST credentials and persistent account store are configured.
-  const rawBody = await request.text();
+  try {
+    const rawBody = await request.text();
+    if (!rawBody) return NextResponse.json({ error: "Empty webhook body" }, { status: 400 });
+    const webhookId = process.env.PAYPAL_WEBHOOK_ID;
+    if (!webhookId) return NextResponse.json({ error: "PayPal webhook is not configured." }, { status: 500 });
 
-  if (!rawBody) {
-    return NextResponse.json({ error: "Empty webhook body" }, { status: 400 });
+    const h = request.headers;
+    const verification = await paypalRequest("/v1/notifications/verify-webhook-signature", {
+      method: "POST",
+      body: JSON.stringify({
+        auth_algo: h.get("paypal-auth-algo"),
+        cert_url: h.get("paypal-cert-url"),
+        transmission_id: h.get("paypal-transmission-id"),
+        transmission_sig: h.get("paypal-transmission-sig"),
+        transmission_time: h.get("paypal-transmission-time"),
+        webhook_id: webhookId,
+        webhook_event: JSON.parse(rawBody)
+      })
+    });
+    if (verification.verification_status !== "SUCCESS") return NextResponse.json({ error: "Invalid PayPal webhook signature." }, { status: 401 });
+
+    const event = JSON.parse(rawBody);
+    const eventType = String(event.event_type || "");
+    if (!["PAYMENT.CAPTURE.COMPLETED", "CHECKOUT.ORDER.COMPLETED"].includes(eventType)) return NextResponse.json({ received: true, ignored: true }, { status: 200 });
+
+    const orderId = String(event.resource?.supplementary_data?.related_ids?.order_id || event.resource?.id || "");
+    if (!orderId) return NextResponse.json({ error: "PayPal webhook did not contain an order reference." }, { status: 400 });
+
+    const order = await paypalRequest(`/v2/checkout/orders/${encodeURIComponent(orderId)}`);
+    const purchase = order.purchase_units?.[0];
+    const amount = Number(purchase?.amount?.value);
+    const currency = String(purchase?.amount?.currency_code || "");
+    const userId = String(purchase?.custom_id || "");
+    if (!userId || !Number.isFinite(amount) || !currency) return NextResponse.json({ error: "PayPal order could not be verified." }, { status: 400 });
+
+    const admin = createAdminClient();
+    const { data: transaction } = await admin.from("payment_transactions").select("id,auth_user_id,user_id,amount,currency,membership_months,status").eq("provider", "paypal").eq("provider_order_id", orderId).maybeSingle();
+    if (!transaction) return NextResponse.json({ received: true, ignored: true, reason: "Unknown order" }, { status: 200 });
+    if (transaction.auth_user_id !== userId || Number(transaction.amount) !== amount || transaction.currency !== currency) return NextResponse.json({ error: "PayPal order does not match VaultTrades transaction." }, { status: 400 });
+    if (transaction.status === "verified") return NextResponse.json({ received: true, alreadyVerified: true }, { status: 200 });
+
+    const capture = eventType === "PAYMENT.CAPTURE.COMPLETED" ? event.resource : order.purchase_units?.[0]?.payments?.captures?.find((x: any) => x.status === "COMPLETED");
+    if (!capture || String(capture.status) !== "COMPLETED") return NextResponse.json({ received: true, pending: true }, { status: 200 });
+
+    const expires = new Date();
+    expires.setMonth(expires.getMonth() + Number(transaction.membership_months || 1));
+    await admin.from("payment_transactions").update({ status: "verified", provider_capture_id: String(capture.id || ""), raw_event: event, verified_at: new Date().toISOString() }).eq("id", transaction.id);
+    await admin.from("users").update({ license_status: "active", is_active: true, payment_method: "paypal", last_payment_ref: String(capture.id || orderId), license_expires_at: expires.toISOString() }).eq("auth_user_id", transaction.auth_user_id);
+
+    return NextResponse.json({ received: true, verified: true, membershipActive: true }, { status: 200 });
+  } catch (error) {
+    console.error("PayPal webhook error", error);
+    return NextResponse.json({ error: "PayPal webhook processing failed." }, { status: 500 });
   }
-
-  return NextResponse.json({ received: true }, { status: 200 });
 }
 
 export async function GET() {
-  return NextResponse.json({ service: "VaultTrades PayPal webhook", status: "ready" });
+  return NextResponse.json({ service: "VaultTrades PayPal webhook", status: "configured" });
 }
