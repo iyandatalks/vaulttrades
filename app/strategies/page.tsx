@@ -1,2 +1,31 @@
-import { STRATEGY_LIST } from "../../lib/strategies";
-export default function StrategiesPage(){return <main className="shell"><section className="card"><div className="section-label">STRATEGY LIBRARY</div><h1 className="title">VaultTrades Strategies</h1><p className="muted">Each strategy is independent and is the source of truth for the Analyzer. Adding a strategy should not require rebuilding the application.</p></section><div style={{display:"grid",gap:16,marginTop:16}}>{STRATEGY_LIST.map(({rules})=><section className="card" key={rules.id}><div className="section-label">{rules.id}</div><h2 className="title">{rules.name}</h2><p className="muted">{rules.description}</p><div style={{display:"grid",gap:14,marginTop:18}}><div className="condition-box"><strong>Sequence</strong><p className="muted">{rules.sequence.join(" → ")}</p></div><div className="condition-box"><strong>Mandatory Conditions</strong><ul>{rules.mandatoryRules.map(rule=><li key={rule}>{rule}</li>)}</ul></div><div className="condition-box"><strong>Execution</strong><ul>{rules.executionRules.map(rule=><li key={rule}>{rule}</li>)}</ul></div><div className="condition-box"><strong>Invalidation</strong><ul>{rules.invalidationRules.map(rule=><li key={rule}>{rule}</li>)}</ul></div></div></section>)}</div></main>}
+import { ANALYZER_STRATEGIES } from "../../lib/strategies/analyzerProfiles";
+
+export default function StrategiesPage() {
+  return (
+    <main className="shell">
+      <section className="card">
+        <div className="section-label">STRATEGY LIBRARY</div>
+        <h1 className="title">VaultTrades Strategies</h1>
+        <p className="muted">
+          Each customer-facing strategy is backed by a proprietary internal source-of-truth engine. The Analyzer uses that engine to evaluate the selected framework without exposing the underlying implementation.
+        </p>
+      </section>
+
+      <div style={{ display: "grid", gap: 16, marginTop: 16 }}>
+        {ANALYZER_STRATEGIES.map((strategy) => (
+          <section className="card" key={strategy.id}>
+            <div className="section-label">{strategy.category}</div>
+            <h2 className="title">{strategy.name}</h2>
+            <p className="muted">{strategy.focus.join(" · ")}</p>
+            <div className="condition-box" style={{ marginTop: 16 }}>
+              <strong>Analyzer framework</strong>
+              <p className="muted">
+                This strategy is evaluated from VaultTrades' internal strategy source and market evidence. Proprietary implementation details are intentionally not displayed.
+              </p>
+            </div>
+          </section>
+        ))}
+      </div>
+    </main>
+  );
+}
