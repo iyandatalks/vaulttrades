@@ -22,6 +22,28 @@ export interface AnalyzerStrategyProfile {
 }
 
 /**
+ * These rules are universal Analyzer rules. They do not replace a strategy's
+ * source state machine. They are the final analytical/risk gate applied to
+ * every customer strategy.
+ */
+const UNIVERSAL_ANALYZER_RULES = [
+  "VISUAL CHART ANALYSIS: Always describe market structure as Uptrend, Downtrend, Ranging or Choppy; identify key support/resistance and recent price-action context before issuing a verdict.",
+  "CHOPPY MARKET RULE: More than 5 consecutive inside bars OR conflicting signals across 3 or more timeframes means NO TRADE due to choppy/insufficient clarity.",
+  "SMC OBSERVATION: Score BOS, CHoCH, Order Block, Fair Value Gap, Liquidity Sweep and Displacement from 1-10 when visible. Explain the evidence for every score. SMC observations must not replace the selected strategy's authoritative source sequence.",
+  "SMC CONFLUENCE: For strategies whose source explicitly requires SMC confluence, at least 2 SMC signals scored 7 or higher are required for a valid directional setup. For other strategies, report the SMC scores as contextual evidence without replacing source-native qualification.",
+  "SESSION & CONFLUENCE: Identify London, New York or Asian session when the chart/time information permits; note higher-timeframe alignment, visible news/fundamental context, and risk-on/risk-off sentiment without inventing unavailable news.",
+  "SESSION RULES: Asian-session trades require confluence >=9/10 and a major news event; London/NY overlap is preferred; pre-London 07:00-08:00 GMT is acceptable only for an exceptional setup.",
+  "UNIVERSAL PRICE VALIDATION: For every BUY or SELL candidate, SL must be at least 0.1% from entry, entry must be within 0.5% of current price when current price is visible/derivable, and TP must be at least 2x the SL distance.",
+  "RISK MANAGEMENT: Maximum risk per trade is 1.5% of account equity. Do not claim this is satisfied unless position size/account-risk information supports the calculation; otherwise mark risk sizing as unverified and do not present it as validated.",
+  "RR VALIDATION: R:R must be mathematically validated at >=1:2. BUY risk = entry - SL and target distance = TP - entry. SELL risk = SL - entry and target distance = entry - TP. Never infer a valid RR from labels alone.",
+  "SIGNAL TYPES: BUY means all bullish source conditions plus universal validations passed. SELL means all bearish source conditions plus universal validations passed. NO TRADE means a required condition or universal validation failed.",
+  "CONFIDENCE: 90-100 multiple strong confluences/perfect setup; 80-89 strong with 2-3 solid confirmations; 70-79 decent with minor issues; 60-69 marginal/wait; 50-59 weak/high failure risk; 30-49 poor/avoid; 10-29 very poor or image quality too low. Confidence must match evidence strength and may not be inflated merely because a source state exists.",
+  "QUALITY CHECK: Before finalizing, validate R:R math, SL/TP geometric direction, the 0.1% minimum SL distance, the 0.5% entry proximity when measurable, risk sizing when measurable, confidence versus confluence, and logical consistency between structure, price action, liquidity, momentum and the selected source lifecycle.",
+  "NO GENERIC FILLER: Do not output generic statements such as 'Ranging with no sustained higher highs or lower lows', 'Consolidation within defined horizontal range, no breakout', or 'Insufficient signals from EMA, ATR, RVOL for breakout' unless those facts are actually visible and relevant to the selected strategy. Explain the selected strategy's current state and the exact missing condition instead.",
+  "NO TRADE IS A DECISION, NOT AN EMPTY ANALYSIS: Even when the verdict is NO TRADE, describe the actual market state, source-specific setup state, confirmed conditions, missing conditions, invalidation, and the next actionable event/zone when visible."
+];
+
+/**
  * CUSTOMER STRATEGY -> AUTHORITATIVE INTERNAL SOURCE
  *
  * Every customer-selectable strategy must resolve to one or more authoritative
@@ -37,6 +59,7 @@ export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
     defaultIndicators: ["EMA", "ATR", "RVOL"],
     focus: ["directional structure", "20/20 channel", "breakout", "location safety", "momentum", "order-block confirmation", "trade lifecycle"],
     rules: [
+      ...UNIVERSAL_ANALYZER_RULES,
       "Use the authoritative Volatility & Breakout source as the primary decision engine.",
       "Translate its state machine into customer-facing states: direction, channel, breakout, reversal, ready, active, target progress, completion or invalidation.",
       "A channel break alone is not a trade; location, momentum, confirmation and the source qualification path must agree.",
@@ -53,6 +76,7 @@ export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
     defaultIndicators: ["EMA", "ATR", "RVOL"],
     focus: ["MMA EMA context", "session ranges", "institutional volume control", "liquidity sweeps", "session/swing liquidity targets", "bounce/rejection zones", "4H target context", "signal lifecycle"],
     rules: [
+      ...UNIVERSAL_ANALYZER_RULES,
       "Use the supplied Pine-derived Institutional source as the primary decision engine; do not replace it with a generic SMC template.",
       "Interpret MMA EMAs, session ranges, institutional volume/direction, liquidity sweeps, liquidity targets and bounce/rejection zones as source-native evidence.",
       "Preserve BUY NOW, SELL NOW, BUY SETUP, SELL SETUP, BUY BOUNCE, SELL BOUNCE and rejection states when visible.",
@@ -71,6 +95,7 @@ export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
     defaultIndicators: ["EMA", "ATR", "VWAP"],
     focus: ["liquidity sweep", "market structure", "displacement", "engulfing confirmation", "trend context", "risk structure"],
     rules: [
+      ...UNIVERSAL_ANALYZER_RULES,
       "The internal Sweep & Engulfing source is the strategy authority.",
       "A liquidity event and valid engulfing/displacement confirmation must be respected.",
       "Preserve the source lifecycle: prior setup, current state, confirmation, active trade and next setup.",
@@ -85,6 +110,7 @@ export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
     defaultIndicators: ["EMA", "RSI"],
     focus: ["H1 direction", "M15 alignment", "EMA 9/15 pullback", "EMA 9 recovery", "M15 SMI confirmation", "developing setup lifecycle"],
     rules: [
+      ...UNIVERSAL_ANALYZER_RULES,
       "Sweep Developing is a separate strategy from Swing / Engulfing and must never resolve to sweepEngulfing.",
       "Use the authoritative swingDeveloping source module as the strategy engine; the internal module name is not customer-facing.",
       "Follow the source sequence: H1 direction -> M15 alignment -> M15 EMA 9/15 pullback -> recovery through EMA 9 -> M15 SMI confirmation -> new BUY/SELL transition.",
@@ -103,6 +129,7 @@ export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
     defaultIndicators: ["EMA", "ATR", "RSI"],
     focus: ["validated swing/session anchors", "retracement depth", "flip levels", "confluence", "target structure", "risk/reward"],
     rules: [
+      ...UNIVERSAL_ANALYZER_RULES,
       "The internal Vault Auto Fib Retrace source is the strategy authority.",
       "A Fib range is not automatically an entry.",
       "Only coherent retracement structure and source-defined confirmation may produce a verdict.",
@@ -117,6 +144,7 @@ export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
     defaultIndicators: ["EMA", "ATR", "VWAP"],
     focus: ["expansion", "correction", "structural hold", "recovery", "confirmed continuation", "entry event"],
     rules: [
+      ...UNIVERSAL_ANALYZER_RULES,
       "Use the internal Continuation source as the sole primary authority.",
       "Expansion, correction, structural hold, recovery and confirmed break must remain separate states.",
       "Do not turn every breakout into continuation.",
@@ -132,6 +160,7 @@ export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
     defaultIndicators: ["EMA", "ATR", "RSI"],
     focus: ["observation window", "locked directional bias", "support/resistance", "liquidity event", "rejection", "displacement", "confirmation"],
     rules: [
+      ...UNIVERSAL_ANALYZER_RULES,
       "Use the mapped proprietary observation source as the strategy authority.",
       "Observation, bias lock, execution level and qualification remain separate states.",
       "The Analyzer must preserve the source-defined direction mapping and event sequence.",
