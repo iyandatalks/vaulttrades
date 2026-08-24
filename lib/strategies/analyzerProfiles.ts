@@ -1,26 +1,24 @@
-import type { StrategyId } from "./types";
+import type { StrategyId, StrategyIndicatorRequirement } from "./types";
 
 /**
  * Analyzer-facing strategy registry.
  *
- * The profile describes HOW the Analyzer should interpret the selected
- * strategy. It does not replace the authoritative source state machine.
- *
- * defaultIndicators is the AUTO-selected set. There is deliberately no
- * three-indicator quota: the strategy source determines which calculated
- * indicators are materially required. Structural/SMC evidence is evaluated
- * by the analyzer independently of this technical-indicator list.
+ * IMPORTANT: indicator selection is SOURCE-FIRST. The selected strategy's
+ * source contract is inspected first; only indicators explicitly required by
+ * that source are calculated/selected. There is no generic indicator quota.
  */
 export type AnalyzerCategory = "MY CUSTOM STRATEGIES" | "ADVANCED";
-export type IndicatorName = "SMA" | "EMA" | "Ichimoku" | "Bollinger Bands" | "ATR" | "VWAP" | "Supertrend" | "SAR" | "RSI" | "MACD" | "KST" | "Stochastic" | "ADX" | "Percent B" | "MFI" | "DPO" | "RVOL" | "A/D" | "SMI";
+export type IndicatorName = string;
 
 export interface AnalyzerStrategyProfile {
   id: string;
   name: string;
   category: AnalyzerCategory;
   sourceIds: StrategyId[];
-  /** Strategy-required AUTO indicators. This is not a 3-indicator cap. */
+  /** Human-readable names derived from sourceRequirements. */
   defaultIndicators: IndicatorName[];
+  /** Exact source indicator/component definitions, including parameters. */
+  sourceRequirements: StrategyIndicatorRequirement[];
   focus: string[];
   rules: string[];
 }
@@ -40,22 +38,36 @@ const UNIVERSAL_ANALYZER_RULES = [
   "RULE 6 — QUALITY CHECK: Before finalizing, validate R:R math, SL/TP geometry, minimum SL distance, entry proximity, risk sizing when measurable, SMC confluence, confidence versus evidence and logical consistency between structure, price action, liquidity, momentum, volatility and the selected lifecycle.",
   "RULE 6 — COMMUNICATION: Never output generic market filler when strategy-specific evidence is available. Explain what is confirmed, what is missing, what state the setup is in, what invalidates it and the exact next event/zone required.",
   "RULE 6 — NO TRADE IS INFORMATIVE: NO TRADE must still communicate market state, strategy state, confirmed evidence, failed/missing conditions, invalidation and next actionable event when visible.",
+  "SOURCE-FIRST INDICATOR RULE: Read the selected strategy source contract before selecting any indicator. Calculate the exact source-required indicator, formula/role and parameters first. Never add EMA/ATR/ADX/RVOL/VWAP merely because they are common indicators.",
+  "SOURCE PARAMETER RULE: Display/use the source's exact length, multiplier, smoothing, MA type and other inputs when the source declares them. If the source does not declare a parameter in the authoritative module, mark it unresolved instead of inventing a default.",
+  "PRIMARY COMPONENT RULE: A channel, session engine, Fibonacci engine, liquidity engine, S/R engine or other structural component can be the primary strategy engine even when it is not a conventional indicator. Do not replace it with a generic indicator.",
 ];
 
-export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
+const req = (
+  name: string,
+  role: StrategyIndicatorRequirement["role"],
+  source: string,
+  parameters: Record<string, number | string | boolean>
+): StrategyIndicatorRequirement => ({ name, role, source, parameters });
+
+const profiles: AnalyzerStrategyProfile[] = [
   {
     id: "volatilityBreakout",
     name: "Volatility & Breakout",
     category: "MY CUSTOM STRATEGIES",
     sourceIds: ["volatilityBreakout"],
-    defaultIndicators: ["EMA", "ATR", "ADX", "RVOL", "VWAP"],
-    focus: ["directional structure", "20/20 channel", "breakout", "location safety", "momentum", "order-block confirmation", "trade lifecycle"],
+    sourceRequirements: [
+      req("Moving Average Channel", "PRIMARY", "20/20 channel over candle highs and lows", { length: 20, maType: "EMA", upperInput: "high", lowerInput: "low" }),
+      req("ATR", "REQUIRED", "source ATR volatility/breakout distance", { length: 14 }),
+      req("Volume", "REQUIRED", "volume expansion confirmation", { movingAverageLength: 20, expansionMultiplier: 1.2 }),
+    ],
+    defaultIndicators: ["Moving Average Channel", "ATR", "Volume"],
+    focus: ["20/20 moving-average channel", "channel breakout", "location", "ATR displacement", "volume expansion", "order-block context", "continuation/W-M lifecycle"],
     rules: [
       ...UNIVERSAL_ANALYZER_RULES,
-      "Use the authoritative Volatility & Breakout source as the primary decision engine.",
-      "Translate its state machine into direction, channel, breakout, reversal, ready, active, target progress, completion or invalidation.",
-      "A channel break alone is not a trade; location, momentum, confirmation and the source qualification path must agree.",
-      "AUTO indicators are strategy-selected: EMA for direction/location, ATR for volatility and geometry, ADX for trend strength, RVOL for participation and VWAP for price-location context.",
+      "The 20/20 Moving Average Channel is the PRIMARY calculated indicator for Volatility & Breakout.",
+      "Do not display EMA, ADX, RVOL or VWAP as automatically selected indicators unless a future source revision explicitly adds them.",
+      "A channel break alone is not a trade; source location, momentum, confirmation and lifecycle must qualify it.",
     ],
   },
   {
@@ -63,16 +75,19 @@ export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
     name: "Institutional",
     category: "MY CUSTOM STRATEGIES",
     sourceIds: ["institutional"],
-    defaultIndicators: ["EMA", "ATR", "RVOL"],
-    focus: ["MMA EMA context", "session ranges", "institutional volume control", "liquidity sweeps", "session/swing liquidity targets", "bounce/rejection zones", "4H target context", "signal lifecycle"],
+    sourceRequirements: [
+      req("EMA", "PRIMARY", "six source MMA EMAs", { lengths: "4,21,72,89,200,233" }),
+      req("ATR", "REQUIRED", "source volatility/displacement", { length: 14 }),
+      req("Volume", "REQUIRED", "institutional volume and relative-volume calculation", { movingAverageLength: 20, highVolumeThreshold: 1.2, displacementThresholdATR: 0.9 }),
+    ],
+    defaultIndicators: ["EMA", "ATR", "Volume"],
+    focus: ["MMA EMA context", "session ranges", "institutional volume", "liquidity sweeps", "liquidity targets", "bounce/rejection zones", "4H targets", "signal lifecycle"],
     rules: [
       ...UNIVERSAL_ANALYZER_RULES,
-      "Use the supplied Pine-derived Institutional source as the primary decision engine; do not replace it with a generic SMC template.",
-      "AUTO indicators are source-driven: EMA represents the six source MMA EMAs, ATR represents the source ATR(14), and RVOL represents the source volume/SMA participation calculation.",
-      "Session ranges, liquidity sweeps, displacement, buyer/seller control, zones and higher-timeframe pivots are structural evidence engines, not substitutes for the technical-indicator list.",
-      "Preserve BUY NOW, SELL NOW, BUY SETUP, SELL SETUP, BUY BOUNCE, SELL BOUNCE and rejection states when visible, but only classify a NEW TRADE after universal validation passes.",
-      "A liquidity level, EMA or volume reading alone is not a trade; the source combined-signal logic must qualify the state.",
-      "Read historical chart evidence to reconstruct prior source footprints before declaring that no setup is traceable.",
+      "AUTO indicators are source-derived: six MMA EMAs (4/21/72/89/200/233), ATR(14), and Volume SMA(20)/relative-volume logic.",
+      "Session ranges, liquidity sweeps, displacement, buyer/seller control and zones are structural source components, not generic indicator substitutions.",
+      "Do not add ADX, VWAP or generic SMC indicators as required indicators unless the source is changed.",
+      "Preserve BUY NOW, SELL NOW, BUY SETUP, SELL SETUP, BUY BOUNCE, SELL BOUNCE and rejection states when visible.",
     ],
   },
   {
@@ -80,15 +95,19 @@ export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
     name: "Swing / Engulfing",
     category: "MY CUSTOM STRATEGIES",
     sourceIds: ["sweepEngulfing"],
-    defaultIndicators: ["EMA", "ATR", "RVOL"],
-    focus: ["liquidity sweep", "market structure", "displacement", "engulfing confirmation", "trend context", "risk structure"],
+    sourceRequirements: [
+      req("EMA", "REQUIRED", "trend filter", { length: 200 }),
+      req("ATR", "REQUIRED", "stop/displacement geometry", { length: 14, atrMultiplier: 1.8, engulfATRMultiplier: 0.5 }),
+      req("Volume", "REQUIRED", "volume-strength calculation", { movingAverageLength: 20, spikeMultiplier: 1.5, confirmationRequired: false }),
+    ],
+    defaultIndicators: ["EMA", "ATR", "Volume"],
+    focus: ["liquidity sweep", "BOS/CHoCH", "engulfing/displacement", "EMA 200 filter", "volume", "opposing liquidity", "risk structure"],
     rules: [
       ...UNIVERSAL_ANALYZER_RULES,
-      "The internal Sweep & Engulfing source is the strategy authority.",
-      "AUTO indicators are source-driven: EMA(200) for trend filter, ATR(14) for displacement/stop geometry and RVOL for the source volume-strength calculation.",
-      "Respect the source sequence: meaningful liquidity event -> reaction/structure shift -> engulfing/displacement confirmation -> entry lifecycle.",
-      "Preserve prior setup, current state, confirmation, active trade and next setup as separate states.",
-      "Do not create a signal from an indicator alone.",
+      "The Sweep & Engulfing source is authoritative.",
+      "Required source parameters include EMA(200), ATR(14), ATR stop multiplier 1.8, engulfing ATR threshold 0.5, volume SMA(20), spike multiplier 1.5 and 2 confirmation candles.",
+      "The source also defines external swing length 10, internal swing length 3, BOS lookback 50, sweep validity 3 bars and engulf body multiplier 1.2.",
+      "Do not replace this sequence with generic EMA/ATR/ADX/RVOL/VWAP logic.",
     ],
   },
   {
@@ -96,32 +115,39 @@ export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
     name: "Sweep Developing",
     category: "MY CUSTOM STRATEGIES",
     sourceIds: ["swingDeveloping"],
+    sourceRequirements: [
+      req("EMA", "PRIMARY", "H1/M15 direction and recovery", { lengths: "9,15,100" }),
+      req("SMI", "REQUIRED", "M15 momentum gate", { length: 7, smooth1: 2, smooth2: 2, overbought: 40, oversold: -40 }),
+      req("ATR", "REQUIRED", "source swing trade geometry", { length: 14, stopBuffer: 0.25 }),
+    ],
     defaultIndicators: ["EMA", "SMI", "ATR"],
-    focus: ["H1 direction", "M15 alignment", "EMA 9/15 pullback", "EMA 9 recovery", "M15 SMI confirmation", "developing setup lifecycle"],
+    focus: ["H1 direction", "M15 alignment", "EMA 9/15 pullback", "EMA 9 recovery", "SMI 7-2-2", "developing lifecycle"],
     rules: [
       ...UNIVERSAL_ANALYZER_RULES,
-      "Sweep Developing is a separate strategy from Swing / Engulfing and must never resolve to sweepEngulfing.",
-      "Use the authoritative swingDeveloping source module as the strategy engine.",
-      "AUTO indicators are source-driven: EMA covers H1/M15 direction and EMA 9/15 recovery, SMI covers the M15 momentum gate, and ATR supports the source trade-risk geometry.",
-      "Follow the source lifecycle: H1 direction -> M15 alignment -> M15 EMA 9/15 pullback -> recovery through EMA 9 -> M15 SMI confirmation -> new BUY/SELL transition.",
-      "DIRECTION, PULLBACK and ENTRY READY are developing/non-entry states and must not be promoted to BUY or SELL.",
-      "A prior pullback is required by the source entry transition; EMA alignment alone is insufficient.",
-      "The source Pine strategy defines no native SL/TP/RR. Do not invent source-native risk levels; universal validation may reject a signal when valid trade geometry cannot be established from visible structure.",
+      "Sweep Developing is separate from Swing / Engulfing.",
+      "Use EMA 9/15 for direction, EMA 100 as the optional direction filter, and SMI 7-2-2 with +40/-40 thresholds for M15 momentum.",
+      "The source Pine trade engine uses ATR(14) with a 0.25 ATR structural stop buffer.",
+      "DIRECTION, PULLBACK and ENTRY READY are not confirmed entries.",
     ],
   },
   {
-    id: "fibRetracement",
-    name: "FIB Retracement",
-    category: "ADVANCED",
-    sourceIds: ["autoFibRetrace"],
-    defaultIndicators: ["EMA", "ATR", "RSI", "VWAP"],
-    focus: ["validated swing/session anchors", "retracement depth", "flip levels", "confluence", "target structure", "risk/reward"],
+    id: "ema20",
+    name: "EMA20 Pullback Morning Engine",
+    category: "MY CUSTOM STRATEGIES",
+    sourceIds: ["ema20"],
+    sourceRequirements: [
+      req("EMA", "PRIMARY", "EMA20 entry engine and EMA105 context", { lengths: "20,105" }),
+      req("ATR", "REQUIRED", "touch tolerance and risk geometry", { length: 14, touchToleranceATR: 0.2 }),
+      req("SMI", "REQUIRED", "alternative confirmation", { length: 7, smooth1: 2, smooth2: 2 }),
+      req("UT Bot", "REQUIRED", "alternative confirmation", { sensitivity: 1.0, atrLength: 10, minimumConfirmations: 1 }),
+    ],
+    defaultIndicators: ["EMA", "ATR", "SMI", "UT Bot"],
+    focus: ["EMA20 touch", "rejection", "rejection break", "UT Bot OR SMI", "entry transition"],
     rules: [
       ...UNIVERSAL_ANALYZER_RULES,
-      "The internal Vault Auto Fib Retrace source is the strategy authority.",
-      "AUTO indicators are strategy-selected for trend, volatility, momentum and price-location context; the Fib engine itself remains the primary structural evidence.",
-      "A Fib range is not automatically an entry; coherent retracement structure and source-defined confirmation are required.",
-      "Report prior Fib setups and their visible outcome when the chart history supports them.",
+      "EMA20 is the primary engine; EMA105 is context only.",
+      "Use ATR(14) and 0.20 ATR touch tolerance exactly as source-defined.",
+      "Confirmation is UT Bot OR SMI 7-2-2; there is no generic volume requirement.",
     ],
   },
   {
@@ -129,15 +155,45 @@ export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
     name: "Continuation",
     category: "MY CUSTOM STRATEGIES",
     sourceIds: ["continuation"],
-    defaultIndicators: ["EMA", "ATR", "ADX", "VWAP"],
-    focus: ["expansion", "correction", "structural hold", "recovery", "confirmed continuation", "entry event"],
+    sourceRequirements: [
+      req("ATR", "REQUIRED", "expansion/correction/movement filters", { correctionThresholdATR: 0.25, srToleranceATR: 0.1, movementFilterATR: 0.2 }),
+    ],
+    defaultIndicators: ["ATR"],
+    focus: ["expansion", "correction", "structural hold", "recovery", "confirmed M15 break", "entry event"],
     rules: [
       ...UNIVERSAL_ANALYZER_RULES,
-      "Use the internal Continuation source as the sole primary authority.",
-      "AUTO indicators are selected for direction, volatility, trend strength and price-location context; they do not replace the continuation state machine.",
-      "Expansion, correction, structural hold, recovery and confirmed break must remain separate states.",
-      "Do not turn every breakout into continuation.",
-      "Do not shift a source-defined locked entry or fabricate structural risk levels.",
+      "The Continuation source explicitly uses ATR-normalized movement thresholds of 0.25, 0.10 and 0.20 ATR.",
+      "Do not add ADX, VWAP or EMA as required indicators when they are not source-defined.",
+      "Expansion, correction, structural hold and recovery remain separate states.",
+    ],
+  },
+  {
+    id: "killZone",
+    name: "Killer Zone",
+    category: "MY CUSTOM STRATEGIES",
+    sourceIds: ["killZone"],
+    sourceRequirements: [],
+    defaultIndicators: [],
+    focus: ["Asian high/low", "London liquidity sweep", "MSS", "FVG", "FVG retracement", "50% FVG"],
+    rules: [
+      ...UNIVERSAL_ANALYZER_RULES,
+      "The source does not require a conventional technical indicator. Its primary engine is session liquidity + MSS + FVG sequence.",
+      "Therefore AUTO indicators must be empty rather than populated with generic EMA/ATR/ADX/RVOL/VWAP substitutes.",
+    ],
+  },
+  {
+    id: "supplyDemand",
+    name: "Supply & Demand Zones",
+    category: "MY CUSTOM STRATEGIES",
+    sourceIds: ["supplyDemand"],
+    sourceRequirements: [],
+    defaultIndicators: [],
+    focus: ["pivot swing period 30", "wick-based supply/demand zones", "reach", "reaction", "zone hold", "zone break/flip"],
+    rules: [
+      ...UNIVERSAL_ANALYZER_RULES,
+      "The source is a structural zone engine and does not require generic technical indicators.",
+      "Swing period is 30, lookback 2000 and average wick length 5; these are source parameters, not generic indicators.",
+      "AUTO indicators must be empty unless the source is changed.",
     ],
   },
   {
@@ -145,17 +201,43 @@ export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
     name: "Proprietary Flow",
     category: "MY CUSTOM STRATEGIES",
     sourceIds: ["714Observing"],
-    defaultIndicators: ["EMA", "ATR", "RSI", "ADX"],
-    focus: ["observation window", "locked directional bias", "support/resistance", "liquidity event", "rejection", "displacement", "confirmation"],
+    sourceRequirements: [
+      req("EMA", "PRIMARY", "EMA20 confirmation and bias scoring", { length: 20 }),
+      req("ATR", "REQUIRED", "observation displacement, S/R tolerance and qualification", { biasObservation: "source-defined", pivotLength: 5, executionToleranceATR: 0.15, displacementATR: 0.4 }),
+    ],
+    defaultIndicators: ["EMA", "ATR"],
+    focus: ["13:00 SAST observation", "bias lock after 30 minutes", "one active support/resistance pair", "sweep/touch", "rejection", "displacement", "EMA20 confirmation"],
     rules: [
       ...UNIVERSAL_ANALYZER_RULES,
-      "Use the mapped proprietary observation source as the strategy authority.",
-      "AUTO indicators are selected for the source's direction, volatility, momentum and trend-strength context.",
-      "Observation, bias lock, execution level and qualification remain separate states.",
-      "The Analyzer must preserve the source-defined direction mapping and event sequence.",
+      "714 source uses EMA20 and ATR-normalized observation/SR/qualification logic; bullish bias deliberately maps to SELL and bearish bias to BUY.",
+      "Do not add RSI/ADX/VWAP unless the source is changed.",
+    ],
+  },
+  {
+    id: "fibRetracement",
+    name: "FIB Retracement",
+    category: "ADVANCED",
+    sourceIds: ["autoFibRetrace"],
+    sourceRequirements: [
+      req("EMA", "CONTEXT", "DXY MA context", { length: 50, maType: "EMA", touchPct: 0.15 }),
+      req("ATR", "REQUIRED", "zone confirmation, order block and projection", { confirmationMultiplier: 0.6, orderBlockLength: 14, projectionLength: 14, maxProjectionDistanceATR: 2 }),
+      req("Volume", "REQUIRED", "order-block and DXY volume-spike context", { orderBlockLength: 20, orderBlockFactor: 1.5, dxySpikeMultiplier: 1.5 }),
+    ],
+    defaultIndicators: ["EMA", "ATR", "Volume"],
+    focus: ["session/liquidity anchors", "Fib ladder", "flip levels", "DXY context", "order blocks", "M5 confirmation", "MTF structure"],
+    rules: [
+      ...UNIVERSAL_ANALYZER_RULES,
+      "The Fib engine itself is the primary structural calculation; conventional indicators are only the source-declared DXY/OB/projection components.",
+      "Source defaults include pivot length 5, DXY EMA50, OB ATR14, OB volume20 factor1.5 and projection ATR14/max distance2.",
+      "Do not invent standalone BUY/SELL from a Fib flip because the source is an indicator rather than strategy.entry().",
     ],
   },
 ];
+
+export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = profiles.map((profile) => ({
+  ...profile,
+  defaultIndicators: profile.sourceRequirements.map((item) => item.name),
+}));
 
 export const ANALYZER_STRATEGY_MAP = Object.fromEntries(ANALYZER_STRATEGIES.map((s) => [s.id, s])) as Record<string, AnalyzerStrategyProfile>;
 export const ANALYZER_CATEGORIES: readonly AnalyzerCategory[] = ["MY CUSTOM STRATEGIES", "ADVANCED"];
