@@ -1,10 +1,23 @@
-import Link from "next/link";
+"use client";
 
-const PAYPAL_PAYMENT_URL = "https://www.paypal.com/ncp/payment/LQX2GNXN6AWFY";
+import { useState } from "react";
 
-export default async function SubscriptionPage({ searchParams }: { searchParams: Promise<{ email?: string }> }) {
-  const params = await searchParams;
-  const email = params.email ?? "";
+export default function SubscriptionPage() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const startPayPal = async () => {
+    setLoading(true); setError("");
+    try {
+      const response = await fetch("/api/paypal/create-order", { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to start PayPal checkout.");
+      window.location.href = data.approveUrl;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to start PayPal checkout.");
+      setLoading(false);
+    }
+  };
 
   return (
     <main style={{ minHeight: "calc(100vh - 61px)", background: "#050812", color: "#f4f6fb", display: "grid", placeItems: "center", padding: 24 }}>
@@ -15,11 +28,11 @@ export default async function SubscriptionPage({ searchParams }: { searchParams:
         <div style={{ marginTop: 24, padding: 22, borderRadius: 12, border: "1px solid rgba(212,166,55,.3)", background: "#050812" }}>
           <div style={{ color: "#aeb5c6", fontSize: 13 }}>VaultTrades Monthly</div>
           <div style={{ marginTop: 8, color: "#d4a637", fontSize: 34, fontWeight: 800 }}>$73.99 <span style={{ color: "#aeb5c6", fontSize: 14, fontWeight: 500 }}>/ month</span></div>
-          {email ? <div style={{ marginTop: 12, color: "#aeb5c6", fontSize: 13 }}>Account email: <strong style={{ color: "#f4f6fb" }}>{email}</strong></div> : null}
+          <div style={{ marginTop: 10, color: "#7f8799", fontSize: 12 }}>Sandbox testing uses the configured test amount and never changes the production price.</div>
         </div>
-        <a href={PAYPAL_PAYMENT_URL} style={{ display: "block", marginTop: 24, padding: "15px 18px", borderRadius: 9, background: "#d4a637", color: "#050812", fontWeight: 800, textAlign: "center", textDecoration: "none" }}>Subscribe with PayPal</a>
-        <p style={{ marginTop: 18, color: "#7f8799", fontSize: 12, lineHeight: 1.5 }}>Access is not granted merely by clicking the payment button. VaultTrades will grant paid access only after the successful recurring payment is verified.</p>
-        <Link href="/join" style={{ display: "block", marginTop: 18, textAlign: "center", color: "#aeb5c6", textDecoration: "none" }}>Back</Link>
+        <button onClick={() => void startPayPal()} disabled={loading} style={{ width: "100%", border: 0, cursor: loading ? "wait" : "pointer", marginTop: 24, padding: "15px 18px", borderRadius: 9, background: "#d4a637", color: "#050812", fontWeight: 800 }}>{loading ? "Opening PayPal..." : "Continue with PayPal"}</button>
+        {error && <div style={{ marginTop: 16, padding: 14, borderRadius: 9, background: "rgba(220,70,70,.12)", color: "#ffb5b5" }}>{error}</div>}
+        <p style={{ marginTop: 18, color: "#7f8799", fontSize: 12, lineHeight: 1.5 }}>Access is never granted by clicking the payment button. VaultTrades activates membership only after server-side PayPal verification.</p>
       </section>
     </main>
   );
