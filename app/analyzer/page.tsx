@@ -109,26 +109,161 @@ export default function AnalyzerPage() {
     </section>
 
     {result && <>
-      <section className="card"><div className="section-label">MARKET</div><div className="execution-grid"><div className="execution-item"><span>ASSET</span><strong>{result.market?.asset || "Information unavailable"}</strong></div><div className="execution-item"><span>TIMEFRAME</span><strong>{result.market?.timeframe || timeframes.join(" + ") || "Information unavailable"}</strong></div><div className="execution-item"><span>MARKET CONDITION</span><strong>{result.market?.marketCondition || "Information unavailable"}</strong></div><div className="execution-item"><span>DIRECTIONAL BIAS</span><strong>{result.market?.directionalBias || "Information unavailable"}</strong></div></div></section>
+      <section className="card execution-card" style={{ border: "1px solid rgba(212,166,55,.28)", background: "linear-gradient(145deg, rgba(10,16,30,.98), rgba(5,8,18,.98))" }}>
+        <div className="section-label">VERDICT</div>
+        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 16, alignItems: "center", marginTop: 8 }}>
+          <div>
+            <div style={{ fontSize: 12, letterSpacing: ".14em", color: "#9aa4b2", fontWeight: 700 }}>CURRENT DECISION</div>
+            <h2 className="title" style={{ marginBottom: 4 }}>
+              {result.currentTrade?.visible
+                ? `${result.currentTrade.direction || "TRADE"} TRADE READY`
+                : result.decision === "TRADE"
+                  ? `${result.tradeSignal?.direction || "TRADE"} TRADE READY`
+                  : `NO TRADE — ${result.tradeSignal?.direction === "BUY" ? "LONG" : result.tradeSignal?.direction === "SELL" ? "SHORT" : result.currentState === "DEVELOPING" ? "SETUP DEVELOPING" : "WAITING FOR VALID SETUP"}`}
+            </h2>
+            <div className="muted">
+              {result.market?.asset || "Asset unavailable"} · {result.market?.timeframe || timeframes.join(" + ")}
+            </div>
+          </div>
+          <div style={{
+            minWidth: 150,
+            padding: "12px 16px",
+            borderRadius: 12,
+            textAlign: "center",
+            fontWeight: 800,
+            letterSpacing: ".08em",
+            background: result.currentTrade?.visible || result.tradeSignal?.direction === "BUY" ? "rgba(34,197,94,.16)" : result.tradeSignal?.direction === "SELL" ? "rgba(239,68,68,.16)" : "rgba(148,163,184,.12)",
+            border: result.currentTrade?.visible || result.tradeSignal?.direction === "BUY" ? "1px solid rgba(34,197,94,.45)" : result.tradeSignal?.direction === "SELL" ? "1px solid rgba(239,68,68,.45)" : "1px solid rgba(148,163,184,.25)",
+            color: result.currentTrade?.visible || result.tradeSignal?.direction === "BUY" ? "#4ade80" : result.tradeSignal?.direction === "SELL" ? "#f87171" : "#cbd5e1"
+          }}>
+            {result.currentTrade?.visible ? "ACTIVE" : result.decision === "TRADE" ? "NEW TRADE" : "NO NEW ENTRY"}
+          </div>
+        </div>
 
-      <section className="card"><div className="section-label">STRATEGY</div><h2 className="title">{selected.name}</h2><div className="muted">Category: {selected.category}</div></section>
+        <div style={{ marginTop: 18 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: 10 }}>
+            <div className="execution-item" style={{ background: "rgba(59,130,246,.13)", border: "1px solid rgba(59,130,246,.38)", borderRadius: 10 }}>
+              <span style={{ color: "#93c5fd" }}>ENTRY</span>
+              <strong style={{ color: "#60a5fa", fontSize: 18 }}>
+                {price(result.currentTrade?.visible ? result.currentTrade.entry : result.decision === "TRADE" ? result.tradeSignal?.entry : result.projection?.expectedEntry)}
+              </strong>
+            </div>
+            <div className="execution-item" style={{ background: "rgba(239,68,68,.13)", border: "1px solid rgba(239,68,68,.38)", borderRadius: 10 }}>
+              <span style={{ color: "#fca5a5" }}>STOP LOSS</span>
+              <strong style={{ color: "#f87171", fontSize: 18 }}>
+                {price(result.currentTrade?.visible ? result.currentTrade.stopLoss : result.decision === "TRADE" ? result.tradeSignal?.stopLoss : result.projection?.expectedStopLoss)}
+              </strong>
+            </div>
+            <div className="execution-item" style={{ background: "rgba(34,197,94,.12)", border: "1px solid rgba(34,197,94,.34)", borderRadius: 10 }}>
+              <span style={{ color: "#86efac" }}>TP1</span>
+              <strong style={{ color: "#4ade80", fontSize: 18 }}>
+                {price(result.currentTrade?.visible ? result.currentTrade.tp1 : result.decision === "TRADE" ? result.tradeSignal?.tp1 : result.projection?.expectedTp1)}
+              </strong>
+            </div>
+            <div className="execution-item" style={{ background: "rgba(34,197,94,.10)", border: "1px solid rgba(34,197,94,.28)", borderRadius: 10 }}>
+              <span style={{ color: "#86efac" }}>TP2</span>
+              <strong style={{ color: "#4ade80", fontSize: 18 }}>
+                {price(result.currentTrade?.visible ? result.currentTrade.tp2 : result.decision === "TRADE" ? result.tradeSignal?.tp2 : result.projection?.expectedTp2)}
+              </strong>
+            </div>
+            <div className="execution-item" style={{ background: "rgba(34,197,94,.08)", border: "1px solid rgba(34,197,94,.22)", borderRadius: 10 }}>
+              <span style={{ color: "#86efac" }}>TP3</span>
+              <strong style={{ color: "#4ade80", fontSize: 18 }}>
+                {price(result.currentTrade?.visible ? result.currentTrade.finalTp : result.decision === "TRADE" ? result.tradeSignal?.finalTp : result.projection?.expectedFinalTp)}
+              </strong>
+            </div>
+            <div className="execution-item" style={{ background: "rgba(34,197,94,.07)", border: "1px solid rgba(34,197,94,.18)", borderRadius: 10 }}>
+              <span style={{ color: "#86efac" }}>FINAL TP</span>
+              <strong style={{ color: "#4ade80", fontSize: 18 }}>
+                {price(result.currentTrade?.visible ? result.currentTrade.finalTp : result.decision === "TRADE" ? result.tradeSignal?.finalTp : result.projection?.expectedFinalTp)}
+              </strong>
+            </div>
+          </div>
+        </div>
 
-      <section className="card"><div className="section-label">AI INDICATORS</div><div className="condition-box">{result.aiIndicators?.map(i => <p key={i.name} style={{ margin: "6px 0" }}><strong>{i.name}</strong> — <span>AI Selected</span>{i.reason ? <span className="muted"> · {i.reason}</span> : null}</p>)}</div></section>
+        <div className="condition-box" style={{ marginTop: 16 }}>
+          <strong>{result.currentTrade?.visible ? "Trade Status" : result.decision === "TRADE" ? "Trade Status" : "What happens next"}</strong>
+          <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.7 }}>
+            {result.currentTrade?.visible
+              ? (result.currentTrade.progress || result.currentTrade.status || result.decisionReason || "An active trade is currently visible.")
+              : result.decisionReason || result.setup || "No new entry is confirmed at the current price."}
+          </p>
+          <p><strong>Next action:</strong> {result.nextAction || "Monitor the next valid strategy event."}</p>
+        </div>
+      </section>
 
-      <section className="card"><div className="section-label">BOLLINGER BANDS</div><div className="condition-box"><strong>{result.bollinger?.status || "NOT REQUIRED"}</strong>{result.bollinger?.status !== "NOT REQUIRED" && <><p>Period: {result.bollinger?.period ?? "Information unavailable"}</p><p>Standard Deviation: {result.bollinger?.standardDeviation ?? "Information unavailable"}</p><p>Series: {result.bollinger?.series || "Information unavailable"}</p><p>MA Type: {result.bollinger?.maType || "Information unavailable"}</p><p>{result.bollinger?.reason}</p>{result.bollinger?.optimized && <strong>AI OPTIMIZED</strong>}</>}</div></section>
+      <section className="card">
+        <div className="section-label">ANALYSIS</div>
+        <div className="execution-grid">
+          <div className="execution-item"><span>MARKET CONDITION</span><strong>{result.market?.marketCondition || "Information unavailable"}</strong></div>
+          <div className="execution-item"><span>DIRECTIONAL BIAS</span><strong>{result.market?.directionalBias || "Information unavailable"}</strong></div>
+          <div className="execution-item"><span>STATE</span><strong>{result.currentState || "WAITING"}</strong></div>
+          <div className="execution-item"><span>ASSET</span><strong>{result.market?.asset || "Information unavailable"}</strong></div>
+          <div className="execution-item"><span>TIMEFRAME</span><strong>{result.market?.timeframe || timeframes.join(" + ") || "Information unavailable"}</strong></div>
+        </div>
+        {(["marketStructure","priceAction","liquidity","momentum","volatility","indicatorConfirmation"] as const).map(key =>
+          <div key={key} className="condition-box" style={{ marginTop: 10 }}>
+            <strong>{key.replace(/([A-Z])/g, " $1").toUpperCase()}</strong>
+            <p>{result.strategyAnalysis?.[key] || "Information unavailable from the uploaded chart."}</p>
+          </div>
+        )}
+      </section>
 
-      <section className="card"><div className="section-label">STRATEGY ANALYSIS</div>{(["marketStructure","priceAction","liquidity","momentum","volatility","indicatorConfirmation"] as const).map(key => <div key={key} className="condition-box" style={{ marginTop: 10 }}><strong>{key.replace(/([A-Z])/g, " $1").toUpperCase()}</strong><p>{result.strategyAnalysis?.[key] || "Information unavailable from the uploaded chart."}</p></div>)}</section>
+      {result.currentTrade?.visible && <section className="card execution-card">
+        <div className="section-label">TRADE STATE</div>
+        <h2 className="title">{result.currentTrade.direction || "ACTIVE"} · {result.currentTrade.status || "ACTIVE"}</h2>
+        <div className="condition-box">
+          <strong>Trade progress</strong>
+          <p>{result.currentTrade.progress || "Active trade detected from the strategy information."}</p>
+          {result.currentTrade.evidence?.length ? <ul>{result.currentTrade.evidence.map(x => <li key={x}>{x}</li>)}</ul> : null}
+        </div>
+      </section>}
 
-      <section className="card execution-card"><div className="section-label">AI VERDICT</div><div className="execution-header"><div><div className="execution-label">CURRENT STATE</div><div className="execution-direction">{result.currentState || "WAITING"}</div></div><div className="confidence-box"><span>NEW ENTRY</span><strong>{result.decision || "NO TRADE"}</strong></div></div><div className="execution-grid"><div className="execution-item"><span>DIRECTION</span><strong>{result.tradeSignal?.direction || "NO TRADE"}</strong></div><div className="execution-item"><span>ENTRY ZONE</span><strong>{price(result.tradeSignal?.entry)}</strong></div><div className="execution-item"><span>INVALIDATION / STOP</span><strong>{price(result.tradeSignal?.stopLoss)}</strong></div><div className="execution-item"><span>TP1</span><strong>{price(result.tradeSignal?.tp1)}</strong></div><div className="execution-item"><span>TP2</span><strong>{price(result.tradeSignal?.tp2)}</strong></div><div className="execution-item"><span>FINAL TP</span><strong>{price(result.tradeSignal?.finalTp)}</strong></div></div><div className="condition-box" style={{ marginTop: 16 }}><strong>What the strategy is telling you</strong><p style={{ whiteSpace: "pre-wrap", lineHeight: 1.7 }}>{result.decisionReason || "Information unavailable from the uploaded chart."}</p><p><strong>Next action:</strong> {result.nextAction || "Wait for the next valid strategy event."}</p></div></section>
-      {result.currentTrade?.visible && <section className="card execution-card"><div className="section-label">CURRENT / RUNNING TRADE</div><h2 className="title">{result.currentTrade.direction || "ACTIVE"} · {result.currentTrade.status || "ACTIVE"}</h2><div className="execution-grid"><div className="execution-item"><span>ENTRY</span><strong>{price(result.currentTrade.entry)}</strong></div><div className="execution-item"><span>STOP LOSS</span><strong>{price(result.currentTrade.stopLoss)}</strong></div><div className="execution-item"><span>TP1</span><strong>{price(result.currentTrade.tp1)}</strong></div><div className="execution-item"><span>TP2</span><strong>{price(result.currentTrade.tp2)}</strong></div><div className="execution-item"><span>FINAL TP</span><strong>{price(result.currentTrade.finalTp)}</strong></div></div><div className="condition-box" style={{ marginTop: 16 }}><strong>Trade progress</strong><p>{result.currentTrade.progress || "Active trade detected from the uploaded strategy information."}</p>{result.currentTrade.evidence?.length ? <ul>{result.currentTrade.evidence.map(x => <li key={x}>{x}</li>)}</ul> : null}</div></section>}
+      <section className="card">
+        <div className="section-label">WHAT TO EXPECT</div>
+        <h2 className="title">{result.setup || "Next valid strategy opportunity"}</h2>
+        <div className="condition-box">
+          {result.projection?.available ? <>
+            <p><strong>Projected entry zone:</strong> {price(result.projection.zoneLow)} – {price(result.projection.zoneHigh)}</p>
+            <p><strong>Expected entry:</strong> {price(result.projection.expectedEntry)}</p>
+            <p><strong>Expected stop loss:</strong> {price(result.projection.expectedStopLoss)}</p>
+            <p><strong>Expected TP1:</strong> {price(result.projection.expectedTp1)} · <strong>TP2:</strong> {price(result.projection.expectedTp2)} · <strong>Final TP:</strong> {price(result.projection.expectedFinalTp)}</p>
+            <p><strong>Pullback / retest:</strong> {result.projection.retestStatus || (result.projection.retestRequired ? "Required" : "Not required")}</p>
+            <p><strong>Confirmation:</strong> {result.projection.confirmationStatus || result.projection.confirmationRequired || "Awaiting strategy confirmation"}</p>
+          </> : <p>{result.nextAction || "No new entry is confirmed at the current price."}</p>}
+        </div>
+      </section>
 
-      <section className="card"><div className="section-label">ANTICIPATED SETUP</div><h2 className="title">What We Are Waiting For</h2><div className="condition-box"><strong>{result.setup || "No coherent anticipated setup established."}</strong>{result.projection?.available && <><p>Entry zone: {price(result.projection.zoneLow)} – {price(result.projection.zoneHigh)}</p><p>Expected entry: {price(result.projection.expectedEntry)} · SL: {price(result.projection.expectedStopLoss)}</p><p>TP1: {price(result.projection.expectedTp1)} · TP2: {price(result.projection.expectedTp2)} · Final: {price(result.projection.expectedFinalTp)}</p><p className="muted">Retest: {result.projection.retestStatus} · Confirmation: {result.projection.confirmationStatus}</p></>}</div></section>
+      <section className="card">
+        <div className="section-label">PREVIOUS SETUP</div>
+        <h2 className="title">Latest Visible Setup</h2>
+        {result.previousSetup?.found
+          ? <div className="condition-box">
+              <strong>{result.previousSetup.direction} · {result.previousSetup.timestamp}</strong>
+              <p>Entry: {price(result.previousSetup.entry)} · SL: {price(result.previousSetup.stopLoss)}</p>
+              <p>TP1: {price(result.previousSetup.tp1)} · TP2: {price(result.previousSetup.tp2)} · Final: {price(result.previousSetup.finalTp)}</p>
+              <p><strong>Outcome:</strong> {result.previousSetup.outcome}</p>
+              {result.previousSetup.evidence?.length ? <ul>{result.previousSetup.evidence.map(x => <li key={x}>{x}</li>)}</ul> : null}
+            </div>
+          : <div className="condition-box"><strong>No prior setup confirmed</strong><p className="muted">The uploaded chart does not show enough reliable history to identify a prior qualifying setup. VaultTrades will not manufacture one.</p></div>}
+      </section>
 
-      <section className="card"><div className="section-label">MARKET STATE</div><h2 className="title">What the Chart Is Telling You</h2><div className="condition-box"><strong>Strategy State: {result.currentState || "WAITING"}</strong><p>{result.marketState || "Information unavailable from the uploaded chart."}</p></div></section>
-
-      <section className="card"><div className="section-label">PREVIOUS SETUP</div><h2 className="title">Latest Visible Setup</h2>{result.previousSetup?.found ? <div className="condition-box"><strong>{result.previousSetup.direction} · {result.previousSetup.timestamp}</strong><p>Entry: {price(result.previousSetup.entry)} · SL: {price(result.previousSetup.stopLoss)}</p><p>TP1: {price(result.previousSetup.tp1)} · TP2: {price(result.previousSetup.tp2)} · Final: {price(result.previousSetup.finalTp)}</p><p><strong>Outcome:</strong> {result.previousSetup.outcome}</p>{result.previousSetup.evidence?.length ? <ul>{result.previousSetup.evidence.map(x => <li key={x}>{x}</li>)}</ul> : null}</div> : <div className="condition-box"><strong>No prior setup confirmed</strong><p className="muted">The uploaded chart does not show enough reliable history to identify a prior qualifying setup. VaultTrades will not manufacture one.</p></div>}</section>
-
-      <section className="card"><div className="section-label">EDUCATIONAL BREAKDOWN</div><div className="condition-box"><strong>Confirmed Conditions</strong>{result.confirmedConditions?.length ? <ul>{result.confirmedConditions.map(x => <li key={x}>✓ {x}</li>)}</ul> : <p className="muted">No required conditions are confirmed yet.</p>}</div><div className="condition-box" style={{ marginTop: 12 }}><strong>Missing Conditions / What To Wait For</strong>{result.missingConditions?.length ? <ul>{result.missingConditions.map(x => <li key={x}>• {x}</li>)}</ul> : <p className="muted">No missing conditions reported.</p>}</div><div className="condition-box" style={{ marginTop: 12 }}><strong>Invalidation</strong><p>{result.tradeSignal?.invalidation || "Information unavailable from the uploaded chart."}</p></div></section>
+      <section className="card">
+        <div className="section-label">EDUCATIONAL BREAKDOWN</div>
+        <div className="condition-box">
+          <strong>Confirmed Conditions</strong>
+          {result.confirmedConditions?.length ? <ul>{result.confirmedConditions.map(x => <li key={x}>✓ {x}</li>)}</ul> : <p className="muted">No required conditions are confirmed yet.</p>}
+        </div>
+        <div className="condition-box" style={{ marginTop: 12 }}>
+          <strong>Conditions Still Required</strong>
+          {result.missingConditions?.length ? <ul>{result.missingConditions.map(x => <li key={x}>• {x}</li>)}</ul> : <p className="muted">No additional conditions reported.</p>}
+        </div>
+        <div className="condition-box" style={{ marginTop: 12 }}>
+          <strong>Invalidation</strong>
+          <p>{result.tradeSignal?.invalidation || "Information unavailable from the uploaded chart."}</p>
+        </div>
+      </section>
     </>}
+
   </main>;
 }
