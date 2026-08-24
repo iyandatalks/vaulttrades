@@ -1,84 +1,34 @@
+import { ANALYZER_STRATEGY_MAP, type IndicatorName } from "../../../lib/strategies/analyzerProfiles";
 import { getStrategyRules, type StrategyId } from "../../../lib/strategies";
-import { STRATEGY_LEARNING_METADATA } from "../../../lib/strategies/learningMetadata";
 
-const TIMEFRAMES = ["M1", "M5", "M10", "M15", "M30", "H1", "H4", "D1"] as const;
+const TIMEFRAMES = ["1m", "5m", "15m", "30m", "1H", "4H", "1D", "1W", "1M"] as const;
 type Timeframe = (typeof TIMEFRAMES)[number];
-const STRATEGY_IDS = ["killZone", "ema20", "continuation", "supplyDemand", "714Observing", "sweepEngulfing", "swingDeveloping", "autoFibRetrace"] as const;
-type Direction = "BUY" | "SELL" | "BUY DEVELOPING" | "SELL DEVELOPING" | "WAITING" | "NO TRADE";
+const INDICATORS: IndicatorName[] = ["SMA", "EMA", "Ichimoku", "Bollinger Bands", "ATR", "VWAP", "Supertrend", "SAR", "RSI", "MACD", "KST", "Stochastic", "ADX", "Percent B", "MFI", "DPO", "RVOL", "A/D"];
+const STRATEGY_IDS = Object.keys(ANALYZER_STRATEGY_MAP);
+type Direction = "BUY" | "SELL" | "NO TRADE";
 
-const num = (v: unknown) => {
-  const n = typeof v === "number" ? v : Number(v);
-  return Number.isFinite(n) ? n : null;
-};
+const num = (v: unknown) => { const n = typeof v === "number" ? v : Number(v); return Number.isFinite(n) ? n : null; };
 const arr = (v: unknown) => Array.isArray(v) ? v.filter((x): x is string => typeof x === "string").map(x => x.trim()).filter(Boolean) : [];
-const dir = (v: unknown): Direction => ["BUY", "SELL", "BUY DEVELOPING", "SELL DEVELOPING", "WAITING", "NO TRADE"].includes(String(v)) ? v as Direction : "WAITING";
+const validTimeframes = (v: unknown): Timeframe[] => Array.isArray(v) ? v.filter((x): x is Timeframe => typeof x === "string" && TIMEFRAMES.includes(x as Timeframe)).slice(0, 2) : [];
+const validIndicators = (v: unknown): IndicatorName[] => Array.isArray(v) ? v.filter((x): x is IndicatorName => typeof x === "string" && INDICATORS.includes(x as IndicatorName)).slice(0, 3) : [];
 
-type Projection = {
-  available: boolean;
-  setupType: string;
-  zoneLow: number | null;
-  zoneHigh: number | null;
-  expectedEntry: number | null;
-  expectedStopLoss: number | null;
-  expectedTp1: number | null;
-  expectedTp2: number | null;
-  expectedFinalTp: number | null;
-  retestRequired: boolean;
-  retestStatus: string;
-  confirmationRequired: string;
-  confirmationStatus: string;
-};
-
-function normalizeProjection(raw: any, direction: Direction, strategy: string): Projection | null {
+function normalizeProjection(raw: any, direction: Direction, strategy: string) {
   if (!raw || typeof raw !== "object") return null;
-  const p: Projection = {
-    available: Boolean(raw.available),
-    setupType: String(raw.setupType || ""),
-    zoneLow: num(raw.zoneLow),
-    zoneHigh: num(raw.zoneHigh),
-    expectedEntry: num(raw.expectedEntry),
-    expectedStopLoss: num(raw.expectedStopLoss),
-    expectedTp1: num(raw.expectedTp1),
-    expectedTp2: num(raw.expectedTp2),
-    expectedFinalTp: num(raw.expectedFinalTp),
-    retestRequired: Boolean(raw.retestRequired),
-    retestStatus: String(raw.retestStatus || ""),
-    confirmationRequired: String(raw.confirmationRequired || ""),
-    confirmationStatus: String(raw.confirmationStatus || ""),
+  const p = {
+    available: Boolean(raw.available), setupType: String(raw.setupType || ""), zoneLow: num(raw.zoneLow), zoneHigh: num(raw.zoneHigh),
+    expectedEntry: num(raw.expectedEntry), expectedStopLoss: num(raw.expectedStopLoss), expectedTp1: num(raw.expectedTp1), expectedTp2: num(raw.expectedTp2), expectedFinalTp: num(raw.expectedFinalTp),
+    retestRequired: Boolean(raw.retestRequired), retestStatus: String(raw.retestStatus || ""), confirmationRequired: String(raw.confirmationRequired || ""), confirmationStatus: String(raw.confirmationStatus || "")
   };
-
   if (!p.available) return p;
-  const nums = [p.zoneLow, p.zoneHigh, p.expectedEntry, p.expectedStopLoss, p.expectedTp1, p.expectedTp2, p.expectedFinalTp];
-  if (nums.some(v => v === null)) return { ...p, available: false, setupType: `${p.setupType || "Projected setup"} — levels are incomplete` };
-
-  const zoneLow = p.zoneLow as number;
-  const zoneHigh = p.zoneHigh as number;
-  const entry = p.expectedEntry as number;
-  const sl = p.expectedStopLoss as number;
-  const tp1 = p.expectedTp1 as number;
-  const tp2 = p.expectedTp2 as number;
-  const finalTp = p.expectedFinalTp as number;
-  const validZone = zoneLow < zoneHigh && entry >= zoneLow && entry <= zoneHigh;
-  const isBuy = direction === "BUY" || direction === "BUY DEVELOPING" || (direction === "WAITING" && /buy|long|bull/i.test(p.setupType));
-  const isSell = direction === "SELL" || direction === "SELL DEVELOPING" || (direction === "WAITING" && /sell|short|bear/i.test(p.setupType));
-  const coherentBuy = validZone && sl < zoneLow && tp1 > zoneHigh && tp2 >= tp1 && finalTp >= tp2;
-  const coherentSell = validZone && sl > zoneHigh && tp1 < zoneLow && tp2 <= tp1 && finalTp <= tp2;
-  const coherent = isBuy ? coherentBuy : isSell ? coherentSell : false;
-
-  if (!coherent) {
-    return {
-      ...p,
-      available: false,
-      setupType: `${p.setupType || strategy} — projected levels rejected because the entry zone, stop and targets do not form a coherent risk structure`,
-      zoneLow: null,
-      zoneHigh: null,
-      expectedEntry: null,
-      expectedStopLoss: null,
-      expectedTp1: null,
-      expectedTp2: null,
-      expectedFinalTp: null,
-    };
-  }
+  const { zoneLow, zoneHigh, expectedEntry: entry, expectedStopLoss: sl, expectedTp1: tp1, expectedTp2: tp2, expectedFinalTp: finalTp } = p;
+  if ([zoneLow, zoneHigh, entry, sl, tp1, tp2, finalTp].some(v => v === null)) return { ...p, available: false, setupType: `${p.setupType || strategy} — projected levels incomplete` };
+  const validZone = (zoneLow as number) < (zoneHigh as number) && (entry as number) >= (zoneLow as number) && (entry as number) <= (zoneHigh as number);
+  const coherent = direction === "BUY"
+    ? validZone && (sl as number) < (zoneLow as number) && (tp1 as number) > (zoneHigh as number) && (tp2 as number) >= (tp1 as number) && (finalTp as number) >= (tp2 as number)
+    : direction === "SELL"
+      ? validZone && (sl as number) > (zoneHigh as number) && (tp1 as number) < (zoneLow as number) && (tp2 as number) <= (tp1 as number) && (finalTp as number) <= (tp2 as number)
+      : false;
+  if (!coherent) return { ...p, available: false, setupType: `${p.setupType || strategy} — projected levels rejected because the risk structure is incoherent`, zoneLow: null, zoneHigh: null, expectedEntry: null, expectedStopLoss: null, expectedTp1: null, expectedTp2: null, expectedFinalTp: null };
   return p;
 }
 
@@ -86,47 +36,81 @@ export async function POST(request: Request) {
   try {
     const form = await request.formData();
     const image = form.get("image");
-    const strategy = String(form.get("strategy") || "");
-    const timeframe = String(form.get("timeframe") || "");
+    const strategyId = String(form.get("strategy") || "");
+    const selectedTimeframes = validTimeframes(JSON.parse(String(form.get("timeframes") || "[]")));
+    const indicatorMode = String(form.get("indicatorMode") || "AUTO") === "MANUAL" ? "MANUAL" : "AUTO";
+    const manualIndicators = validIndicators(JSON.parse(String(form.get("manualIndicators") || "[]")));
     if (!(image instanceof File)) return Response.json({ error: "Chart image is required." }, { status: 400 });
-    if (!STRATEGY_IDS.includes(strategy as any)) return Response.json({ error: "Invalid strategy selected." }, { status: 400 });
-    if (!TIMEFRAMES.includes(timeframe as Timeframe)) return Response.json({ error: "A valid timeframe must be selected." }, { status: 400 });
+    if (!STRATEGY_IDS.includes(strategyId)) return Response.json({ error: "Invalid strategy selected." }, { status: 400 });
+    if (!selectedTimeframes.length) return Response.json({ error: "Select at least one timeframe." }, { status: 400 });
 
+    const profile = ANALYZER_STRATEGY_MAP[strategyId];
+    const activeIndicators = indicatorMode === "AUTO" ? profile.defaultIndicators : manualIndicators;
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) return Response.json({ error: "OpenAI API key is not configured." }, { status: 500 });
 
-    const rules = getStrategyRules(strategy as StrategyId);
-    const learning = STRATEGY_LEARNING_METADATA[strategy as StrategyId];
+    const sourceRules = profile.sourceIds.map((id: StrategyId) => getStrategyRules(id));
     const bytes = await image.arrayBuffer();
     const imageUrl = `data:${image.type || "image/png"};base64,${Buffer.from(bytes).toString("base64")}`;
+    const higher = selectedTimeframes.length === 2 ? selectedTimeframes[1] : selectedTimeframes[0];
+    const lower = selectedTimeframes.length === 2 ? selectedTimeframes[0] : selectedTimeframes[0];
 
-    const prompt = `You are VaultTrades Analyzer. This is a learning-first chart analysis engine, not a signal generator. The selected strategy is the only source of truth. Do not combine strategies or invent conditions. Analyze only visible or reliably inferable evidence.
+    const prompt = `You are VaultTrades Analyzer, an AI-powered trading chart analysis and education system. The selected strategy is the primary analytical framework. The system must determine whether a valid setup exists; it must be comfortable returning NO TRADE. Never invent information from a screenshot.
 
-SELECTED STRATEGY: ${strategy}
-SELECTED TIMEFRAME: ${timeframe}
+DISPLAY STRATEGY: ${profile.name}
+CATEGORY: ${profile.category}
+TIMEFRAMES SELECTED: ${selectedTimeframes.join(" + ")}
+HIGHER TIMEFRAME CONTEXT: ${higher}
+LOWER TIMEFRAME SETUP/ENTRY: ${lower}
+INDICATOR MODE: ${indicatorMode}
+INDICATORS AVAILABLE: ${activeIndicators.length ? activeIndicators.join(", ") : "None"}
+DEFAULT STRATEGY INDICATORS: ${profile.defaultIndicators.join(", ")}
+STRATEGY FOCUS: ${JSON.stringify(profile.focus)}
+STRATEGY GUARDRAILS: ${JSON.stringify(profile.rules)}
 
-STRATEGY RULES:
-${JSON.stringify(rules, null, 2)}
+INTERNAL SOURCE-OF-TRUTH RULES (use only to improve accuracy; do not expose internal strategy names, proprietary sequences, parameter recipes, or source-code details in the user-facing output):
+${JSON.stringify(sourceRules, null, 2)}
 
-LEARNING PRESENTATION:
-${JSON.stringify(learning ?? {}, null, 2)}
+ANALYSIS HIERARCHY:
+1. MARKET STRUCTURE — bullish, bearish, ranging or transitional; HH/HL/LH/LL, support, resistance, breakout, rejection, consolidation.
+2. SELECTED STRATEGY CONDITIONS — determine whether the selected framework is actually present.
+3. PRICE ACTION — rejection, momentum, displacement, consolidation, breakout, retest, reversal, continuation.
+4. INDICATOR CONFIRMATION — confirm or contradict the price-action thesis; indicators never create the trade by themselves.
+5. VOLATILITY — ATR/Bollinger where relevant.
+6. ENTRY — logical entry zone/level only when supported.
+7. INVALIDATION — logical invalidation/stop zone.
+8. TARGETS — logical targets only when supported.
+9. RISK/REWARD — calculate only when the necessary numbers are reliable.
+10. CONFIDENCE — score strategy-condition completeness, not profitability.
 
-IMPORTANT SETUP-STRUCTURE RULES:
-1. A "Fib range" or anchor range is NOT the same thing as an "entry zone". Never present the entire swing/anchor range as the entry zone.
-2. The entry zone must be a specific, narrow retracement or supply/demand area supported by the selected strategy. For Auto Fib, prefer the actual Fib retracement band supported by the visible structure (for example 61.8%-78.6% only when the selected anchors and chart evidence support it), rather than the full high-to-low anchor range.
-3. The entry zone must contain the expected entry level. It must NOT contain the stop loss or any take-profit level.
-4. For a BUY setup, the structure must be: stop loss < zone low <= expected entry <= zone high < TP1 <= TP2 <= final TP.
-5. For a SELL setup, the structure must be: stop loss > zone high >= expected entry >= zone low > TP1 >= TP2 >= final TP.
-6. If those relationships cannot be established from the visible chart and strategy rules, do NOT manufacture numbers. Set projection.available=false and explain exactly what is missing.
-7. A projected setup is an anticipated plan, not a confirmed trade. Do not call it an active signal until the strategy's confirmation conditions are actually visible.
-8. Explain the difference between WHERE price is expected to react (zone), WHERE an entry would be taken (level), WHERE the idea is invalidated (SL), and WHERE the trade would aim (TPs). A beginner must be able to understand the sequence without guessing.
-9. If the current price has already moved through the proposed zone or the proposed levels are internally inconsistent, do not reuse them simply because the Fib range exists. Recalculate from the valid current structure or report that no coherent projection is available.
+AUTO INDICATOR RULE:
+When AUTO is selected, choose up to three indicators from the available list that best align with the selected strategy, normally using the profile defaults. You may replace one only when screenshot/timeframe/asset conditions make another listed indicator more appropriate. Explain the reason briefly. When MANUAL is selected, use only the supplied indicators and warn if they are poorly aligned.
 
-Your result must make WAIT useful. Explain WHY the strategy is confirmed, developing, waiting, or invalid; identify the exact condition being awaited and the anticipated entry/zone when the strategy supports one. Never force a trade. If evidence is missing, explicitly name the missing condition and what the trader should wait for. Entry, SL and targets are only valid when supported by visible evidence and strategy rules. Confidence measures strategy-condition completeness, not profitability.
+BOLLINGER RULE:
+If Bollinger Bands are relevant to the strategy or manually selected, use AUTO CONFIGURATION with default Period 20, Standard Deviation 2, Series Close, MA Type SMA, but dynamically optimize when the visible chart/strategy/timeframe provides a reason. State the chosen settings. If not relevant, status is NOT REQUIRED.
 
-Also inspect the visible chart history for the MOST RECENT PRIOR SETUP that appears to satisfy this same strategy. This is historical context only. Do not invent a setup that is not visible. If no prior setup can be identified, set previousSetup.found=false and explain why. If a timestamp is visible, report it; otherwise use "Timestamp not visible". State whether the prior setup appears to have reached a target, invalidation, or remains unresolved based only on visible evidence.
+MULTI-TIMEFRAME RULE:
+If two timeframes are selected, higher timeframe = market context and directional bias; lower timeframe = setup/entry. Do not reverse this relationship. If only one is selected, use it for both.
 
-Return ONLY JSON. decisionReason must begin with TAKE TRADE:, NO TRADE:, or WAIT:. Developing levels belong only in projection and are expected, not confirmed.`;
+NEVER INVENT INFORMATION:
+If asset, price, timeframe, indicator values, support/resistance or entry levels are not clearly visible/reliably inferable, say "Information unavailable from the uploaded chart." Do not manufacture values. Only calculate when the necessary information is reliable.
+
+NO-TRADE RULE:
+Return tradeDecision=NO TRADE when the selected strategy conditions are not satisfied, the market is incompatible with the strategy, a required event is not visible, the screenshot is insufficient, or risk structure cannot be established. Examples include trend-following in a range, mean reversion during a strong trend, breakout-retest without an identifiable original breakout, liquidity sweep without a meaningful sweep, divergence without reliable divergence, or insufficient chart information.
+
+TRADE RULE:
+Return tradeDecision=TRADE only when the selected strategy has sufficient visible confluence and a coherent entry, invalidation and target structure. Direction must be BUY or SELL. Never represent a setup as guaranteed or certain financial advice.
+
+ANTICIPATED SETUP:
+Keep anticipated setup separate from confirmed trade. A projected setup is a plan for what must happen next, not an active trade.
+
+PREVIOUS SETUP:
+Inspect the visible chart history for the most recent prior setup using the same selected framework. Do not invent one. If a timestamp is visible, report it; otherwise say Timestamp not visible. State whether it appears to have reached a target, invalidation, or remains unresolved based only on visible evidence.
+
+USER-FACING LANGUAGE:
+Do NOT expose proprietary internal source strategy names, internal sequence labels, exact Pine implementation details, or private strategy parameters. Explain the market evidence in educational terms. Keep the dashboard sections: ANTICIPATED SETUP, MARKET STATE, PREVIOUS SETUP, EDUCATIONAL BREAKDOWN.
+
+Return ONLY JSON matching the schema.`;
 
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
@@ -134,61 +118,68 @@ Return ONLY JSON. decisionReason must begin with TAKE TRADE:, NO TRADE:, or WAIT
       body: JSON.stringify({
         model: "gpt-4.1-mini",
         input: [{ role: "user", content: [{ type: "input_text", text: prompt }, { type: "input_image", image_url: imageUrl }] }],
-        max_output_tokens: 5000,
-        text: { format: { type: "json_schema", name: "vaulttrades_learning_analysis", strict: true, schema: {
+        max_output_tokens: 6000,
+        text: { format: { type: "json_schema", name: "vaulttrades_analyzer", strict: true, schema: {
           type: "object", additionalProperties: false,
           properties: {
-            direction: { type: "string", enum: ["BUY", "SELL", "BUY DEVELOPING", "SELL DEVELOPING", "WAITING", "NO TRADE"] },
-            confidence: { type: "number", minimum: 0, maximum: 100 }, strategy: { type: "string" }, timeframe: { type: "string" },
+            tradeDecision: { type: "string", enum: ["TRADE", "NO TRADE"] },
+            direction: { type: "string", enum: ["BUY", "SELL", "NO TRADE"] },
+            confidence: { type: "number", minimum: 0, maximum: 100 },
+            asset: { type: "string" }, timeframe: { type: "string" }, marketCondition: { type: "string" }, directionalBias: { type: "string" },
             decisionReason: { type: "string" }, marketState: { type: "string" }, setup: { type: "string" },
-            confirmedConditions: { type: "array", items: { type: "string" } }, missingConditions: { type: "array", items: { type: "string" } },
-            invalidation: { type: "string" }, entry: { type: ["number", "null"] }, stopLoss: { type: ["number", "null"] }, risk: { type: ["number", "null"] },
-            tp1: { type: ["number", "null"] }, tp2: { type: ["number", "null"] }, finalTp: { type: ["number", "null"] }, finalTpReason: { type: "string" },
+            confirmedConditions: { type: "array", items: { type: "string" } }, missingConditions: { type: "array", items: { type: "string" } }, invalidation: { type: "string" },
+            entry: { type: ["number", "null"] }, stopLoss: { type: ["number", "null"] }, tp1: { type: ["number", "null"] }, tp2: { type: ["number", "null"] }, finalTp: { type: ["number", "null"] },
+            strategyAnalysis: { type: "object", additionalProperties: false, properties: {
+              marketStructure: { type: "string" }, priceAction: { type: "string" }, liquidity: { type: "string" }, momentum: { type: "string" }, volatility: { type: "string" }, indicatorConfirmation: { type: "string" }
+            }, required: ["marketStructure", "priceAction", "liquidity", "momentum", "volatility", "indicatorConfirmation"] },
+            aiIndicators: { type: "array", items: { type: "object", additionalProperties: false, properties: { name: { type: "string" }, reason: { type: "string" } }, required: ["name", "reason"] } },
+            bollinger: { type: "object", additionalProperties: false, properties: { status: { type: "string" }, period: { type: ["number", "null"] }, standardDeviation: { type: ["number", "null"] }, series: { type: "string" }, maType: { type: "string" }, reason: { type: "string" }, optimized: { type: "boolean" } }, required: ["status", "period", "standardDeviation", "series", "maType", "reason", "optimized"] },
             projection: { type: "object", additionalProperties: false, properties: {
-              available: { type: "boolean" }, setupType: { type: "string" }, zoneLow: { type: ["number", "null"] }, zoneHigh: { type: ["number", "null"] },
-              expectedEntry: { type: ["number", "null"] }, expectedStopLoss: { type: ["number", "null"] }, expectedTp1: { type: ["number", "null"] }, expectedTp2: { type: ["number", "null"] }, expectedFinalTp: { type: ["number", "null"] },
-              retestRequired: { type: "boolean" }, retestStatus: { type: "string" }, confirmationRequired: { type: "string" }, confirmationStatus: { type: "string" }
+              available: { type: "boolean" }, setupType: { type: "string" }, zoneLow: { type: ["number", "null"] }, zoneHigh: { type: ["number", "null"] }, expectedEntry: { type: ["number", "null"] }, expectedStopLoss: { type: ["number", "null"] }, expectedTp1: { type: ["number", "null"] }, expectedTp2: { type: ["number", "null"] }, expectedFinalTp: { type: ["number", "null"] }, retestRequired: { type: "boolean" }, retestStatus: { type: "string" }, confirmationRequired: { type: "string" }, confirmationStatus: { type: "string" }
             }, required: ["available", "setupType", "zoneLow", "zoneHigh", "expectedEntry", "expectedStopLoss", "expectedTp1", "expectedTp2", "expectedFinalTp", "retestRequired", "retestStatus", "confirmationRequired", "confirmationStatus"] },
-            previousSetup: { type: "object", additionalProperties: false, properties: {
-              found: { type: "boolean" }, timestamp: { type: "string" }, direction: { type: "string" }, entry: { type: ["number", "null"] }, stopLoss: { type: ["number", "null"] },
-              tp1: { type: ["number", "null"] }, tp2: { type: ["number", "null"] }, finalTp: { type: ["number", "null"] }, outcome: { type: "string" }, evidence: { type: "array", items: { type: "string" } }
-            }, required: ["found", "timestamp", "direction", "entry", "stopLoss", "tp1", "tp2", "finalTp", "outcome", "evidence"] },
-            chartAnnotations: { type: "array", items: { type: "object", additionalProperties: false, properties: {
-              type: { type: "string" }, label: { type: "string" }, price: { type: ["number", "null"] }, points: { type: "array", items: { type: "object", additionalProperties: false, properties: { x: { type: "number" }, y: { type: "number" } }, required: ["x", "y"] } }, color: { type: "string" }
-            }, required: ["type", "label", "price", "points", "color"] } }
+            previousSetup: { type: "object", additionalProperties: false, properties: { found: { type: "boolean" }, timestamp: { type: "string" }, direction: { type: "string" }, entry: { type: ["number", "null"] }, stopLoss: { type: ["number", "null"] }, tp1: { type: ["number", "null"] }, tp2: { type: ["number", "null"] }, finalTp: { type: ["number", "null"] }, outcome: { type: "string" }, evidence: { type: "array", items: { type: "string" } } }, required: ["found", "timestamp", "direction", "entry", "stopLoss", "tp1", "tp2", "finalTp", "outcome", "evidence"] }
           },
-          required: ["direction", "confidence", "strategy", "timeframe", "decisionReason", "marketState", "setup", "confirmedConditions", "missingConditions", "invalidation", "entry", "stopLoss", "risk", "tp1", "tp2", "finalTp", "finalTpReason", "projection", "previousSetup", "chartAnnotations"]
+          required: ["tradeDecision", "direction", "confidence", "asset", "timeframe", "marketCondition", "directionalBias", "decisionReason", "marketState", "setup", "confirmedConditions", "missingConditions", "invalidation", "entry", "stopLoss", "tp1", "tp2", "finalTp", "strategyAnalysis", "aiIndicators", "bollinger", "projection", "previousSetup"]
         } } }
       })
     });
 
-    if (!response.ok) {
-      const details = await response.text();
-      console.error("OpenAI analysis failed", details);
-      return Response.json({ error: "OpenAI analysis failed.", details }, { status: 500 });
-    }
+    if (!response.ok) { const details = await response.text(); console.error("OpenAI analysis failed", details); return Response.json({ error: "OpenAI analysis failed." }, { status: 500 }); }
     const result = await response.json();
     const text = result.output?.flatMap((item: any) => item.content ?? []).filter((c: any) => c.type === "output_text").map((c: any) => c.text).join("")?.trim();
     if (!text) return Response.json({ error: "The analyzer returned no structured result." }, { status: 500 });
-
     const parsed = JSON.parse(text);
-    const d = dir(parsed.direction);
-    const confirmed = d === "BUY" || d === "SELL";
+
+    const requestedDirection: Direction = parsed.direction === "BUY" || parsed.direction === "SELL" ? parsed.direction : "NO TRADE";
+    const tradeDecision = parsed.tradeDecision === "TRADE" && requestedDirection !== "NO TRADE" ? "TRADE" : "NO TRADE";
+    const confirmed = tradeDecision === "TRADE";
+    const direction: Direction = confirmed ? requestedDirection : "NO TRADE";
     const entry = confirmed ? num(parsed.entry) : null;
     const stopLoss = confirmed ? num(parsed.stopLoss) : null;
-    const risk = confirmed && entry !== null && stopLoss !== null ? (d === "BUY" ? entry - stopLoss : stopLoss - entry) : null;
-    const safeRisk = risk !== null && risk > 0 ? risk : null;
-    const target = (v: unknown) => { const n = num(v); if (!confirmed || n === null || entry === null) return null; return d === "BUY" ? (n > entry ? n : null) : (n < entry ? n : null); };
-    const projection = normalizeProjection(parsed.projection, d, strategy);
+    const target = (v: unknown) => { const n = num(v); if (!confirmed || n === null || entry === null) return null; return direction === "BUY" ? (n > entry ? n : null) : (n < entry ? n : null); };
+    const risk = confirmed && entry !== null && stopLoss !== null ? direction === "BUY" ? entry - stopLoss : stopLoss - entry : null;
+    const coherentRisk = risk !== null && risk > 0;
+    const safeDecision = confirmed && coherentRisk ? "TRADE" : "NO TRADE";
+    const safeDirection: Direction = safeDecision === "TRADE" ? direction : "NO TRADE";
+    const safeEntry = safeDecision === "TRADE" ? entry : null;
+    const safeStop = safeDecision === "TRADE" ? stopLoss : null;
+    const safeTp1 = safeDecision === "TRADE" ? target(parsed.tp1) : null;
+    const safeTp2 = safeDecision === "TRADE" ? target(parsed.tp2) : null;
+    const safeFinalTp = safeDecision === "TRADE" ? target(parsed.finalTp) : null;
+    const projection = normalizeProjection(parsed.projection, safeDirection, profile.name);
+    const aiIndicators = Array.isArray(parsed.aiIndicators) ? parsed.aiIndicators.filter((x: any) => typeof x?.name === "string").slice(0, 3).map((x: any) => ({ name: x.name, selected: true, reason: String(x.reason || "Strategy-aligned confirmation") })) : activeIndicators.map(name => ({ name, selected: true, reason: "Strategy-aligned confirmation" }));
+    const bollinger = parsed.bollinger && typeof parsed.bollinger === "object" ? parsed.bollinger : { status: "NOT REQUIRED", period: null, standardDeviation: null, series: "", maType: "", reason: "Not required by the selected strategy.", optimized: false };
 
     return Response.json({
-      success: true, strategy, timeframe,
-      strategyInfo: { description: rules.description, shortExplanation: learning?.shortExplanation ?? rules.description, recommendedTradingTimes: learning?.recommendedTradingTimes ?? rules.timeframes },
-      analysis: `${String(parsed.decisionReason || "")}\n\nMARKET STATE:\n${String(parsed.marketState || "")}\n\nSETUP:\n${String(parsed.setup || "")}`,
-      tradeSignal: { direction: d, confidence: Math.max(0, Math.min(100, Math.round(Number(parsed.confidence) || 0))), entry, stopLoss, risk: safeRisk, tp1: target(parsed.tp1), tp2: target(parsed.tp2), finalTp: target(parsed.finalTp), invalidation: String(parsed.invalidation || "") },
+      success: true,
+      strategy: { id: profile.id, name: profile.name, category: profile.category },
+      market: { asset: String(parsed.asset || "Information unavailable"), timeframe: String(parsed.timeframe || selectedTimeframes.join(" + ")), marketCondition: String(parsed.marketCondition || "Information unavailable"), directionalBias: String(parsed.directionalBias || "Information unavailable") },
+      aiIndicators, bollinger,
+      strategyAnalysis: parsed.strategyAnalysis,
+      decision: safeDecision,
+      tradeSignal: { direction: safeDirection, confidence: Math.max(0, Math.min(100, Math.round(Number(parsed.confidence) || 0))), entry: safeEntry, stopLoss: safeStop, risk: safeDecision === "TRADE" && coherentRisk ? risk : null, tp1: safeTp1, tp2: safeTp2, finalTp: safeFinalTp, invalidation: String(parsed.invalidation || "") },
       decisionReason: String(parsed.decisionReason || ""), marketState: String(parsed.marketState || ""), setup: String(parsed.setup || ""),
-      confirmedConditions: arr(parsed.confirmedConditions), missingConditions: arr(parsed.missingConditions), projection,
-      previousSetup: parsed.previousSetup || null, chartAnnotations: Array.isArray(parsed.chartAnnotations) ? parsed.chartAnnotations : []
+      confirmedConditions: arr(parsed.confirmedConditions), missingConditions: arr(parsed.missingConditions), projection, previousSetup: parsed.previousSetup || null
     });
   } catch (error) {
     console.error("VaultTrades analysis error", error);
