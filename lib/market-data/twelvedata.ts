@@ -119,14 +119,27 @@ export async function getTwelveDataTimeSeries({
       high: row.high as number,
       low: row.low as number,
       close: row.close as number,
-    }));
+    }))
+    // Twelve Data normally returns newest-first. The analyzer, indicators,
+    // structure engine and chart all require chronological oldest -> newest.
+    .sort((a, b) => {
+      const aTime = Date.parse(a.datetime);
+      const bTime = Date.parse(b.datetime);
+      if (Number.isFinite(aTime) && Number.isFinite(bTime)) return aTime - bTime;
+      return a.datetime.localeCompare(b.datetime);
+    });
+
+  // Prefer the provider's live meta price. If it is unavailable, use the
+  // close of the chronologically latest candle — never the oldest candle.
+  const latestClose = candles.at(-1)?.close ?? null;
+  const currentPrice = finiteNumber(payload?.meta?.price) ?? latestClose;
 
   return {
     provider: "twelvedata",
     symbol: normalizedSymbol,
     interval,
     candles,
-    currentPrice: finiteNumber(payload?.meta?.price) ?? candles[0]?.close ?? null,
+    currentPrice,
     fetchedAt: new Date().toISOString(),
   };
 }
