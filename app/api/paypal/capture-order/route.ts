@@ -13,7 +13,14 @@ export async function POST(request: Request) {
     if (!orderId) return NextResponse.json({ error: "PayPal order ID is required." }, { status: 400 });
 
     const admin = createAdminClient();
-    const { data: transaction } = await admin.from("payment_transactions").select("id,provider_order_id,amount,currency,user_id,auth_user_id,status").eq("provider", "paypal").eq("provider_order_id", orderId).eq("auth_user_id", user.id).maybeSingle();
+    const { data: transaction } = await admin
+      .from("payment_transactions")
+      .select("id,provider_order_id,amount,currency,user_id,auth_user_id,status,membership_months")
+      .eq("provider", "paypal")
+      .eq("provider_order_id", orderId)
+      .eq("auth_user_id", user.id)
+      .maybeSingle();
+
     if (!transaction) return NextResponse.json({ error: "Payment transaction was not found." }, { status: 404 });
     if (transaction.status === "verified") return NextResponse.json({ success: true, membershipActive: true, alreadyVerified: true });
 
