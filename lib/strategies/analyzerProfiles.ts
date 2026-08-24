@@ -50,18 +50,17 @@ export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
     name: "Institutional",
     category: "MY CUSTOM STRATEGIES",
     sourceIds: ["institutional"],
-    defaultIndicators: ["VWAP", "EMA", "ATR"],
-    focus: ["market structure", "BOS/CHoCH", "liquidity", "order block", "FVG", "displacement", "session confluence", "risk validation"],
+    defaultIndicators: ["EMA", "ATR", "RVOL"],
+    focus: ["MMA EMA context", "session ranges", "institutional volume control", "liquidity sweeps", "session/swing liquidity targets", "bounce/rejection zones", "4H target context", "signal lifecycle"],
     rules: [
-      "Use the authoritative Institutional source contract as the primary decision engine.",
-      "Score BOS, CHoCH, Order Block, FVG, Liquidity Sweep and Displacement from visible evidence on a 1-10 scale.",
-      "Require at least two SMC components scoring 7/10 or higher for a new directional trade.",
-      "Evaluate market structure first, then SMC confluence, then session/context, then entry/invalidation/targets.",
-      "Apply the source session rules: London/New York overlap is preferred; Asian setups require exceptional confluence under the source rules.",
-      "Validate entry proximity, SL/TP geometry and R:R mathematically before returning a new trade.",
-      "Confidence must reflect confluence completeness and evidence quality, not the model's optimism or probability of profit.",
-      "A completed prior setup, an active setup, and a new setup are separate lifecycle states and must never be collapsed into one verdict.",
-      "AI may explain the institutional evidence but may not invent BOS, CHoCH, OB, FVG, sweep or displacement when they are not visible."
+      "Use the supplied Pine-derived Institutional source as the primary decision engine; do not replace it with a generic SMC template.",
+      "Interpret MMA EMAs, session ranges, institutional volume/direction, liquidity sweeps, liquidity targets and bounce/rejection zones as source-native evidence.",
+      "Preserve BUY NOW, SELL NOW, BUY SETUP, SELL SETUP, BUY BOUNCE, SELL BOUNCE and rejection states when visible.",
+      "A liquidity level, EMA or volume reading alone is not a trade; the source combined-signal logic must qualify the state.",
+      "Read historical chart evidence to reconstruct prior source footprints before declaring that no setup is traceable.",
+      "When a current trade is visible, report its lifecycle rather than treating the absence of a new signal as an empty result.",
+      "Projected entry, SL and TP values must be derived from visible source levels and universal Analyzer risk validation; never manufacture them.",
+      "The source is Pine-derived and therefore its source-native logic takes precedence over generic AI indicator heuristics."
     ]
   },
   {
