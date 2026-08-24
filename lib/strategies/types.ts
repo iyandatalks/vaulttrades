@@ -8,7 +8,8 @@ export type StrategyId =
   | "714Observing"
   | "sweepEngulfing"
   | "swingDeveloping"
-  | "autoFibRetrace";
+  | "autoFibRetrace"
+  | "institutional";
 
 export type StrategySignal = "BUY" | "SELL" | "NONE";
 export type StrategyState = "WAITING" | "DEVELOPING" | "ENTRY_READY" | "BUY" | "SELL" | "NO_TRADE";
