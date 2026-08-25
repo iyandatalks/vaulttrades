@@ -31,7 +31,7 @@ export default function SubscriptionPage() {
             $73.99 <span style={{ color: "#aeb5c6", fontSize: 14, fontWeight: 500 }}>/ month</span>
           </div>
           <div style={{ marginTop: 10, color: "#7f8799", fontSize: 12 }}>
-            Production membership price: $73.99/month. In PayPal Sandbox, the VaultTrades admin test checkout uses the configured $1.00 test amount; production pricing is not changed.
+            Production membership price: $73.99/month. Secure payment is processed through PayPal and membership is activated only after server-side payment verification.
           </div>
         </div>
         <button onClick={() => void startPayPal()} disabled={loading} style={{ width: "100%", border: 0, cursor: loading ? "wait" : "pointer", marginTop: 24, padding: "15px 18px", borderRadius: 9, background: "#d4a637", color: "#050812", fontWeight: 800 }}>{loading ? "Opening PayPal..." : "Continue with PayPal"}</button>
