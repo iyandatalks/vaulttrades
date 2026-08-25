@@ -41,9 +41,6 @@ function priceMap(result: PipelineResult): Stage[] {
   const resistance = s?.resistance ?? null;
   const hasDistinctLevels = support != null && resistance != null && resistance > support;
   const range = hasDistinctLevels ? resistance - support : null;
-
-  // Zones are deliberately derived from structural boundaries, not from the
-  // latest candle high/low. If a strategy supplied a projection, it wins.
   const projectedLow = result.projection?.zoneLow ?? null;
   const projectedHigh = result.projection?.zoneHigh ?? null;
   const currentZone = projectedLow != null && projectedHigh != null && projectedHigh > projectedLow
@@ -51,7 +48,6 @@ function priceMap(result: PipelineResult): Stage[] {
     : hasDistinctLevels
       ? `${fmt(support)} – ${fmt(resistance)}`
       : "No strategy-specific setup zone confirmed yet.";
-
   const upperLow = resistance;
   const upperHigh = resistance != null && range != null ? resistance + Math.max(range * 0.5, atr ?? 0) : null;
   const lowerHigh = support;
@@ -72,7 +68,6 @@ function buildStages(result: PipelineResult): Stage[] {
   const zone = result.projection?.zoneLow != null && result.projection?.zoneHigh != null ? `${fmt(result.projection.zoneLow)} – ${fmt(result.projection.zoneHigh)}` : "No reliable setup zone identified";
   const bias = text(result.market?.directionalBias, "Neutral / unclear");
   const map = priceMap(result);
-
   const base: Stage[] = [];
   if (id === "institutional") base.push(
     { label: "Session structure", value: `${text(result.market?.session, "Session not visible")} · ${text(result.market?.timeframe, "timeframe unavailable")}` },
@@ -130,7 +125,6 @@ function buildStages(result: PipelineResult): Stage[] {
     { label: "Confirmation", value: text(a?.indicatorConfirmation) },
     { label: "Execution bias", value: text(result.nextAction || result.decisionReason, "Wait for the strategy's qualifying execution event.") },
   );
-
   return [...base, { label: "Price map", value: map.map(x => `${x.label}: ${x.value}`).join(" · ") }];
 }
 
@@ -138,7 +132,28 @@ export function StrategyPipeline({ result }: { result: PipelineResult }) {
   const stages = buildStages(result);
   const map = priceMap(result);
   return <>
-    <style>{`section.execution-card + section.card { display:none !important; } section.card:first-of-type > .condition-box { display:none !important; }`}</style>
+    <style>{`section.execution-card + section.card { display:none !important; } section.card:first-of-type > .condition-box { display:none !important; }
+      .execution-card > div:nth-child(4) { display:grid !important; grid-template-columns:repeat(5,minmax(0,1fr)) !important; gap:9px !important; align-items:start !important; }
+      .execution-card > div:nth-child(4) > div { position:relative !important; min-width:0 !important; padding:0 !important; border:0 !important; background:transparent !important; border-radius:0 !important; }
+      .execution-card > div:nth-child(4) > div > span { display:block !important; margin:0 0 6px !important; padding:0 2px !important; color:#a7b0bd !important; font-size:0 !important; font-weight:800 !important; letter-spacing:.08em !important; line-height:1.2 !important; }
+      .execution-card > div:nth-child(4) > div:nth-child(1) > span:after { content:"ENTRY"; }
+      .execution-card > div:nth-child(4) > div:nth-child(2) > span:after { content:"STOP LOSS"; }
+      .execution-card > div:nth-child(4) > div:nth-child(3) > span:after { content:"TP1"; }
+      .execution-card > div:nth-child(4) > div:nth-child(4) > span:after { content:"TP2"; }
+      .execution-card > div:nth-child(4) > div:nth-child(5) > span:after { content:"FINAL TP"; }
+      .execution-card > div:nth-child(4) > div:nth-child(6) > span:after { content:"CONFIRMATION"; }
+      .execution-card > div:nth-child(4) > div:nth-child(7) > span:after { content:"REVERSAL"; }
+      .execution-card > div:nth-child(4) > div > span:after { font-size:10px !important; }
+      .execution-card > div:nth-child(4) > div > strong { display:flex !important; align-items:center !important; justify-content:center !important; min-height:50px !important; margin:0 !important; padding:10px 8px !important; border-radius:10px !important; font-size:17px !important; font-weight:900 !important; line-height:1.1 !important; color:#f8fafc !important; border:1px solid rgba(148,163,184,.22) !important; background:rgba(148,163,184,.08) !important; white-space:nowrap !important; }
+      .execution-card > div:nth-child(4) > div:nth-child(1) > strong { color:#dbeafe !important; border-color:rgba(45,125,255,.65) !important; background:rgba(45,125,255,.14) !important; }
+      .execution-card > div:nth-child(4) > div:nth-child(2) > strong { color:#fee2e2 !important; border-color:rgba(255,70,70,.65) !important; background:rgba(255,70,70,.14) !important; }
+      .execution-card > div:nth-child(4) > div:nth-child(3) > strong,.execution-card > div:nth-child(4) > div:nth-child(4) > strong,.execution-card > div:nth-child(4) > div:nth-child(5) > strong { color:#dcfce7 !important; border-color:rgba(40,200,110,.65) !important; background:rgba(40,200,110,.14) !important; }
+      .execution-card > div:nth-child(4) > div:nth-child(6) { grid-column:1 !important; }
+      .execution-card > div:nth-child(4) > div:nth-child(7) { grid-column:2 !important; }
+      .execution-card > div:nth-child(4) > div:nth-child(6) > strong,.execution-card > div:nth-child(4) > div:nth-child(7) > strong { color:#ffedd5 !important; border-color:rgba(255,165,45,.65) !important; background:rgba(255,165,45,.14) !important; }
+      @media(max-width:800px){.execution-card > div:nth-child(4){grid-template-columns:repeat(3,minmax(0,1fr)) !important}.execution-card > div:nth-child(4) > div:nth-child(6),.execution-card > div:nth-child(4) > div:nth-child(7){grid-column:auto !important}}
+      @media(max-width:560px){.execution-card > div:nth-child(4){grid-template-columns:repeat(2,minmax(0,1fr)) !important}}
+    `}</style>
     <section className="condition-box" style={{ marginTop: 16 }}>
       <div style={{ marginBottom: 12 }}><div className="section-label" style={{ marginBottom: 4 }}>PIPELINE</div><strong>{result.strategy?.name || "Strategy"} · {result.currentState || "WAITING"}</strong></div>
       <div style={{ display: "grid", gap: 8 }}>
