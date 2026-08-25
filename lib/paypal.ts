@@ -1,13 +1,12 @@
-const isSandbox = () => (process.env.PAYPAL_ENV || "sandbox").toLowerCase() !== "live";
-const baseUrl = () => isSandbox() ? "https://api-m.sandbox.paypal.com" : "https://api-m.paypal.com";
+const baseUrl = () => "https://api-m.paypal.com";
 
-export const paypalIsSandbox = isSandbox;
+export const paypalIsSandbox = () => false;
 export const paypalBaseUrl = baseUrl;
 
 export async function paypalAccessToken() {
   const clientId = process.env.PAYPAL_CLIENT_ID;
   const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
-  if (!clientId || !clientSecret) throw new Error("PayPal credentials are not configured.");
+  if (!clientId || !clientSecret) throw new Error("PayPal production credentials are not configured.");
   const basic = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
   const response = await fetch(`${baseUrl()}/v1/oauth2/token`, {
     method: "POST",
