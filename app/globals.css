@@ -99,12 +99,83 @@ button { -webkit-tap-highlight-color: transparent; }
 .shell > section.card:first-of-type > .condition-box { display: none; }
 .shell .execution-card + section.card { display: none; }
 
+/* AI Scanner projected-level presentation: labels sit above the shaded price boxes. */
+.execution-card div[style*="minmax(160px,1fr)"] {
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  align-items: start;
+}
+
+.execution-card div[style*="minmax(160px,1fr)"] > div {
+  position: relative;
+  min-width: 0;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+}
+
+.execution-card div[style*="minmax(160px,1fr)"] > div > span {
+  display: block !important;
+  margin: 0 0 6px;
+  padding: 0 2px;
+  color: #a7b0bd;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  line-height: 1.2;
+}
+
+.execution-card div[style*="minmax(160px,1fr)"] > div > strong {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  min-height: 50px;
+  margin: 0 !important;
+  padding: 10px 8px;
+  border-radius: 10px;
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 1.1;
+  color: #f8fafc !important;
+  border: 1px solid rgba(148,163,184,.22);
+  background: rgba(148,163,184,.08);
+  white-space: nowrap;
+}
+
+.execution-card div[style*="minmax(160px,1fr)"] > div:nth-child(1) > strong {
+  color: #dbeafe !important;
+  border-color: rgba(45,125,255,.65);
+  background: rgba(45,125,255,.14);
+}
+
+.execution-card div[style*="minmax(160px,1fr)"] > div:nth-child(2) > strong {
+  color: #fee2e2 !important;
+  border-color: rgba(255,70,70,.65);
+  background: rgba(255,70,70,.14);
+}
+
+.execution-card div[style*="minmax(160px,1fr)"] > div:nth-child(3) > strong,
+.execution-card div[style*="minmax(160px,1fr)"] > div:nth-child(4) > strong,
+.execution-card div[style*="minmax(160px,1fr)"] > div:nth-child(5) > strong {
+  color: #dcfce7 !important;
+  border-color: rgba(40,200,110,.65);
+  background: rgba(40,200,110,.14);
+}
+
+.execution-card div[style*="minmax(160px,1fr)"] > div:nth-child(6) > strong,
+.execution-card div[style*="minmax(160px,1fr)"] > div:nth-child(7) > strong {
+  color: #ffedd5 !important;
+  border-color: rgba(255,165,45,.65);
+  background: rgba(255,165,45,.14);
+}
+
 @media (max-width: 800px) {
   .grid { grid-template-columns: 1fr; }
   .header { align-items: flex-start; flex-direction: column; }
   .logo { max-width: 180px; height: 46px; }
   .badge { align-self: flex-start; }
   .execution-grid { grid-template-columns: repeat(2, 1fr); }
+  .execution-card div[style*="minmax(160px,1fr)"] { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
 }
 
 @media (max-width: 560px) {
@@ -113,6 +184,7 @@ button { -webkit-tap-highlight-color: transparent; }
   .execution-header { align-items: flex-start; flex-direction: column; }
   .confidence-box { text-align: left; }
   .coach-question { flex-direction: column; }
+  .execution-card div[style*="minmax(160px,1fr)"] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
 }
 
 @media (max-width: 480px) {
