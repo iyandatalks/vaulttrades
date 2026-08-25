@@ -13,10 +13,8 @@ export async function POST() {
     const { data: profile, error: profileError } = await admin.from("users").select("id,email,role").eq("auth_user_id", user.id).maybeSingle();
     if (profileError || !profile) return NextResponse.json({ error: "VaultTrades profile was not found." }, { status: 400 });
 
-    if (paypalIsSandbox() && profile.role !== "admin") {
-      return NextResponse.json({ error: "The $1 PayPal sandbox test is restricted to the VaultTrades admin account." }, { status: 403 });
-    }
-
+    // PayPal Sandbox checkout is available to any authenticated VaultTrades user.
+    // The sandbox amount is controlled by PAYPAL_TEST_AMOUNT and does not affect production pricing.
     const amount = paypalIsSandbox() ? Number(process.env.PAYPAL_TEST_AMOUNT || "1.00") : 73.99;
     const currency = "USD";
     if (!Number.isFinite(amount) || amount <= 0) return NextResponse.json({ error: "Invalid PayPal test amount configuration." }, { status: 500 });
