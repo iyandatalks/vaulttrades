@@ -3,6 +3,8 @@ import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
 import { paypalRequest } from "../../../../lib/paypal";
 
+const PAYPAL_RETURN_BASE_URL = "https://vaulttrades.vercel.app";
+
 export async function POST() {
   try {
     const supabase = await createClient();
@@ -25,8 +27,8 @@ export async function POST() {
         application_context: {
           brand_name: "VaultTrades",
           user_action: "PAY_NOW",
-          return_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/subscription/paypal/success`,
-          cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/subscription?paypal=cancelled`
+          return_url: `${PAYPAL_RETURN_BASE_URL}/subscription/paypal/success`,
+          cancel_url: `${PAYPAL_RETURN_BASE_URL}/subscription?paypal=cancelled`
         }
       })
     });
