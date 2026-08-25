@@ -77,7 +77,26 @@ const DEFAULT_SYMBOLS: Record<MarketType, string[]> = {
   SYNTHETIC: ["V75", "V100", "Boom 1000", "Crash 1000"],
 };
 const fmt = (v: number | null | undefined) => v == null || !Number.isFinite(v) ? "—" : v.toLocaleString(undefined, { maximumFractionDigits: 5 });
-const levelStyle = (kind: "entry" | "sl" | "tp" | "orange") => ({ borderRadius: 10, padding: "13px 14px", border: `1px solid ${kind === "entry" ? "rgba(45,125,255,.65)" : kind === "sl" ? "rgba(255,70,70,.65)" : kind === "tp" ? "rgba(40,200,110,.65)" : "rgba(255,165,45,.65)"}`, background: kind === "entry" ? "rgba(45,125,255,.12)" : kind === "sl" ? "rgba(255,70,70,.12)" : kind === "tp" ? "rgba(40,200,110,.12)" : "rgba(255,165,45,.12)" });
+
+type LevelKind = "entry" | "sl" | "tp" | "orange";
+const levelColors: Record<LevelKind, { border: string; background: string; text: string }> = {
+  entry: { border: "rgba(45,125,255,.65)", background: "rgba(45,125,255,.14)", text: "#dbeafe" },
+  sl: { border: "rgba(255,70,70,.65)", background: "rgba(255,70,70,.14)", text: "#fee2e2" },
+  tp: { border: "rgba(40,200,110,.65)", background: "rgba(40,200,110,.14)", text: "#dcfce7" },
+  orange: { border: "rgba(255,165,45,.65)", background: "rgba(255,165,45,.14)", text: "#ffedd5" },
+};
+
+function PriceLevel({ label, value, kind }: { label: string; value: number | null | undefined; kind: LevelKind }) {
+  const colors = levelColors[kind];
+  return (
+    <div style={{ minWidth: 0 }}>
+      <div style={{ height: 18, marginBottom: 5, padding: "0 2px", color: "#a7b0bd", fontSize: 10, lineHeight: "18px", fontWeight: 800, letterSpacing: ".08em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</div>
+      <div style={{ minHeight: 52, display: "flex", alignItems: "center", justifyContent: "center", padding: "10px 8px", borderRadius: 10, border: `1px solid ${colors.border}`, background: colors.background, color: colors.text, fontSize: 17, lineHeight: 1.1, fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        {fmt(value)}
+      </div>
+    </div>
+  );
+}
 
 export default function AnalyzerPage() {
   const [marketType, setMarketType] = useState<MarketType>("FOREX");
@@ -120,7 +139,11 @@ export default function AnalyzerPage() {
   const projectedTp1 = s?.tp1 ?? result?.tp1;
   const projectedTp2 = s?.tp2 ?? result?.tp2;
   const projectedFinalTp = s?.finalTp ?? result?.finalTp;
+  const projectedTp3 = projectedTp2 != null && projectedFinalTp != null ? projectedTp2 + (projectedFinalTp - projectedTp2) / 2 : projectedFinalTp;
+  const projectedTp4 = projectedFinalTp;
   const projectedRR = s?.rr ?? result?.rr;
+  const liquidityLabel = displayDirection === "SELL" ? "LIQ SELL" : "LIQ BUY";
+  const liquidityTarget = s?.opposingLiquidityTarget ?? projectedFinalTp;
 
   return <main className="shell">
     <header className="header"><div className="brand-block"><img src="/vaulttrades-logo.png" alt="VaultTrades" className="logo"/><div className="tagline">Built by Traders.</div><div className="slogan">Focus, discipline, consistency.</div></div><div className="badge">AI SCANNER</div></header>
@@ -152,22 +175,31 @@ export default function AnalyzerPage() {
         <div className="section-label">AI SCANNER</div>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", alignItems: "center" }}><div><h2 className="title" style={{ marginBottom: 4 }}>{s?.analysisState?.replaceAll("_", " ") || (displayDirection === "BUY" ? "BUY" : displayDirection === "SELL" ? "SELL" : "WATCH")}</h2><div className="muted">{s?.trend || result.marketCondition || "Market state"} · {s?.institutionalActivity ? `Institutional activity: ${s.institutionalActivity}` : result.market?.directionalBias}</div></div><div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}><div style={{ minWidth: 135, textAlign: "center", padding: 12, borderRadius: 12, background: "rgba(212,166,55,.10)", border: "1px solid rgba(212,166,55,.35)" }}><span className="muted">QUALITY</span><div style={{ fontSize: 28, fontWeight: 900 }}>{Math.round(result.confidence ?? 0)}<span style={{ fontSize: 15 }}>/100</span></div></div><div style={{ minWidth: 135, textAlign: "center", padding: 12, borderRadius: 12, background: "rgba(45,125,255,.10)", border: "1px solid rgba(45,125,255,.35)" }}><span className="muted">PROJECTED PROBABILITY</span><div style={{ fontSize: 28, fontWeight: 900 }}>{s?.projectedProbability ?? "—"}<span style={{ fontSize: 15 }}>{s?.projectedProbability != null ? "%" : ""}</span></div></div></div></div>
         <div style={{ marginTop: 15 }}><strong>Trend</strong><p>{s?.trendReason || result.marketStructure}</p><strong>Why we are waiting</strong><p>{s?.waitReason || result.nextAction}</p></div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 9, marginTop: 14 }}>
-          <div style={levelStyle("entry")}><span>🔵 ENTRY</span><strong>{fmt(projectedEntry)}</strong></div>
-          <div style={levelStyle("sl")}><span>🔴 STOP LOSS</span><strong>{fmt(projectedSL)}</strong></div>
-          <div style={levelStyle("tp")}><span>🟢 TP1</span><strong>{fmt(projectedTp1)}</strong></div>
-          <div style={levelStyle("tp")}><span>🟢 TP2</span><strong>{fmt(projectedTp2)}</strong></div>
-          <div style={levelStyle("tp")}><span>🟢 FINAL TP</span><strong>{fmt(projectedFinalTp)}</strong></div>
-          <div style={levelStyle("orange")}><span>🟠 CONFIRMATION</span><strong>{fmt(s?.confirmationPrice)}</strong></div>
-          <div style={levelStyle("orange")}><span>🟠 REVERSAL</span><strong>{fmt(s?.reversalPrice)}</strong></div>
-          <div className="execution-item"><span>R:R TO LIQUIDITY</span><strong>{projectedRR == null ? "—" : `1:${projectedRR.toFixed(2)}`}</strong></div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(6,minmax(0,1fr))", gap: 10, marginTop: 16, alignItems: "start" }}>
+          <PriceLevel label="ENTRY" value={projectedEntry} kind="entry" />
+          <PriceLevel label="S LOSS" value={projectedSL} kind="sl" />
+          <PriceLevel label="TP1" value={projectedTp1} kind="tp" />
+          <PriceLevel label="TP2" value={projectedTp2} kind="tp" />
+          <PriceLevel label="TP3" value={projectedTp3} kind="tp" />
+          <PriceLevel label="TP4" value={projectedTp4} kind="tp" />
         </div>
-        <p className="muted" style={{ marginTop: 10 }}>Confirmation activates the projected setup. After confirmation, a hit of the projected stop loss invalidates that setup. Reversal is a deeper structural change, not the same as the stop.</p>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 10, marginTop: 12, alignItems: "start", maxWidth: "calc(50% - 5px)" }}>
+          <PriceLevel label="CONFIRM" value={s?.confirmationPrice} kind="orange" />
+          <PriceLevel label="REVERSE" value={s?.reversalPrice} kind="orange" />
+          <PriceLevel label={liquidityLabel} value={liquidityTarget} kind="orange" />
+        </div>
+
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginTop: 12 }}>
+          <div className="execution-item" style={{ minWidth: 180 }}><span>R:R TO LIQUIDITY</span><strong>{projectedRR == null ? "—" : `1:${projectedRR.toFixed(2)}`}</strong></div>
+          <p className="muted" style={{ margin: 0, flex: 1, minWidth: 280 }}>Confirmation activates the projected setup. After confirmation, a hit of the projected stop loss invalidates that setup. Reversal is a deeper structural change, not the same as the stop.</p>
+        </div>
       </section>
 
       <section className="card"><div className="section-label">INSTITUTIONAL PROFILE</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 9 }}><div className="condition-box"><strong>Activity</strong><p>{s?.institutionalActivity || "—"}</p></div><div className="condition-box"><strong>Volume ratio</strong><p>{s?.volumeProfile?.ratio == null ? "—" : `${s.volumeProfile.ratio.toFixed(2)}× average`}</p></div><div className="condition-box"><strong>Volume expansion</strong><p>{s?.volumeProfile?.expansion ? "CONFIRMED" : "Not confirmed"}</p></div><div className="condition-box"><strong>Displacement</strong><p>{s?.volumeProfile?.displacementATR == null ? "—" : `${s.volumeProfile.displacementATR.toFixed(2)} ATR`}</p></div></div><ul>{(s?.institutionalEvidence || []).map((x, i) => <li key={i}>{x}</li>)}</ul></section>
 
-      <section className="card"><div className="section-label">CONFIRMATIONS</div><div style={{ display: "grid", gap: 8 }}>{(s?.confirmations || result.confirmedConditions || []).map((x, i) => <div key={i} style={levelStyle("orange")}><strong>🟠 {i + 1}. </strong>{x}</div>)}</div><div className="condition-box" style={{ marginTop: 10 }}><strong>Why trade?</strong><p>{s?.tradeReason || result.setup}</p></div></section>
+      <section className="card"><div className="section-label">CONFIRMATIONS</div><div style={{ display: "grid", gap: 8 }}>{(s?.confirmations || result.confirmedConditions || []).map((x, i) => <div key={i} style={{ ...levelColors.orange, borderRadius: 10, padding: "13px 14px", border: `1px solid ${levelColors.orange.border}`, background: levelColors.orange.background }}><strong>{i + 1}. </strong>{x}</div>)}</div><div className="condition-box" style={{ marginTop: 10 }}><strong>Why trade?</strong><p>{s?.tradeReason || result.setup}</p></div></section>
 
       <section className="card"><div className="section-label">PIPELINE</div><h2 className="title">{result.strategy?.name} — current state</h2><div style={{ display: "grid", gap: 9, marginTop: 14 }}>{(s?.pipeline || result.pipeline || []).map((line, i) => <div key={i} className="condition-box" style={{ margin: 0 }}><strong>{line}</strong></div>)}</div><div className="condition-box" style={{ marginTop: 12 }}><strong>What happens next</strong><p>{s?.nextZone || result.nextAction}</p></div></section>
 
