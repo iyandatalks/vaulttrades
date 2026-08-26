@@ -2,10 +2,23 @@ import { ANALYZER_STRATEGY_MAP } from "../../../lib/strategies/analyzerProfiles"
 import { getStrategyRules, type StrategyId } from "../../../lib/strategies";
 import { analyzeAutoFibRetrace } from "../../../lib/strategies/autoFibRetrace";
 import { evaluateTradeLifecycle, selectAllowedAbFibLevel } from "../../../lib/strategies/tradeLifecycle";
+import { getTwelveDataTimeSeries } from "../../../lib/market-data/twelvedata";
 
 export const runtime = "nodejs";
 
 type Direction = "BUY" | "SELL" | "NO TRADE";
+type EvidenceDirection = "BUY" | "SELL" | "NEUTRAL";
+
+type MtfSnapshot = {
+  timeframe: "M15" | "M5";
+  currentPrice: number | null;
+  direction: EvidenceDirection;
+  state: "CONFIRMATION" | "EXECUTION" | "NEUTRAL";
+  cycle: "BULLISH" | "BEARISH" | "NEUTRAL";
+  support: number | null;
+  resistance: number | null;
+  structureReason: string;
+};
 
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 const clean = (v: unknown) => typeof v === "string" ? v.trim() : "";
@@ -44,6 +57,31 @@ function volumeProfile(candles: Array<{ open: number; high: number; low: number;
   };
 }
 
+function inferMtfSnapshot(timeframe: "M15" | "M5", candles: Array<{ open: number; high: number; low: number; close: number }>): MtfSnapshot {
+  const recent = candles.slice(-20);
+  const currentPrice = recent.at(-1)?.close ?? null;
+  if (!currentPrice || recent.length < 5) return { timeframe, currentPrice, direction: "NEUTRAL", state: timeframe === "M15" ? "CONFIRMATION" : "EXECUTION", cycle: "NEUTRAL", support: null, resistance: null, structureReason: "Insufficient independent timeframe evidence." };
+  const highs = recent.slice(0, -1).map(c => c.high);
+  const lows = recent.slice(0, -1).map(c => c.low);
+  const support = lows.filter(v => v < currentPrice).sort((a, b) => b - a)[0] ?? null;
+  const resistance = highs.filter(v => v > currentPrice).sort((a, b) => a - b)[0] ?? null;
+  const firstClose = recent[0].close;
+  const lastClose = recent.at(-1)!.close;
+  const last = recent.at(-1)!;
+  const range = Math.max(...recent.map(c => c.high)) - Math.min(...recent.map(c => c.low));
+  const directionalMove = range > 0 ? (lastClose - firstClose) / range : 0;
+  const bullish = lastClose > firstClose && last.close >= last.open;
+  const bearish = lastClose < firstClose && last.close <= last.open;
+  const direction: EvidenceDirection = bullish ? "BUY" : bearish ? "SELL" : "NEUTRAL";
+  const cycle = direction === "BUY" ? "BULLISH" : direction === "SELL" ? "BEARISH" : "NEUTRAL";
+  const reason = direction === "BUY"
+    ? `Independent ${timeframe} bullish structure: closes are advancing and the latest candle is bullish.`
+    : direction === "SELL"
+      ? `Independent ${timeframe} bearish structure: closes are declining and the latest candle is bearish.`
+      : `Independent ${timeframe} structure is mixed/neutral; no clean directional confirmation.`;
+  return { timeframe, currentPrice, direction, state: timeframe === "M15" ? "CONFIRMATION" : "EXECUTION", cycle, support, resistance, structureReason: `${reason} Directional move ${(directionalMove * 100).toFixed(1)}% of recent range.` };
+}
+
 function math(direction: Direction, entry: number | null, stop: number | null, target: number | null, current: number | null, enforceEntryProximity = false) {
   if (direction === "NO TRADE" || !finite(entry) || !finite(stop) || !finite(target)) return { rr: null, valid: false, risk: null, reward: null, entryDistancePct: null, slDistancePct: null };
   const risk = direction === "BUY" ? entry - stop : stop - entry;
@@ -75,19 +113,34 @@ export async function POST(request: Request) {
     const prior = body.analysis ?? {};
     const lifecycleInput = body.lifecycle ?? {};
 
-    // The Auto Fib source is an indicator and therefore must be queried directly.
-    // Its Fibonacci ladder is authoritative for AB/FIB projected entry locations.
+    const selectedTimeframe = clean(prior?.market?.timeframe).toUpperCase();
+    const mtfEnabled = ["30M", "1H", "4H", "1D", "1W", "1M"].includes(selectedTimeframe);
+    let mtfEvidence: { enabled: boolean; htfTimeframe: string; m15: MtfSnapshot | null; m5: MtfSnapshot | null; relationship: string } = { enabled: false, htfTimeframe: selectedTimeframe || "UNKNOWN", m15: null, m5: null, relationship: "MTF hierarchy is inactive below M30." };
+
+    if (mtfEnabled) {
+      const symbol = clean(prior?.market?.asset);
+      if (symbol) {
+        const [m15Market, m5Market] = await Promise.all([
+          getTwelveDataTimeSeries({ symbol, timeframe: "15m", outputsize: 80 }),
+          getTwelveDataTimeSeries({ symbol, timeframe: "5m", outputsize: 80 }),
+        ]);
+        const m15 = inferMtfSnapshot("M15", m15Market.candles);
+        const m5 = inferMtfSnapshot("M5", m5Market.candles);
+        const htfDirection = prior?.direction === "BUY" ? "BUY" : prior?.direction === "SELL" ? "SELL" : null;
+        const aligned = htfDirection && m15.direction === htfDirection && m5.direction === htfDirection;
+        const partial = htfDirection && (m15.direction === htfDirection || m5.direction === htfDirection);
+        mtfEvidence = {
+          enabled: true,
+          htfTimeframe: selectedTimeframe,
+          m15,
+          m5,
+          relationship: aligned ? "M15 confirmation and M5 execution evidence align with the HTF direction." : partial ? "One lower timeframe aligns with the HTF direction; the other is not fully aligned." : "Lower timeframe evidence does not currently align with the HTF direction.",
+        };
+      }
+    }
+
     const sourceFib = strategyId === "fibRetracement"
-      ? analyzeAutoFibRetrace({
-          candles: candles.map((c: any, index: number) => ({
-            time: typeof c.time === "number" ? c.time : Date.parse(c.datetime ?? "") || index,
-            open: c.open,
-            high: c.high,
-            low: c.low,
-            close: c.close,
-            volume: finite(c.volume) ? c.volume : undefined,
-          })),
-        })
+      ? analyzeAutoFibRetrace({ candles: candles.map((c: any, index: number) => ({ time: typeof c.time === "number" ? c.time : Date.parse(c.datetime ?? "") || index, open: c.open, high: c.high, low: c.low, close: c.close, volume: finite(c.volume) ? c.volume : undefined })) })
       : null;
 
     const fibBuyLevel = sourceFib ? selectAllowedAbFibLevel(sourceFib.buy.fibLevels, "BUY", currentPrice) : null;
@@ -106,6 +159,17 @@ export async function POST(request: Request) {
 
 IMPORTANT: DO NOT CHANGE THE SELECTED STRATEGY OR UNIVERSAL ANALYZER RULES 1-6. Do not invent a new strategy. The selected strategy/indicator output is the source of truth.
 
+MTF HIERARCHY — MANDATORY
+For M30 and higher HTF strategy analysis, the selected HTF strategy remains the source of truth for setup, projected entry, projected SL and projected TP.
+- HTF setup may be DEVELOPING before full HTF confirmation.
+- M15 is stronger-timeframe confirmation evidence.
+- M5 is execution confirmation evidence.
+- M15/M5 evidence supports probability only; it NEVER rewrites the HTF strategy entry, SL or TP.
+- Projected Entry is the strategy-defined HTF price, never current price and never the M5 price.
+- Actual Entry exists only after HTF confirmation and is fixed thereafter.
+- M15 and M5 have independent evidence/cycle states. A completed M5 cycle cannot invalidate an active HTF cycle; a new HTF confirmation cannot rewrite a completed lower-timeframe cycle.
+- If M15/M5 conflict with the HTF strategy, report the conflict as evidence; do not alter the HTF source levels.
+
 SELECTED STRATEGY
 ${JSON.stringify({ id: strategyId, name: profile.name, focus: profile.focus, rules: profile.rules, indicatorSpecs: profile.indicatorSpecs, sourceRules })}
 
@@ -114,6 +178,9 @@ ${JSON.stringify(prior)}
 
 EXISTING TRADE LIFECYCLE INPUT
 ${JSON.stringify(lifecycleInput)}
+
+MTF EVIDENCE
+${JSON.stringify(mtfEvidence)}
 
 LIVE CANDLE EVIDENCE
 Current price: ${currentPrice}
@@ -129,17 +196,18 @@ AI SCANNER REQUIREMENTS
 1. State the clear directional trend: UPTREND, DOWNTREND, RANGE, CHOPPY or TRANSITION. Explain why and warn against trading against a clear trend.
 2. Profile institutional activity from measurable evidence only. Treat this as institutional-order evidence, not a claim of seeing actual bank orders.
 3. Identify the strongest confirmations currently present. Probability is a graded evidence score, not a guarantee.
-4. Project the likely direction and probability as an educational model estimate based on current evidence.
-5. Project ENTRY, STRUCTURAL STOP LOSS, TP1, TP2 and FINAL TP when a coherent directional setup can be inferred. These are projected levels, not authorization to enter.
-6. NEVER use current price as the projected entry merely because current price is available. Projected entry must come from the selected strategy's valid price structure.
-7. Confirmation is a price/event that activates the setup. Actual entry is recorded only after the existing analyzer has confirmed the trade.
+4. Project the likely direction and probability as an educational model estimate based on current evidence, explicitly incorporating M15/M5 evidence when MTF is enabled.
+5. Project ENTRY, STRUCTURAL STOP LOSS, TP1, TP2 and FINAL TP only from the selected strategy's valid HTF price structure. These are projected levels, not authorization to enter.
+6. NEVER use current price as the projected entry merely because current price is available. Never use M5 current price as the HTF projected entry.
+7. Confirmation is a price/event that activates the HTF setup. Actual entry is recorded only after the existing HTF analyzer has confirmed the trade.
 8. Once an actual entry exists, do not output WAIT. The status must describe the active trade. If projected TP1 is already hit, explicitly state TP1 HIT and do not present the trade as waiting for entry.
-9. Preserve projected SL/TP levels. Do not move them with current price.
-10. Keep the strategy's own pipeline and lifecycle. Do not complete a cycle because of a pullback, retest, lengthening or lower-timeframe counter-cycle.
+9. Preserve projected SL/TP levels. Do not move them with current price or lower-timeframe movement.
+10. Keep the strategy's own pipeline and lifecycle. Do not complete an HTF cycle because of a pullback, retest, lengthening or lower-timeframe counter-cycle.
 11. For FIB Retracement / AB strategy, projected entry may ONLY be one of 82.0%, 78.6%, 68.1% or 61.8%. 61.8% is the FINAL permitted entry level. Never create a fifth Fibonacci entry level and never replace a FIB entry with current price.
 12. For FIB Retracement, the supplied SOURCE FIB OUTPUT is authoritative. Choose from its permitted levels only. If the strategy does not provide a valid permitted level, return null rather than inventing an entry.
-13. The last/live cycle's actual entry must remain the confirmed entry price. Do not rewrite it when price moves.
+13. The last/live HTF cycle's actual entry must remain the confirmed entry price. Do not rewrite it when price moves.
 14. The primary target is opposing liquidity where the strategy supports it. Validate R:R mathematically without changing source-defined levels.
+15. When MTF is enabled, report M15 and M5 as evidence, not as replacement strategies. M15 = stronger confirmation; M5 = execution confirmation.
 
 Return JSON only.`;
 
@@ -184,12 +252,12 @@ Return JSON only.`;
 
     const aiDirection: Direction = ai.projectedDirection as Direction;
     const direction: Direction = strategyId === "fibRetracement"
-      ? (aiDirection === "BUY" || aiDirection === "SELL" ? aiDirection : (finite(prior.direction) ? prior.direction : sourceFib?.buyConfluence !== undefined && sourceFib.buyConfluence >= sourceFib.sellConfluence ? "BUY" : "SELL"))
+      ? (aiDirection === "BUY" || aiDirection === "SELL" ? aiDirection : (prior.direction === "BUY" || prior.direction === "SELL" ? prior.direction : sourceFib?.buyConfluence !== undefined && sourceFib.buyConfluence >= sourceFib.sellConfluence ? "BUY" : "SELL"))
       : aiDirection;
 
     const projectedEntry = strategyId === "fibRetracement"
       ? direction === "BUY" ? fibBuyLevel?.price ?? null : direction === "SELL" ? fibSellLevel?.price ?? null : null
-      : finite(ai.entry) ? ai.entry : null;
+      : finite(prior.entry) ? prior.entry : (finite(ai.entry) ? ai.entry : null);
 
     const priorDirection = prior?.direction === "BUY" || prior?.direction === "SELL" ? prior.direction : null;
     const priorConfirmed = prior?.decision === "TRADE" && priorDirection === direction && finite(prior.entry);
@@ -197,11 +265,11 @@ Return JSON only.`;
       ? lifecycleInput.actualEntry
       : priorConfirmed ? prior.entry : null;
 
-    const projectedStopLoss = finite(ai.stopLoss) ? ai.stopLoss : finite(prior.stopLoss) ? prior.stopLoss : null;
-    const projectedTp1 = finite(ai.tp1) ? ai.tp1 : finite(prior.tp1) ? prior.tp1 : null;
-    const projectedTp2 = finite(ai.tp2) ? ai.tp2 : finite(prior.tp2) ? prior.tp2 : null;
-    const projectedFinalTp = finite(ai.finalTp) ? ai.finalTp : finite(prior.finalTp) ? prior.finalTp : null;
-    const target = finite(ai.opposingLiquidityTarget) ? ai.opposingLiquidityTarget : projectedFinalTp;
+    const projectedStopLoss = finite(prior.stopLoss) ? prior.stopLoss : finite(ai.stopLoss) ? ai.stopLoss : null;
+    const projectedTp1 = finite(prior.tp1) ? prior.tp1 : finite(ai.tp1) ? ai.tp1 : null;
+    const projectedTp2 = finite(prior.tp2) ? prior.tp2 : finite(ai.tp2) ? ai.tp2 : null;
+    const projectedFinalTp = finite(prior.finalTp) ? prior.finalTp : finite(ai.finalTp) ? ai.finalTp : null;
+    const target = finite(prior.finalTp) ? prior.finalTp : (finite(ai.opposingLiquidityTarget) ? ai.opposingLiquidityTarget : projectedFinalTp);
 
     const lifecycle = evaluateTradeLifecycle({
       direction: direction === "BUY" || direction === "SELL" ? direction : "NONE",
@@ -221,8 +289,12 @@ Return JSON only.`;
     const isFib = strategyId === "fibRetracement";
     const projectionMath = math(direction, actualEntry ?? projectedEntry, projectedStopLoss, target, currentPrice, false);
     const state = lifecycle.status === "ACTIVE" ? "ACTIVE" : lifecycle.status === "TP1_HIT" ? "TP1_HIT" : lifecycle.status === "SL_HIT" || lifecycle.status === "CYCLE_COMPLETE" ? "CYCLE_COMPLETE" : ai.analysisState;
-    const statusMessage = lifecycle.message;
-    const finalProjectedEntry = isFib && projectedEntry !== null ? projectedEntry : (finite(ai.entry) ? ai.entry : projectedEntry);
+    const baseStatusMessage = lifecycle.message;
+    const mtfStatus = mtfEvidence.enabled && mtfEvidence.m15 && mtfEvidence.m5
+      ? ` MTF Evidence — M15: ${mtfEvidence.m15.direction} confirmation; M5: ${mtfEvidence.m5.direction} execution; ${mtfEvidence.relationship}`
+      : "";
+    const statusMessage = `${baseStatusMessage}${mtfStatus}`;
+    const finalProjectedEntry = isFib && projectedEntry !== null ? projectedEntry : projectedEntry;
 
     return Response.json({
       ...ai,
@@ -252,6 +324,18 @@ Return JSON only.`;
       isExecutable: lifecycle.status === "ACTIVE" && projectionMath.valid,
       waitReason: lifecycle.status === "ACTIVE" || lifecycle.status === "TP1_HIT" ? statusMessage : ai.waitReason,
       tradeReason: lifecycle.status === "ACTIVE" || lifecycle.status === "TP1_HIT" ? statusMessage : ai.tradeReason,
+      mtf: mtfEvidence,
+      mtfHierarchy: {
+        enabled: mtfEvidence.enabled,
+        htfTimeframe: mtfEvidence.htfTimeframe,
+        htfSourceOfTruth: true,
+        m15Role: "STRONGER_CONFIRMATION",
+        m5Role: "EXECUTION_CONFIRMATION",
+        lowerTimeframesRewriteHtfLevels: false,
+        projectedEntrySource: "HTF_STRATEGY",
+        actualEntryRule: "HTF_CONFIRMED_ONLY",
+        independentLowerTimeframeCycles: true,
+      },
     });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "AI Scanner failed." }, { status: 500 });
