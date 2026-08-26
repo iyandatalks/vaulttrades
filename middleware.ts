@@ -25,6 +25,15 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
   const pathname = request.nextUrl.pathname;
+
+  // Keep the public AI Scanner endpoint URL unchanged while routing its
+  // request through the persistent active-entry handoff layer.
+  if (pathname === "/api/ai-scanner") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/api/ai-scanner-state";
+    return NextResponse.rewrite(url);
+  }
+
   const isPaidProtected = paidProtectedPaths.some(path => pathname === path || pathname.startsWith(`${path}/`));
   const isAuthenticatedOnly = authenticatedPaths.some(path => pathname === path || pathname.startsWith(`${path}/`));
   if (!isPaidProtected && !isAuthenticatedOnly) return response;
@@ -56,5 +65,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/analyzer/:path*", "/ai-coach/:path*", "/journal/:path*", "/strategies/:path*", "/subscription/:path*", "/profile/:path*"],
+  matcher: ["/api/ai-scanner", "/analyzer/:path*", "/ai-coach/:path*", "/journal/:path*", "/strategies/:path*", "/subscription/:path*", "/profile/:path*"],
 };
