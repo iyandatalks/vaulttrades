@@ -10,6 +10,8 @@ type Candle = { datetime: string; open: number; high: number; low: number; close
 type Scanner = {
   projectedDirection?: "BUY" | "SELL" | "NO TRADE";
   analysisState?: string;
+  statusMessage?: string;
+  cycleStatus?: string;
   trend?: string;
   trendReason?: string;
   institutionalActivity?: string;
@@ -17,10 +19,18 @@ type Scanner = {
   confirmations?: string[];
   projectedProbability?: number;
   entry?: number | null;
+  projectedEntry?: number | null;
+  actualEntry?: number | null;
   stopLoss?: number | null;
+  projectedStopLoss?: number | null;
   tp1?: number | null;
+  projectedTp1?: number | null;
   tp2?: number | null;
+  projectedTp2?: number | null;
   finalTp?: number | null;
+  projectedFinalTp?: number | null;
+  tp1Hit?: boolean;
+  stopHit?: boolean;
   confirmationPrice?: number | null;
   reversalPrice?: number | null;
   opposingLiquidityTarget?: number | null;
@@ -134,16 +144,18 @@ export default function AnalyzerPage() {
   const changeMarket = (value: MarketType) => { setMarketType(value); setSymbol(DEFAULT_SYMBOLS[value][0]); setResult(null); setError(""); };
   const s = result?.scanner;
   const displayDirection = s?.projectedDirection && s.projectedDirection !== "NO TRADE" ? s.projectedDirection : result?.direction;
-  const projectedEntry = s?.entry ?? result?.entry;
-  const projectedSL = s?.stopLoss ?? result?.stopLoss;
-  const projectedTp1 = s?.tp1 ?? result?.tp1;
-  const projectedTp2 = s?.tp2 ?? result?.tp2;
-  const projectedFinalTp = s?.finalTp ?? result?.finalTp;
+  const projectedEntry = s?.projectedEntry ?? s?.entry ?? result?.entry;
+  const actualEntry = s?.actualEntry ?? null;
+  const projectedSL = s?.projectedStopLoss ?? s?.stopLoss ?? result?.stopLoss;
+  const projectedTp1 = s?.projectedTp1 ?? s?.tp1 ?? result?.tp1;
+  const projectedTp2 = s?.projectedTp2 ?? s?.tp2 ?? result?.tp2;
+  const projectedFinalTp = s?.projectedFinalTp ?? s?.finalTp ?? result?.finalTp;
   const projectedTp3 = projectedTp2 != null && projectedFinalTp != null ? projectedTp2 + (projectedFinalTp - projectedTp2) / 2 : projectedFinalTp;
   const projectedTp4 = projectedFinalTp;
   const projectedRR = s?.rr ?? result?.rr;
   const liquidityLabel = displayDirection === "SELL" ? "LIQ SELL" : "LIQ BUY";
   const liquidityTarget = s?.opposingLiquidityTarget ?? projectedFinalTp;
+  const scannerStatus = s?.statusMessage || s?.analysisState?.replaceAll("_", " ") || (displayDirection === "BUY" ? "WATCH — BUY" : displayDirection === "SELL" ? "WATCH — SELL" : "WATCH");
 
   return <main className="shell">
     <header className="header"><div className="brand-block"><img src="/vaulttrades-logo.png" alt="VaultTrades" className="logo"/><div className="tagline">Built by Traders.</div><div className="slogan">Focus, discipline, consistency.</div></div><div className="badge">AI SCANNER</div></header>
@@ -173,16 +185,17 @@ export default function AnalyzerPage() {
 
       <section className="card execution-card" style={{ border: "1px solid rgba(212,166,55,.28)", background: "linear-gradient(145deg, rgba(10,16,30,.98), rgba(5,8,18,.98))" }}>
         <div className="section-label">AI SCANNER</div>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", alignItems: "center" }}><div><h2 className="title" style={{ marginBottom: 4 }}>{s?.analysisState?.replaceAll("_", " ") || (displayDirection === "BUY" ? "BUY" : displayDirection === "SELL" ? "SELL" : "WATCH")}</h2><div className="muted">{s?.trend || result.marketCondition || "Market state"} · {s?.institutionalActivity ? `Institutional activity: ${s.institutionalActivity}` : result.market?.directionalBias}</div></div><div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}><div style={{ minWidth: 135, textAlign: "center", padding: 12, borderRadius: 12, background: "rgba(212,166,55,.10)", border: "1px solid rgba(212,166,55,.35)" }}><span className="muted">QUALITY</span><div style={{ fontSize: 28, fontWeight: 900 }}>{Math.round(result.confidence ?? 0)}<span style={{ fontSize: 15 }}>/100</span></div></div><div style={{ minWidth: 135, textAlign: "center", padding: 12, borderRadius: 12, background: "rgba(45,125,255,.10)", border: "1px solid rgba(45,125,255,.35)" }}><span className="muted">PROJECTED PROBABILITY</span><div style={{ fontSize: 28, fontWeight: 900 }}>{s?.projectedProbability ?? "—"}<span style={{ fontSize: 15 }}>{s?.projectedProbability != null ? "%" : ""}</span></div></div></div></div>
-        <div style={{ marginTop: 15 }}><strong>Trend</strong><p>{s?.trendReason || result.marketStructure}</p><strong>Why we are waiting</strong><p>{s?.waitReason || result.nextAction}</p></div>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", alignItems: "center" }}><div><h2 className="title" style={{ marginBottom: 4 }}>{scannerStatus}</h2><div className="muted">{s?.trend || result.marketCondition || "Market state"} · {s?.institutionalActivity ? `Institutional activity: ${s.institutionalActivity}` : result.market?.directionalBias}</div></div><div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}><div style={{ minWidth: 135, textAlign: "center", padding: 12, borderRadius: 12, background: "rgba(212,166,55,.10)", border: "1px solid rgba(212,166,55,.35)" }}><span className="muted">QUALITY</span><div style={{ fontSize: 28, fontWeight: 900 }}>{Math.round(result.confidence ?? 0)}<span style={{ fontSize: 15 }}>/100</span></div></div><div style={{ minWidth: 135, textAlign: "center", padding: 12, borderRadius: 12, background: "rgba(45,125,255,.10)", border: "1px solid rgba(45,125,255,.35)" }}><span className="muted">PROJECTED PROBABILITY</span><div style={{ fontSize: 28, fontWeight: 900 }}>{s?.projectedProbability ?? "—"}<span style={{ fontSize: 15 }}>{s?.projectedProbability != null ? "%" : ""}</span></div></div></div></div>
+        <div style={{ marginTop: 15 }}><strong>Trend</strong><p>{s?.trendReason || result.marketStructure}</p><strong>{s?.cycleStatus === "ACTIVE" ? "Trade status" : s?.cycleStatus === "TP1_HIT" ? "Trade status" : "Why we are waiting"}</strong><p>{s?.statusMessage || s?.waitReason || result.nextAction}</p></div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(6,minmax(0,1fr))", gap: 10, marginTop: 16, alignItems: "start" }}>
-          <PriceLevel label="ENTRY" value={projectedEntry} kind="entry" />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7,minmax(0,1fr))", gap: 10, marginTop: 16, alignItems: "start" }}>
+          <PriceLevel label="PROJECTED ENTRY" value={projectedEntry} kind="entry" />
+          <PriceLevel label="ACTUAL ENTRY" value={actualEntry} kind="orange" />
           <PriceLevel label="S LOSS" value={projectedSL} kind="sl" />
           <PriceLevel label="TP1" value={projectedTp1} kind="tp" />
           <PriceLevel label="TP2" value={projectedTp2} kind="tp" />
           <PriceLevel label="TP3" value={projectedTp3} kind="tp" />
-          <PriceLevel label="TP4" value={projectedTp4} kind="tp" />
+          <PriceLevel label="FINAL TP" value={projectedTp4} kind="tp" />
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 10, marginTop: 12, alignItems: "start", maxWidth: "calc(50% - 5px)" }}>
@@ -193,8 +206,10 @@ export default function AnalyzerPage() {
 
         <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginTop: 12 }}>
           <div className="execution-item" style={{ minWidth: 180 }}><span>R:R TO LIQUIDITY</span><strong>{projectedRR == null ? "—" : `1:${projectedRR.toFixed(2)}`}</strong></div>
-          <p className="muted" style={{ margin: 0, flex: 1, minWidth: 280 }}>Confirmation activates the projected setup. After confirmation, a hit of the projected stop loss invalidates that setup. Reversal is a deeper structural change, not the same as the stop.</p>
+          <div className="execution-item" style={{ minWidth: 180 }}><span>CYCLE</span><strong>{s?.cycleStatus || "WATCH"}</strong></div>
+          <p className="muted" style={{ margin: 0, flex: 1, minWidth: 280 }}>Projected Entry, Stop Loss and TP levels are fixed strategy projections. Actual Entry is recorded only after confirmation and is not moved with current price.</p>
         </div>
+        {s?.tp1Hit && <div className="condition-box" style={{ marginTop: 12 }}><strong>TP1 HIT</strong><p>The projected TP1 has already been reached. The scanner will not continue presenting this trade as a waiting-for-entry setup.</p></div>}
       </section>
 
       <section className="card"><div className="section-label">INSTITUTIONAL PROFILE</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 9 }}><div className="condition-box"><strong>Activity</strong><p>{s?.institutionalActivity || "—"}</p></div><div className="condition-box"><strong>Volume ratio</strong><p>{s?.volumeProfile?.ratio == null ? "—" : `${s.volumeProfile.ratio.toFixed(2)}× average`}</p></div><div className="condition-box"><strong>Volume expansion</strong><p>{s?.volumeProfile?.expansion ? "CONFIRMED" : "Not confirmed"}</p></div><div className="condition-box"><strong>Displacement</strong><p>{s?.volumeProfile?.displacementATR == null ? "—" : `${s.volumeProfile.displacementATR.toFixed(2)} ATR`}</p></div></div><ul>{(s?.institutionalEvidence || []).map((x, i) => <li key={i}>{x}</li>)}</ul></section>
