@@ -3,6 +3,7 @@ import { getStrategyRules, type StrategyId } from "../../../lib/strategies";
 import { buildAnalyzerMarketContext } from "../../../lib/market-data/indicators";
 import { getTwelveDataTimeSeries } from "../../../lib/market-data/twelvedata";
 import { getMarketProviderRoute, type MarketType } from "../../../lib/market-data/provider";
+import { evaluateEma20 } from "../../../lib/strategies/ema20Engine";
 
 export const runtime = "nodejs";
 
@@ -56,14 +57,14 @@ function derivePriceLevels(candles: Array<{ high: number; low: number; close: nu
   return { support, resistance };
 }
 
-function tradeMath(direction: Direction, entry: number | null, stop: number | null, tp: number | null, current: number | null) {
+function tradeMath(direction: Direction, entry: number | null, stop: number | null, tp: number | null, current: number | null, minimumRR = 2) {
   if (direction === "NO TRADE" || entry === null || stop === null || tp === null) return { valid: false, rr: null, risk: null, reward: null, slPct: null, entryDistancePct: null };
   const risk = direction === "BUY" ? entry - stop : stop - entry;
   const reward = direction === "BUY" ? tp - entry : entry - tp;
   const rr = risk > 0 ? reward / risk : null;
   const slPct = entry !== 0 ? Math.abs(entry - stop) / Math.abs(entry) * 100 : null;
   const entryDistancePct = current !== null && current !== 0 ? Math.abs(entry - current) / Math.abs(current) * 100 : null;
-  return { valid: risk > 0 && reward > 0 && rr !== null && rr >= 2 && (slPct === null || slPct >= 0.1) && (entryDistancePct === null || entryDistancePct <= 0.5), rr, risk, reward, slPct, entryDistancePct };
+  return { valid: risk > 0 && reward > 0 && rr !== null && rr >= minimumRR && (slPct === null || slPct >= 0.1) && (entryDistancePct === null || entryDistancePct <= 0.5), rr, risk, reward, slPct, entryDistancePct };
 }
 
 function jsonText(raw: any): string {
@@ -88,6 +89,7 @@ export async function POST(request: Request) {
 
     const market = await getTwelveDataTimeSeries({ symbol, timeframe, outputsize: 250 });
     if (market.candles.length < 40) return Response.json({ error: "Not enough live market history was returned for this symbol/timeframe." }, { status: 422 });
+
     const selectedIndicators = profile.defaultIndicators;
     const context = buildAnalyzerMarketContext(market.candles, market.symbol, timeframe, selectedIndicators);
     const liveCurrentPrice = market.currentPrice ?? market.candles.at(-1)?.close ?? null;
@@ -99,7 +101,46 @@ export async function POST(request: Request) {
     const sourceRules = profile.sourceIds.map((id: StrategyId) => getStrategyRules(id));
     const indicatorEvidence = context.selectedIndicators.map(i => ({ name: i.name, value: i.value, signal: i.signal, parameters: profile.indicatorSpecs.find(s => s.name === i.name)?.parameters ?? "source-defined" }));
 
-    const prompt = `You are the VaultTrades educational market analyzer. Analyze REAL OHLCV data, not a screenshot and not invented prices.
+    // EMA20 is the first live strategy wired to a deterministic Pine-equivalent engine.
+    // The engine is authoritative for strategy state and native Entry/SL/TP. The Analyzer is downstream.
+    const ema20Engine = strategyId === "ema20" ? evaluateEma20(market.candles) : null;
+    const ema20EngineEvidence = ema20Engine ? {
+      source: "PINE_SCRIPT",
+      state: ema20Engine.newLong ? "NEW_LONG" : ema20Engine.newShort ? "NEW_SHORT" : ema20Engine.longSignal ? "LONG_ACTIVE" : ema20Engine.shortSignal ? "SHORT_ACTIVE" : ema20Engine.bullActive ? "BULL_REJECTION_ACTIVE" : ema20Engine.bearActive ? "BEAR_REJECTION_ACTIVE" : "WAITING",
+      bullStructure: ema20Engine.bullStructure,
+      bearStructure: ema20Engine.bearStructure,
+      bullTouch: ema20Engine.bullTouch,
+      bearTouch: ema20Engine.bearTouch,
+      bullReject: ema20Engine.bullReject,
+      bearReject: ema20Engine.bearReject,
+      bullActive: ema20Engine.bullActive,
+      bearActive: ema20Engine.bearActive,
+      bullMABreak: ema20Engine.bullMABreak,
+      bearMABreak: ema20Engine.bearMABreak,
+      utBull: ema20Engine.utBull,
+      utBear: ema20Engine.utBear,
+      smiBull: ema20Engine.smiBull,
+      smiBear: ema20Engine.smiBear,
+      longConfirmationScore: ema20Engine.longConfirmationScore,
+      shortConfirmationScore: ema20Engine.shortConfirmationScore,
+      longSignal: ema20Engine.longSignal,
+      shortSignal: ema20Engine.shortSignal,
+      newLong: ema20Engine.newLong,
+      newShort: ema20Engine.newShort,
+      longEntry: ema20Engine.longEntry,
+      longSL: ema20Engine.longSL,
+      longTP: ema20Engine.longTP,
+      shortEntry: ema20Engine.shortEntry,
+      shortSL: ema20Engine.shortSL,
+      shortTP: ema20Engine.shortTP,
+      atr: ema20Engine.atr,
+      atrSLMultiplier: 2.23,
+      riskReward: 1.81,
+      bias0600: ema20Engine.bias0600,
+      latestCandle: ema20Engine.datetime,
+    } : null;
+
+    const prompt = `You are the VaultTrades educational market analyzer. Analyze REAL LIVE OHLCV data, not a screenshot and not invented prices.
 
 USER SELECTION
 Market: ${marketType}
@@ -116,25 +157,31 @@ ${JSON.stringify({ focus: profile.focus, rules: profile.rules, indicatorSpecs: p
 LIVE CALCULATED MARKET CONTEXT
 ${JSON.stringify({ currentPrice: liveCurrentPrice, structure: lockedStructure, volatility: context.volatility, selectedIndicators: indicatorEvidence, channel20High: channel.upper, channel20Low: channel.lower, latestCandle: latest, previousCandle: previous, recentCandles: market.candles.slice(-60) })}
 
+DETERMINISTIC STRATEGY ENGINE STATE
+${JSON.stringify(ema20EngineEvidence)}
+
+IMPORTANT ENGINE AUTHORITY
+If the selected strategy is EMA20, the deterministic Pine-equivalent EMA20 engine above is authoritative for EMA20 lifecycle state, signal transition, entry, stop loss and target. Do not invent, move, replace or recalculate those values. In particular, EMA20 uses ATR(14) x 2.23 for native SL and exactly 1:1.81 RR. A NEW_LONG/NEW_SHORT is the source strategy trigger. If the engine has no new signal, do not manufacture a BUY or SELL from generic indicators.
+
 PRICE LEVEL INTEGRITY — MANDATORY
 The current price above is authoritative. Support must be below current price. Resistance must be above current price. Never make support equal resistance. If a structural level is unavailable, return null rather than inventing one.
 
-UNIVERSAL ANALYZER RULES 1-6 — MANDATORY FOR EVERY STRATEGY
-1. Visual analysis: classify Uptrend, Downtrend, Ranging or Choppy; identify concrete support/resistance and recent price action. More than 5 consecutive inside bars OR material conflict across 3+ selected/derived timeframes = NO TRADE.
-2. SMC: score BOS, CHoCH, Order Block, FVG, Liquidity Sweep and Displacement 1-10 only from evidence. A NEW BUY/SELL requires at least TWO scores >=7.
-3. Session/confluence: identify London, New York or Asian from candle timestamps; do not invent news. Asian requires >=9/10 AND a major news event. London/NY overlap is preferred.
-4. Price validation: entry <=0.5% from current price; SL >=0.1% from entry; TP >=2x SL distance; R:R >=1:2; max account risk 1.5%.
-5. Confidence: 90-100 exceptional, 80-89 strong, 70-79 decent, 60-69 marginal, 50-59 weak, 30-49 poor, 10-29 very poor. Confidence must match evidence.
-6. Quality check: re-check R:R, SL/TP geometry, entry proximity, risk, SMC gate and lifecycle state. Communicate useful next zones/levels.
+UNIVERSAL ANALYZER RULES 1-6 — VALIDATION/COMMUNICATION LAYER
+1. Visual analysis: classify Uptrend, Downtrend, Ranging or Choppy from live evidence. More than 5 consecutive inside bars OR material conflict across 3+ selected/derived timeframes = NO TRADE.
+2. SMC: score BOS, CHoCH, Order Block, FVG, Liquidity Sweep and Displacement 1-10 only from evidence. A NEW BUY/SELL requires at least TWO scores >=7 where the selected strategy's analyzer profile requires this gate.
+3. Session/confluence: identify London, New York or Asian from candle timestamps; do not invent news.
+4. Price validation: validate entry proximity, SL geometry, TP geometry and risk according to the selected strategy's own execution/risk rules. Do not replace strategy-native mathematics with a generic formula.
+5. Confidence: confidence must match evidence.
+6. Quality check: re-check strategy lifecycle, signal transition, entry, SL/TP geometry, confluence and invalidation.
 
 CRITICAL STRATEGY RULE
-The selected strategy is primary. Auto indicators MUST be the source indicators in the selected strategy profile with their source parameters. Never add generic EMA/ATR/ADX/RVOL/VWAP merely because they are common indicators.
+The selected strategy is primary. Its source-defined rules govern the strategy state. Universal Analyzer rules validate/explain that state; they must not rewrite the strategy's source mathematics.
 
 CRITICAL LIFECYCLE RULE
-DEVELOPING, READY, WATCHING and ACTIVE are not the same as a NEW BUY/SELL. Only return BUY/SELL when the source strategy state and Rules 1-6 pass. Otherwise return NO TRADE and explain what is missing.
+DEVELOPING, READY, WATCHING and ACTIVE are not the same as a NEW BUY/SELL. Only return BUY/SELL when the source strategy state supports it. Otherwise return NO TRADE and explain what is missing.
 
 EDUCATIONAL COMMUNICATION
-Include concrete support/resistance and the next meaningful zone if price breaks and CLOSES beyond the relevant level. Explain what confirmation would change the state. Avoid generic filler and do not reveal the data provider.
+Include concrete support/resistance and the next meaningful zone if price breaks and CLOSES beyond the relevant level. Explain what confirmation would change the state. Do not reveal the data provider.
 
 Return JSON only.`;
 
@@ -168,14 +215,30 @@ Return JSON only.`;
     const text = jsonText(raw);
     if (!text) return Response.json({ error: "The analyzer returned no structured result." }, { status: 502 });
     const ai = JSON.parse(text);
-    const direction = ai.direction as Direction;
-    const entry = typeof ai.entry === "number" ? ai.entry : null;
-    const stopLoss = typeof ai.stopLoss === "number" ? ai.stopLoss : null;
-    const finalTp = typeof ai.finalTp === "number" ? ai.finalTp : typeof ai.tp2 === "number" ? ai.tp2 : null;
-    const math = tradeMath(direction, entry, stopLoss, finalTp, liveCurrentPrice);
+
+    const engineDirection: Direction = ema20Engine?.newLong ? "BUY" : ema20Engine?.newShort ? "SELL" : "NO TRADE";
+    const direction = strategyId === "ema20" ? engineDirection : ai.direction as Direction;
+    const entry = strategyId === "ema20" ? (ema20Engine?.newLong ? ema20Engine.longEntry : ema20Engine?.newShort ? ema20Engine.shortEntry : null) : (typeof ai.entry === "number" ? ai.entry : null);
+    const stopLoss = strategyId === "ema20" ? (ema20Engine?.newLong ? ema20Engine.longSL : ema20Engine?.newShort ? ema20Engine.shortSL : null) : (typeof ai.stopLoss === "number" ? ai.stopLoss : null);
+    const finalTp = strategyId === "ema20" ? (ema20Engine?.newLong ? ema20Engine.longTP : ema20Engine?.newShort ? ema20Engine.shortTP : null) : (typeof ai.finalTp === "number" ? ai.finalTp : typeof ai.tp2 === "number" ? ai.tp2 : null);
+    const minimumRR = strategyId === "ema20" ? 1.81 : 2;
+    const math = tradeMath(direction, entry, stopLoss, finalTp, liveCurrentPrice, minimumRR);
     const strongSmc = [ai.bos, ai.choch, ai.orderBlock, ai.fvg, ai.liquiditySweep, ai.displacement].filter((x: unknown) => typeof x === "number" && x >= 7).length;
-    const universalTradeGate = direction !== "NO TRADE" && strongSmc >= 2 && math.valid;
-    const finalDirection: Direction = universalTradeGate && ai.decision === "TRADE" ? direction : "NO TRADE";
+    const smcGate = strongSmc >= 2;
+    const analyzerTradeGate = direction !== "NO TRADE" && math.valid && (strategyId === "ema20" ? smcGate : smcGate);
+    const finalDirection: Direction = analyzerTradeGate && ai.decision === "TRADE" ? direction : "NO TRADE";
+
+    const nativeEngineOutput = strategyId === "ema20" ? {
+      state: ema20EngineEvidence?.state,
+      signal: engineDirection,
+      newLong: ema20Engine?.newLong ?? false,
+      newShort: ema20Engine?.newShort ?? false,
+      entry,
+      stopLoss,
+      finalTp,
+      riskReward: math.rr,
+      confirmation: { long: ema20Engine?.longConfirmationScore ?? 0, short: ema20Engine?.shortConfirmationScore ?? 0 },
+    } : null;
 
     return Response.json({
       market: { type: marketType, asset: market.symbol, timeframe, currentPrice: liveCurrentPrice, directionalBias: ai.directionalBias, session: ai.session },
@@ -184,18 +247,19 @@ Return JSON only.`;
       indicatorReadings: context.selectedIndicators,
       chart: { candles: market.candles, channel20: channel },
       structure: { ...lockedStructure }, volatility: context.volatility,
+      strategyEngine: nativeEngineOutput,
       decision: finalDirection === "NO TRADE" ? "NO TRADE" : "TRADE", direction: finalDirection,
       confidence: finalDirection === "NO TRADE" ? Math.min(Number(ai.confidence) || 0, 69) : Number(ai.confidence) || 0,
       setup: ai.setup, marketCondition: ai.marketCondition, marketStructure: ai.marketStructure, recentPriceAction: ai.recentPriceAction,
       confirmedConditions: ai.confirmedConditions,
-      missingConditions: [...ai.missingConditions, ...(strongSmc < 2 ? ["Universal SMC gate: fewer than two SMC signals scored 7 or higher."] : []), ...(!math.valid && direction !== "NO TRADE" ? [math.rr !== null && math.rr < 2 ? "Universal price validation: R:R is below 1:2." : "Universal price validation: entry/SL/TP geometry did not pass all gates."] : [])],
+      missingConditions: [...ai.missingConditions, ...(strategyId === "ema20" && !ema20Engine?.newLong && !ema20Engine?.newShort ? ["EMA20 Pine-equivalent engine: no newLong/newShort transition on the latest live candle."] : []), ...(strongSmc < 2 ? ["Analyzer SMC confluence gate: fewer than two SMC signals scored 7 or higher."] : []), ...(!math.valid && direction !== "NO TRADE" ? [math.rr !== null && math.rr < minimumRR ? `Strategy price validation: R:R is below the selected strategy minimum of 1:${minimumRR}.` : "Strategy price validation: entry/SL/TP geometry did not pass all applicable gates."] : [])],
       smcScores: { BOS: ai.bos, CHoCH: ai.choch, OrderBlock: ai.orderBlock, FVG: ai.fvg, LiquiditySweep: ai.liquiditySweep, Displacement: ai.displacement },
       pipeline: ai.pipeline, nextZone: ai.nextZone, invalidation: ai.invalidation,
       entry: finalDirection === "NO TRADE" ? null : entry, stopLoss: finalDirection === "NO TRADE" ? null : stopLoss,
-      tp1: finalDirection === "NO TRADE" ? null : ai.tp1, tp2: finalDirection === "NO TRADE" ? null : ai.tp2, finalTp: finalDirection === "NO TRADE" ? null : finalTp,
+      tp1: finalDirection === "NO TRADE" ? null : strategyId === "ema20" ? finalTp : ai.tp1, tp2: finalDirection === "NO TRADE" ? null : strategyId === "ema20" ? finalTp : ai.tp2, finalTp: finalDirection === "NO TRADE" ? null : finalTp,
       rr: finalDirection === "NO TRADE" ? null : math.rr, slDistancePct: finalDirection === "NO TRADE" ? null : math.slPct, entryDistancePct: finalDirection === "NO TRADE" ? null : math.entryDistancePct,
       nextAction: ai.nextAction, educationalNote: ai.educationalNote,
-      qualityChecks: { smcStrongCount: strongSmc, rrValid: math.rr !== null && math.rr >= 2, slDistanceValid: math.slPct === null || math.slPct >= 0.1, entryDistanceValid: math.entryDistancePct === null || math.entryDistancePct <= 0.5, universalTradeGate }
+      qualityChecks: { smcStrongCount: strongSmc, rrValid: math.rr !== null && math.rr >= minimumRR, slDistanceValid: math.slPct === null || math.slPct >= 0.1, entryDistanceValid: math.entryDistancePct === null || math.entryDistancePct <= 0.5, universalTradeGate: analyzerTradeGate },
     });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Live market analysis failed." }, { status: 500 });
