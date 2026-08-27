@@ -1,0 +1,2 @@
+Production baseline: c0ea437da1ac67325fd70a4d6e01a2d3a8e28d6b
+Requested changes: TP2 lifecycle, persistent seven-day journal with weekly summary, Referral Vault separation, Founders 30 Days Mentorship access and progress tracking. Strategy diagnosis is deferred.
