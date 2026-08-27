@@ -1,0 +1,1 @@
+TP2 lifecycle; journal 7-day persistence and weekly summary; Referral Vault separation; Founders Mentorship access and progress. Strategy review deferred.
