@@ -1,0 +1,1 @@
+Current production baseline for this change set is Vercel production deployment dpl_F6eyzaw1Y9dVUa4sYTmeauUoqd8R, commit c0ea437da1ac67325fd70a4d6e01a2d3a8e28d6b. Strategy investigation is intentionally on hold; this change set only updates the requested lifecycle/product features.
