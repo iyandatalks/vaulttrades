@@ -1,5 +1,7 @@
 export type LifecycleDirection = "BUY" | "SELL" | "NONE";
-export type LifecycleStatus = "WATCH" | "ENTRY_ZONE" | "ACTIVE" | "TP1_HIT" | "SL_HIT" | "CYCLE_COMPLETE";
+// TP2_HIT is retained as a legacy compatibility status for the existing AI Scanner route.
+// Adaptive Execution uses TP1_HIT as the actual lifecycle completion target.
+export type LifecycleStatus = "WATCH" | "ENTRY_ZONE" | "ACTIVE" | "TP1_HIT" | "TP2_HIT" | "SL_HIT" | "CYCLE_COMPLETE";
 export const AB_FIB_ENTRY_PCTS = [82.0, 78.6, 68.1, 61.8] as const;
 export interface LifecycleInput { direction: LifecycleDirection; currentPrice: number; projectedEntry: number | null; actualEntry: number | null; projectedStopLoss: number | null; projectedTp1: number | null; projectedTp2: number | null; projectedFinalTp: number | null; priorStatus?: LifecycleStatus | null; tp1AlreadyHit?: boolean; tp2AlreadyHit?: boolean; stopAlreadyHit?: boolean; cycleComplete?: boolean; }
 export interface LifecycleResult { status: LifecycleStatus; message: string; projectedEntry: number | null; actualEntry: number | null; projectedStopLoss: number | null; projectedTp1: number | null; projectedTp2: number | null; projectedFinalTp: number | null; tp1Hit: boolean; tp2Hit: boolean; stopHit: boolean; }
