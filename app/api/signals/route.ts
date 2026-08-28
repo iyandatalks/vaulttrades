@@ -11,6 +11,7 @@ const ALLOWED_MARKETS = new Set([
 
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 const clean = (value: unknown) => typeof value === "string" ? value.trim() : "";
+const TERMINAL = new Set(["TP1_HIT", "SL_HIT", "CYCLE_COMPLETE"]);
 
 function fingerprint(input: Record<string, unknown>) {
   return createHash("sha256").update(JSON.stringify(input)).digest("hex");
@@ -28,13 +29,28 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("scanner_signals")
-    .select("id,trade_id,market_category,canonical_symbol,direction,strategy_id,strategy_name,timeframe,entry,stop_loss,tp1,tp2,tp3,tp4,confidence,rr,status,confirmation_conditions,missing_conditions,execution_payload,fired_at,created_at,updated_at")
+    .select("id,trade_id,market_category,canonical_symbol,direction,strategy_id,strategy_name,timeframe,entry,stop_loss,tp1,tp2,tp3,tp4,confidence,rr,status,confirmation_conditions,missing_conditions,execution_payload,fired_at,created_at,updated_at,completed_at")
     .eq("auth_user_id", user.id)
     .order("fired_at", { ascending: false })
     .limit(100);
 
   if (error) return Response.json({ error: error.message }, { status: 500 });
-  return Response.json({ signals: data ?? [] });
+
+  // Completed signals are retained in the ledger. For older rows created before
+  // completed_at was persisted, recover the lifecycle timestamp from the saved
+  // lifecycle snapshot so the six-hour history remains traceable.
+  const signals = (data ?? []).map((signal) => {
+    const payload = signal.execution_payload as Record<string, unknown> | null;
+    const lifecycle = payload && typeof payload.lifecycle === "object" && payload.lifecycle !== null
+      ? payload.lifecycle as Record<string, unknown>
+      : null;
+    const recoveredCompletedAt = TERMINAL.has(signal.status)
+      ? signal.completed_at ?? (typeof lifecycle?.completed_at === "string" ? lifecycle.completed_at : null) ?? (typeof lifecycle?.checked_at === "string" ? lifecycle.checked_at : null) ?? signal.updated_at
+      : null;
+    return { ...signal, completed_at: recoveredCompletedAt };
+  });
+
+  return Response.json({ signals });
 }
 
 export async function POST(request: Request) {
@@ -54,11 +70,9 @@ export async function POST(request: Request) {
   if (direction !== "BUY" && direction !== "SELL") return Response.json({ error: "Only confirmed BUY or SELL signals can enter the signal ledger." }, { status: 400 });
   if (!timeframe || !strategyId) return Response.json({ error: "Strategy and timeframe are required." }, { status: 400 });
 
-  // The selected Analyzer strategy is the authoritative source of every signal.
   const selectedStrategy = ANALYZER_STRATEGY_MAP[strategyId];
   if (!selectedStrategy) return Response.json({ error: `Unknown strategy '${strategyId}'. Signal confirmation is rejected.` }, { status: 400 });
 
-  // Never allow a signal to be labelled as a different strategy than the one selected.
   if (suppliedStrategyName && suppliedStrategyName !== selectedStrategy.name) {
     return Response.json({
       error: "Strategy identity mismatch. The signal strategy must exactly match the selected Analyzer strategy.",
@@ -67,7 +81,6 @@ export async function POST(request: Request) {
     }, { status: 409 });
   }
 
-  // Adaptive Execution Engine is restricted to its preferred M5/M15 signal timeframes.
   if (strategyId === "adaptiveExecution" && !["5m", "15m", "M5", "M15"].includes(timeframe)) {
     return Response.json({ error: "Adaptive Execution Engine signals may only be confirmed on M5 or M15." }, { status: 400 });
   }
@@ -78,7 +91,6 @@ export async function POST(request: Request) {
   const sourceStrategyId = clean(sourceSnapshot?.strategy_id || sourceSnapshot?.strategyId);
   const sourceStrategyName = clean(sourceSnapshot?.strategy_name || sourceSnapshot?.strategyName);
 
-  // A source snapshot, when supplied, must point to the exact same strategy.
   if (sourceStrategyId && sourceStrategyId !== selectedStrategy.id) return Response.json({ error: "Source snapshot strategy does not match the selected Analyzer strategy." }, { status: 409 });
   if (sourceStrategyName && sourceStrategyName !== selectedStrategy.name) return Response.json({ error: "Source snapshot strategy name does not match the selected Analyzer strategy." }, { status: 409 });
 
