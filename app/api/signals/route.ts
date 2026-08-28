@@ -1,5 +1,6 @@
 import { createHash } from "crypto";
 import { createClient } from "../../../lib/supabase/server";
+import { ANALYZER_STRATEGY_MAP } from "../../../lib/strategies/analyzerProfiles";
 
 export const runtime = "nodejs";
 
@@ -46,20 +47,48 @@ export async function POST(request: Request) {
   const direction = clean(body?.direction).toUpperCase();
   const timeframe = clean(body?.timeframe);
   const strategyId = clean(body?.strategy_id || body?.strategy);
+  const suppliedStrategyName = clean(body?.strategy_name);
   const status = clean(body?.status || "CONFIRMED").toUpperCase();
 
   if (!ALLOWED_MARKETS.has(symbol)) return Response.json({ error: "Market is not in the Phase 1 VaultTrades signal universe." }, { status: 400 });
   if (direction !== "BUY" && direction !== "SELL") return Response.json({ error: "Only confirmed BUY or SELL signals can enter the signal ledger." }, { status: 400 });
   if (!timeframe || !strategyId) return Response.json({ error: "Strategy and timeframe are required." }, { status: 400 });
+
+  // The selected Analyzer strategy is the authoritative source of every signal.
+  const selectedStrategy = ANALYZER_STRATEGY_MAP[strategyId];
+  if (!selectedStrategy) return Response.json({ error: `Unknown strategy '${strategyId}'. Signal confirmation is rejected.` }, { status: 400 });
+
+  // Never allow a signal to be labelled as a different strategy than the one selected.
+  if (suppliedStrategyName && suppliedStrategyName !== selectedStrategy.name) {
+    return Response.json({
+      error: "Strategy identity mismatch. The signal strategy must exactly match the selected Analyzer strategy.",
+      expected: { strategy_id: selectedStrategy.id, strategy_name: selectedStrategy.name },
+      received: { strategy_id: strategyId, strategy_name: suppliedStrategyName },
+    }, { status: 409 });
+  }
+
+  // Adaptive Execution Engine is restricted to its preferred M5/M15 signal timeframes.
+  if (strategyId === "adaptiveExecution" && !["5m", "15m", "M5", "M15"].includes(timeframe)) {
+    return Response.json({ error: "Adaptive Execution Engine signals may only be confirmed on M5 or M15." }, { status: 400 });
+  }
+
   if (status !== "CONFIRMED") return Response.json({ error: "Phase 1 only publishes CONFIRMED signals. Projections and developing states stay in the Scanner." }, { status: 400 });
+
+  const sourceSnapshot = body?.source_snapshot && typeof body.source_snapshot === "object" ? body.source_snapshot : {};
+  const sourceStrategyId = clean(sourceSnapshot?.strategy_id || sourceSnapshot?.strategyId);
+  const sourceStrategyName = clean(sourceSnapshot?.strategy_name || sourceSnapshot?.strategyName);
+
+  // A source snapshot, when supplied, must point to the exact same strategy.
+  if (sourceStrategyId && sourceStrategyId !== selectedStrategy.id) return Response.json({ error: "Source snapshot strategy does not match the selected Analyzer strategy." }, { status: 409 });
+  if (sourceStrategyName && sourceStrategyName !== selectedStrategy.name) return Response.json({ error: "Source snapshot strategy name does not match the selected Analyzer strategy." }, { status: 409 });
 
   const payload = {
     trade_id: clean(body?.trade_id) || null,
     market_category: clean(body?.market_category || body?.marketType || "FOREX").toUpperCase(),
     canonical_symbol: symbol,
     direction,
-    strategy_id: strategyId,
-    strategy_name: clean(body?.strategy_name),
+    strategy_id: selectedStrategy.id,
+    strategy_name: selectedStrategy.name,
     timeframe,
     entry: finite(body?.entry) ? body.entry : null,
     stop_loss: finite(body?.stop_loss) ? body.stop_loss : null,
@@ -89,11 +118,19 @@ export async function POST(request: Request) {
     entry: payload.entry,
     stop_loss: payload.stop_loss,
     take_profit: payload.tp1,
-    strategy: strategyId,
+    strategy: selectedStrategy.id,
+    strategy_id: selectedStrategy.id,
+    strategy_name: selectedStrategy.name,
     timeframe,
     status: "CONFIRMED",
     execution_enabled: false,
     execution_provider: "MetaKit",
+  };
+
+  const normalizedSourceSnapshot = {
+    ...(sourceSnapshot as Record<string, unknown>),
+    strategy_id: selectedStrategy.id,
+    strategy_name: selectedStrategy.name,
   };
 
   const row = {
@@ -103,8 +140,8 @@ export async function POST(request: Request) {
     market_category: payload.market_category,
     canonical_symbol: symbol,
     direction,
-    strategy_id: strategyId,
-    strategy_name: payload.strategy_name || null,
+    strategy_id: selectedStrategy.id,
+    strategy_name: selectedStrategy.name,
     timeframe,
     entry: payload.entry,
     stop_loss: payload.stop_loss,
@@ -118,7 +155,7 @@ export async function POST(request: Request) {
     confirmation_conditions: Array.isArray(body?.confirmation_conditions) ? body.confirmation_conditions : [],
     missing_conditions: Array.isArray(body?.missing_conditions) ? body.missing_conditions : [],
     execution_payload: executionPayload,
-    source_snapshot: body?.source_snapshot && typeof body.source_snapshot === "object" ? body.source_snapshot : {},
+    source_snapshot: normalizedSourceSnapshot,
   };
 
   const { data, error } = await supabase.from("scanner_signals").insert(row).select("*").single();
