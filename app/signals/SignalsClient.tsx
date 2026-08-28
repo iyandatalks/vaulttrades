@@ -1,146 +1,42 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { MARKET_OPTIONS, Market, symbolsForMarket } from "../../lib/markets";
 
 type Signal = {
-  id: string;
-  trade_id: string;
-  market_category: string;
-  canonical_symbol: string;
-  direction: "BUY" | "SELL";
-  strategy_id: string;
-  strategy_name: string | null;
-  timeframe: string;
-  entry: number | null;
-  stop_loss: number | null;
-  tp1: number | null;
-  tp2: number | null;
-  tp3: number | null;
-  tp4: number | null;
-  confidence: number | null;
-  rr: number | null;
-  status: string;
-  confirmation_conditions: string[];
-  execution_payload: Record<string, unknown>;
-  fired_at: string;
+  id: string; trade_id: string; market_category: string; canonical_symbol: string; direction: "BUY" | "SELL";
+  strategy_id: string; strategy_name: string | null; timeframe: string; entry: number | null; stop_loss: number | null;
+  tp1: number | null; tp2: number | null; tp3: number | null; tp4: number | null; confidence: number | null; rr: number | null;
+  status: string; confirmation_conditions: string[]; execution_payload: Record<string, unknown>; fired_at: string;
 };
 
-const FOREX = ["XAU/USD", "EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD"];
-const CRYPTO = ["BTC/USD", "ETH/USD", "SOL/USD"];
 const fmt = (value: number | null) => value == null || !Number.isFinite(value) ? "—" : value.toLocaleString(undefined, { maximumFractionDigits: 5 });
 
 export default function SignalsClient() {
-  const [signals, setSignals] = useState<Signal[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [filter, setFilter] = useState("ALL");
-  const [selected, setSelected] = useState<Signal | null>(null);
+  const [signals, setSignals] = useState<Signal[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState("");
+  const [market, setMarket] = useState<Market>("Forex"); const [symbol, setSymbol] = useState("XAU/USD"); const [filter, setFilter] = useState("ALL"); const [selected, setSelected] = useState<Signal | null>(null);
+  const symbols = useMemo(() => symbolsForMarket(market), [market]);
 
-  const load = useCallback(async () => {
-    try {
-      const response = await fetch("/api/signals", { cache: "no-store" });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Unable to load signals.");
-      setSignals(data.signals || []);
-      setError("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load signals.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  useEffect(() => { setSymbol(symbols[0] ?? ""); }, [symbols]);
+  const load = useCallback(async () => { try { const response = await fetch("/api/signals", { cache: "no-store" }); const data = await response.json(); if (!response.ok) throw new Error(data.error || "Unable to load signals."); setSignals(data.signals || []); setError(""); } catch (err) { setError(err instanceof Error ? err.message : "Unable to load signals."); } finally { setLoading(false); } }, []);
+  useEffect(() => { void load(); const timer = window.setInterval(() => void load(), 10000); return () => window.clearInterval(timer); }, [load]);
 
-  useEffect(() => {
-    void load();
-    const timer = window.setInterval(() => void load(), 10000);
-    return () => window.clearInterval(timer);
-  }, [load]);
+  const visible = useMemo(() => signals.filter(signal => (filter === "ALL" || signal.market_category.toUpperCase() === filter) && (!symbol || signal.canonical_symbol === symbol)), [filter, signals, symbol]);
+  const confirmed = signals.filter(signal => signal.status === "CONFIRMED").length; const latest = signals[0];
 
-  const visible = useMemo(() => filter === "ALL" ? signals : signals.filter(signal => signal.market_category === filter), [filter, signals]);
-  const confirmed = signals.filter(signal => signal.status === "CONFIRMED").length;
-  const latest = signals[0];
+  return <main className="shell">
+    <section className="card" style={{ border: "1px solid rgba(212,166,55,.30)", background: "linear-gradient(145deg, rgba(10,16,30,.98), rgba(5,8,18,.98))" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 18, alignItems: "flex-start", flexWrap: "wrap" }}><div><div className="section-label">SIGNAL ENGINE</div><h1 className="title">Confirmed Trading Signals</h1><p className="muted" style={{ maxWidth: 780 }}>This is the execution-facing signal ledger. Only confirmed BUY or SELL signals enter this tab. MetaKit is deliberately not connected in Phase 1.</p></div><div style={{ minWidth: 180, padding: 14, borderRadius: 12, border: "1px solid rgba(212,166,55,.35)", background: "rgba(212,166,55,.08)" }}><div className="muted" style={{ fontSize: 11, letterSpacing: ".08em" }}>CONFIRMED SIGNALS</div><div style={{ fontSize: 30, fontWeight: 900, marginTop: 3 }}>{confirmed}</div><div style={{ color: "#9ca7ba", fontSize: 12 }}>Feed refreshes every 10s</div></div></div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12, marginTop: 20 }}>
+        <label className="block"><span className="muted" style={{ display: "block", marginBottom: 6 }}>Market</span><select value={market} onChange={e => setMarket(e.target.value as Market)} style={{ width: "100%", borderRadius: 8, border: "1px solid rgba(255,255,255,.14)", background: "#0b1020", color: "#f4f6fb", padding: "10px 12px" }}>{MARKET_OPTIONS.map(option => <option key={option.value} value={option.value} disabled={option.locked}>{option.label}</option>)}</select></label>
+        <label className="block"><span className="muted" style={{ display: "block", marginBottom: 6 }}>Symbol</span><select value={symbol} onChange={e => setSymbol(e.target.value)} disabled={!symbols.length} style={{ width: "100%", borderRadius: 8, border: "1px solid rgba(255,255,255,.14)", background: "#0b1020", color: "#f4f6fb", padding: "10px 12px" }}>{symbols.length ? symbols.map(item => <option key={item} value={item}>{item}</option>) : <option>Coming Soon</option>}</select></label>
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>{["ALL", "FOREX", "CRYPTO"].map(value => <button key={value} type="button" onClick={() => setFilter(value)} style={{ padding: "9px 14px", borderRadius: 8, border: "1px solid rgba(212,166,55,.35)", background: filter === value ? "#d4a637" : "transparent", color: filter === value ? "#050812" : "#d7dbe7", fontWeight: 800, cursor: "pointer" }}>{value}</button>)}<button type="button" onClick={() => { setLoading(true); void load(); }} style={{ marginLeft: "auto", padding: "9px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,.14)", background: "rgba(255,255,255,.04)", color: "#d7dbe7", fontWeight: 800, cursor: "pointer" }}>Refresh</button></div>
+    </section>
 
-  return (
-    <main className="shell">
-      <section className="card" style={{ border: "1px solid rgba(212,166,55,.30)", background: "linear-gradient(145deg, rgba(10,16,30,.98), rgba(5,8,18,.98))" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 18, alignItems: "flex-start", flexWrap: "wrap" }}>
-          <div>
-            <div className="section-label">SIGNAL ENGINE</div>
-            <h1 className="title">Confirmed Trading Signals</h1>
-            <p className="muted" style={{ maxWidth: 780 }}>
-              This is the execution-facing signal ledger. The Scanner may show projections and developing setups, but only a confirmed BUY or SELL enters this tab. MetaKit is deliberately not connected in Phase 1.
-            </p>
-          </div>
-          <div style={{ minWidth: 180, padding: 14, borderRadius: 12, border: "1px solid rgba(212,166,55,.35)", background: "rgba(212,166,55,.08)" }}>
-            <div className="muted" style={{ fontSize: 11, letterSpacing: ".08em" }}>CONFIRMED SIGNALS</div>
-            <div style={{ fontSize: 30, fontWeight: 900, marginTop: 3 }}>{confirmed}</div>
-            <div style={{ color: "#9ca7ba", fontSize: 12 }}>Feed refreshes every 10s</div>
-          </div>
-        </div>
-
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 20 }}>
-          {["ALL", "FOREX", "CRYPTO"].map(value => (
-            <button key={value} type="button" onClick={() => setFilter(value)} style={{ padding: "9px 14px", borderRadius: 8, border: "1px solid rgba(212,166,55,.35)", background: filter === value ? "#d4a637" : "transparent", color: filter === value ? "#050812" : "#d7dbe7", fontWeight: 800, cursor: "pointer" }}>{value}</button>
-          ))}
-          <button type="button" onClick={() => { setLoading(true); void load(); }} style={{ marginLeft: "auto", padding: "9px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,.14)", background: "rgba(255,255,255,.04)", color: "#d7dbe7", fontWeight: 800, cursor: "pointer" }}>Refresh</button>
-        </div>
-      </section>
-
-      <section className="card">
-        <div className="section-label">MARKET UNIVERSE</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 12 }}>
-          <div className="condition-box"><strong>Forex</strong><p className="muted">{FOREX.join(" · ")}</p></div>
-          <div className="condition-box"><strong>Crypto</strong><p className="muted">{CRYPTO.join(" · ")}</p></div>
-          <div className="condition-box" style={{ opacity: .62 }}><strong>Indices — Coming Soon 🔒</strong><p className="muted">NASDAQ · SPX · DOW · FTSE</p></div>
-          <div className="condition-box" style={{ opacity: .62 }}><strong>Synthetic Indices — Locked 🔒</strong><p className="muted">Disabled until the Synthetic/Broker execution feature is released.</p></div>
-        </div>
-      </section>
-
-      {error && <section className="card"><div className="error-box"><strong>Signal feed error</strong><p className="muted">{error}</p></div></section>}
-
-      <section className="card">
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-          <div><div className="section-label">CONFIRMED FEED</div><h2 className="title">Signals</h2></div>
-          {latest && <div className="muted">Latest: {new Date(latest.fired_at).toLocaleString()}</div>}
-        </div>
-
-        {loading && signals.length === 0 ? <p className="muted" style={{ marginTop: 20 }}>Loading confirmed signals…</p> : visible.length === 0 ? (
-          <div className="condition-box" style={{ marginTop: 16 }}>
-            <strong>No confirmed signals yet.</strong>
-            <p className="muted">This is intentional. Phase 1 does not manufacture or display projected trades as executable signals. Once the Scanner confirmation event is wired into the ledger, the exact confirmed payload will appear here.</p>
-          </div>
-        ) : (
-          <div style={{ display: "grid", gap: 10, marginTop: 16 }}>
-            {visible.map(signal => (
-              <button key={signal.id} type="button" onClick={() => setSelected(signal)} style={{ textAlign: "left", border: "1px solid rgba(255,255,255,.09)", borderRadius: 12, padding: 16, background: "rgba(255,255,255,.025)", color: "#f4f6fb", cursor: "pointer" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "minmax(120px,1fr) minmax(100px,.6fr) minmax(110px,.7fr) minmax(110px,.7fr) minmax(110px,.7fr)", gap: 12, alignItems: "center" }}>
-                  <div><strong style={{ fontSize: 18 }}>{signal.canonical_symbol}</strong><div className="muted" style={{ marginTop: 3 }}>{signal.strategy_name || signal.strategy_id}</div></div>
-                  <div style={{ fontWeight: 900, color: signal.direction === "BUY" ? "#86efac" : "#fca5a5" }}>{signal.direction}</div>
-                  <div><div className="muted">TIMEFRAME</div><strong>{signal.timeframe}</strong></div>
-                  <div><div className="muted">ENTRY</div><strong>{fmt(signal.entry)}</strong></div>
-                  <div><div className="muted">STATUS</div><strong>{signal.status}</strong></div>
-                </div>
-                <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>Trade ID: {signal.trade_id}</div>
-              </button>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {selected && <div onClick={() => setSelected(null)} style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(0,0,0,.72)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-        <div onClick={event => event.stopPropagation()} style={{ width: "min(900px,100%)", maxHeight: "90vh", overflow: "auto", borderRadius: 16, border: "1px solid rgba(212,166,55,.35)", background: "#070b16", padding: 24, boxShadow: "0 30px 90px rgba(0,0,0,.45)" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><div><div className="section-label">CONFIRMED TRADE</div><h2 className="title">{selected.canonical_symbol} · {selected.direction}</h2></div><button type="button" onClick={() => setSelected(null)} style={{ border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "#fff", borderRadius: 8, padding: "8px 12px", cursor: "pointer" }}>Close</button></div>
-          <div className="condition-box" style={{ marginTop: 16 }}><strong>Trade ID</strong><p style={{ wordBreak: "break-all" }}>{selected.trade_id}</p></div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 10, marginTop: 12 }}>
-            {[['Entry', selected.entry], ['SL', selected.stop_loss], ['TP1', selected.tp1], ['TP2', selected.tp2], ['TP3', selected.tp3], ['TP4', selected.tp4]].map(([label, value]) => <div className="condition-box" key={String(label)}><div className="muted">{label}</div><strong style={{ fontSize: 18 }}>{fmt(value as number | null)}</strong></div>)}
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12, marginTop: 12 }}>
-            <div className="condition-box"><strong>Confirmation evidence</strong><ul>{(selected.confirmation_conditions || []).map((item, index) => <li key={index}>{item}</li>)}</ul></div>
-            <div className="condition-box"><strong>Execution status</strong><p>Phase 1: CONFIRMED / NOT SENT TO META KIT</p><p className="muted">The execution payload is stored now so the MetaKit adapter can consume the same contract later without changing the Scanner.</p></div>
-          </div>
-          <div className="condition-box" style={{ marginTop: 12 }}><strong>Exact MetaKit-ready payload</strong><pre style={{ marginTop: 10, whiteSpace: "pre-wrap", wordBreak: "break-word", color: "#d7dbe7", fontSize: 12 }}>{JSON.stringify(selected.execution_payload, null, 2)}</pre></div>
-        </div>
-      </div>}
-    </main>
-  );
+    <section className="card"><div className="section-label">MARKET UNIVERSE</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 12 }}><div className="condition-box"><strong>Forex</strong><p className="muted">XAU/USD · EUR/USD · GBP/USD · USD/JPY · AUD/USD · USD/CAD</p></div><div className="condition-box"><strong>Crypto</strong><p className="muted">BTC/USD · ETH/USD · SOL/USD</p></div><div className="condition-box" style={{ opacity: .62 }}><strong>Indices — Coming Soon 🔒</strong><p className="muted">NASDAQ · SPX · DOW · FTSE</p></div><div className="condition-box" style={{ opacity: .62 }}><strong>Synthetic Indices — Locked 🔒</strong><p className="muted">Disabled until released.</p></div></div></section>
+    {error && <section className="card"><div className="error-box"><strong>Signal feed error</strong><p className="muted">{error}</p></div></section>}
+    <section className="card"><div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}><div><div className="section-label">CONFIRMED FEED</div><h2 className="title">{market} · {symbol || "No symbol"}</h2></div>{latest && <div className="muted">Latest: {new Date(latest.fired_at).toLocaleString()}</div>}</div>{loading && signals.length === 0 ? <p className="muted" style={{ marginTop: 20 }}>Loading confirmed signals…</p> : visible.length === 0 ? <div className="condition-box" style={{ marginTop: 16 }}><strong>No confirmed signals for {symbol || market}.</strong><p className="muted">The selector is ready now; signals will appear only when the Scanner confirmation event is wired into the ledger.</p></div> : <div style={{ display: "grid", gap: 10, marginTop: 16 }}>{visible.map(signal => <button key={signal.id} type="button" onClick={() => setSelected(signal)} style={{ textAlign: "left", border: "1px solid rgba(255,255,255,.09)", borderRadius: 12, padding: 16, background: "rgba(255,255,255,.025)", color: "#f4f6fb", cursor: "pointer" }}><div style={{ display: "grid", gridTemplateColumns: "minmax(120px,1fr) minmax(100px,.6fr) minmax(110px,.7fr) minmax(110px,.7fr) minmax(110px,.7fr)", gap: 12, alignItems: "center" }}><div><strong style={{ fontSize: 18 }}>{signal.canonical_symbol}</strong><div className="muted" style={{ marginTop: 3 }}>{signal.strategy_name || signal.strategy_id}</div></div><div style={{ fontWeight: 900, color: signal.direction === "BUY" ? "#86efac" : "#fca5a5" }}>{signal.direction}</div><div><div className="muted">TIMEFRAME</div><strong>{signal.timeframe}</strong></div><div><div className="muted">ENTRY</div><strong>{fmt(signal.entry)}</strong></div><div><div className="muted">STATUS</div><strong>{signal.status}</strong></div></div><div className="muted" style={{ marginTop: 10, fontSize: 12 }}>Trade ID: {signal.trade_id}</div></button>)}</div>}</section>
+    {selected && <div onClick={() => setSelected(null)} style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(0,0,0,.72)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}><div onClick={e => e.stopPropagation()} style={{ width: "min(900px,100%)", maxHeight: "90vh", overflow: "auto", borderRadius: 16, border: "1px solid rgba(212,166,55,.35)", background: "#070b16", padding: 24 }}><div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><div><div className="section-label">CONFIRMED TRADE</div><h2 className="title">{selected.canonical_symbol} · {selected.direction}</h2></div><button type="button" onClick={() => setSelected(null)}>Close</button></div><div className="condition-box" style={{ marginTop: 16 }}><strong>Trade ID</strong><p>{selected.trade_id}</p></div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 10, marginTop: 12 }}>{[["Entry",selected.entry],["SL",selected.stop_loss],["TP1",selected.tp1],["TP2",selected.tp2],["TP3",selected.tp3],["TP4",selected.tp4]].map(([label,value]) => <div className="condition-box" key={String(label)}><div className="muted">{label}</div><strong style={{ fontSize: 18 }}>{fmt(value as number | null)}</strong></div>)}</div><div className="condition-box" style={{ marginTop: 12 }}><strong>Exact MetaKit-ready payload</strong><pre style={{ marginTop: 10, whiteSpace: "pre-wrap", wordBreak: "break-word", color: "#d7dbe7", fontSize: 12 }}>{JSON.stringify(selected.execution_payload, null, 2)}</pre></div></div></div>}
+  </main>;
 }
