@@ -1,3 +1,5 @@
+import { isPreferredTradeTimeframe } from "../strategies/adaptiveExecution";
+
 export type ScannerSignalPublication = {
   marketType: string;
   symbol: string;
@@ -31,6 +33,14 @@ export type ScannerSignalPublication = {
 export async function publishScannerSignal(input: ScannerSignalPublication): Promise<{ published: boolean; duplicate?: boolean; error?: string }> {
   const scanner = input.scanner;
   const direction = scanner.projectedDirection;
+
+  // The execution-facing Scanner is intentionally restricted to the two
+  // preferred trading timeframes. Other timeframes remain context/analysis
+  // only and must not enter the Phase 1 signal ledger.
+  if (!isPreferredTradeTimeframe(input.timeframe)) {
+    return { published: false };
+  }
+
   if (!scanner.isExecutable || (direction !== "BUY" && direction !== "SELL") || scanner.actualEntry == null) {
     return { published: false };
   }
@@ -44,7 +54,7 @@ export async function publishScannerSignal(input: ScannerSignalPublication): Pro
       direction,
       strategy_id: input.strategyId,
       strategy_name: input.strategyName ?? input.strategyId,
-      timeframe: input.timeframe,
+      timeframe: input.timeframe.toUpperCase(),
       entry: scanner.actualEntry,
       stop_loss: scanner.stopLoss ?? scanner.projectedStopLoss ?? null,
       tp1: scanner.tp1 ?? scanner.projectedTp1 ?? null,
