@@ -1,11 +1,5 @@
-/**
- * VaultTrades strategy registry.
- *
- * This file is only the selector/registry layer. Each strategy remains an
- * independent source-of-truth module under lib/strategies/.
- */
+/** VaultTrades strategy registry. */
 import type { StrategyDefinition, StrategyId, StrategyRuleSet } from "./types";
-
 import volatilityBreakoutRules from "./volatilityBreakout";
 import killZoneRules from "./killZone";
 import ema20Rules from "./ema20";
@@ -16,6 +10,7 @@ import sweepEngulfingStrategy from "./sweepEngulfing";
 import swingDevelopingStrategy from "./swingDeveloping";
 import autoFibRetraceStrategy from "./autoFibRetrace";
 import institutionalRules from "./institutional";
+import adaptiveExecutionRules from "./adaptiveExecutionRules";
 
 export const STRATEGIES: Readonly<Record<StrategyId, StrategyDefinition>> = {
   volatilityBreakout: { rules: volatilityBreakoutRules },
@@ -28,9 +23,9 @@ export const STRATEGIES: Readonly<Record<StrategyId, StrategyDefinition>> = {
   swingDeveloping: { rules: swingDevelopingStrategy.rules },
   autoFibRetrace: autoFibRetraceStrategy,
   institutional: { rules: institutionalRules },
+  adaptiveExecution: { rules: adaptiveExecutionRules },
 };
 
-/** Stable order used by internal consumers. */
 export const STRATEGY_LIST: readonly StrategyDefinition[] = [
   STRATEGIES.volatilityBreakout,
   STRATEGIES.continuation,
@@ -42,19 +37,13 @@ export const STRATEGY_LIST: readonly StrategyDefinition[] = [
   STRATEGIES.ema20,
   STRATEGIES.supplyDemand,
   STRATEGIES.institutional,
+  STRATEGIES.adaptiveExecution,
 ];
 
-export function getStrategy(strategyId: StrategyId): StrategyDefinition {
-  return STRATEGIES[strategyId];
-}
-
-export function getStrategyRules(strategyId: StrategyId): StrategyRuleSet {
-  return getStrategy(strategyId).rules;
-}
-
+export function getStrategy(strategyId: StrategyId): StrategyDefinition { return STRATEGIES[strategyId]; }
+export function getStrategyRules(strategyId: StrategyId): StrategyRuleSet { return getStrategy(strategyId).rules; }
 export type { StrategyDefinition, StrategyId, StrategyRuleSet } from "./types";
 export { AI_COACH_RULES } from "./types";
-
 export { default as volatilityBreakoutRules } from "./volatilityBreakout";
 export { default as killZoneRules } from "./killZone";
 export { default as ema20Rules } from "./ema20";
@@ -65,3 +54,4 @@ export { default as sweepEngulfingStrategy } from "./sweepEngulfing";
 export { default as swingDevelopingStrategy } from "./swingDeveloping";
 export { default as autoFibRetraceStrategy } from "./autoFibRetrace";
 export { default as institutionalRules } from "./institutional";
+export { default as adaptiveExecutionRules } from "./adaptiveExecutionRules";
