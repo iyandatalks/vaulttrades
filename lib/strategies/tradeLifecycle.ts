@@ -72,8 +72,9 @@ export function selectAllowedAbFibLevel(
  * SL  = actual loss/completion target.
  * TP2/TP3/TP4 = projected/reference targets only.
  *
- * A projected setup may expire when price reaches projected TP1 or invalidation
- * before a confirmed actual entry exists. That does NOT create a trade.
+ * IMPORTANT: projected TP1 is a forecast target, not a pre-entry invalidation.
+ * A projected setup remains eligible for the existing confirmation conditions
+ * after price passes its projected TP1. Only an actual trade can complete at TP1.
  */
 export function evaluateTradeLifecycle(input: LifecycleInput): LifecycleResult {
   const stopHit =
@@ -94,6 +95,7 @@ export function evaluateTradeLifecycle(input: LifecycleInput): LifecycleResult {
     );
 
   // TP1 is the only target allowed to complete an actual trade.
+  // It has NO effect on a setup before an actual entry exists.
   const tp1Hit = Boolean(input.tp1AlreadyHit) || Boolean(input.actualEntry !== null && projectedTp1Reached);
 
   // TP2 remains informational/reference only. It must never complete the lifecycle.
@@ -144,12 +146,15 @@ export function evaluateTradeLifecycle(input: LifecycleInput): LifecycleResult {
   }
 
   if (input.projectedEntry !== null) {
-    if (stopHit || projectedTp1Reached || input.tp1AlreadyHit) {
+    // A projected TP1 is NOT an invalidation before confirmation.
+    // Keep the setup in the existing WATCH/ENTRY_ZONE flow and continue
+    // evaluating the strategy's confirmation conditions.
+    if (stopHit) {
       return {
         ...input,
         status: "CYCLE_COMPLETE",
-        message: "PROJECTED SETUP EXPIRED — PRICE PASSED THE PROJECTED TP1/INVALIDATION BEFORE CONFIRMED ENTRY",
-        tp1Hit,
+        message: "PROJECTED SETUP INVALIDATED — PRICE PASSED PROJECTED STOP/INVALIDATION BEFORE CONFIRMED ENTRY",
+        tp1Hit: false,
         tp2Hit: false,
         stopHit,
       };
@@ -163,7 +168,7 @@ export function evaluateTradeLifecycle(input: LifecycleInput): LifecycleResult {
       ...input,
       status: touched ? "ENTRY_ZONE" : "WATCH",
       message: touched ? `${input.direction} — PROJECTED ENTRY ZONE` : `WATCH — ${input.direction}`,
-      tp1Hit,
+      tp1Hit: Boolean(input.tp1AlreadyHit),
       tp2Hit,
       stopHit,
     };
