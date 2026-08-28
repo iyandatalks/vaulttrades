@@ -4,7 +4,7 @@ import { getTwelveDataTimeSeries } from "../../../../lib/market-data/twelvedata"
 export const runtime = "nodejs";
 
 const TERMINAL = new Set(["TP1_HIT", "SL_HIT"]);
-const TRACKED_TIMEFRAMES = new Set(["5m", "15m"]);
+const TRACKED_TIMEFRAMES = new Set(["5m", "15m", "M5", "M15"]);
 
 type SignalRow = {
   id: string;
@@ -71,6 +71,7 @@ export async function POST() {
 
       if (nextStatus === signal.status) continue;
 
+      const checkedAt = new Date().toISOString();
       const existingPayload = signal.execution_payload ?? {};
       const existingSnapshot = signal.source_snapshot ?? {};
       const lifecycle = {
@@ -79,7 +80,8 @@ export async function POST() {
         last_candle_high: high,
         last_candle_low: low,
         last_candle_close: close,
-        checked_at: new Date().toISOString(),
+        checked_at: checkedAt,
+        completed_at: TERMINAL.has(nextStatus) ? checkedAt : null,
         result: nextStatus === "TP1_HIT" ? "WIN" : nextStatus === "SL_HIT" ? "LOSS" : "ACTIVE",
       };
 
@@ -87,6 +89,7 @@ export async function POST() {
         .from("scanner_signals")
         .update({
           status: nextStatus,
+          completed_at: TERMINAL.has(nextStatus) ? checkedAt : null,
           execution_payload: { ...existingPayload, lifecycle },
           source_snapshot: { ...existingSnapshot, lifecycle },
         })
