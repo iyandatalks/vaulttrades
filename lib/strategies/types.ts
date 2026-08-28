@@ -9,7 +9,8 @@ export type StrategyId =
   | "sweepEngulfing"
   | "swingDeveloping"
   | "autoFibRetrace"
-  | "institutional";
+  | "institutional"
+  | "adaptiveExecution";
 
 export type StrategySignal = "BUY" | "SELL" | "NONE";
 export type StrategyState = "WAITING" | "DEVELOPING" | "ENTRY_READY" | "BUY" | "SELL" | "NO_TRADE";
@@ -49,9 +50,7 @@ export interface StrategyAnalysis {
   message: string;
 }
 
-export interface StrategyDefinition {
-  rules: StrategyRuleSet;
-}
+export interface StrategyDefinition { rules: StrategyRuleSet; }
 
 export const AI_COACH_RULES = [
   "The selected strategy engine is the source of truth.",
@@ -62,6 +61,4 @@ export const AI_COACH_RULES = [
   "Never revive an invalidated setup without a new valid sequence.",
 ] as const;
 
-export function createStrategyDefinition(rules: StrategyRuleSet): StrategyDefinition {
-  return { rules };
-}
+export function createStrategyDefinition(rules: StrategyRuleSet): StrategyDefinition { return { rules }; }
