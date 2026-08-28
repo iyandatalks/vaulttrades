@@ -1,19 +1,6 @@
 import type { StrategyId } from "./types";
 
-/**
- * Source-derived indicator registry.
- *
- * This is deliberately separate from generic technical-analysis presets.
- * Every entry below is extracted from the authoritative strategy module's
- * documented/source inputs. An indicator is shown to the Analyzer only when
- * the selected strategy actually uses it.
- */
-export interface SourceIndicatorSpec {
-  name: string;
-  purpose: string;
-  parameters: string;
-  required: boolean;
-}
+export interface SourceIndicatorSpec { name: string; purpose: string; parameters: string; required: boolean; }
 
 export const SOURCE_INDICATORS: Record<StrategyId, readonly SourceIndicatorSpec[]> = {
   volatilityBreakout: [
@@ -56,12 +43,14 @@ export const SOURCE_INDICATORS: Record<StrategyId, readonly SourceIndicatorSpec[
     { name: "ATR", purpose: "Order-block/projection confirmation and distance constraints", parameters: "OB ATR length 14; projection ATR length 14", required: true },
     { name: "Volume", purpose: "Order-block institutional-volume confirmation and DXY volume spike", parameters: "OB volume length 20; volume factor 1.5", required: false },
   ],
+  adaptiveExecution: [
+    { name: "EMA", purpose: "Trend hierarchy", parameters: "EMA 20, 50, 100, 200", required: true },
+    { name: "RSI", purpose: "Momentum confirmation", parameters: "Length 14; bullish >50, bearish <50", required: true },
+    { name: "MACD", purpose: "Momentum confirmation", parameters: "12, 26, 9", required: true },
+    { name: "ADX", purpose: "Trend-strength confirmation", parameters: "Length 14; minimum 20; DI direction required", required: true },
+    { name: "ATR", purpose: "Adaptive trigger and stop/target geometry", parameters: "Length 14; trigger 1.5 ATR; stop 1.5 ATR", required: true },
+  ],
 };
 
-export function getSourceIndicators(strategyId: StrategyId): readonly SourceIndicatorSpec[] {
-  return SOURCE_INDICATORS[strategyId] ?? [];
-}
-
-export function getRequiredSourceIndicators(strategyId: StrategyId): readonly SourceIndicatorSpec[] {
-  return getSourceIndicators(strategyId).filter((indicator) => indicator.required);
-}
+export function getSourceIndicators(strategyId: StrategyId): readonly SourceIndicatorSpec[] { return SOURCE_INDICATORS[strategyId] ?? []; }
+export function getRequiredSourceIndicators(strategyId: StrategyId): readonly SourceIndicatorSpec[] { return getSourceIndicators(strategyId).filter((indicator) => indicator.required); }
