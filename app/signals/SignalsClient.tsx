@@ -19,7 +19,9 @@ const statusLabel = (status: string) => status === "CONFIRMED" ? "FIRED" : statu
 export default function SignalsClient() {
   const [signals, setSignals] = useState<Signal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [checkingAdaptive, setCheckingAdaptive] = useState(false);
   const [error, setError] = useState("");
+  const [adaptiveMessage, setAdaptiveMessage] = useState("");
   const [market, setMarket] = useState<Market>("Forex");
   const [symbol, setSymbol] = useState("XAU/USD");
   const [filter, setFilter] = useState<StatusFilter>("ALL");
@@ -43,6 +45,34 @@ export default function SignalsClient() {
     }
   }, []);
 
+  const checkAdaptiveEngine = async () => {
+    if (!symbol) return;
+    setCheckingAdaptive(true);
+    setAdaptiveMessage("");
+    setError("");
+    try {
+      const response = await fetch("/api/adaptive-execution", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ marketType: market.toUpperCase(), symbol, timeframe: "5m", strategy: "adaptiveExecution" }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Adaptive Engine check failed.");
+      if (data.signalPublished) {
+        setAdaptiveMessage(`Adaptive Engine fired ${data.direction} on M5 with M15 confirmation. Signal ${data.signal?.trade_id || "created"}.`);
+      } else if (data.duplicate) {
+        setAdaptiveMessage(`Adaptive Engine is confirmed, but this M5 event is already in the Signal ledger.`);
+      } else {
+        setAdaptiveMessage(`No new executable Adaptive signal for ${symbol}. ${data.strategyEngine?.reason || data.nextAction || "Waiting for M15 → M5 confirmation."}`);
+      }
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Adaptive Engine check failed.");
+    } finally {
+      setCheckingAdaptive(false);
+    }
+  };
+
   useEffect(() => {
     void load();
     const timer = window.setInterval(() => void load(), 10000);
@@ -62,7 +92,7 @@ export default function SignalsClient() {
   return <main className="shell">
     <section className="card" style={{ border: "1px solid rgba(212,166,55,.30)", background: "linear-gradient(145deg, rgba(10,16,30,.98), rgba(5,8,18,.98))" }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 18, alignItems: "flex-start", flexWrap: "wrap" }}>
-        <div><div className="section-label">SIGNAL ENGINE</div><h1 className="title">Trading Signal Lifecycle</h1><p className="muted" style={{ maxWidth: 780 }}>Confirmed M5/M15 execution signals are tracked from FIRED to ACTIVE and completed at TP1 or SL. TP2–TP4 remain reference targets. MetaKit is not connected.</p></div>
+        <div><div className="section-label">SIGNAL ENGINE</div><h1 className="title">Trading Signal Lifecycle</h1><p className="muted" style={{ maxWidth: 780 }}>Adaptive Execution Engine signals are tracked from FIRED to ACTIVE and completed at TP1 or SL. TP2–TP4 remain reference targets. MetaKit is not connected.</p></div>
         <div style={{ minWidth: 180, padding: 14, borderRadius: 12, border: "1px solid rgba(212,166,55,.35)", background: "rgba(212,166,55,.08)" }}><div className="muted" style={{ fontSize: 11, letterSpacing: ".08em" }}>FIRED</div><div style={{ fontSize: 30, fontWeight: 900, marginTop: 3 }}>{fired}</div><div style={{ color: "#9ca7ba", fontSize: 12 }}>Lifecycle checks every 10s</div></div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12, marginTop: 20 }}>
@@ -75,13 +105,21 @@ export default function SignalsClient() {
       </div>
     </section>
 
+    <section className="card" style={{ border: "1px solid rgba(212,166,55,.25)" }}>
+      <div className="section-label">ADAPTIVE ENGINE DEMONSTRATION</div>
+      <h2 className="title">M15 → M5 Signal Check</h2>
+      <p className="muted">Runs the authoritative Adaptive Execution Engine only. M15 confirms direction, M5 is the execution timeframe, and only a new aligned M5 transition can fire a signal. No MetaKit execution occurs.</p>
+      <button type="button" onClick={() => void checkAdaptiveEngine()} disabled={checkingAdaptive || !symbol} style={{ marginTop: 12, padding: "11px 16px", borderRadius: 9, border: "1px solid rgba(212,166,55,.5)", background: "#d4a637", color: "#050812", fontWeight: 900, cursor: checkingAdaptive ? "wait" : "pointer" }}>{checkingAdaptive ? "Checking Adaptive Engine…" : `Check ${symbol} Adaptive Signal`}</button>
+      {adaptiveMessage && <div className="condition-box" style={{ marginTop: 12 }}><strong>Engine result</strong><p className="muted">{adaptiveMessage}</p></div>}
+    </section>
+
     <section className="card"><div className="section-label">LIFECYCLE SUMMARY</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10 }}>
       {[["Fired", fired], ["Active", active], ["Completed", completed], ["TP1 Wins", wins], ["SL Losses", losses], ["Win Rate", `${winRate}%`]].map(([label, value]) => <div className="condition-box" key={String(label)}><div className="muted">{label}</div><strong style={{ fontSize: 22 }}>{value}</strong></div>)}
     </div></section>
 
     <section className="card"><div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}><div><div className="section-label">SIGNAL FEED</div><h2 className="title">{market} · {symbol || "No symbol"}</h2></div>{latest && <div className="muted">Latest: {new Date(latest.fired_at).toLocaleString()}</div>}</div>
       {error && <div className="error-box" style={{ marginTop: 16 }}><strong>Signal feed error</strong><p className="muted">{error}</p></div>}
-      {loading && signals.length === 0 ? <p className="muted" style={{ marginTop: 20 }}>Loading signal lifecycle…</p> : visible.length === 0 ? <div className="condition-box" style={{ marginTop: 16 }}><strong>No {filter.toLowerCase()} signals for {symbol || market}.</strong><p className="muted">Confirmed Scanner events will appear here automatically.</p></div> : <div style={{ display: "grid", gap: 10, marginTop: 16 }}>
+      {loading && signals.length === 0 ? <p className="muted" style={{ marginTop: 20 }}>Loading signal lifecycle…</p> : visible.length === 0 ? <div className="condition-box" style={{ marginTop: 16 }}><strong>No {filter.toLowerCase()} signals for {symbol || market}.</strong><p className="muted">Adaptive Execution Engine confirmations will appear here automatically.</p></div> : <div style={{ display: "grid", gap: 10, marginTop: 16 }}>
         {visible.map((signal) => <button key={signal.id} type="button" onClick={() => setSelected(signal)} style={{ textAlign: "left", border: "1px solid rgba(255,255,255,.09)", borderRadius: 12, padding: 16, background: "rgba(255,255,255,.025)", color: "#f4f6fb", cursor: "pointer" }}><div style={{ display: "grid", gridTemplateColumns: "minmax(120px,1fr) minmax(100px,.6fr) minmax(90px,.6fr) minmax(110px,.7fr) minmax(140px,.8fr)", gap: 12, alignItems: "center" }}><div><strong style={{ fontSize: 18 }}>{signal.canonical_symbol}</strong><div className="muted" style={{ marginTop: 3 }}>{signal.strategy_name || signal.strategy_id}</div></div><div style={{ fontWeight: 900, color: signal.direction === "BUY" ? "#86efac" : "#fca5a5" }}>{signal.direction}</div><div><div className="muted">TF</div><strong>{signal.timeframe}</strong></div><div><div className="muted">ENTRY</div><strong>{fmt(signal.entry)}</strong></div><div><div className="muted">STATUS</div><strong>{statusLabel(signal.status)}</strong></div></div><div className="muted" style={{ marginTop: 10, fontSize: 12 }}>Trade ID: {signal.trade_id}</div></button>)}
       </div>}
     </section>
