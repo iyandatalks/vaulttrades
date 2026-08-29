@@ -40,6 +40,11 @@ type Scanner = {
   pipeline?: string[];
   nextZone?: string;
   rr?: number | null;
+  strategyConditionsMet?: boolean;
+  entryConfirmation?: boolean;
+  entryConfirmationReason?: string;
+  confirmationTimeframe?: string;
+  universalValidationPassed?: boolean;
   volumeProfile?: { currentVolume: number | null; averageVolume: number | null; ratio: number | null; expansion: boolean; candleDirection: string; displacementATR: number | null };
 };
 type Result = {
@@ -219,6 +224,20 @@ export default function AnalyzerPage() {
       <section className="card"><div className="section-label">PIPELINE</div><h2 className="title">{result.strategy?.name} — current state</h2><div style={{ display: "grid", gap: 9, marginTop: 14 }}>{(s?.pipeline || result.pipeline || []).map((line, i) => <div key={i} className="condition-box" style={{ margin: 0 }}><strong>{line}</strong></div>)}</div><div className="condition-box" style={{ marginTop: 12 }}><strong>What happens next</strong><p>{s?.nextZone || result.nextAction}</p></div></section>
 
       <section className="card"><div className="section-label">MARKET STRUCTURE</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 10 }}><div className="condition-box"><strong>Structure</strong><p>{result.marketStructure}</p></div><div className="condition-box"><strong>Support</strong><p>{fmt(result.structure?.support)}</p></div><div className="condition-box"><strong>Resistance</strong><p>{fmt(result.structure?.resistance)}</p></div><div className="condition-box"><strong>Next zone</strong><p>{s?.nextZone || result.nextZone}</p></div></div><div className="condition-box" style={{ marginTop: 10 }}><strong>Recent price action</strong><p>{result.recentPriceAction}</p></div></section>
+
+      <section className="card" style={{ border: "1px solid rgba(255,165,45,.35)", background: "linear-gradient(145deg, rgba(28,20,8,.55), rgba(5,8,18,.98))" }}>
+        <div className="section-label">ENTRY CONFIRMATION</div>
+        <div className="condition-box" style={{ border: `1px solid ${s?.entryConfirmation ? "rgba(40,200,110,.65)" : "rgba(255,165,45,.65)"}`, background: s?.entryConfirmation ? "rgba(40,200,110,.10)" : "rgba(255,165,45,.10)" }}>
+          <strong style={{ fontSize: 18 }}>{s?.entryConfirmation ? `ENTRY CONFIRMATION: YES — ${s.confirmationTimeframe || "CONFIRMATION TIMEFRAME"}` : "NO ENTRY — WAIT FOR ENTRY CONFIRMATION"}</strong>
+          <p>{s?.entryConfirmationReason || "The strategy-specific entry trigger has not yet been confirmed."}</p>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10, marginTop: 10 }}>
+          <div className="condition-box"><strong>Confirmation timeframe</strong><p>{s?.confirmationTimeframe || "Not yet established"}</p></div>
+          <div className="condition-box"><strong>Entry trigger</strong><p>{s?.entryConfirmationReason || "Waiting for the strategy-defined entry trigger."}</p></div>
+          <div className="condition-box"><strong>Strategy setup</strong><p>{s?.strategyConditionsMet ? "SETUP CONDITIONS CONFIRMED" : "STRATEGY CONDITIONS NOT YET CONFIRMED"}</p></div>
+        </div>
+        <p className="muted" style={{ marginTop: 10, marginBottom: 0 }}>This section is the entry trigger only. Validation above remains separate. Lifecycle states such as ACTIVE, TP1, SL and COMPLETED are never entry confirmation.</p>
+      </section>
 
       <section className="card"><div className="section-label">SMC CONFLUENCE</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 8 }}>{Object.entries(result.smcScores || {}).map(([name, score]) => <div className="condition-box" key={name}><strong>{name}</strong><div style={{ fontSize: 22, fontWeight: 800 }}>{score}/10</div></div>)}</div><p className="muted" style={{ marginTop: 12 }}>A new BUY/SELL is allowed only when at least two SMC signals score 7 or higher and the price-validation gates also pass.</p></section>
 
