@@ -68,8 +68,21 @@ async function publishConfirmedSignal(supabase: any, userId: string, analysis: a
   const previousDirection = latest?.direction === "BUY" || latest?.direction === "SELL" ? latest.direction : null;
   if (previousDirection && previousDirection !== direction) await closePreviousLifecycle(supabase, userId, strategy, symbol, timeframe, direction);
 
-  const payload = { canonical_symbol: symbol, direction, strategy_id: selectedStrategy.id, strategy_name: selectedStrategy.name, timeframe, entry, stop_loss: stopLoss, tp1, tp2, tp3, tp4, confidence: finite(scanner?.projectedProbability) ? scanner.projectedProbability : null, rr: finite(scanner?.rr) ? scanner.rr : null };
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(payload)));
+  // Signal identity represents the confirmed setup itself, not the mutable analysis payload.
+  // Re-running Analyze on the same confirmed setup must therefore be idempotent.
+  const confirmationTimeframe = typeof scanner?.confirmation?.confirmationTimeframe === "string"
+    ? scanner.confirmation.confirmationTimeframe
+    : typeof scanner?.confirmationTimeframe === "string" ? scanner.confirmationTimeframe : "";
+  const confirmationPrice = finite(scanner?.confirmationPrice) ? scanner.confirmationPrice : entry;
+  const setupIdentity = {
+    canonical_symbol: symbol,
+    direction,
+    strategy_id: selectedStrategy.id,
+    timeframe,
+    confirmation_timeframe: confirmationTimeframe,
+    confirmation_price: confirmationPrice,
+  };
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(setupIdentity)));
   const fingerprint = Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, "0")).join("");
   const { data: existing } = await supabase.from("scanner_signals").select("*").eq("auth_user_id", userId).eq("signal_fingerprint", fingerprint).maybeSingle();
   const now = new Date().toISOString();
@@ -82,7 +95,7 @@ async function publishConfirmedSignal(supabase: any, userId: string, analysis: a
       market_category: typeof analysis?.market?.category === "string" ? analysis.market.category.toUpperCase() : "FOREX",
       canonical_symbol: symbol, direction, strategy_id: selectedStrategy.id, strategy_name: selectedStrategy.name, timeframe,
       entry, stop_loss: stopLoss, tp1, tp2, tp3, tp4,
-      confidence: payload.confidence, rr: payload.rr, status: "ACTIVE",
+      confidence: finite(scanner?.projectedProbability) ? scanner.projectedProbability : null, rr: finite(scanner?.rr) ? scanner.rr : null, status: "ACTIVE",
       confirmation_conditions: Array.isArray(scanner?.confirmations) ? scanner.confirmations : [], missing_conditions: [],
       execution_payload: { trade_id: tradeId, symbol, side: direction, entry, stop_loss: stopLoss, take_profit: tp1, strategy: selectedStrategy.id, strategy_id: selectedStrategy.id, strategy_name: selectedStrategy.name, timeframe, status: "ACTIVE", execution_enabled: false, execution_provider: "MetaKit", authority: "SELECTED_STRATEGY" },
       source_snapshot: { ...(typeof scanner === "object" && scanner ? scanner : {}), strategy_id: selectedStrategy.id, strategy_name: selectedStrategy.name, authoritative_confirmation: "SELECTED_STRATEGY_ENTRY_CONFIRMATION" },
@@ -99,7 +112,7 @@ async function publishConfirmedSignal(supabase: any, userId: string, analysis: a
     tradeReason: "Entry Confirmation: YES — published from the selected strategy entry trigger.",
     invalidation: "Lifecycle ends only on actual SL or a confirmed opposite setup on the same timeframe.",
   };
-  return { scanner: normalizedScanner, published: Boolean(signal) };
+  return { scanner: normalizedScanner, published: Boolean(signal && !existing) };
 }
 
 async function persistSetupHistory(request: Request, input: { strategy: string; analysis: any; scanner: any }) {
