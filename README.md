@@ -6,3 +6,5 @@ This project will provide strategy-driven chart analysis for:
 - London Kill Zone
 - EMA Pullback
 - Continuation
+
+Deployment verification: main branch automation release.
