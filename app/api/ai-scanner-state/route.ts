@@ -18,6 +18,13 @@ type StoredLifecycle = {
   status: string;
 };
 
+type AnalyzerStrategy = (typeof ANALYZER_STRATEGY_MAP)[keyof typeof ANALYZER_STRATEGY_MAP];
+
+function getAnalyzerStrategy(strategy: string): AnalyzerStrategy | undefined {
+  if (!Object.prototype.hasOwnProperty.call(ANALYZER_STRATEGY_MAP, strategy)) return undefined;
+  return ANALYZER_STRATEGY_MAP[strategy as keyof typeof ANALYZER_STRATEGY_MAP];
+}
+
 function hashKey(value: string): string {
   let hash = 2166136261;
   for (let i = 0; i < value.length; i++) { hash ^= value.charCodeAt(i); hash = Math.imul(hash, 16777619); }
@@ -54,7 +61,7 @@ async function publishConfirmedSignal(supabase: any, userId: string, analysis: a
   const direction = scanner?.projectedDirection === "BUY" || scanner?.projectedDirection === "SELL" ? scanner.projectedDirection : null;
   const timeframe = typeof analysis?.market?.timeframe === "string" ? analysis.market.timeframe : "";
   const symbol = typeof analysis?.market?.asset === "string" ? analysis.market.asset.trim().toUpperCase() : "";
-  const selectedStrategy = ANALYZER_STRATEGY_MAP[strategy];
+  const selectedStrategy = getAnalyzerStrategy(strategy);
   const confirmed = direction !== null && scanner?.strategyConditionsMet === true && scanner?.entryConfirmation === true && finite(scanner?.actualEntry) && selectedStrategy !== undefined;
   if (!confirmed || !symbol || !timeframe) return { scanner, published: false };
 
@@ -68,8 +75,6 @@ async function publishConfirmedSignal(supabase: any, userId: string, analysis: a
   const previousDirection = latest?.direction === "BUY" || latest?.direction === "SELL" ? latest.direction : null;
   if (previousDirection && previousDirection !== direction) await closePreviousLifecycle(supabase, userId, strategy, symbol, timeframe, direction);
 
-  // Signal identity represents the confirmed setup itself, not the mutable analysis payload.
-  // Re-running Analyze on the same confirmed setup must therefore be idempotent.
   const confirmationTimeframe = typeof scanner?.confirmation?.confirmationTimeframe === "string"
     ? scanner.confirmation.confirmationTimeframe
     : typeof scanner?.confirmationTimeframe === "string" ? scanner.confirmationTimeframe : "";
@@ -115,14 +120,14 @@ async function publishConfirmedSignal(supabase: any, userId: string, analysis: a
   return { scanner: normalizedScanner, published: Boolean(signal && !existing) };
 }
 
-async function persistSetupHistory(request: Request, input: { strategy: string; analysis: any; scanner: any }) {
+async function persistSetupHistory(input: { strategy: string; analysis: any; scanner: any }) {
   const supabase = await createClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) return;
   const analysis = input.analysis ?? {}; const scanner = input.scanner ?? {};
   const market = typeof analysis?.market?.asset === "string" ? analysis.market.asset.trim().toUpperCase() : "";
   const timeframe = typeof analysis?.market?.timeframe === "string" ? analysis.market.timeframe.trim() : "";
   const direction = scanner?.projectedDirection === "BUY" || scanner?.projectedDirection === "SELL" ? scanner.projectedDirection : "NO TRADE";
   if (!input.strategy || !market || !timeframe || direction === "NO TRADE") return;
-  const strategyName = typeof analysis?.strategyName === "string" ? analysis.strategyName : ANALYZER_STRATEGY_MAP[input.strategy]?.name ?? null;
+  const strategyName = typeof analysis?.strategyName === "string" ? analysis.strategyName : getAnalyzerStrategy(input.strategy)?.name ?? null;
   const projectedEntry = finite(scanner?.projectedEntry) ? scanner.projectedEntry : finite(scanner?.entry) ? scanner.entry : null;
   const projectedStopLoss = finite(scanner?.projectedStopLoss) ? scanner.projectedStopLoss : finite(scanner?.stopLoss) ? scanner.stopLoss : null;
   const projectedTp1 = finite(scanner?.projectedTp1) ? scanner.projectedTp1 : finite(scanner?.tp1) ? scanner.tp1 : null;
@@ -181,7 +186,7 @@ export async function POST(request: Request) {
     if (scanner?.cycleStatus === "INVALIDATED" && stored?.actualEntry) await closeStopLifecycle(supabase, user.id, strategy, asset.trim().toUpperCase(), timeframe);
   }
 
-  await persistSetupHistory(request, { strategy, analysis, scanner });
+  await persistSetupHistory({ strategy, analysis, scanner });
   const returnedActualEntry = finite(scanner?.actualEntry) ? scanner.actualEntry : null;
   const returnedDirection = scanner?.projectedDirection === "BUY" || scanner?.projectedDirection === "SELL" ? scanner.projectedDirection : null;
   const responseHeaders = new Headers(scannerResponse.headers);
