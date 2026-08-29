@@ -12,6 +12,7 @@ const AUTOMATION_END = 8 * 60 + 45;
 
 const FOREX_SYMBOLS = ["XAU/USD", "EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD"] as const;
 const CRYPTO_SYMBOLS = ["BTC/USD", "ETH/USD", "SOL/USD"] as const;
+const CRYPTO_SYMBOL_SET = new Set<string>(CRYPTO_SYMBOLS);
 const SUPPORTED_STRATEGIES = new Set(["ema20"]);
 
 type ScannerConfig = {
@@ -68,7 +69,7 @@ function enabledSymbols(configs: ScannerConfig[]) {
 }
 
 function marketType(symbol: string) {
-  return symbol.includes("/") && ["BTC/USD", "ETH/USD", "SOL/USD"].includes(symbol) ? "CRYPTO" : "FOREX";
+  return CRYPTO_SYMBOL_SET.has(symbol) ? "CRYPTO" : "FOREX";
 }
 
 export async function runScheduledScanner() {
@@ -151,9 +152,7 @@ export async function runScheduledScanner() {
             actualEntry: direction === "BUY" ? latest.longEntry : latest.shortEntry,
             stopLoss: direction === "BUY" ? latest.longSL : latest.shortSL,
             tp1: direction === "BUY" ? latest.longTP : latest.shortTP,
-            confirmations: direction === "BUY"
-              ? ["EMA20 structure", "EMA20 rejection break", "UT Bot OR SMI confirmation"]
-              : ["EMA20 structure", "EMA20 rejection break", "UT Bot OR SMI confirmation"],
+            confirmations: ["EMA20 structure", "EMA20 rejection break", "UT Bot OR SMI confirmation"],
             tradeReason: "Automated EMA20 engine produced a new signal transition on the 5-minute execution timeframe.",
             rr: 1.81,
           },
