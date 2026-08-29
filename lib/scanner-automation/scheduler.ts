@@ -5,6 +5,7 @@ import { runEmaAutomatedEngine } from "../strategies/emaAutomatedEngine";
 import { publishAutomatedScannerSignal } from "../signals/publishAutomatedScannerSignal";
 import { startScannerRun, finishScannerRun } from "./runs";
 
+// Production deployment baseline: only the current automated strategy engine is scheduled.
 const TIMEZONE = "Africa/Johannesburg";
 const CANDLE_COUNT = 250;
 const EMA_START = 1 * 60 + 30;
