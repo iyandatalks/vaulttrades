@@ -149,12 +149,12 @@ export default function AnalyzerPage() {
   const changeMarket = (value: MarketType) => { setMarketType(value); setSymbol(DEFAULT_SYMBOLS[value][0]); setResult(null); setError(""); };
   const s = result?.scanner;
   const displayDirection = s?.projectedDirection && s.projectedDirection !== "NO TRADE" ? s.projectedDirection : result?.direction;
-  const projectedEntry = s?.projectedEntry ?? s?.entry ?? result?.entry;
+  const projectedEntry = s?.projectedEntry ?? result?.entry;
   const actualEntry = s?.actualEntry ?? null;
-  const projectedSL = s?.projectedStopLoss ?? s?.stopLoss ?? result?.stopLoss;
-  const projectedTp1 = s?.projectedTp1 ?? s?.tp1 ?? result?.tp1;
-  const projectedTp2 = s?.projectedTp2 ?? s?.tp2 ?? result?.tp2;
-  const projectedFinalTp = s?.projectedFinalTp ?? s?.finalTp ?? result?.finalTp;
+  const projectedSL = s?.projectedStopLoss ?? result?.stopLoss;
+  const projectedTp1 = s?.projectedTp1 ?? result?.tp1;
+  const projectedTp2 = s?.projectedTp2 ?? result?.tp2;
+  const projectedFinalTp = s?.projectedFinalTp ?? result?.finalTp;
   const projectedTp3 = projectedTp2 != null && projectedFinalTp != null ? projectedTp2 + (projectedFinalTp - projectedTp2) / 2 : projectedFinalTp;
   const projectedTp4 = projectedFinalTp;
   const projectedRR = s?.rr ?? result?.rr;
@@ -191,7 +191,7 @@ export default function AnalyzerPage() {
       <section className="card execution-card" style={{ border: "1px solid rgba(212,166,55,.28)", background: "linear-gradient(145deg, rgba(10,16,30,.98), rgba(5,8,18,.98))" }}>
         <div className="section-label">AI SCANNER</div>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", alignItems: "center" }}><div><h2 className="title" style={{ marginBottom: 4 }}>{scannerStatus}</h2><div className="muted">{s?.trend || result.marketCondition || "Market state"} · {s?.institutionalActivity ? `Institutional activity: ${s.institutionalActivity}` : result.market?.directionalBias}</div></div><div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}><div style={{ minWidth: 135, textAlign: "center", padding: 12, borderRadius: 12, background: "rgba(212,166,55,.10)", border: "1px solid rgba(212,166,55,.35)" }}><span className="muted">QUALITY</span><div style={{ fontSize: 28, fontWeight: 900 }}>{Math.round(result.confidence ?? 0)}<span style={{ fontSize: 15 }}>/100</span></div></div><div style={{ minWidth: 135, textAlign: "center", padding: 12, borderRadius: 12, background: "rgba(45,125,255,.10)", border: "1px solid rgba(45,125,255,.35)" }}><span className="muted">PROJECTED PROBABILITY</span><div style={{ fontSize: 28, fontWeight: 900 }}>{s?.projectedProbability ?? "—"}<span style={{ fontSize: 15 }}>{s?.projectedProbability != null ? "%" : ""}</span></div></div></div></div>
-        <div style={{ marginTop: 15 }}><strong>Trend</strong><p>{s?.trendReason || result.marketStructure}</p><strong>{s?.cycleStatus === "ACTIVE" ? "Trade status" : s?.cycleStatus === "TP1_HIT" ? "Trade status" : "Why we are waiting"}</strong><p>{s?.statusMessage || s?.waitReason || result.nextAction}</p></div>
+        <div style={{ marginTop: 15 }}><strong>Trend</strong><p>{s?.trendReason || result.marketStructure}</p><strong>{s?.cycleStatus === "ACTIVE" ? "Trade status" : "Why we are waiting"}</strong><p>{s?.statusMessage || s?.waitReason || result.nextAction}</p></div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7,minmax(0,1fr))", gap: 10, marginTop: 16, alignItems: "start" }}>
           <PriceLevel label="PROJECTED ENTRY" value={projectedEntry} kind="entry" />
@@ -212,9 +212,8 @@ export default function AnalyzerPage() {
         <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginTop: 12 }}>
           <div className="execution-item" style={{ minWidth: 180 }}><span>R:R TO LIQUIDITY</span><strong>{projectedRR == null ? "—" : `1:${projectedRR.toFixed(2)}`}</strong></div>
           <div className="execution-item" style={{ minWidth: 180 }}><span>CYCLE</span><strong>{s?.cycleStatus || "WATCH"}</strong></div>
-          <p className="muted" style={{ margin: 0, flex: 1, minWidth: 280 }}>Projected Entry, Stop Loss and TP levels are fixed strategy projections. Actual Entry is recorded only after confirmation and is not moved with current price.</p>
+          <p className="muted" style={{ margin: 0, flex: 1, minWidth: 280 }}>Projected Entry, Stop Loss and TP levels are fixed strategy projections. Actual Entry is recorded only after Entry Confirmation and is not moved with current price.</p>
         </div>
-        {s?.tp1Hit && <div className="condition-box" style={{ marginTop: 12 }}><strong>TP1 HIT</strong><p>The projected TP1 has already been reached. The scanner will not continue presenting this trade as a waiting-for-entry setup.</p></div>}
       </section>
 
       <section className="card"><div className="section-label">INSTITUTIONAL PROFILE</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 9 }}><div className="condition-box"><strong>Activity</strong><p>{s?.institutionalActivity || "—"}</p></div><div className="condition-box"><strong>Volume ratio</strong><p>{s?.volumeProfile?.ratio == null ? "—" : `${s.volumeProfile.ratio.toFixed(2)}× average`}</p></div><div className="condition-box"><strong>Volume expansion</strong><p>{s?.volumeProfile?.expansion ? "CONFIRMED" : "Not confirmed"}</p></div><div className="condition-box"><strong>Displacement</strong><p>{s?.volumeProfile?.displacementATR == null ? "—" : `${s.volumeProfile.displacementATR.toFixed(2)} ATR`}</p></div></div><ul>{(s?.institutionalEvidence || []).map((x, i) => <li key={i}>{x}</li>)}</ul></section>
@@ -229,21 +228,21 @@ export default function AnalyzerPage() {
         <div className="section-label">ENTRY CONFIRMATION</div>
         <div className="condition-box" style={{ border: `1px solid ${s?.entryConfirmation ? "rgba(40,200,110,.65)" : "rgba(255,165,45,.65)"}`, background: s?.entryConfirmation ? "rgba(40,200,110,.10)" : "rgba(255,165,45,.10)" }}>
           <strong style={{ fontSize: 18 }}>{s?.entryConfirmation ? `ENTRY CONFIRMATION: YES — ${s.confirmationTimeframe || "CONFIRMATION TIMEFRAME"}` : "NO ENTRY — WAIT FOR ENTRY CONFIRMATION"}</strong>
-          <p>{s?.entryConfirmationReason || "The strategy-specific entry trigger has not yet been confirmed."}</p>
+          <p>{s?.entryConfirmationReason || "The strategy-specific entry trigger has not yet been confirmed on the selected confirmation timeframe."}</p>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10, marginTop: 10 }}>
           <div className="condition-box"><strong>Confirmation timeframe</strong><p>{s?.confirmationTimeframe || "Not yet established"}</p></div>
           <div className="condition-box"><strong>Entry trigger</strong><p>{s?.entryConfirmationReason || "Waiting for the strategy-defined entry trigger."}</p></div>
           <div className="condition-box"><strong>Strategy setup</strong><p>{s?.strategyConditionsMet ? "SETUP CONDITIONS CONFIRMED" : "STRATEGY CONDITIONS NOT YET CONFIRMED"}</p></div>
         </div>
-        <p className="muted" style={{ marginTop: 10, marginBottom: 0 }}>This section is the entry trigger only. Validation above remains separate. Lifecycle states such as ACTIVE, TP1, SL and COMPLETED are never entry confirmation.</p>
+        <p className="muted" style={{ marginTop: 10, marginBottom: 0 }}>Entry Confirmation is the entry trigger only. Validation remains separate. Lifecycle states are never entry confirmation.</p>
       </section>
 
-      <section className="card"><div className="section-label">SMC CONFLUENCE</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 8 }}>{Object.entries(result.smcScores || {}).map(([name, score]) => <div className="condition-box" key={name}><strong>{name}</strong><div style={{ fontSize: 22, fontWeight: 800 }}>{score}/10</div></div>)}</div><p className="muted" style={{ marginTop: 12 }}>A new BUY/SELL is allowed only when at least two SMC signals score 7 or higher and the price-validation gates also pass.</p></section>
+      <section className="card"><div className="section-label">SMC CONFLUENCE</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 8 }}>{Object.entries(result.smcScores || {}).map(([name, score]) => <div className="condition-box" key={name}><strong>{name}</strong><div style={{ fontSize: 22, fontWeight: 800 }}>{score}/10</div></div>)}</div><p className="muted" style={{ marginTop: 12 }}>SMC scores remain visible as validation/context. They do not replace the selected strategy's Entry Confirmation.</p></section>
 
       <section className="card"><div className="section-label">STRATEGY INDICATORS</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 9 }}>{(result.indicatorReadings || []).map(i => <div className="condition-box" key={i.name}><strong>{i.name}</strong><div className="muted">{i.signal} · {fmt(i.value)}</div><p style={{ fontSize: 13 }}>{i.reason}</p></div>)}</div></section>
 
-      <section className="card"><div className="section-label">VALIDATION</div><div className="condition-box"><strong>{result.decision === "TRADE" ? "TRADE VALIDATION PASSED" : "NO TRADE — WAIT FOR THE MISSING CONDITIONS"}</strong><p>{result.setup}</p></div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 10, marginTop: 10 }}><div className="condition-box"><strong>Confirmed</strong><ul>{(result.confirmedConditions || []).map((x, i) => <li key={i}>{x}</li>)}</ul></div><div className="condition-box"><strong>Still required</strong><ul>{(result.missingConditions || []).map((x, i) => <li key={i}>{x}</li>)}</ul></div></div><div className="condition-box" style={{ marginTop: 10 }}><strong>Invalidation</strong><p>{s?.invalidation || result.invalidation}</p></div><div className="condition-box" style={{ marginTop: 10 }}><strong>Educational note</strong><p>{result.educationalNote}</p></div></section>
+      <section className="card"><div className="section-label">VALIDATION</div><div className="condition-box"><strong>STRATEGY / UNIVERSAL VALIDATION</strong><p>Validation results remain visible independently from Entry Confirmation. They explain the strategy state and market evidence; they do not replace a valid strategy-specific entry trigger.</p></div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 10, marginTop: 10 }}><div className="condition-box"><strong>Confirmed</strong><ul>{(result.confirmedConditions || []).map((x, i) => <li key={i}>{x}</li>)}</ul></div><div className="condition-box"><strong>Still required</strong><ul>{(result.missingConditions || []).map((x, i) => <li key={i}>{x}</li>)}</ul></div></div><div className="condition-box" style={{ marginTop: 10 }}><strong>Invalidation</strong><p>{s?.invalidation || result.invalidation}</p></div><div className="condition-box" style={{ marginTop: 10 }}><strong>Educational note</strong><p>{result.educationalNote}</p></div></section>
     </>}
     {scannerLoading && result && <div className="muted" style={{ textAlign: "center", padding: 10 }}>AI Scanner is profiling volume, institutional activity and projected market path…</div>}
   </main>;

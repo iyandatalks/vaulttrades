@@ -51,24 +51,24 @@ async function closeStopLifecycle(supabase: any, userId: string, strategy: strin
 }
 
 async function publishConfirmedSignal(supabase: any, userId: string, analysis: any, scanner: any, strategy: string) {
-  const direction = analysis?.direction === "BUY" || analysis?.direction === "SELL" ? analysis.direction : null;
+  const direction = scanner?.projectedDirection === "BUY" || scanner?.projectedDirection === "SELL" ? scanner.projectedDirection : null;
   const timeframe = typeof analysis?.market?.timeframe === "string" ? analysis.market.timeframe : "";
   const symbol = typeof analysis?.market?.asset === "string" ? analysis.market.asset.trim().toUpperCase() : "";
   const selectedStrategy = ANALYZER_STRATEGY_MAP[strategy];
-  const confirmed = analysis?.decision === "TRADE" && direction !== null && finite(analysis?.entry) && selectedStrategy !== undefined;
+  const confirmed = direction !== null && scanner?.strategyConditionsMet === true && scanner?.entryConfirmation === true && finite(scanner?.actualEntry) && selectedStrategy !== undefined;
   if (!confirmed || !symbol || !timeframe) return { scanner, published: false };
 
-  const entry = analysis.entry;
-  const stopLoss = finite(analysis?.stopLoss) ? analysis.stopLoss : finite(scanner?.stopLoss) ? scanner.stopLoss : null;
-  const tp1 = finite(analysis?.tp1) ? analysis.tp1 : finite(scanner?.tp1) ? scanner.tp1 : null;
-  const tp2 = finite(analysis?.tp2) ? analysis.tp2 : finite(scanner?.tp2) ? scanner.tp2 : null;
-  const tp3 = finite(analysis?.tp3) ? analysis.tp3 : finite(scanner?.tp3) ? scanner.tp3 : null;
-  const tp4 = finite(analysis?.tp4) ? analysis.tp4 : finite(scanner?.tp4) ? scanner.tp4 : null;
+  const entry = scanner.actualEntry;
+  const stopLoss = finite(scanner?.stopLoss) ? scanner.stopLoss : null;
+  const tp1 = finite(scanner?.tp1) ? scanner.tp1 : null;
+  const tp2 = finite(scanner?.tp2) ? scanner.tp2 : null;
+  const tp3 = finite(scanner?.tp3) ? scanner.tp3 : null;
+  const tp4 = finite(scanner?.tp4) ? scanner.tp4 : null;
   const latest = await getLatestSetup(supabase, userId, strategy, symbol, timeframe);
   const previousDirection = latest?.direction === "BUY" || latest?.direction === "SELL" ? latest.direction : null;
   if (previousDirection && previousDirection !== direction) await closePreviousLifecycle(supabase, userId, strategy, symbol, timeframe, direction);
 
-  const payload = { canonical_symbol: symbol, direction, strategy_id: selectedStrategy.id, strategy_name: selectedStrategy.name, timeframe, entry, stop_loss: stopLoss, tp1, tp2, tp3, tp4, confidence: finite(scanner?.confidence) ? scanner.confidence : finite(analysis?.confidence) ? analysis.confidence : null, rr: finite(scanner?.rr) ? scanner.rr : finite(analysis?.rr) ? analysis.rr : null };
+  const payload = { canonical_symbol: symbol, direction, strategy_id: selectedStrategy.id, strategy_name: selectedStrategy.name, timeframe, entry, stop_loss: stopLoss, tp1, tp2, tp3, tp4, confidence: finite(scanner?.projectedProbability) ? scanner.projectedProbability : null, rr: finite(scanner?.rr) ? scanner.rr : null };
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(payload)));
   const fingerprint = Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, "0")).join("");
   const { data: existing } = await supabase.from("scanner_signals").select("*").eq("auth_user_id", userId).eq("signal_fingerprint", fingerprint).maybeSingle();
@@ -85,7 +85,7 @@ async function publishConfirmedSignal(supabase: any, userId: string, analysis: a
       confidence: payload.confidence, rr: payload.rr, status: "ACTIVE",
       confirmation_conditions: Array.isArray(scanner?.confirmations) ? scanner.confirmations : [], missing_conditions: [],
       execution_payload: { trade_id: tradeId, symbol, side: direction, entry, stop_loss: stopLoss, take_profit: tp1, strategy: selectedStrategy.id, strategy_id: selectedStrategy.id, strategy_name: selectedStrategy.name, timeframe, status: "ACTIVE", execution_enabled: false, execution_provider: "MetaKit", authority: "SELECTED_STRATEGY" },
-      source_snapshot: { ...(typeof scanner === "object" && scanner ? scanner : {}), strategy_id: selectedStrategy.id, strategy_name: selectedStrategy.name, authoritative_confirmation: "SELECTED_STRATEGY_ANALYZER" },
+      source_snapshot: { ...(typeof scanner === "object" && scanner ? scanner : {}), strategy_id: selectedStrategy.id, strategy_name: selectedStrategy.name, authoritative_confirmation: "SELECTED_STRATEGY_ENTRY_CONFIRMATION" },
       fired_at: now, completed_at: null, updated_at: now,
     };
     const inserted = await supabase.from("scanner_signals").insert(row).select("*").single(); signal = inserted.data ?? null;
@@ -96,7 +96,7 @@ async function publishConfirmedSignal(supabase: any, userId: string, analysis: a
     projectedEntry: finite(scanner?.projectedEntry) ? scanner.projectedEntry : entry, stopLoss, projectedStopLoss: stopLoss,
     tp1, projectedTp1: tp1, tp2, projectedTp2: tp2, tp3, projectedTp3: tp3, tp4, projectedTp4: tp4,
     cycleStatus: "ACTIVE", tp1Hit: false, stopHit: false, statusMessage: `ACTIVE ${direction} — ${timeframe}`,
-    tradeReason: "Confirmed by the selected strategy and universal validation layer.",
+    tradeReason: "Entry Confirmation: YES — published from the selected strategy entry trigger.",
     invalidation: "Lifecycle ends only on actual SL or a confirmed opposite setup on the same timeframe.",
   };
   return { scanner: normalizedScanner, published: Boolean(signal) };
