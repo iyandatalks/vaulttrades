@@ -116,7 +116,7 @@ ENTRY CONFIRMATION OUTPUT RULE
 entryConfirmationReason must describe ONLY the entry-trigger event and its evidence on the confirmation timeframe (for example MSS, breaker reaction, engulfing, FVG/retest or the source-defined trigger). Do not copy strategy conditions, universal validation failures, ATR/volume/SMC gates, lifecycle state, or a generic "still required" list into this field. When confirmation is NO, state the specific entry-trigger event that is missing. When confirmation is YES, state the exact trigger that occurred and the confirmation price/level.
 
 ACTUAL ENTRY OUTPUT RULE
-The schema field `entry` is the actual trade entry price AFTER Entry Confirmation is YES. It is not the projected entry. Before confirmation, `entry` may be null. The projected entry is preserved separately from the existing strategy projection.
+The schema field 'entry' is the actual trade entry price AFTER Entry Confirmation is YES. It is not the projected entry. Before confirmation, 'entry' may be null. The projected entry is preserved separately from the existing strategy projection.
 
 MTF CONFIRMATION PROGRESSION
 The market move can begin on the lower timeframe and develop upward. M5 is the initial/early confirmation and execution timeframe. M15 is a stronger confirmation when selected or when the move develops into it. Higher timeframes provide progressively stronger directional context. Do NOT require M15 to confirm before a valid M5 confirmation can execute. Do NOT invalidate an M5 confirmation merely because M15 has not confirmed yet. Do NOT invent an M15 confirmation from an M5 signal.
