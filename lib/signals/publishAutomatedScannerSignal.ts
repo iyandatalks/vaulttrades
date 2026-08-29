@@ -1,10 +1,10 @@
 import { createHash } from "crypto";
 import { createServiceClient } from "../supabase/service";
 import { STRATEGIES } from "../strategies";
-import { isPreferredTradeTimeframe } from "../strategies/adaptiveExecution";
 
 const ALLOWED_MARKETS = new Set(["XAU/USD", "EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", "BTC/USD", "ETH/USD", "SOL/USD"]);
 const AUTOMATED_STRATEGIES = new Set(["adaptiveAutomated", "emaAutomated"]);
+const PREFERRED_TIMEFRAMES = new Set(["M5", "M15"]);
 
 export type AutomatedScannerSignal = {
   authUserId: string; runKey: string; marketType: string; symbol: string; timeframe: string; strategyId: string;
@@ -21,7 +21,7 @@ export async function publishAutomatedScannerSignal(input: AutomatedScannerSigna
   if (!clean(input.authUserId) || !clean(input.runKey)) return { published: false, duplicate: false, error: "Automation user and run identity are required." };
   if (!ALLOWED_MARKETS.has(symbol)) return { published: false, duplicate: false, error: `Market '${symbol}' is outside the Phase 1 VaultTrades signal universe.` };
   if (!strategy) return { published: false, duplicate: false, error: `Unknown automated strategy '${input.strategyId}'.` };
-  if (!isPreferredTradeTimeframe(timeframe)) return { published: false, duplicate: false };
+  if (!PREFERRED_TIMEFRAMES.has(timeframe)) return { published: false, duplicate: false, error: `Timeframe '${timeframe}' is not an automated execution timeframe. Only M5 and M15 are supported.` };
   if (!scanner.isExecutable || (direction !== "BUY" && direction !== "SELL") || scanner.actualEntry == null) return { published: false, duplicate: false };
   const marketCategory = clean(input.marketType || "FOREX").toUpperCase(); const confirmationBar = clean(input.analysis?.confirmationBar);
   const identity = { auth_user_id: input.authUserId, market_category: marketCategory, canonical_symbol: symbol, direction, strategy_id: strategy.id, timeframe, confirmation_bar: confirmationBar || null, entry: scanner.actualEntry };
