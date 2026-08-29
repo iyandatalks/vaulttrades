@@ -1,4 +1,5 @@
 import { createHash } from "crypto";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "../../../lib/supabase/server";
 import { ANALYZER_STRATEGY_MAP } from "../../../lib/strategies/analyzerProfiles";
 
@@ -12,10 +13,21 @@ const HISTORY_WINDOW_MS = 6 * 60 * 60 * 1000;
 
 function fingerprint(input: Record<string, unknown>) { return createHash("sha256").update(JSON.stringify(input)).digest("hex"); }
 function makeTradeId(symbol: string, timeframe: string) { const stamp = new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14); return `VT-${stamp}-${symbol.replace("/", "")}-${timeframe.toUpperCase()}-${crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase()}`; }
+function serviceClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  return createSupabaseClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
+}
 
 export async function GET() {
-  const supabase = await createClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) return Response.json({ error: "Authentication required." }, { status: 401 });
-  const { data, error } = await supabase.from("scanner_signals").select("id,trade_id,market_category,canonical_symbol,direction,strategy_id,strategy_name,timeframe,entry,stop_loss,tp1,tp2,tp3,tp4,confidence,rr,status,confirmation_conditions,missing_conditions,execution_payload,fired_at,created_at,updated_at,completed_at").eq("auth_user_id", user.id).order("fired_at", { ascending: false }).limit(100);
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return Response.json({ error: "Authentication required." }, { status: 401 });
+  const admin = serviceClient();
+  const queryClient = admin ?? supabase;
+  const query = queryClient.from("scanner_signals").select("id,trade_id,market_category,canonical_symbol,direction,strategy_id,strategy_name,timeframe,entry,stop_loss,tp1,tp2,tp3,tp4,confidence,rr,status,confirmation_conditions,missing_conditions,execution_payload,fired_at,created_at,updated_at,completed_at");
+  const { data, error } = await query.or(`auth_user_id.eq.${user.id},auth_user_id.is.null`).order("fired_at", { ascending: false }).limit(100);
   if (error) return Response.json({ error: error.message }, { status: 500 });
   const now = Date.now();
   const signals = (data ?? []).map((signal) => {
@@ -28,7 +40,7 @@ export async function GET() {
     if (!signal.completed_at) return false;
     const completedAt = Date.parse(signal.completed_at); return Number.isFinite(completedAt) && now - completedAt <= HISTORY_WINDOW_MS;
   });
-  return Response.json({ signals, historyWindowHours: 6 });
+  return Response.json({ signals, historyWindowHours: 6, source: "AUTOMATED_MARKET_ENGINE + USER_ANALYZER" });
 }
 
 export async function POST(request: Request) {
