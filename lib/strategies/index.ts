@@ -3,6 +3,7 @@ import type { StrategyDefinition, StrategyId, StrategyRuleSet } from "./types";
 import volatilityBreakoutRules from "./volatilityBreakout";
 import killZoneRules from "./killZone";
 import ema20Rules from "./ema20";
+import emaAutomatedRules from "./emaAutomated";
 import continuationRules from "./continuation";
 import supplyDemandRules from "./supplyDemand";
 import observing714Rules from "./714Observing";
@@ -11,11 +12,13 @@ import swingDevelopingStrategy from "./swingDeveloping";
 import autoFibRetraceStrategy from "./autoFibRetrace";
 import institutionalRules from "./institutional";
 import adaptiveExecutionRules from "./adaptiveExecutionRules";
+import adaptiveAutomatedRules from "./adaptiveAutomated";
 
 export const STRATEGIES: Readonly<Record<StrategyId, StrategyDefinition>> = {
   volatilityBreakout: { rules: volatilityBreakoutRules },
   killZone: { rules: killZoneRules },
   ema20: { rules: ema20Rules },
+  emaAutomated: { rules: emaAutomatedRules },
   continuation: { rules: continuationRules },
   supplyDemand: { rules: supplyDemandRules },
   "714Observing": { rules: observing714Rules },
@@ -24,6 +27,7 @@ export const STRATEGIES: Readonly<Record<StrategyId, StrategyDefinition>> = {
   autoFibRetrace: autoFibRetraceStrategy,
   institutional: { rules: institutionalRules },
   adaptiveExecution: { rules: adaptiveExecutionRules },
+  adaptiveAutomated: { rules: adaptiveAutomatedRules },
 };
 
 export const STRATEGY_LIST: readonly StrategyDefinition[] = [
@@ -35,9 +39,11 @@ export const STRATEGY_LIST: readonly StrategyDefinition[] = [
   STRATEGIES.swingDeveloping,
   STRATEGIES.killZone,
   STRATEGIES.ema20,
+  STRATEGIES.emaAutomated,
   STRATEGIES.supplyDemand,
   STRATEGIES.institutional,
   STRATEGIES.adaptiveExecution,
+  STRATEGIES.adaptiveAutomated,
 ];
 
 export function getStrategy(strategyId: StrategyId): StrategyDefinition { return STRATEGIES[strategyId]; }
@@ -47,6 +53,7 @@ export { AI_COACH_RULES } from "./types";
 export { default as volatilityBreakoutRules } from "./volatilityBreakout";
 export { default as killZoneRules } from "./killZone";
 export { default as ema20Rules } from "./ema20";
+export { default as emaAutomatedRules } from "./emaAutomated";
 export { default as continuationRules } from "./continuation";
 export { default as supplyDemandRules } from "./supplyDemand";
 export { default as observing714Rules } from "./714Observing";
@@ -55,3 +62,4 @@ export { default as swingDevelopingStrategy } from "./swingDeveloping";
 export { default as autoFibRetraceStrategy } from "./autoFibRetrace";
 export { default as institutionalRules } from "./institutional";
 export { default as adaptiveExecutionRules } from "./adaptiveExecutionRules";
+export { default as adaptiveAutomatedRules } from "./adaptiveAutomated";

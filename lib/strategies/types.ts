@@ -3,6 +3,7 @@ export type StrategyId =
   | "volatilityBreakout"
   | "killZone"
   | "ema20"
+  | "emaAutomated"
   | "continuation"
   | "supplyDemand"
   | "714Observing"
@@ -10,7 +11,8 @@ export type StrategyId =
   | "swingDeveloping"
   | "autoFibRetrace"
   | "institutional"
-  | "adaptiveExecution";
+  | "adaptiveExecution"
+  | "adaptiveAutomated";
 
 export type StrategySignal = "BUY" | "SELL" | "NONE";
 export type StrategyState = "WAITING" | "DEVELOPING" | "ENTRY_READY" | "BUY" | "SELL" | "NO_TRADE";

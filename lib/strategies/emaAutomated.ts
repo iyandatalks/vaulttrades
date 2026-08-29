@@ -1,0 +1,61 @@
+import type { StrategyRuleSet } from "./types";
+
+export const emaAutomatedRules: StrategyRuleSet = {
+  id: "emaAutomated",
+  name: "EMA Automated",
+  description: "Independent automation copy of the current EMA20 Pullback Morning Engine for the Signal Tab.",
+  source: "PINE_SCRIPT",
+  timeframes: ["M5"],
+  sequence: ["Bullish/Bearish structure", "EMA20 touch", "Rejection", "Rejection active", "Break of stored rejection level", "UT Bot OR SMI confirmation", "New signal transition", "ENTRY"],
+  mandatoryRules: [
+    "EMA20 length 20; EMA105 length 105 is context only.",
+    "ATR length 14; EMA20 touch tolerance is 0.20 × ATR.",
+    "Confirmed pivot high/low structure uses pivot length 3 with Pine pivot confirmation delay.",
+    "Bullish structure requires (HH OR HL) AND EMA20 rising AND close > EMA20.",
+    "Bearish structure requires (LH OR LL) AND EMA20 falling AND close < EMA20.",
+    "Bullish rejection requires bullish structure + bullish touch + close > open + close > EMA20.",
+    "Bearish rejection requires bearish structure + bearish touch + close < open + close < EMA20.",
+    "A rejection stores its high, low and bar index as persistent setup state.",
+    "A stored rejection is active only on subsequent bars through confirmationBars (default 3).",
+    "Bullish rejection is invalidated when close < stored bullish rejection low.",
+    "Bearish rejection is invalidated when close > stored bearish rejection high.",
+    "Bullish trigger is an active close above stored bullish rejection high.",
+    "Bearish trigger is an active close below stored bearish rejection low.",
+    "UT Bot and SMI are alternative confirmations; confirmation score must be >= 1.",
+    "A trade signal is created only on the false → true transition of longSignal or shortSignal.",
+    "Entry is locked to the signal candle close.",
+  ],
+  optionalConfluence: ["Supply & Demand is optional confluence and cannot create an EMA20 trade."],
+  invalidationRules: [
+    "Long rejection: close < stored bullish rejection low.",
+    "Short rejection: close > stored bearish rejection high.",
+    "Long/short rejection expires when bar_index - rejectionBar > confirmationBars.",
+    "A signal requires positive calculated risk.",
+  ],
+  executionRules: [
+    "Long entry = signal candle close.",
+    "Short entry = signal candle close.",
+    "Long SL = entry − (ATR14 × 2.23).",
+    "Short SL = entry + (ATR14 × 2.23).",
+    "Long TP = entry + (entry − SL) × 1.81.",
+    "Short TP = entry − (SL − entry) × 1.81.",
+    "Do not shift historical entry, SL or TP after the signal candle.",
+    "06:00 SAST bias is display-only and must never block a valid EMA20 trade.",
+  ],
+  riskRules: [
+    "ATR stop-loss multiplier = 2.23.",
+    "Risk must be positive.",
+    "Risk/reward ratio = 1:1.81.",
+    "Account risk percentage belongs to position sizing, not signal qualification.",
+  ],
+  aiInstructions: [
+    "This is an independent automation copy of the EMA20 Pullback Morning Engine.",
+    "Do not call BUY/SELL from EMA position alone.",
+    "Do not require both UT Bot and SMI; one confirmation is sufficient.",
+    "Do not use EMA105 as an entry filter; it is context only.",
+    "Do not replace the ATR-based SL with rejection-high/low stops.",
+    "Do not replace 1:1.81 RR with a generic 1:2 rule.",
+  ],
+};
+
+export default emaAutomatedRules;
