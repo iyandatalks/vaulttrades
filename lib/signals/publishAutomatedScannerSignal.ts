@@ -3,10 +3,10 @@ import { createServiceClient } from "../supabase/service";
 import { STRATEGIES } from "../strategies";
 
 const ALLOWED_MARKETS = new Set(["XAU/USD", "EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", "BTC/USD", "ETH/USD", "SOL/USD"]);
-const AUTOMATED_STRATEGIES = new Set(["adaptiveAutomated", "emaAutomated"]);
+const AUTOMATED_STRATEGIES = new Set(["adaptiveAutomated", "emaAutomated", "autoFibRetrace"]);
 const PREFERRED_TIMEFRAMES = new Set(["M5", "M15"]);
 
-export type AutomatedScannerSignal = {
+type AutomatedScannerSignal = {
   authUserId: string; runKey: string; marketType: string; symbol: string; timeframe: string; strategyId: string;
   scanner: { projectedDirection?: "BUY" | "SELL" | "NO TRADE"; analysisState?: string; isExecutable?: boolean; actualEntry?: number | null; stopLoss?: number | null; tp1?: number | null; tp2?: number | null; tp3?: number | null; tp4?: number | null; projectedTp1?: number | null; projectedTp2?: number | null; projectedTp3?: number | null; projectedTp4?: number | null; projectedStopLoss?: number | null; projectedProbability?: number; confirmations?: string[]; waitReason?: string; tradeReason?: string; rr?: number | null };
   analysis?: Record<string, unknown>;
