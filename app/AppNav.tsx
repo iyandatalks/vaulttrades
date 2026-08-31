@@ -7,7 +7,6 @@ const tabs = [
   { href: "/", label: "Home" },
   { href: "/profile", label: "Profile" },
   { href: "/analyzer", label: "Analyzer" },
-  { href: "/signals", label: "Signals" },
   { href: "/strategies", label: "Strategies" },
   { href: "/ai-coach", label: "AI Coach" },
   { href: "/journal", label: "Journal" },
