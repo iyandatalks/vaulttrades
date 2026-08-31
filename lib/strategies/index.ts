@@ -67,5 +67,5 @@ export { default as institutionalRules } from "./institutional";
 export { default as adaptiveExecutionRules } from "./adaptiveExecutionRules";
 export { default as adaptiveAutomatedRules } from "./adaptiveAutomated";
 export { default as m15DualRules } from "./m15DualRules";
-export { evaluateM15DualEngine, evaluateM15AutoFib } from "./m15DualEngine";
+export { evaluateM15DualEngine } from "./m15DualEngine";
 export type { M15DualConfig, M15DualResult, M15FibResult, M15Signal, M15State } from "./m15DualEngine";
