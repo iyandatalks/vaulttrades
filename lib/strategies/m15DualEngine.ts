@@ -131,7 +131,8 @@ export function evaluateM15DualEngine(c: AdaptiveCandle[], cfg: M15DualConfig = 
   const agreement = first.confirmed && second.signal !== "NONE" && primarySignal === second.signal;
   const conflict = first.confirmed && second.signal !== "NONE" && primarySignal !== second.signal;
   const signal: M15Signal = conflict ? "NONE" : agreement ? second.signal : first.confirmed ? primarySignal : second.signal;
-  const confidence = agreement ? Math.min(100, Math.round((first.score + second.confidence) / 2 + 10)) : Math.max(first.score, second.confidence);
+  const secondConfidence = finite(second.confidence) ? second.confidence : 0;
+  const confidence = agreement ? Math.min(100, Math.round((first.score + secondConfidence) / 2 + 10)) : Math.max(first.score, secondConfidence);
   const useFib = agreement || !first.confirmed;
   const entry = signal === "NONE" ? null : useFib ? second.entry : first.entry;
   const stopLoss = signal === "NONE" ? null : useFib ? second.stopLoss : first.stopLoss;
