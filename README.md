@@ -8,3 +8,5 @@ This project will provide strategy-driven chart analysis for:
 - Continuation
 
 Deployment verification: main branch automation release.
+
+Vercel production build verification trigger: 2026-08-31.
