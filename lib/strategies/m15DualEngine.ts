@@ -83,9 +83,24 @@ function evaluateM15AutoFib(c: AdaptiveCandle[], cfg: M15DualConfig): M15FibResu
   const entry = signal === "NONE" ? null : cur.close;
   const sl = signal === "BUY" ? lo - (finite(atr) ? atr : 0) : signal === "SELL" ? hi + (finite(atr) ? atr : 0) : null;
   const risk = finite(entry) && finite(sl) ? Math.abs(entry - sl) : null;
-  const tp1 = signal === "BUY" && finite(risk) ? entry + risk * 2 : signal === "SELL" && finite(risk) ? entry - risk * 2 : null;
-  const tp2 = signal === "BUY" && finite(risk) ? entry + risk * 3 : signal === "SELL" && finite(risk) ? entry - risk * 3 : null;
-  const tp3 = signal === "BUY" && finite(risk) ? entry + risk * 4 : signal === "SELL" && finite(risk) ? entry - risk * 4 : null;
+
+  // Narrow nullable values explicitly before arithmetic. This keeps the runtime
+  // trading calculations unchanged while making the type contract unambiguous.
+  const tp1 = finite(entry) && finite(risk)
+    ? signal === "BUY" ? entry + risk * 2
+      : signal === "SELL" ? entry - risk * 2
+      : null
+    : null;
+  const tp2 = finite(entry) && finite(risk)
+    ? signal === "BUY" ? entry + risk * 3
+      : signal === "SELL" ? entry - risk * 3
+      : null
+    : null;
+  const tp3 = finite(entry) && finite(risk)
+    ? signal === "BUY" ? entry + risk * 4
+      : signal === "SELL" ? entry - risk * 4
+      : null
+    : null;
   const rr = finite(risk) && risk > 0 && finite(entry) && finite(tp1) ? Math.abs(tp1 - entry) / risk : null;
 
   return {
