@@ -8,6 +8,7 @@ const tabs = [
   { href: "/profile", label: "Profile" },
   { href: "/analyzer", label: "Analyzer" },
   { href: "/strategies", label: "Strategies" },
+  { href: "/automated-trader", label: "Automated Trader" },
   { href: "/ai-coach", label: "AI Coach" },
   { href: "/journal", label: "Journal" },
   { href: "/referral-vault", label: "Referral Vault" },
