@@ -12,7 +12,8 @@ export type StrategyId =
   | "autoFibRetrace"
   | "institutional"
   | "adaptiveExecution"
-  | "adaptiveAutomated";
+  | "adaptiveAutomated"
+  | "m15DualEngine";
 
 export type StrategySignal = "BUY" | "SELL" | "NONE";
 export type StrategyState = "WAITING" | "DEVELOPING" | "ENTRY_READY" | "BUY" | "SELL" | "NO_TRADE";
