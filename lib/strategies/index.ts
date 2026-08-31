@@ -13,6 +13,7 @@ import autoFibRetraceStrategy from "./autoFibRetrace";
 import institutionalRules from "./institutional";
 import adaptiveExecutionRules from "./adaptiveExecutionRules";
 import adaptiveAutomatedRules from "./adaptiveAutomated";
+import m15DualRules from "./m15DualRules";
 
 export const STRATEGIES: Readonly<Record<StrategyId, StrategyDefinition>> = {
   volatilityBreakout: { rules: volatilityBreakoutRules },
@@ -28,6 +29,7 @@ export const STRATEGIES: Readonly<Record<StrategyId, StrategyDefinition>> = {
   institutional: { rules: institutionalRules },
   adaptiveExecution: { rules: adaptiveExecutionRules },
   adaptiveAutomated: { rules: adaptiveAutomatedRules },
+  m15DualEngine: { rules: m15DualRules },
 };
 
 export const STRATEGY_LIST: readonly StrategyDefinition[] = [
@@ -44,6 +46,7 @@ export const STRATEGY_LIST: readonly StrategyDefinition[] = [
   STRATEGIES.institutional,
   STRATEGIES.adaptiveExecution,
   STRATEGIES.adaptiveAutomated,
+  STRATEGIES.m15DualEngine,
 ];
 
 export function getStrategy(strategyId: StrategyId): StrategyDefinition { return STRATEGIES[strategyId]; }
@@ -63,3 +66,6 @@ export { default as autoFibRetraceStrategy } from "./autoFibRetrace";
 export { default as institutionalRules } from "./institutional";
 export { default as adaptiveExecutionRules } from "./adaptiveExecutionRules";
 export { default as adaptiveAutomatedRules } from "./adaptiveAutomated";
+export { default as m15DualRules } from "./m15DualRules";
+export { evaluateM15DualEngine, evaluateM15AutoFib } from "./m15DualEngine";
+export type { M15DualConfig, M15DualResult, M15FibResult, M15Signal, M15State } from "./m15DualEngine";
