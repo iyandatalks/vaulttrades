@@ -50,6 +50,24 @@ export const SOURCE_INDICATORS: Record<StrategyId, readonly SourceIndicatorSpec[
     { name: "ADX", purpose: "Trend-strength confirmation", parameters: "Length 14; minimum 20; DI direction required", required: true },
     { name: "ATR", purpose: "Adaptive trigger and stop/target geometry", parameters: "Length 14; trigger 1.5 ATR; stop 1.5 ATR", required: true },
   ],
+  emaAutomated: [
+    { name: "EMA", purpose: "EMA20 pullback structure and EMA105 context", parameters: "EMA 20; EMA 105 context only", required: true },
+    { name: "ATR", purpose: "EMA20 touch tolerance and SL geometry", parameters: "Length 14; touch tolerance 0.20 ATR; stop multiplier 2.23", required: true },
+    { name: "UT Bot", purpose: "Alternative entry confirmation", parameters: "Sensitivity 1.0; ATR 10", required: false },
+    { name: "SMI", purpose: "Alternative entry confirmation", parameters: "7-2-2", required: false },
+  ],
+  adaptiveAutomated: [
+    { name: "EMA", purpose: "Trend hierarchy", parameters: "EMA 20, 50, 100, 200", required: true },
+    { name: "RSI", purpose: "Momentum confirmation", parameters: "Length 14; bullish >50, bearish <50", required: true },
+    { name: "MACD", purpose: "Momentum confirmation", parameters: "12, 26, 9", required: true },
+    { name: "ADX", purpose: "Trend-strength confirmation", parameters: "Length 14; minimum 20; DI direction required", required: true },
+    { name: "ATR", purpose: "Adaptive trigger and stop/target geometry", parameters: "Length 14; trigger 1.5 ATR; stop 1.5 ATR", required: true },
+  ],
+  m15DualEngine: [
+    { name: "Adaptive Execution", purpose: "Primary M15 market direction, momentum, strength, structure and trigger scoring", parameters: "Existing Adaptive Execution configuration; default confirmation threshold 70", required: true },
+    { name: "ATR", purpose: "M15 Auto Fib displacement and stop geometry", parameters: "Length 14; displacement threshold 0.6 ATR", required: true },
+    { name: "Fibonacci Retracement", purpose: "M15 retracement hierarchy and Fib anchor range", parameters: "Preferred 68.1%; secondary 78.6%; last resort 88%; stop 125%", required: true },
+  ],
 };
 
 export function getSourceIndicators(strategyId: StrategyId): readonly SourceIndicatorSpec[] { return SOURCE_INDICATORS[strategyId] ?? []; }
