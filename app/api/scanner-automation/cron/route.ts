@@ -1,4 +1,5 @@
 import { runScheduledScanner } from "../../../../lib/scanner-automation/scheduler";
+import { runScheduledVaultAutoFib } from "../../../../lib/scanner-automation/vaultAutoFibRun";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,8 +22,9 @@ function jobForSchedule(request: Request): "ADAPTIVE_M5" | "ADAPTIVE_M15" | "EMA
 export async function GET(request: Request) {
   if (!isAuthorized(request)) return Response.json({ error: "Unauthorized cron invocation." }, { status: 401 });
   try {
-    const result = await runScheduledScanner(jobForSchedule(request));
-    return Response.json(result, { status: result.status === "FAILED" ? 500 : 200 });
+    const scanner = await runScheduledScanner(jobForSchedule(request));
+    const vaultAutoFib = await runScheduledVaultAutoFib();
+    return Response.json({ scanner, vaultAutoFib }, { status: "FAILED" in vaultAutoFib && vaultAutoFib.status === "FAILED" ? 500 : 200 });
   } catch (error) {
     return Response.json({ status: "FAILED", error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
