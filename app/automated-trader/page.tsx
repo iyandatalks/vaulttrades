@@ -82,6 +82,8 @@ export default function AutomatedTraderPage() {
     });
   };
 
+  const demoVideoUrl = process.env.NEXT_PUBLIC_AUTOMATION_DEMO_URL;
+
   return <main className="shell">
     <section className="card">
       <div className="section-label">AUTOMATED TRADER · M15 ENGINE</div>
@@ -117,5 +119,20 @@ export default function AutomatedTraderPage() {
     </section>
 
     {error && <div style={{ marginTop: 16, padding: 14, borderRadius: 8, background: "rgba(220,70,70,.12)", color: "#ffb5b5" }}>{error}</div>}
+
+    <section className="card" style={{ marginTop: 18, textAlign: "center", overflow: "hidden" }}>
+      <div className="section-label">AUTOMATION IN ACTION</div>
+      <h2 className="title" style={{ fontSize: 25, marginBottom: 8 }}>Built by Traders, for Traders</h2>
+      <p className="muted" style={{ maxWidth: 680, margin: "0 auto" }}>See how VaultTrades automation monitors the market, evaluates signals and prepares execution without requiring you to watch every candle.</p>
+      <div style={{ marginTop: 18, borderRadius: 12, overflow: "hidden", border: "1px solid rgba(212,166,55,.22)", background: "#050812" }}>
+        {demoVideoUrl ? <video controls playsInline preload="metadata" style={{ display:"block", width:"100%", maxHeight:460, background:"#02040a" }} src={demoVideoUrl} aria-label="VaultTrades automated trading demonstration" /> : <div style={{ minHeight: 280, display:"grid", placeItems:"center", padding:28, background:"radial-gradient(circle at 50% 20%, rgba(212,166,55,.10), transparent 55%)" }}><div><div style={{ fontSize: 12, letterSpacing: 1.4, color:"#d4a637", fontWeight:800 }}>LIVE AUTOMATION PREVIEW</div><div style={{ marginTop:10, fontSize:22, fontWeight:800 }}>Market scan → Signal → Confirmation → Execution</div><div className="muted" style={{ marginTop:10 }}>The production demo clip can be enabled with NEXT_PUBLIC_AUTOMATION_DEMO_URL.</div></div></div>}
+      </div>
+      <p className="muted" style={{ marginTop: 14, fontSize: 13 }}>Automation is designed to support disciplined execution. Results vary and no trading system guarantees profits.</p>
+    </section>
+
+    <section style={{ marginTop: 22, padding: "18px 12px 28px", textAlign: "center", color: "#8992a7", fontSize: 12, lineHeight: 1.7 }}>
+      <strong style={{ color: "#aeb5c6" }}>Risk Disclaimer</strong>
+      <p style={{ maxWidth: 900, margin: "8px auto 0" }}>Trading financial markets involves substantial risk, including the possible loss of capital. VaultTrades provides software, market analysis and automation tools and does not provide financial advice or guarantee trading results. Automated execution can experience slippage, latency, rejected orders, outages and broker-specific limitations. You are responsible for your trading decisions, account settings and risk management.</p>
+    </section>
   </main>;
 }
