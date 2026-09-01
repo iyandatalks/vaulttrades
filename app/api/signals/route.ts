@@ -7,8 +7,6 @@ export const runtime = "nodejs";
 const ALLOWED_MARKETS = new Set(["XAU/USD", "EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", "BTC/USD", "ETH/USD", "SOL/USD"]);
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 const clean = (value: unknown) => typeof value === "string" ? value.trim() : "";
-const TERMINAL = new Set(["INVALIDATED", "CYCLE_COMPLETE", "TP1_HIT", "TP2_HIT", "SL_HIT"]);
-const HISTORY_WINDOW_MS = 6 * 60 * 60 * 1000;
 
 function fingerprint(input: Record<string, unknown>) { return createHash("sha256").update(JSON.stringify(input)).digest("hex"); }
 function makeTradeId(symbol: string, timeframe: string) { const stamp = new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14); return `VT-${stamp}-${symbol.replace("/", "")}-${timeframe.toUpperCase()}-${crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase()}`; }
@@ -17,18 +15,7 @@ export async function GET() {
   const supabase = await createClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) return Response.json({ error: "Authentication required." }, { status: 401 });
   const { data, error } = await supabase.from("scanner_signals").select("id,trade_id,market_category,canonical_symbol,direction,strategy_id,strategy_name,timeframe,entry,stop_loss,tp1,tp2,tp3,tp4,confidence,rr,status,confirmation_conditions,missing_conditions,execution_payload,fired_at,created_at,updated_at,completed_at").eq("auth_user_id", user.id).order("fired_at", { ascending: false }).limit(100);
   if (error) return Response.json({ error: error.message }, { status: 500 });
-  const now = Date.now();
-  const signals = (data ?? []).map((signal) => {
-    const payload = signal.execution_payload as Record<string, unknown> | null;
-    const lifecycle = payload && typeof payload.lifecycle === "object" && payload.lifecycle !== null ? payload.lifecycle as Record<string, unknown> : null;
-    const recoveredCompletedAt = TERMINAL.has(signal.status) ? signal.completed_at ?? (typeof lifecycle?.completed_at === "string" ? lifecycle.completed_at : null) ?? (typeof lifecycle?.checked_at === "string" ? lifecycle.checked_at : null) ?? signal.updated_at : null;
-    return { ...signal, completed_at: recoveredCompletedAt };
-  }).filter((signal) => {
-    if (!TERMINAL.has(signal.status)) return true;
-    if (!signal.completed_at) return false;
-    const completedAt = Date.parse(signal.completed_at); return Number.isFinite(completedAt) && now - completedAt <= HISTORY_WINDOW_MS;
-  });
-  return Response.json({ signals, historyWindowHours: 6 });
+  return Response.json({ signals: data ?? [], historyWindowHours: null });
 }
 
 export async function POST(request: Request) {
