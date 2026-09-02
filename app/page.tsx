@@ -1,19 +1,18 @@
-import Link from "next/link";
+"use client";
 
-const cards = [
+import Link from "next/link";
+import { useEffect, useState } from "react";
+
+const PAYPAL_AUTOMATED_TRADER_URL =
+  "https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-0YR675118F424491GNJ7LAEQ";
+
+const baseCards = [
   {
     title: "ANALYZER",
     description:
       "Analyze the market using structured strategies and understand why a trade is valid, developing, waiting, or should be avoided.",
     href: "/analyzer",
     cta: "Explore Analyzer",
-  },
-  {
-    title: "STRATEGIES",
-    description:
-      "Explore the VaultTrades Strategy Library and learn the rules, confirmations, invalidations, and conditions behind each strategy.",
-    href: "/strategies",
-    cta: "Explore Strategies",
   },
   {
     title: "AI COACH",
@@ -31,7 +30,49 @@ const cards = [
   },
 ];
 
+type AutomationStatus = { active: boolean };
+
 export default function HomePage() {
+  const [automationActive, setAutomationActive] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/automated-trader/status", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) return;
+        const data = (await response.json()) as AutomationStatus;
+        if (!cancelled) setAutomationActive(Boolean(data.active));
+      })
+      .catch(() => {
+        if (!cancelled) setAutomationActive(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const automationHref = automationActive
+    ? "/automated-trader"
+    : PAYPAL_AUTOMATED_TRADER_URL;
+  const automationCta = automationActive
+    ? "Open Automated Trader"
+    : "Subscribe — $99.99/month";
+
+  const cards = [
+    baseCards[0],
+    {
+      title: "AUTOMATED TRADER",
+      description: automationActive
+        ? "Your Automated Trader access is active. Connect MT5, choose the instruments you allow, and manage your automated copy-trading setup."
+        : "Automated copy trading for traders who want VaultTrades to monitor the market and execute according to their enabled settings.",
+      href: automationHref,
+      cta: automationCta,
+      external: !automationActive,
+    },
+    baseCards[1],
+    baseCards[2],
+  ];
+
   return (
     <main
       style={{
@@ -123,8 +164,8 @@ export default function HomePage() {
           >
             Open Analyzer
           </Link>
-          <Link
-            href="/strategies"
+          <a
+            href={automationHref}
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -137,8 +178,8 @@ export default function HomePage() {
               textDecoration: "none",
             }}
           >
-            Explore Strategies
-          </Link>
+            {automationActive ? "Open Automated Trading" : "Subscribe to Automated Trading"}
+          </a>
         </div>
 
         <h2
@@ -170,7 +211,10 @@ export default function HomePage() {
                 flexDirection: "column",
                 padding: 24,
                 borderRadius: 14,
-                border: "1px solid rgba(255,255,255,.09)",
+                border:
+                  card.title === "AUTOMATED TRADER"
+                    ? "1px solid rgba(212,166,55,.32)"
+                    : "1px solid rgba(255,255,255,.09)",
                 background:
                   "linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.018))",
                 boxShadow: "0 18px 50px rgba(0,0,0,.18)",
@@ -203,8 +247,10 @@ export default function HomePage() {
               >
                 {card.description}
               </p>
-              <Link
+              <a
                 href={card.href}
+                target={card.external ? "_blank" : undefined}
+                rel={card.external ? "noreferrer" : undefined}
                 style={{
                   marginTop: "auto",
                   paddingTop: 22,
@@ -215,7 +261,7 @@ export default function HomePage() {
                 }}
               >
                 {card.cta} →
-              </Link>
+              </a>
             </article>
           ))}
         </div>
