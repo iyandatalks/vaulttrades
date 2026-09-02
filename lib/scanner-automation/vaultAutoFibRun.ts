@@ -30,7 +30,7 @@ export async function runScheduledVaultAutoFib(){
       const result=await publishAutomatedScannerSignal({
         authUserId:user.auth_user_id,runKey,marketType:category,symbol:signal.symbol,timeframe:'15m',strategyId:'autoFibRetrace',
         scanner:{projectedDirection:signal.side,analysisState:'CONFIRMED',isExecutable:true,actualEntry:signal.entry,stopLoss:signal.stopLoss,tp1:signal.tp1,tp2:signal.tp2,tp3:signal.tp3,tp4:signal.takeProfit,projectedProbability:signal.confidence,confirmations:signal.reason,tradeReason:`Fresh M15 Vault Auto Fib master-strategy confirmation for ${signal.symbol}. UT Bot is optional additional confluence.`,rr:signal.stopLoss!==signal.entry?Math.abs(signal.tp1-signal.entry)/Math.abs(signal.entry-signal.stopLoss):null},
-        analysis:{source:'vaulttradesauto',sourceStrategy:'Vault Auto Fib Retrace + UT Bot optional confluence',authoritative:true,observeMode:user.observe_mode,timeframe:'M15',automation:'AUTOMATED',signalTime:signal.signalTime,marketType:category}
+        analysis:{source:'vaulttradesauto',sourceStrategy:'Vault Auto Fib Retrace + UT Bot optional confluence',authoritative:true,observeMode:user.observe_mode,timeframe:'M15',automation:'AUTOMATED',signalTime:signal.signalTime,marketType:category,entryConfirmation:signal.entryConfirmation,confirmationBar:signal.entryConfirmation.retestIndex!=null?String(signal.entryConfirmation.retestIndex):undefined}
       });
       if(result.published) published++;
       if(result.duplicate) duplicates++;
