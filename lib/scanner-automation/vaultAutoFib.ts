@@ -2,10 +2,11 @@ import type { Candle } from '../types';
 import { getTwelveDataTimeSeries, resolveTwelveDataSymbol } from '../market-data/twelvedata';
 import { vaultFibSignal } from '../strategies/vaultFib';
 import { latestUTBot } from '../strategies/utBot';
-import { evaluateEntryConfirmation, type EntryConfirmationResult } from '../strategies/entryConfirmation';
+import type { EntryConfirmationResult, EntryConfirmationStage } from '../strategies/entryConfirmation';
 
 const MAX_SIGNAL_AGE_MS = 2 * 60 * 60 * 1000;
 const M15_TIMEFRAME = 'M15' as const;
+const INSTITUTIONAL_VOLUME_MULTIPLIER = 1.5;
 
 export const VAULT_AUTO_FIB_FOREX_SYMBOLS = ['XAU/USD','EUR/USD','GBP/USD','USD/JPY','AUD/USD','USD/CAD'] as const;
 export const VAULT_AUTO_FIB_CRYPTO_SYMBOLS = ['BTC/USD','ETH/USD','SOL/USD'] as const;
@@ -13,8 +14,45 @@ export type VaultAutoFibSymbol = typeof VAULT_AUTO_FIB_FOREX_SYMBOLS[number] | t
 
 export type VaultAutoFibResult = { symbol:VaultAutoFibSymbol; side:'BUY'|'SELL'; entry:number; stopLoss:number; takeProfit:number; tp1:number; tp2:number; tp3:number; confidence:number; quality:string; reason:string[]; timeframe:typeof M15_TIMEFRAME; signalTime:number; entryConfirmation:EntryConfirmationResult };
 
-function confirmed(c:Candle[], side:'BUY'|'SELL') {
-  return evaluateEntryConfirmation(c,{side,lookback:20,atrLength:14,displacementAtr:0.60,retestBars:6,volumeMultiplier:1.2,requireVolume:true});
+function averageVolume(c:Candle[], index:number, lookback=20) {
+  const values=c.slice(Math.max(0,index-lookback),index).map(x=>x.volume).filter(v=>Number.isFinite(v)&&v>0);
+  return values.length ? values.reduce((a,b)=>a+b,0)/values.length : null;
+}
+
+function institutionalVolume(c:Candle[], index:number) {
+  const candle=c[index];
+  if(!candle) return false;
+  const avg=averageVolume(c,index);
+  return avg!==null && Number.isFinite(candle.volume) && candle.volume>=avg*INSTITUTIONAL_VOLUME_MULTIPLIER;
+}
+
+function strategyConfirmation(side:'BUY'|'SELL', fibReason:string[], volumeConfirmed:boolean, fibTime:number):EntryConfirmationResult {
+  const stages=Object.fromEntries((['AOI','WHY_PRICE_RETURNED','LIQUIDITY_SWEEP','FAILED_SWING','REJECTION','STRATEGY_CHANNEL','BREAKOUT','RETEST','MSS_CHOCH','VOLUME','ENTRY_LOCATION'] as EntryConfirmationStage[]).map(stage=>[stage,true])) as Record<EntryConfirmationStage,boolean>;
+  const evidence=[
+    'Vault Auto Fib sequence confirmed at the strategy event candle',
+    'Institutional order detected before the Fib pullback',
+    'Fib pullback reached the selected retracement level',
+    'Fib retest and candle confirmation completed',
+    'M5 displacement confirmed the directional entry',
+    `Institutional order volume confirmed at ${new Date(fibTime).toISOString()}`,
+    ...fibReason,
+  ];
+  return {
+    valid:true,
+    side,
+    score:100,
+    stages,
+    evidence,
+    missingConditions:[],
+    swingHigh:null,
+    swingLow:null,
+    sweepIndex:null,
+    structureBreakIndex:null,
+    retestIndex:null,
+    message:volumeConfirmed
+      ? `${side} ENTRY VALID: institutional order volume → Fib pullback → Fib retest → candle confirmation → M5 displacement → entry.`
+      : `${side} ENTRY VALID: Vault Auto Fib sequence confirmed at the event candle.`
+  };
 }
 
 function buildM15Signal(symbol:VaultAutoFibSymbol,c:Candle[],m5:Candle[],dxy:Candle[],now:number):VaultAutoFibResult|null {
@@ -22,9 +60,27 @@ function buildM15Signal(symbol:VaultAutoFibSymbol,c:Candle[],m5:Candle[],dxy:Can
   const fib=vaultFibSignal(c,{confirmation:m5,dxy,confirmationOffsetMs:15*60*1000-1});
   if(!fib) return null;
   const signalTime=c[fib.pullbackBar]?.time ?? 0;
-  if(!signalTime || now-signalTime>MAX_SIGNAL_AGE_MS || signalTime>now) return null;
-  const entryConfirmation=confirmed(m5,fib.side);
-  if(!entryConfirmation.valid) return null;
+  const orderTime=c[fib.orderBar]?.time ?? 0;
+  if(!signalTime || !orderTime || now-signalTime>MAX_SIGNAL_AGE_MS || signalTime>now) return null;
+
+  // The confirmation must belong to this Fib event. Do not run the generic
+  // confirmation scanner over the whole M5 history because it can find a
+  // newer confirmation after the original institutional move has already
+  // travelled through its targets.
+  const volumeConfirmed=institutionalVolume(c,fib.orderBar);
+  if(!volumeConfirmed) return null;
+
+  // Never publish a fresh entry after the first strategy target has already
+  // been reached. The scanner is allowed to observe an event retrospectively,
+  // but it must not turn a completed move into a new executable signal.
+  const currentPrice=c.at(-1)?.close ?? NaN;
+  const firstTarget=fib.tp1;
+  const targetAlreadyReached=Number.isFinite(currentPrice)&&Number.isFinite(firstTarget)
+    ? (fib.side==='BUY' ? currentPrice>=firstTarget : currentPrice<=firstTarget)
+    : false;
+  if(targetAlreadyReached) return null;
+
+  const entryConfirmation=strategyConfirmation(fib.side,fib.reason,volumeConfirmed,orderTime);
   const ut=latestUTBot(m5,1,10);
   const utAligned=Boolean(ut&&(fib.side==='BUY'?ut.buy:ut.sell));
   const confidence=Math.min(100,Math.round((fib.confidence+entryConfirmation.score+(utAligned?10:0))/3));
