@@ -4,22 +4,22 @@ import { scanVaultAutoFib } from './vaultAutoFib';
 
 export async function runScheduledVaultAutoFib(){
   const supabase=createServiceClient();
-  const {data:configs,error}=await supabase.schema('scanner_automation').from('configs').select('auth_user_id,enabled,forex_enabled,observe_mode').eq('enabled',true);
+  const {data:configs,error}=await supabase.schema('scanner_automation').from('configs').select('auth_user_id,enabled,forex_enabled,observe_mode,enabled_strategies').eq('enabled',true);
   if(error) throw new Error(`Unable to load scanner automation configuration: ${error.message}`);
-  const users=(configs??[]).filter((x)=>x.forex_enabled);
-  if(!users.length) return {status:'SKIPPED',reason:'no_enabled_forex_automation_configs'};
+  const users=(configs??[]).filter((x)=>x.forex_enabled&&Array.isArray(x.enabled_strategies)&&x.enabled_strategies.includes('autoFibRetrace'));
+  if(!users.length) return {status:'SKIPPED',reason:'no_enabled_auto_fib_automation_configs'};
   const signals=await scanVaultAutoFib();
   let published=0,duplicates=0;const errors:string[]=[];
-  const runKey=`VAULT-FIB-${new Date().toISOString().slice(0,16).replace(/[-:T]/g,'')}`;
+  const runKey=`VAULT-FIB-M15-${new Date().toISOString().slice(0,16).replace(/[-:T]/g,'')}`;
   for(const signal of signals){
     for(const user of users){
       const result=await publishAutomatedScannerSignal({
-        authUserId:user.auth_user_id,runKey,marketType:'FOREX',symbol:'XAU/USD',timeframe:signal.timeframe,strategyId:'autoFibRetrace',
-        scanner:{projectedDirection:signal.side,analysisState:'CONFIRMED',isExecutable:true,actualEntry:signal.entry,stopLoss:signal.stopLoss,tp1:signal.tp1,tp2:signal.tp2,tp3:signal.tp3,tp4:signal.takeProfit,projectedProbability:signal.confidence,confirmations:signal.reason,tradeReason:'Automated Vault Auto Fib Retrace + UT Bot Confirmation signal. No Analyzer action is required.',rr:signal.stopLoss!==signal.entry?Math.abs(signal.tp1-signal.entry)/Math.abs(signal.entry-signal.stopLoss):null},
-        analysis:{source:'vaulttradesauto',sourceStrategy:'Vault Auto Fib Retrace + UT Bot Confirmation',authoritative:true,observeMode:user.observe_mode,timeframe:signal.timeframe,automation:'AUTOMATED'}
+        authUserId:user.auth_user_id,runKey,marketType:'FOREX',symbol:'XAU/USD',timeframe:'15m',strategyId:'autoFibRetrace',
+        scanner:{projectedDirection:signal.side,analysisState:'CONFIRMED',isExecutable:true,actualEntry:signal.entry,stopLoss:signal.stopLoss,tp1:signal.tp1,tp2:signal.tp2,tp3:signal.tp3,tp4:signal.takeProfit,projectedProbability:signal.confidence,confirmations:signal.reason,tradeReason:'Fresh M15 Vault Auto Fib master-strategy confirmation. UT Bot is optional additional confluence.',rr:signal.stopLoss!==signal.entry?Math.abs(signal.tp1-signal.entry)/Math.abs(signal.entry-signal.stopLoss):null},
+        analysis:{source:'vaulttradesauto',sourceStrategy:'Vault Auto Fib Retrace + UT Bot optional confluence',authoritative:true,observeMode:user.observe_mode,timeframe:'M15',automation:'AUTOMATED',signalTime:signal.signalTime}
       });
       if(result.published)published++;if(result.duplicate)duplicates++;if(result.error)errors.push(`${user.auth_user_id}: ${result.error}`);
     }
   }
-  return {status:'COMPLETED',signalsDetected:signals.length,signalsPublished:published,duplicates,errors};
+  return {status:'COMPLETED',timeframe:'M15',signalsDetected:signals.length,signalsPublished:published,duplicates,errors};
 }
