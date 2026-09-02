@@ -2,8 +2,13 @@ import type { Candle } from '../types';
 import { getTwelveDataTimeSeries, resolveTwelveDataSymbol } from '../market-data/twelvedata';
 import { vaultFibSignal } from '../strategies/vaultFib';
 import { latestUTBot } from '../strategies/utBot';
+import { evaluateEntryConfirmation } from '../strategies/entryConfirmation';
 
 export type VaultAutoFibResult={side:'BUY'|'SELL';entry:number;stopLoss:number;takeProfit:number;tp1:number;tp2:number;tp3:number;confidence:number;quality:string;reason:string[];timeframe:'M5'|'M15'};
+
+function confirmed(c:Candle[], side:'BUY'|'SELL'){
+  return evaluateEntryConfirmation(c,{side,lookback:20,atrLength:14,displacementAtr:0.60,retestBars:6,volumeMultiplier:1.2,requireVolume:true});
+}
 
 function strategySignal(c:Candle[],confirmation:Candle[],dxy:Candle[],offset:number):VaultAutoFibResult|null{
   if(c.length<60)return null;
@@ -13,7 +18,9 @@ function strategySignal(c:Candle[],confirmation:Candle[],dxy:Candle[],offset:num
   if(!ut)return null;
   const aligned=fib.side==='BUY'?ut.buy:fib.side==='SELL'?ut.sell:false;
   if(!aligned)return null;
-  return {side:fib.side,entry:fib.entry,stopLoss:fib.stopLoss,takeProfit:fib.takeProfit,tp1:fib.tp1,tp2:fib.tp2,tp3:fib.tp3,confidence:fib.confidence,quality:fib.quality,reason:[...fib.reason,'UT Bot confirmation',`UT Bot ${fib.side}`],timeframe:'M5'};
+  const entryConfirmation=confirmed(confirmation,fib.side);
+  if(!entryConfirmation.valid)return null;
+  return {side:fib.side,entry:fib.entry,stopLoss:fib.stopLoss,takeProfit:fib.takeProfit,tp1:fib.tp1,tp2:fib.tp2,tp3:fib.tp3,confidence:Math.min(100,Math.round((fib.confidence+entryConfirmation.score)/2)),quality:fib.quality,reason:[...fib.reason,'UT Bot confirmation',`UT Bot ${fib.side}`,...entryConfirmation.evidence,`Entry confirmation ${entryConfirmation.score}/100`],timeframe:'M5'};
 }
 
 export async function scanVaultAutoFib():Promise<VaultAutoFibResult[]>{
@@ -27,7 +34,12 @@ export async function scanVaultAutoFib():Promise<VaultAutoFibResult[]>{
   const a=m5.candles.map(cv),b=m15.candles.map(cv),dx5=dxy5.candles.map(cv),dx15=dxy15.candles.map(cv);
   const out:VaultAutoFibResult[]=[];
   const s5=strategySignal(a,a,dx5,5*60*1000-1); if(s5){s5.timeframe='M5';out.push(s5);}
-  const fib15=vaultFibSignal(b,{confirmation:a,dxy:dx15,confirmationOffsetMs:15*60*1000-1});
-  if(fib15){const ut=latestUTBot(b,1,10);const aligned=ut&&(fib15.side==='BUY'?ut.buy:ut.sell);if(aligned)out.push({side:fib15.side,entry:fib15.entry,stopLoss:fib15.stopLoss,takeProfit:fib15.takeProfit,tp1:fib15.tp1,tp2:fib15.tp2,tp3:fib15.tp3,confidence:fib15.confidence,quality:fib15.quality,reason:[...fib15.reason,'UT Bot confirmation',`UT Bot ${fib15.side}`],timeframe:'M15'});}
+  const fib15=vaultFibSignal(b,{confirmation:b,dxy:dx15,confirmationOffsetMs:15*60*1000-1});
+  if(fib15){
+    const ut=latestUTBot(b,1,10);
+    const aligned=ut&&(fib15.side==='BUY'?ut.buy:ut.sell);
+    const entryConfirmation=aligned?confirmed(b,fib15.side):null;
+    if(aligned&&entryConfirmation?.valid) out.push({side:fib15.side,entry:fib15.entry,stopLoss:fib15.stopLoss,takeProfit:fib15.takeProfit,tp1:fib15.tp1,tp2:fib15.tp2,tp3:fib15.tp3,confidence:Math.min(100,Math.round((fib15.confidence+entryConfirmation.score)/2)),quality:fib15.quality,reason:[...fib15.reason,'UT Bot confirmation',`UT Bot ${fib15.side}`,...entryConfirmation.evidence,`Entry confirmation ${entryConfirmation.score}/100`],timeframe:'M15'});
+  }
   return out;
 }

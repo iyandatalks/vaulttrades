@@ -1,76 +1,33 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
-type Status = { active: boolean; paymentConfigured: boolean; product: any; subscription: any; accounts: any[] };
+type Account = { id:string|number; metakit_account_id:number; account_name:string|null; mt_login:string; broker_server:string|null; status:string; enabled_instruments:string[]|null };
+type Status = { active:boolean; paymentConfigured:boolean; product:any; subscription:any; accounts:Account[] };
 
-export default function AutomatedTraderPage() {
-  const [status, setStatus] = useState<Status | null>(null);
-  const [busy, setBusy] = useState("");
-  const [error, setError] = useState("");
-  const [form, setForm] = useState({ name: "", number: "", password: "", brokerId: "", server: "" });
+const steps = [
+  ["01","Start your service","Subscribe to Automated Trader and activate your trading access."],
+  ["02","Connect MT5","Connect the full MetaKit execution account you want VaultTrades to use."],
+  ["03","Choose instruments","Select the broker instruments that automation is allowed to trade."],
+  ["04","Automated copy trading","Once active, VaultTrades monitors and executes according to your enabled settings."],
+] as const;
 
-  const load = async () => {
-    const res = await fetch("/api/automated-trader/status", { cache: "no-store" });
-    if (!res.ok) return;
-    setStatus(await res.json());
-  };
-  useEffect(() => { void load(); }, []);
-
-  const subscribe = async () => {
-    setBusy("subscribe"); setError("");
-    try {
-      const res = await fetch("/api/automated-trader/subscribe", { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Unable to start subscription.");
-      window.location.href = data.approveUrl;
-    } catch (e) { setError(e instanceof Error ? e.message : "Unable to start subscription."); setBusy(""); }
-  };
-
-  const connect = async () => {
-    setBusy("connect"); setError("");
-    try {
-      const res = await fetch("/api/automated-trader/metakit/connect", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: form.name, number: form.number, password: form.password, brokerId: form.brokerId, server: form.server }) });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Unable to connect MT5 account.");
-      setForm({ name: "", number: "", password: "", brokerId: "", server: "" });
-      await load();
-    } catch (e) { setError(e instanceof Error ? e.message : "Unable to connect MT5 account."); }
-    finally { setBusy(""); }
-  };
-
-  return <main className="shell">
-    <section className="card">
-      <div className="section-label">AUTOMATED TRADER · M15 ENGINE</div>
-      <h1 className="title">VaultTrades M15 Automated Trader</h1>
-      <p className="muted">The automated service is built around the two approved strategy engines, evaluated on M15. The execution layer is separate from the strategy engine and is authorized only while the Automated Trader subscription is active.</p>
-    </section>
-
-    <section className="card" style={{ marginTop: 16 }}>
-      <div className="section-label">SERVICE ENTITLEMENT</div>
-      <h2 className="title" style={{ fontSize: 24 }}>{status?.active ? "AUTOMATION ACTIVE" : "AUTOMATION NOT ACTIVE"}</h2>
-      <p className="muted">{status?.active ? "Your recurring Automated Trader entitlement is active. New execution is permitted only while this entitlement remains active." : "Purchase the Automated Trader service first. Payment status is verified server-side; access is never granted by the button alone."}</p>
-      <button disabled={busy === "subscribe" || status?.active || !status?.paymentConfigured} onClick={() => void subscribe()} style={{ marginTop: 14, padding: "12px 18px", borderRadius: 8, border: 0, fontWeight: 800, cursor: status?.active || !status?.paymentConfigured ? "not-allowed" : "pointer", background: "#d4a637", color: "#050812" }}>{busy === "subscribe" ? "Opening PayPal..." : status?.active ? "Subscription Active" : "Subscribe to Automated Trader"}</button>
-      {!status?.paymentConfigured && <p className="muted" style={{ marginTop: 10 }}>Checkout is waiting for the administrator to configure the PayPal recurring plan ID.</p>}
-    </section>
-
-    <section className="card" style={{ marginTop: 16 }}>
-      <div className="section-label">MT5 CONNECTION</div>
-      <h2 className="title" style={{ fontSize: 24 }}>Connect your MetaTrader 5 account</h2>
-      <p className="muted">Your MT5 credentials are sent server-to-server to MetaKit to create a Full execution account. VaultTrades does not store the MT5 password. MetaKit requires a Full account for copier execution.</p>
-      <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", marginTop: 16 }}>
-        {([['name','Account name'],['number','MT5 login'],['password','Master password'],['brokerId','MetaKit broker ID'],['server','Exact broker server']] as const).map(([key,label]) => <label key={key} style={{ display: "grid", gap: 6, color: "#aeb5c6", fontSize: 12 }}><span>{label}</span><input type={key === 'password' ? 'password' : 'text'} value={form[key]} onChange={e => setForm({ ...form, [key]: e.target.value })} style={{ padding: 11, borderRadius: 7, border: "1px solid rgba(212,166,55,.25)", background: "#050812", color: "#f4f6fb" }} /></label>)}
-      </div>
-      <button disabled={busy === "connect"} onClick={() => void connect()} style={{ marginTop: 16, padding: "12px 18px", borderRadius: 8, border: "1px solid rgba(212,166,55,.45)", background: "transparent", color: "#d4a637", fontWeight: 800 }}>{busy === "connect" ? "Connecting..." : "Connect MT5 to MetaKit"}</button>
-      {status?.accounts?.map(account => <div key={account.id} style={{ marginTop: 14, padding: 14, borderRadius: 8, background: "#050812", border: "1px solid rgba(212,166,55,.2)" }}><strong>{account.account_name || `MT5 ${account.mt_login}`}</strong><div className="muted" style={{ marginTop: 5 }}>MetaKit #{account.metakit_account_id} · {account.broker_server || "server pending"} · {account.status}</div></div>)}
-    </section>
-
-    <section className="card" style={{ marginTop: 16 }}>
-      <div className="section-label">EXECUTION ARCHITECTURE</div>
-      <p className="muted">M15 Strategy Engine → VaultTrades Signal → controlled execution source → MetaKit copier → your MT5 Full account. Subscription expiry disables new automation and places the follower copier into a safe wind-down state rather than silently leaving copied positions unmanaged.</p>
-      <p className="muted">MetaKit currently executes programmatic trading through its copier infrastructure rather than a direct order endpoint, so the production execution source must be provisioned separately before live trading is enabled.</p>
-    </section>
-
-    {error && <div style={{ marginTop: 16, padding: 14, borderRadius: 8, background: "rgba(220,70,70,.12)", color: "#ffb5b5" }}>{error}</div>}
+export default function AutomatedTraderPage(){
+  const [status,setStatus]=useState<Status|null>(null); const [busy,setBusy]=useState(""); const [error,setError]=useState("");
+  const [form,setForm]=useState({name:"",number:"",password:"",brokerId:"",server:""}); const [symbols,setSymbols]=useState<Record<number,string[]>>({}); const [selected,setSelected]=useState<Record<number,string[]>>({});
+  const load=async()=>{try{const r=await fetch("/api/automated-trader/status",{cache:"no-store"});if(!r.ok)return;const next=await r.json() as Status;setStatus(next);setSelected(Object.fromEntries(next.accounts.map(a=>[a.metakit_account_id,a.enabled_instruments||["XAUUSD"]])));await Promise.all(next.accounts.map(async a=>{try{const s=await fetch(`/api/automated-trader/metakit/symbols?accountId=${a.metakit_account_id}`,{cache:"no-store"});const d=await s.json();if(s.ok)setSymbols(cur=>({...cur,[a.metakit_account_id]:d.symbols||[]}));}catch{}}));}catch{}};
+  useEffect(()=>{void load();},[]);
+  const connect=async()=>{setBusy("connect");setError("");try{const r=await fetch("/api/automated-trader/metakit/connect",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(form)});const d=await r.json();if(!r.ok)throw new Error(d.error||"Unable to connect MT5 account.");setForm({name:"",number:"",password:"",brokerId:"",server:""});await load();}catch(e){setError(e instanceof Error?e.message:"Unable to connect MT5 account.");}finally{setBusy("");}};
+  const disconnect=async(id:number)=>{if(!window.confirm("Disconnect this MT5 account? Any open positions will remain at the broker and will no longer be managed by VaultTrades."))return;setBusy(`disconnect-${id}`);setError("");try{const r=await fetch("/api/automated-trader/metakit/disconnect",{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({metakitAccountId:id})});const d=await r.json();if(!r.ok)throw new Error(d.error||"Unable to disconnect account.");await load();}catch(e){setError(e instanceof Error?e.message:"Unable to disconnect account.");}finally{setBusy("");}};
+  const save=async(id:number)=>{setBusy(`save-${id}`);setError("");try{const r=await fetch("/api/automated-trader/metakit/settings",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({metakitAccountId:id,enabledInstruments:selected[id]||[]})});const d=await r.json();if(!r.ok)throw new Error(d.error||"Unable to save instrument permissions.");await load();}catch(e){setError(e instanceof Error?e.message:"Unable to save instrument permissions.");}finally{setBusy("");}};
+  const toggle=(id:number,symbol:string)=>setSelected(cur=>{const list=cur[id]||[];return {...cur,[id]:list.includes(symbol)?list.filter(x=>x!==symbol):[...list,symbol]};});
+  return <main className="shell" style={{maxWidth:1180,margin:"0 auto",padding:"34px 20px 48px"}}>
+    <section className="card" style={{textAlign:"center",padding:"44px 28px"}}><div className="section-label">AUTOMATED TRADER</div><div className="section-label" style={{marginTop:8}}>AUTOMATED COPY TRADING · LIVE</div><h1 className="title" style={{fontSize:40,lineHeight:1.1,margin:"14px auto 12px"}}>Trade Smarter with<br/>VaultTrades</h1><p className="muted" style={{maxWidth:700,margin:"0 auto"}}>Connect your broker and let our algorithm trade for you — fully automated, 24/7.</p>{status?.active?<button disabled style={{marginTop:22,padding:"13px 25px",borderRadius:9,border:0,fontWeight:900,background:"#d4a637",color:"#050812"}}>Subscription Active</button>:<Link href="/automated-trader/subscribe" style={{display:"inline-flex",alignItems:"center",justifyContent:"center",marginTop:22,padding:"13px 25px",borderRadius:9,background:"#d4a637",color:"#050812",fontWeight:900,textDecoration:"none"}}>Let's Get Started</Link>}</section>
+    <section style={{marginTop:24,textAlign:"center"}}><div className="section-label">YOUR JOURNEY TO AUTOMATION</div><h2 className="title" style={{fontSize:30,margin:"8px auto 10px"}}>Get connected in four simple steps</h2><p className="muted" style={{maxWidth:700,margin:"0 auto 22px"}}>A controlled path from subscription to automated execution.</p><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:14}}>{steps.map(([n,t,d])=><article key={n} style={{minHeight:180,padding:"22px 20px",borderRadius:14,background:"linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.018))",border:"1px solid rgba(212,166,55,.20)",textAlign:"left"}}><span style={{display:"grid",placeItems:"center",width:38,height:38,borderRadius:10,background:"rgba(212,166,55,.12)",color:"#d4a637",fontWeight:900}}>{n}</span><h3 style={{margin:"20px 0 8px",fontSize:18}}>{t}</h3><p className="muted" style={{margin:0,lineHeight:1.6,fontSize:13}}>{d}</p></article>)}</div><div style={{margin:"18px auto 0",maxWidth:900,padding:"12px 16px",borderRadius:10,background:"rgba(255,255,255,.025)",border:"1px solid rgba(255,255,255,.07)",color:"#9da6ba",fontSize:12}}>Your subscription status is verified server-side before automated access is enabled.</div></section>
+    <section className="card" style={{marginTop:24,textAlign:"center",padding:"30px 26px"}}><div className="section-label">MT5 CONNECTION</div><h2 className="title" style={{fontSize:27,margin:"8px auto"}}>Connect your MetaTrader 5 account</h2><p className="muted" style={{maxWidth:700,margin:"0 auto"}}>Connect a full MetaKit execution account. VaultTrades does not store the MT5 password.</p><div style={{display:"grid",gap:12,gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",margin:"22px auto 0",maxWidth:980,textAlign:"left"}}>{([['name','Account name'],['number','MT5 login'],['password','Master password'],['brokerId','Broker ID'],['server','Exact broker server']] as const).map(([key,label])=><label key={key} style={{display:"grid",gap:6,color:"#aeb5c6",fontSize:12}}><span>{label}</span><input type={key==='password'?'password':'text'} value={form[key]} onChange={e=>setForm({...form,[key]:e.target.value})} style={{padding:12,borderRadius:8,border:"1px solid rgba(212,166,55,.25)",background:"#050812",color:"#f4f6fb"}}/></label>)}</div><button disabled={busy==="connect"} onClick={()=>void connect()} style={{marginTop:18,padding:"12px 22px",borderRadius:8,border:0,background:"#d4a637",color:"#050812",fontWeight:900}}>{busy==="connect"?"Connecting...":"Connect MT5"}</button>{status?.accounts.map(account=>{const options=[...new Set([...(symbols[account.metakit_account_id]||[]),...(selected[account.metakit_account_id]||[])])].sort();return <div key={account.id} style={{margin:"24px auto 0",maxWidth:980,textAlign:"left",padding:20,borderRadius:12,background:"#050812",border:"1px solid rgba(212,166,55,.2)"}}><div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div><strong>{account.account_name||`MT5 ${account.mt_login}`}</strong><div className="muted" style={{marginTop:5}}>{account.broker_server||"server pending"} · {account.status}</div></div><button disabled={busy===`disconnect-${account.metakit_account_id}`} onClick={()=>void disconnect(account.metakit_account_id)} style={{padding:"9px 13px",borderRadius:7,border:"1px solid rgba(239,68,68,.45)",background:"transparent",color:"#ffb5b5",fontWeight:800}}>{busy===`disconnect-${account.metakit_account_id}`?"Disconnecting...":"Disconnect"}</button></div><div style={{marginTop:16}}><div className="section-label">INSTRUMENT PERMISSIONS</div><p className="muted">Enable only the broker instruments the automated trader may use.</p><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:8,marginTop:10}}>{options.length?options.map(symbol=>{const checked=(selected[account.metakit_account_id]||[]).includes(symbol);return <label key={symbol} style={{display:"flex",alignItems:"center",gap:8,padding:"9px 10px",borderRadius:7,background:checked?"rgba(212,166,55,.10)":"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.08)",cursor:"pointer"}}><input type="checkbox" checked={checked} onChange={()=>toggle(account.metakit_account_id,symbol)}/><span>{symbol}</span></label>}) : <span className="muted">Broker instruments are loading…</span>}</div><button disabled={busy===`save-${account.metakit_account_id}`} onClick={()=>void save(account.metakit_account_id)} style={{marginTop:12,padding:"10px 14px",borderRadius:7,border:"1px solid rgba(212,166,55,.45)",background:"transparent",color:"#d4a637",fontWeight:800}}>{busy===`save-${account.metakit_account_id}`?"Saving...":"Save instrument permissions"}</button></div></div>})}</section>
+    {error&&<div style={{marginTop:16,padding:14,borderRadius:8,background:"rgba(220,70,70,.12)",color:"#ffb5b5",textAlign:"center"}}>{error}</div>}
+    <section className="card" style={{marginTop:22,textAlign:"center",overflow:"hidden",padding:"34px 26px"}}><div className="section-label">AUTOMATION IN ACTION</div><h2 className="title" style={{fontSize:28,margin:"8px auto"}}>Built by Traders, for Traders</h2><p className="muted" style={{maxWidth:680,margin:"0 auto"}}>See VaultTrades automation monitor the market, evaluate signals and prepare execution without requiring you to watch every candle.</p><div style={{marginTop:20,borderRadius:14,overflow:"hidden",border:"1px solid rgba(212,166,55,.22)",background:"#02040a"}}><video controls playsInline preload="metadata" style={{display:"block",width:"100%",maxHeight:520,background:"#02040a"}} src="/videos/vaulttrades-automation-demo.mp4" aria-label="VaultTrades automated trading demonstration" /></div><p className="muted" style={{marginTop:14,fontSize:13}}>Automation is designed to support disciplined execution. Results vary and no trading system guarantees profits.</p></section>
+    <section style={{marginTop:22,padding:"18px 12px 28px",textAlign:"center",color:"#8992a7",fontSize:12,lineHeight:1.7}}>Trading involves risk. Past performance does not guarantee results. Automated execution does not guarantee profits.</section>
   </main>;
 }

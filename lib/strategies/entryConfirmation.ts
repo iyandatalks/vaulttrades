@@ -1,0 +1,33 @@
+import type { Candle, Side } from "../types";
+
+export type EntryConfirmationStage = "AOI" | "WHY_PRICE_RETURNED" | "LIQUIDITY_SWEEP" | "FAILED_SWING" | "REJECTION" | "STRATEGY_CHANNEL" | "BREAKOUT" | "RETEST" | "MSS_CHOCH" | "VOLUME" | "ENTRY_LOCATION";
+export interface EntryConfirmationResult { valid:boolean; side:Side; score:number; stages:Record<EntryConfirmationStage,boolean>; evidence:string[]; missingConditions:string[]; swingHigh:number|null; swingLow:number|null; sweepIndex:number|null; structureBreakIndex:number|null; retestIndex:number|null; message:string; }
+export interface EntryConfirmationOptions { side:Side; lookback?:number; atrLength?:number; displacementAtr?:number; retestBars?:number; volumeMultiplier?:number; channelLow?:number|null; channelHigh?:number|null; requireVolume?:boolean; }
+const STAGES:EntryConfirmationStage[]=["AOI","WHY_PRICE_RETURNED","LIQUIDITY_SWEEP","FAILED_SWING","REJECTION","STRATEGY_CHANNEL","BREAKOUT","RETEST","MSS_CHOCH","VOLUME","ENTRY_LOCATION"];
+const finite=(v:unknown):v is number=>typeof v==="number"&&Number.isFinite(v);
+function trueRange(c:Candle,p?:Candle){return p?Math.max(c.high-c.low,Math.abs(c.high-p.close),Math.abs(c.low-p.close)):Math.max(0,c.high-c.low);}
+function atrAt(c:Candle[],i:number,n:number){const start=Math.max(0,i-n+1),values=c.slice(start,i+1).map((x,j)=>trueRange(x,c[start+j-1]));return values.length<n?null:values.reduce((a,b)=>a+b,0)/values.length;}
+function average(v:number[]){return v.length?v.reduce((a,b)=>a+b,0)/v.length:null;}
+function priorHigh(c:Candle[],i:number,n:number){const s=c.slice(Math.max(0,i-n),i);return s.length?Math.max(...s.map(x=>x.high)):null;}
+function priorLow(c:Candle[],i:number,n:number){const s=c.slice(Math.max(0,i-n),i);return s.length?Math.min(...s.map(x=>x.low)):null;}
+function stageMap(v:Partial<Record<EntryConfirmationStage,boolean>>){return Object.fromEntries(STAGES.map(s=>[s,v[s]===true])) as Record<EntryConfirmationStage,boolean>;}
+export function evaluateEntryConfirmation(candles:Candle[],options:EntryConfirmationOptions):EntryConfirmationResult{
+ const side=options.side,lookback=Math.max(5,options.lookback??20),atrLength=Math.max(5,options.atrLength??14),displacementAtr=options.displacementAtr??0.6,retestBars=Math.max(1,options.retestBars??6),volumeMultiplier=options.volumeMultiplier??1.2,requireVolume=options.requireVolume??true,empty=stageMap({});
+ if(candles.length<Math.max(atrLength+2,lookback+2))return{valid:false,side,score:0,stages:empty,evidence:[],missingConditions:["Sufficient candle history"],swingHigh:null,swingLow:null,sweepIndex:null,structureBreakIndex:null,retestIndex:null,message:"WAIT: insufficient history for entry confirmation."};
+ let best:EntryConfirmationResult|null=null;
+ for(let i=lookback;i<candles.length-1;i+=1){
+  const current=candles[i],swingHigh=priorHigh(candles,i,lookback),swingLow=priorLow(candles,i,lookback),atr=atrAt(candles,i,atrLength); if(!finite(swingHigh)||!finite(swingLow)||!finite(atr)||atr<=0)continue;
+  const buySweep=side==="BUY"&&current.low<swingLow&&current.close>swingLow,sellSweep=side==="SELL"&&current.high>swingHigh&&current.close<swingHigh;if(!buySweep&&!sellSweep)continue;
+  const rejection=Math.abs(current.close-current.open)>=atr*0.25&&(side==="BUY"?current.close>current.open:current.close<current.open);
+  let breakIndex:number|null=null,retestIndex:number|null=null,breakoutAccepted=false,retestConfirmed=false,volumeConfirmed=false,entryLocation=false;
+  for(let j=i+1;j<=Math.min(candles.length-1,i+retestBars+3);j+=1){const x=candles[j],xAtr=atrAt(candles,j,atrLength)??atr,body=Math.abs(x.close-x.open),displacement=body>=xAtr*displacementAtr,breakLevel=side==="BUY"?swingHigh:swingLow,directionalBreak=side==="BUY"?x.close>breakLevel:x.close<breakLevel;
+   if(breakIndex===null&&directionalBreak&&displacement){breakIndex=j;breakoutAccepted=true;const priorVolumes=candles.slice(Math.max(0,j-20),j).map(z=>z.volume??0).filter(v=>v>0),avgVolume=average(priorVolumes);volumeConfirmed=!requireVolume||(finite(avgVolume)&&(x.volume??0)>=avgVolume*volumeMultiplier);continue;}
+   if(breakIndex!==null&&j>breakIndex){const level=side==="BUY"?swingHigh:swingLow,touched=side==="BUY"?x.low<=level+xAtr*0.25:x.high>=level-xAtr*0.25,held=side==="BUY"?x.close>level:x.close<level;if(touched&&held){retestIndex=j;retestConfirmed=true;entryLocation=side==="BUY"?x.close>level+xAtr*0.10:x.close<level-xAtr*0.10;break;}}
+  }
+  const stages=stageMap({AOI:true,WHY_PRICE_RETURNED:true,LIQUIDITY_SWEEP:true,FAILED_SWING:true,REJECTION:rejection,STRATEGY_CHANNEL:options.channelLow!=null&&options.channelHigh!=null?(side==="BUY"?current.low<=options.channelHigh:current.high>=options.channelLow):true,BREAKOUT:breakoutAccepted,RETEST:retestConfirmed,MSS_CHOCH:breakIndex!==null,VOLUME:volumeConfirmed,ENTRY_LOCATION:entryLocation});
+  const evidence:string[]=[side==="BUY"?"Previous meaningful swing low identified":"Previous meaningful swing high identified",side==="BUY"?"Sell-side liquidity sweep failed back above the swing":"Buy-side liquidity sweep failed back below the swing","Failed swing converted the liquidity event into a directional setup"];if(rejection)evidence.push("Rejection/displacement response confirmed");if(breakoutAccepted)evidence.push("Directional breakout accepted with displacement");if(retestConfirmed)evidence.push("Breakout level retested and held");if(breakIndex!==null)evidence.push("MSS/CHOCH structure shift confirmed");if(volumeConfirmed)evidence.push("Volume validates the directional move");if(entryLocation)evidence.push("Price left the reversal area before entry");if(options.channelLow!=null&&options.channelHigh!=null)evidence.push("Strategy-specific entry channel was respected");
+  const missingConditions=STAGES.filter(s=>!stages[s]).map(s=>s.replaceAll("_"," ")),score=Math.round(STAGES.filter(s=>stages[s]).length/STAGES.length*100),valid=STAGES.every(s=>stages[s]);const result:EntryConfirmationResult={valid,side,score,stages,evidence,missingConditions,swingHigh,swingLow,sweepIndex:i,structureBreakIndex:breakIndex,retestIndex,message:valid?`${side} ENTRY VALID: AOI → liquidity failure → rejection → breakout → retest → MSS/CHOCH → volume → entry location.`:`${side} WAIT: entry confirmation incomplete (${score}/100).`};
+  if(!best||result.score>best.score||(result.valid&&!best.valid))best=result;if(result.valid)return result;
+ }
+ return best??{valid:false,side,score:0,stages:empty,evidence:[],missingConditions:STAGES.map(s=>s.replaceAll("_"," ")),swingHigh:null,swingLow:null,sweepIndex:null,structureBreakIndex:null,retestIndex:null,message:`${side} WAIT: no complete entry-confirmation sequence found.`};
+}
