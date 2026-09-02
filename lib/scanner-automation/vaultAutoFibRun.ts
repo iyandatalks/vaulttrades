@@ -7,7 +7,7 @@ const marketType = (symbol:string) => CRYPTO_SET.has(symbol) ? 'CRYPTO' : 'FOREX
 
 export async function runScheduledVaultAutoFib(){
   const supabase=createServiceClient();
-  const {data:configs,error}=await supabase.schema('scanner_automation').from('configs').select('auth_user_id,enabled,forex_enabled,crypto_enabled,observe_mode,enabled_strategies').eq('enabled',true);
+  const {data:configs,error}=await supabase.rpc('get_enabled_scanner_automation_configs');
   if(error) throw new Error(`Unable to load scanner automation configuration: ${error.message}`);
   const users=(configs??[]).filter((x)=>Array.isArray(x.enabled_strategies)&&x.enabled_strategies.includes('autoFibRetrace')&&(x.forex_enabled||x.crypto_enabled));
   if(!users.length) return {status:'SKIPPED',reason:'no_enabled_auto_fib_automation_configs'};
