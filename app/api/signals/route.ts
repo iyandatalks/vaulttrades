@@ -4,18 +4,21 @@ import { ANALYZER_STRATEGY_MAP } from "../../../lib/strategies/analyzerProfiles"
 
 export const runtime = "nodejs";
 
+const SIGNAL_MAX_AGE_HOURS = 2;
 const ALLOWED_MARKETS = new Set(["XAU/USD", "EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", "BTC/USD", "ETH/USD", "SOL/USD"]);
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 const clean = (value: unknown) => typeof value === "string" ? value.trim() : "";
 
 function fingerprint(input: Record<string, unknown>) { return createHash("sha256").update(JSON.stringify(input)).digest("hex"); }
 function makeTradeId(symbol: string, timeframe: string) { const stamp = new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14); return `VT-${stamp}-${symbol.replace("/", "")}-${timeframe.toUpperCase()}-${crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase()}`; }
+function freshSignalCutoff() { return new Date(Date.now() - SIGNAL_MAX_AGE_HOURS * 60 * 60 * 1000).toISOString(); }
 
 export async function GET() {
   const supabase = await createClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) return Response.json({ error: "Authentication required." }, { status: 401 });
-  const { data, error } = await supabase.from("scanner_signals").select("id,trade_id,market_category,canonical_symbol,direction,strategy_id,strategy_name,timeframe,entry,stop_loss,tp1,tp2,tp3,tp4,confidence,rr,status,confirmation_conditions,missing_conditions,execution_payload,fired_at,created_at,updated_at,completed_at").eq("auth_user_id", user.id).order("fired_at", { ascending: false }).limit(100);
+  const cutoff = freshSignalCutoff();
+  const { data, error } = await supabase.from("scanner_signals").select("id,trade_id,market_category,canonical_symbol,direction,strategy_id,strategy_name,timeframe,entry,stop_loss,tp1,tp2,tp3,tp4,confidence,rr,status,confirmation_conditions,missing_conditions,execution_payload,fired_at,created_at,updated_at,completed_at").eq("auth_user_id", user.id).gte("fired_at", cutoff).order("fired_at", { ascending: false }).limit(100);
   if (error) return Response.json({ error: error.message }, { status: 500 });
-  return Response.json({ signals: data ?? [], historyWindowHours: null });
+  return Response.json({ signals: data ?? [], historyWindowHours: SIGNAL_MAX_AGE_HOURS });
 }
 
 export async function POST(request: Request) {
@@ -39,5 +42,5 @@ export async function POST(request: Request) {
   const normalizedSourceSnapshot = { ...(sourceSnapshot as Record<string, unknown>), strategy_id: selectedStrategy.id, strategy_name: selectedStrategy.name };
   const row = { auth_user_id: user.id, trade_id: tradeId, signal_fingerprint: signalFingerprint, market_category: payload.market_category, canonical_symbol: symbol, direction, strategy_id: selectedStrategy.id, strategy_name: selectedStrategy.name, timeframe, entry: payload.entry, stop_loss: payload.stop_loss, tp1: payload.tp1, tp2: payload.tp2, tp3: payload.tp3, tp4: payload.tp4, confidence: payload.confidence, rr: payload.rr, status: "ACTIVE", confirmation_conditions: Array.isArray(body?.confirmation_conditions) ? body.confirmation_conditions : [], missing_conditions: Array.isArray(body?.missing_conditions) ? body.missing_conditions : [], execution_payload: executionPayload, source_snapshot: normalizedSourceSnapshot, fired_at: now, completed_at: null, updated_at: now };
   const { data, error } = await supabase.from("scanner_signals").insert(row).select("*").single(); if (error) return Response.json({ error: error.message }, { status: 500 });
-  return Response.json({ signal: data, duplicate: false }, { status: 201 });
+  return Response.json({ signal: data, duplicate: false, historyWindowHours: SIGNAL_MAX_AGE_HOURS }, { status: 201 });
 }
