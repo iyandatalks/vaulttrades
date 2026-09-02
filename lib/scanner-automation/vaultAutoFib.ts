@@ -2,7 +2,7 @@ import type { Candle } from '../types';
 import { getTwelveDataTimeSeries, resolveTwelveDataSymbol } from '../market-data/twelvedata';
 import { vaultFibSignal } from '../strategies/vaultFib';
 import { latestUTBot } from '../strategies/utBot';
-import { evaluateEntryConfirmation } from '../strategies/entryConfirmation';
+import { evaluateEntryConfirmation, type EntryConfirmationResult } from '../strategies/entryConfirmation';
 
 const MAX_SIGNAL_AGE_MS = 2 * 60 * 60 * 1000;
 const M15_TIMEFRAME = 'M15' as const;
@@ -11,7 +11,7 @@ export const VAULT_AUTO_FIB_FOREX_SYMBOLS = ['XAU/USD','EUR/USD','GBP/USD','USD/
 export const VAULT_AUTO_FIB_CRYPTO_SYMBOLS = ['BTC/USD','ETH/USD','SOL/USD'] as const;
 export type VaultAutoFibSymbol = typeof VAULT_AUTO_FIB_FOREX_SYMBOLS[number] | typeof VAULT_AUTO_FIB_CRYPTO_SYMBOLS[number];
 
-export type VaultAutoFibResult = { symbol:VaultAutoFibSymbol; side:'BUY'|'SELL'; entry:number; stopLoss:number; takeProfit:number; tp1:number; tp2:number; tp3:number; confidence:number; quality:string; reason:string[]; timeframe:typeof M15_TIMEFRAME; signalTime:number };
+export type VaultAutoFibResult = { symbol:VaultAutoFibSymbol; side:'BUY'|'SELL'; entry:number; stopLoss:number; takeProfit:number; tp1:number; tp2:number; tp3:number; confidence:number; quality:string; reason:string[]; timeframe:typeof M15_TIMEFRAME; signalTime:number; entryConfirmation:EntryConfirmationResult };
 
 function confirmed(c:Candle[], side:'BUY'|'SELL') {
   return evaluateEntryConfirmation(c,{side,lookback:20,atrLength:14,displacementAtr:0.60,retestBars:6,volumeMultiplier:1.2,requireVolume:true});
@@ -29,7 +29,7 @@ function buildM15Signal(symbol:VaultAutoFibSymbol,c:Candle[],m5:Candle[],dxy:Can
   const utAligned=Boolean(ut&&(fib.side==='BUY'?ut.buy:ut.sell));
   const confidence=Math.min(100,Math.round((fib.confidence+entryConfirmation.score+(utAligned?10:0))/3));
   const reason=[...fib.reason,...entryConfirmation.evidence,`Entry confirmation ${entryConfirmation.score}/100`,utAligned?`UT Bot ${fib.side} optional confluence`:'UT Bot optional confluence not aligned'];
-  return {symbol,side:fib.side,entry:fib.entry,stopLoss:fib.stopLoss,takeProfit:fib.takeProfit,tp1:fib.tp1,tp2:fib.tp2,tp3:fib.tp3,confidence,quality:fib.quality,reason,timeframe:M15_TIMEFRAME,signalTime};
+  return {symbol,side:fib.side,entry:fib.entry,stopLoss:fib.stopLoss,takeProfit:fib.takeProfit,tp1:fib.tp1,tp2:fib.tp2,tp3:fib.tp3,confidence,quality:fib.quality,reason,timeframe:M15_TIMEFRAME,signalTime,entryConfirmation};
 }
 
 const cv=(x:{datetime:string;open:number;high:number;low:number;close:number;volume:number|null}):Candle=>({time:Date.parse(x.datetime),open:x.open,high:x.high,low:x.low,close:x.close,volume:x.volume??0});
