@@ -11,17 +11,61 @@ const SUPPORTED_STRATEGIES = [
 
 type ConfigPatch = { enabled?: boolean; observe_mode?: boolean; forex_enabled?: boolean; crypto_enabled?: boolean; enabled_strategies?: string[] };
 
+const CONFIG_SELECT = "auth_user_id,enabled,observe_mode,forex_enabled,crypto_enabled,enabled_strategies,trade_time_start,trade_time_end,timezone,created_at,updated_at";
+
+function defaultConfig(userId: string) {
+  return {
+    auth_user_id: userId,
+    enabled: false,
+    observe_mode: true,
+    forex_enabled: true,
+    crypto_enabled: false,
+    enabled_strategies: [AUTO_FIB_STRATEGY],
+    trade_time_start: "00:00:00",
+    trade_time_end: "23:59:59",
+    timezone: "Africa/Johannesburg",
+  };
+}
+
 export async function GET() {
   const auth = await createClient();
   const { data: { user } } = await auth.auth.getUser();
   if (!user) return Response.json({ error: "Authentication required." }, { status: 401 });
+
   const service = createServiceClient();
-  const { data, error } = await service.schema("scanner_automation").from("configs").select("auth_user_id,enabled,observe_mode,forex_enabled,crypto_enabled,enabled_strategies,trade_time_start,trade_time_end,timezone,created_at,updated_at").eq("auth_user_id", user.id).maybeSingle();
+  const configs = service.schema("scanner_automation").from("configs");
+  const { data, error } = await configs.select(CONFIG_SELECT).eq("auth_user_id", user.id).maybeSingle();
   if (error) return Response.json({ error: error.message }, { status: 500 });
-  return Response.json({
-    config: data ?? { auth_user_id: user.id, enabled: false, observe_mode: true, forex_enabled: true, crypto_enabled: false, enabled_strategies: [AUTO_FIB_STRATEGY], trade_time_start: "00:00:00", trade_time_end: "23:59:59", timezone: "Africa/Johannesburg" },
-    supportedStrategies: SUPPORTED_STRATEGIES,
-  });
+
+  // Provision the per-user scheduler configuration on first access. This keeps
+  // the automation runner fully database-driven without silently enabling it.
+  if (!data) {
+    const { data: created, error: createError } = await configs
+      .insert(defaultConfig(user.id))
+      .select(CONFIG_SELECT)
+      .single();
+
+    if (!createError && created) {
+      return Response.json({ config: created, supportedStrategies: SUPPORTED_STRATEGIES });
+    }
+
+    // Another request may have provisioned the row concurrently. Re-read it
+    // rather than treating a harmless unique-key race as a configuration error.
+    const { data: existing, error: rereadError } = await service
+      .schema("scanner_automation")
+      .from("configs")
+      .select(CONFIG_SELECT)
+      .eq("auth_user_id", user.id)
+      .maybeSingle();
+
+    if (rereadError || !existing) {
+      return Response.json({ error: createError?.message ?? rereadError?.message ?? "Unable to provision scanner automation configuration." }, { status: 500 });
+    }
+
+    return Response.json({ config: existing, supportedStrategies: SUPPORTED_STRATEGIES });
+  }
+
+  return Response.json({ config: data, supportedStrategies: SUPPORTED_STRATEGIES });
 }
 
 export async function PATCH(request: Request) {
@@ -63,7 +107,7 @@ export async function PATCH(request: Request) {
     trade_time_start: "00:00:00",
     trade_time_end: "23:59:59",
     timezone: "Africa/Johannesburg",
-  }, { onConflict: "auth_user_id" }).select("auth_user_id,enabled,observe_mode,forex_enabled,crypto_enabled,enabled_strategies,trade_time_start,trade_time_end,timezone,created_at,updated_at").single();
+  }, { onConflict: "auth_user_id" }).select(CONFIG_SELECT).single();
   if (error) return Response.json({ error: error.message }, { status: 500 });
   return Response.json({ config: data });
 }
