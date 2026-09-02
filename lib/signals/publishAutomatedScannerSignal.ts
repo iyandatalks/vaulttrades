@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import { createServiceClient } from "../supabase/service";
 import { STRATEGIES } from "../strategies";
+import type { EntryConfirmationResult } from "../strategies/entryConfirmation";
 
 const SIGNAL_MAX_AGE_HOURS = 2;
 const ALLOWED_MARKETS = new Set(["XAU/USD", "EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", "BTC/USD", "ETH/USD", "SOL/USD"]);
@@ -25,7 +26,7 @@ export async function publishAutomatedScannerSignal(input: AutomatedScannerSigna
   if (!strategy) return { published: false, duplicate: false, error: `Unknown automated strategy '${input.strategyId}'.` };
   if (!PREFERRED_TIMEFRAMES.has(timeframe)) return { published: false, duplicate: false, error: `Timeframe '${timeframe}' is not an automated execution timeframe. Only M5 and M15 are supported.` };
   if (!scanner.isExecutable || (direction !== "BUY" && direction !== "SELL") || scanner.actualEntry == null) return { published: false, duplicate: false };
-  const entryConfirmation = input.analysis?.entryConfirmation;
+  const entryConfirmation = input.analysis?.entryConfirmation as EntryConfirmationResult | undefined;
   if (!entryConfirmation || typeof entryConfirmation !== "object" || entryConfirmation.valid !== true) return { published: false, duplicate: false, error: "Entry confirmation is incomplete. The scanner must complete the canonical confirmation sequence before publication." };
   const marketCategory = clean(input.marketType || "FOREX").toUpperCase(); const confirmationBar = clean(input.analysis?.confirmationBar);
   const identity = { auth_user_id: input.authUserId, market_category: marketCategory, canonical_symbol: symbol, direction, strategy_id: strategy.id, timeframe, confirmation_bar: confirmationBar || null, entry: scanner.actualEntry };
