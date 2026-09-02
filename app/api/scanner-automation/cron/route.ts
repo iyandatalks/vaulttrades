@@ -17,7 +17,7 @@ export async function GET(request: Request) {
   if (!isAuthorized(request)) return Response.json({ error: "Unauthorized cron invocation." }, { status: 401 });
   try {
     const vaultAutoFib = await runScheduledVaultAutoFib();
-    return Response.json({ vaultAutoFib }, { status: "FAILED" in vaultAutoFib && vaultAutoFib.status === "FAILED" ? 500 : 200 });
+    return Response.json({ vaultAutoFib }, { status: 200 });
   } catch (error) {
     return Response.json({ status: "FAILED", error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
