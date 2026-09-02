@@ -37,7 +37,7 @@ export default function HomePage() {
   return (
     <main style={{ minHeight: "calc(100vh - 61px)", background: "#050812", color: "#f4f6fb" }}>
       <section style={{ maxWidth: 1280, margin: "0 auto", padding: "64px 24px 76px", textAlign: "center" }}>
-        <img src="/vaulttrades-logo.png" alt="VaultTrades" style={{ width: 180, maxWidth: "60vw", height: "auto", margin: "0 auto 18px" }} />
+        <img src="/images/vaulttrades-logo.png" alt="VaultTrades" style={{ width: 180, maxWidth: "60vw", height: "auto", margin: "0 auto 18px" }} />
         <div style={{ color: "#d4a637", fontSize: 13, fontWeight: 800, letterSpacing: ".2em", marginBottom: 10 }}>Built by Traders.</div>
         <div style={{ color: "#aeb5c6", fontSize: 15, marginBottom: 30 }}>Focus, discipline, consistency.</div>
         <h1 style={{ maxWidth: 900, margin: "0 auto", fontSize: "clamp(40px, 6vw, 72px)", lineHeight: 1.04, letterSpacing: "-.045em" }}>Trade with a plan. Learn why the market says yes — or no.</h1>
