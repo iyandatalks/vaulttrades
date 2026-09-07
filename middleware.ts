@@ -2,11 +2,15 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 const paidProtectedPaths = [
-  "/analyzer",
   "/ai-coach",
   "/journal",
   "/strategies",
 ];
+
+const featureProtectedPaths: Record<string, string> = {
+  "/analyzer": "analyzer",
+  "/referral-vault": "referral",
+};
 
 const authenticatedPaths = ["/profile", "/subscription"];
 
@@ -18,7 +22,7 @@ export async function middleware(request: NextRequest) {
     {
       cookies: {
         getAll() { return request.cookies.getAll(); },
-        setAll(cookiesToSet) { cookiesToSet.forEach(({ name, value, options }) => { request.cookies.set(name, value); response.cookies.set(name, value, options); }); },
+        setAll(cookiesToSet) { cookiesToSet.forEach(({ name, value, options }) => { request.cookies.set(name, value, options); response.cookies.set(name, value, options); }); },
       },
     }
   );
@@ -35,8 +39,10 @@ export async function middleware(request: NextRequest) {
   }
 
   const isPaidProtected = paidProtectedPaths.some(path => pathname === path || pathname.startsWith(`${path}/`));
+  const matchedFeaturePath = Object.keys(featureProtectedPaths).find(path => pathname === path || pathname.startsWith(`${path}/`));
+  const isFeatureProtected = Boolean(matchedFeaturePath);
   const isAuthenticatedOnly = authenticatedPaths.some(path => pathname === path || pathname.startsWith(`${path}/`));
-  if (!isPaidProtected && !isAuthenticatedOnly) return response;
+  if (!isPaidProtected && !isFeatureProtected && !isAuthenticatedOnly) return response;
 
   if (!user) {
     const loginUrl = request.nextUrl.clone();
@@ -53,8 +59,26 @@ export async function middleware(request: NextRequest) {
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
-  const hasActiveMembership = !profileError && profile?.is_active === true && profile?.license_status === "active";
   const isAdmin = !profileError && profile?.role === "admin";
+
+  if (isFeatureProtected && matchedFeaturePath) {
+    if (isAdmin) return response;
+    const featureCode = featureProtectedPaths[matchedFeaturePath];
+    const { data: hasFeature, error: featureError } = await supabase.rpc("has_feature_access", {
+      p_auth_user_id: user.id,
+      p_feature_code: featureCode,
+    });
+    if (featureError || hasFeature !== true) {
+      const subscriptionUrl = request.nextUrl.clone();
+      subscriptionUrl.pathname = "/subscription";
+      subscriptionUrl.search = "";
+      subscriptionUrl.searchParams.set("required", featureCode);
+      return NextResponse.redirect(subscriptionUrl);
+    }
+    return response;
+  }
+
+  const hasActiveMembership = !profileError && profile?.is_active === true && profile?.license_status === "active";
   if (!hasActiveMembership && !isAdmin) {
     const subscriptionUrl = request.nextUrl.clone();
     subscriptionUrl.pathname = "/subscription";
@@ -65,5 +89,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/api/ai-scanner", "/analyzer/:path*", "/ai-coach/:path*", "/journal/:path*", "/strategies/:path*", "/subscription/:path*", "/profile/:path*"],
+  matcher: ["/api/ai-scanner", "/analyzer/:path*", "/referral-vault/:path*", "/ai-coach/:path*", "/journal/:path*", "/strategies/:path*", "/subscription/:path*", "/profile/:path*"],
 };
