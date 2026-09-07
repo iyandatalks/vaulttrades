@@ -17,7 +17,11 @@ export default async function ReferralVaultPage() {
   if (!profile) return <main style={{ padding: 40, color: "white", background: "#050812", minHeight: "100vh" }}>VaultTrades profile not found.</main>;
 
   const isAdmin = profile.role === "admin";
-  const eligible = isAdmin || profile.license_status === "active";
+  const { data: hasFeature, error: featureError } = await supabase.rpc("has_feature_access", {
+    p_auth_user_id: user.id,
+    p_feature_code: "referral",
+  });
+  const eligible = isAdmin || (!featureError && hasFeature === true);
 
   if (!eligible) {
     return <ReferralVaultClient locked />;
