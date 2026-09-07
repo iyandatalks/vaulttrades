@@ -1,3 +1,4 @@
+import { createClient } from "../../../lib/supabase/server";
 import { ANALYZER_STRATEGY_MAP } from "../../../lib/strategies/analyzerProfiles";
 import { getStrategyRules, type StrategyId } from "../../../lib/strategies";
 import { buildAnalyzerMarketContext } from "../../../lib/market-data/indicators";
@@ -73,13 +74,34 @@ function jsonText(raw: any): string {
 
 export async function POST(request: Request) {
   try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return Response.json({ error: "Authentication required." }, { status: 401 });
+
+    const { data: profile, error: profileError } = await supabase
+      .from("users")
+      .select("role")
+      .eq("auth_user_id", user.id)
+      .maybeSingle();
+    if (profileError) return Response.json({ error: "Unable to verify account access." }, { status: 500 });
+
+    const isAdmin = profile?.role === "admin";
+    if (!isAdmin) {
+      const { data: hasFeature, error: featureError } = await supabase.rpc("has_feature_access", {
+        p_auth_user_id: user.id,
+        p_feature_code: "analyzer",
+      });
+      if (featureError) return Response.json({ error: "Unable to verify Analyzer access." }, { status: 500 });
+      if (hasFeature !== true) return Response.json({ error: "Analyzer access is not active for this account." }, { status: 403 });
+    }
+
     const body = await request.json();
     const marketType = validMarket(body.marketType) ? body.marketType : "FOREX";
     const timeframe = validTimeframe(body.timeframe) ? body.timeframe : "15m";
     const strategyId = clean(body.strategy);
     const symbol = clean(body.symbol).toUpperCase();
-    const profile = ANALYZER_STRATEGY_MAP[strategyId];
-    if (!profile) return Response.json({ error: "Invalid strategy selected." }, { status: 400 });
+    const profileStrategy = ANALYZER_STRATEGY_MAP[strategyId];
+    if (!profileStrategy) return Response.json({ error: "Invalid strategy selected." }, { status: 400 });
     if (!symbol) return Response.json({ error: "Select or enter a market symbol." }, { status: 400 });
     if (marketType === "SYNTHETIC") return Response.json({ error: "Synthetic indices require the Synthetic/Broker provider connection." }, { status: 400 });
     const providerRoute = getMarketProviderRoute(marketType);
@@ -90,7 +112,7 @@ export async function POST(request: Request) {
     const market = await getTwelveDataTimeSeries({ symbol, timeframe, outputsize: 250 });
     if (market.candles.length < 40) return Response.json({ error: "Not enough live market history was returned for this symbol/timeframe." }, { status: 422 });
 
-    const selectedIndicators = profile.defaultIndicators;
+    const selectedIndicators = profileStrategy.defaultIndicators;
     const context = buildAnalyzerMarketContext(market.candles, market.symbol, timeframe, selectedIndicators);
     const liveCurrentPrice = market.currentPrice ?? market.candles.at(-1)?.close ?? null;
     const latest = market.candles.at(-1)!;
@@ -98,8 +120,8 @@ export async function POST(request: Request) {
     const channel = calculateChannel(market.candles);
     const priceLevels = derivePriceLevels(market.candles, liveCurrentPrice, 3);
     const lockedStructure = { ...context.structure, support: priceLevels.support, resistance: priceLevels.resistance };
-    const sourceRules = profile.sourceIds.map((id: StrategyId) => getStrategyRules(id));
-    const indicatorEvidence = context.selectedIndicators.map(i => ({ name: i.name, value: i.value, signal: i.signal, parameters: profile.indicatorSpecs.find(s => s.name === i.name)?.parameters ?? "source-defined" }));
+    const sourceRules = profileStrategy.sourceIds.map((id: StrategyId) => getStrategyRules(id));
+    const indicatorEvidence = context.selectedIndicators.map(i => ({ name: i.name, value: i.value, signal: i.signal, parameters: profileStrategy.indicatorSpecs.find(s => s.name === i.name)?.parameters ?? "source-defined" }));
 
     // EMA20 is the first live strategy wired to a deterministic Pine-equivalent engine.
     // The engine is authoritative for strategy state and native Entry/SL/TP. The Analyzer is downstream.
@@ -146,13 +168,13 @@ USER SELECTION
 Market: ${marketType}
 Symbol: ${market.symbol}
 Timeframe: ${timeframe}
-Strategy: ${profile.name} (${strategyId})
+Strategy: ${profileStrategy.name} (${strategyId})
 
 SOURCE-OF-TRUTH STRATEGY RULES
 ${JSON.stringify(sourceRules)}
 
 STRATEGY PROFILE
-${JSON.stringify({ focus: profile.focus, rules: profile.rules, indicatorSpecs: profile.indicatorSpecs })}
+${JSON.stringify({ focus: profileStrategy.focus, rules: profileStrategy.rules, indicatorSpecs: profileStrategy.indicatorSpecs })}
 
 LIVE CALCULATED MARKET CONTEXT
 ${JSON.stringify({ currentPrice: liveCurrentPrice, structure: lockedStructure, volatility: context.volatility, selectedIndicators: indicatorEvidence, channel20High: channel.upper, channel20Low: channel.lower, latestCandle: latest, previousCandle: previous, recentCandles: market.candles.slice(-60) })}
@@ -242,8 +264,8 @@ Return JSON only.`;
 
     return Response.json({
       market: { type: marketType, asset: market.symbol, timeframe, currentPrice: liveCurrentPrice, directionalBias: ai.directionalBias, session: ai.session },
-      strategy: { id: strategyId, name: profile.name, category: profile.category },
-      sourceIndicators: profile.indicatorSpecs,
+      strategy: { id: strategyId, name: profileStrategy.name, category: profileStrategy.category },
+      sourceIndicators: profileStrategy.indicatorSpecs,
       indicatorReadings: context.selectedIndicators,
       chart: { candles: market.candles, channel20: channel },
       structure: { ...lockedStructure }, volatility: context.volatility,
