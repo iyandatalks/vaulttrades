@@ -6,3 +6,5 @@ export function createAdminClient() {
   if (!url || !serviceRoleKey) throw new Error("Missing Supabase service-role configuration.");
   return createClient(url, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
 }
+
+// Used by server-side execution/webhook routes only.
