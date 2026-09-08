@@ -32,11 +32,16 @@ export async function POST(request: Request) {
     const confidence = num(body.confidence);
     const rr = num(body.rr);
     const suppliedTradeId = text(body.signal_id || body.trade_id);
+    const executionMode = text(body.execution_mode || "OBSERVE").toUpperCase();
 
     if (!symbol || !["BUY", "SELL"].includes(direction) || entry === null || stopLoss === null || tp1 === null) {
       return NextResponse.json({
         error: "Invalid signal. Required: symbol, direction (BUY/SELL), entry, stop_loss/sl and tp1/tp."
       }, { status: 400 });
+    }
+
+    if (!["OBSERVE", "LIVE"].includes(executionMode)) {
+      return NextResponse.json({ error: "execution_mode must be OBSERVE or LIVE" }, { status: 400 });
     }
 
     const admin = createAdminClient();
@@ -104,6 +109,7 @@ export async function POST(request: Request) {
       tp4,
       confidence,
       rr,
+      execution_mode: executionMode,
       raw: body,
       received_at: new Date().toISOString()
     };
@@ -145,6 +151,8 @@ export async function POST(request: Request) {
       .insert({
         signal_id: signal.id,
         signal_fingerprint: fingerprint,
+        auth_user_id: license.user_id,
+        execution_mode: executionMode,
         strategy_id: strategyId,
         strategy_name: strategyName,
         canonical_symbol: symbol.toUpperCase(),
@@ -165,7 +173,7 @@ export async function POST(request: Request) {
           broker_server: license.broker_server
         }
       })
-      .select("id,status")
+      .select("id,status,execution_mode")
       .single();
 
     if (queueError) {
@@ -179,6 +187,7 @@ export async function POST(request: Request) {
       signal_id: signal.id,
       trade_id: signal.trade_id,
       queue_id: queue.id,
+      execution_mode: queue.execution_mode,
       status: "EXECUTION_PENDING"
     }, { status: 201 });
   } catch (error) {
@@ -192,6 +201,8 @@ export async function GET() {
     ok: true,
     service: "VaultTrades TradingView execution webhook",
     method: "POST",
-    status: "ready"
+    status: "ready",
+    execution_modes: ["OBSERVE", "LIVE"],
+    default_execution_mode: "OBSERVE"
   });
 }
