@@ -1,6 +1,6 @@
 #property strict
-#property version   "1.0"
-#property description "VaultTrades MT5 execution bridge. Polls the VaultTrades queue and optionally executes on the attached MT5 account."
+#property version   "1.1"
+#property description "VaultTrades MT5 execution bridge. Polls the VaultTrades queue and optionally executes on the attached MT5 demo account."
 
 #include <Trade/Trade.mqh>
 
@@ -12,6 +12,7 @@ input string InpWorkerId = "mt5-ea";
 input int    InpPollSeconds = 5;
 input string InpExecutionMode = "OBSERVE";
 input bool   InpEnableLiveExecution = false;
+input bool   InpDemoOnly = true;
 input double InpVolume = 0.01;
 input int    InpDeviationPoints = 30;
 input bool   InpOnlyAttachedSymbol = true;
@@ -23,6 +24,13 @@ string Trim(string value)
    StringTrimLeft(value);
    StringTrimRight(value);
    return value;
+}
+
+string Mode()
+{
+   string mode = Trim(InpExecutionMode);
+   StringToUpper(mode);
+   return mode;
 }
 
 string JsonString(string json, string key)
@@ -44,6 +52,20 @@ string JsonString(string json, string key)
    }
    if(end >= StringLen(json)) return "";
    return StringSubstr(json, p, end - p);
+}
+
+bool JsonBool(string json, string key)
+{
+   string needle = "\"" + key + "\"";
+   int p = StringFind(json, needle);
+   if(p < 0) return false;
+   p = StringFind(json, ":", p + StringLen(needle));
+   if(p < 0) return false;
+   p++;
+   while(p < StringLen(json) && (StringGetCharacter(json, p) == ' ' || StringGetCharacter(json, p) == '\t')) p++;
+   string token = StringSubstr(json, p, 5);
+   StringToLower(token);
+   return StringFind(token, "true") == 0;
 }
 
 double JsonNumber(string json, string key)
@@ -95,15 +117,19 @@ bool IsConfigured()
       Print("VaultTrades EA: InpAccessKey is empty.");
       return false;
    }
-   string mode = InpExecutionMode;
-   StringToUpper(mode);
+
+   string mode = Mode();
    if(mode != "OBSERVE" && mode != "LIVE")
    {
       Print("VaultTrades EA: InpExecutionMode must be OBSERVE or LIVE.");
       return false;
    }
-   if(InpPollSeconds < 1) return false;
-   if(InpVolume <= 0) return false;
+   if(InpPollSeconds < 1 || InpVolume <= 0) return false;
+   if(mode == "LIVE" && !InpEnableLiveExecution)
+   {
+      Print("VaultTrades EA: LIVE mode requires InpEnableLiveExecution=true.");
+      return false;
+   }
    return true;
 }
 
@@ -111,11 +137,10 @@ bool SymbolAllowed(string jobSymbol)
 {
    if(!InpOnlyAttachedSymbol) return true;
    string attached = _Symbol;
-   string a = attached;
-   string b = jobSymbol;
-   StringToUpper(a);
-   StringToUpper(b);
-   return (a == b);
+   string requested = jobSymbol;
+   StringToUpper(attached);
+   StringToUpper(requested);
+   return attached == requested;
 }
 
 bool SendAck(string queueId, string status, string executionReference, string failureReason)
@@ -146,8 +171,8 @@ bool ExecuteJob(string json, string queueId)
    string jobSymbol = JsonString(json, "symbol");
    double sl = JsonNumber(json, "stop_loss");
    double tp = JsonNumber(json, "tp1");
-
    StringToUpper(direction);
+
    if(direction != "BUY" && direction != "SELL")
    {
       SendAck(queueId, "failed", "", "Invalid direction");
@@ -164,7 +189,7 @@ bool ExecuteJob(string json, string queueId)
       return false;
    }
 
-   if(InpExecutionMode == "OBSERVE")
+   if(Mode() == "OBSERVE")
    {
       Print("VaultTrades EA OBSERVE: queue=", queueId, " symbol=", jobSymbol, " direction=", direction, " SL=", DoubleToString(sl, _Digits), " TP=", DoubleToString(tp, _Digits));
       return SendAck(queueId, "observed", "", "");
@@ -176,28 +201,35 @@ bool ExecuteJob(string json, string queueId)
       return false;
    }
 
+   if(InpDemoOnly && AccountInfoInteger(ACCOUNT_TRADE_MODE) != ACCOUNT_TRADE_MODE_DEMO)
+   {
+      SendAck(queueId, "failed", "", "Demo-only safety is enabled and this MT5 account is not a demo account");
+      return false;
+   }
+
    if(!TerminalInfoInteger(TERMINAL_TRADE_ALLOWED) || !MQLInfoInteger(MQL_TRADE_ALLOWED))
    {
       SendAck(queueId, "failed", "", "MT5 trading is not allowed");
       return false;
    }
 
-   string symbol = _Symbol;
    MqlTick tick;
-   if(!SymbolInfoTick(symbol, tick))
+   if(!SymbolInfoTick(_Symbol, tick))
    {
       SendAck(queueId, "failed", "", "Unable to read market tick");
       return false;
    }
 
+   double normalizedSL = NormalizeDouble(sl, _Digits);
+   double normalizedTP = NormalizeDouble(tp, _Digits);
    trade.SetDeviationInPoints(InpDeviationPoints);
-   trade.SetTypeFillingBySymbol(symbol);
+   trade.SetTypeFillingBySymbol(_Symbol);
 
    bool sent = false;
    if(direction == "BUY")
-      sent = trade.Buy(InpVolume, symbol, 0.0, sl, tp, "VaultTrades " + queueId);
+      sent = trade.Buy(InpVolume, _Symbol, 0.0, normalizedSL, normalizedTP, "VaultTrades " + queueId);
    else
-      sent = trade.Sell(InpVolume, symbol, 0.0, sl, tp, "VaultTrades " + queueId);
+      sent = trade.Sell(InpVolume, _Symbol, 0.0, normalizedSL, normalizedTP, "VaultTrades " + queueId);
 
    if(!sent)
    {
@@ -210,15 +242,13 @@ bool ExecuteJob(string json, string queueId)
    if(ticket == "0") ticket = IntegerToString((long)trade.ResultDeal());
    if(ticket == "0") ticket = trade.ResultRetcodeDescription();
 
-   Print("VaultTrades EA: DEMO/LIVE order accepted. queue=", queueId, " reference=", ticket);
+   Print("VaultTrades EA: demo order accepted. queue=", queueId, " reference=", ticket);
    return SendAck(queueId, "executed", ticket, "");
 }
 
 void PollQueue()
 {
-   string mode = InpExecutionMode;
-   StringToUpper(mode);
-
+   string mode = Mode();
    string body = "{";
    body += "\"access_key\":\"" + InpAccessKey + "\",";
    body += "\"worker_id\":\"" + InpWorkerId + "\",";
@@ -238,8 +268,8 @@ void PollQueue()
       return;
    }
 
-   string available = JsonString(response, "available");
-   if(available == "false" || available == "") return;
+   bool available = JsonBool(response, "available");
+   if(!available) return;
 
    string jobStart = "\"job\":{";
    int p = StringFind(response, jobStart);
@@ -264,7 +294,7 @@ int OnInit()
 {
    if(!IsConfigured()) return INIT_PARAMETERS_INCORRECT;
    EventSetTimer(InpPollSeconds);
-   Print("VaultTrades EA initialized. mode=", InpExecutionMode, " worker=", InpWorkerId, " symbol=", _Symbol);
+   Print("VaultTrades EA initialized. mode=", Mode(), " worker=", InpWorkerId, " symbol=", _Symbol, " demo_only=", InpDemoOnly);
    return INIT_SUCCEEDED;
 }
 
