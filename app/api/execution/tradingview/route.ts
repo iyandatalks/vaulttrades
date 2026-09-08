@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "../../../lib/supabase/admin";
+import { createAdminClient } from "../../../../lib/supabase/admin";
 
 function text(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
