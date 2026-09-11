@@ -4,10 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const tabs = [
-  { href: "/", label: "Home" },
+  { href: "/", label: "Dashboard" },
+  { href: "/products", label: "Products" },
+  { href: "/how-it-works", label: "How It Works" },
   { href: "/profile", label: "Profile" },
   { href: "/analyzer", label: "Analyzer" },
-  { href: "/scanner-automation", label: "Scanner Automation" },
+  { href: "/scanner-automation", label: "Scanner" },
   { href: "/automated-trader", label: "Automated Trader" },
   { href: "/ai-coach", label: "AI Coach" },
   { href: "/journal", label: "Journal" },
@@ -17,11 +19,18 @@ const tabs = [
 export default function AppNav() {
   const pathname = usePathname();
   return (
-    <nav style={{ position: "sticky", top: 0, zIndex: 20, borderBottom: "1px solid rgba(212,166,55,.25)", background: "#050812", padding: "10px 16px" }} aria-label="VaultTrades navigation">
-      <div style={{ maxWidth: 1180, margin: "0 auto", display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
-        <Link href="/" style={{ color: "#d4a637", fontWeight: 800, letterSpacing: ".12em", textDecoration: "none" }}>VAULTTRADES</Link>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {tabs.map((tab) => { const active = pathname === tab.href || (tab.href !== "/" && pathname.startsWith(tab.href)); return <Link key={tab.href} href={tab.href} style={{ color: active ? "#050812" : "#d7dbe7", background: active ? "#d4a637" : "transparent", border: "1px solid rgba(212,166,55,.35)", borderRadius: 8, padding: "8px 13px", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>{tab.label}</Link>; })}
+    <nav className="vt-nav" aria-label="VaultTrades navigation">
+      <div className="vt-nav-inner">
+        <Link href="/" className="vt-nav-brand">VAULTTRADES</Link>
+        <div className="vt-nav-links">
+          {tabs.map((tab) => {
+            const active = pathname === tab.href || (tab.href !== "/" && pathname.startsWith(tab.href));
+            return (
+              <Link key={tab.href} href={tab.href} className={`vt-nav-link${active ? " active" : ""}`}>
+                {tab.label}
+              </Link>
+            );
+          })}
         </div>
       </div>
     </nav>
