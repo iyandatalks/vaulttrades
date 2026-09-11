@@ -2,75 +2,86 @@
 
 import Link from "next/link";
 
-const baseCards = [
-  {
-    title: "ANALYZER",
-    description:
-      "Analyze the market using structured strategies and understand why a trade is valid, developing, waiting, or should be avoided.",
-    href: "/analyzer",
-    cta: "Explore Analyzer",
-  },
-  {
-    title: "AUTOMATED TRADER",
-    description:
-      "Explore VaultTrades automated copy trading, understand how it works, and connect your MT5 account when you are ready.",
-    href: "/automated-trader",
-    cta: "Explore Automated Trades",
-  },
-  {
-    title: "AI COACH",
-    description:
-      "Ask questions and deepen your understanding of market structure, strategy conditions, analysis, and trading decisions.",
-    href: "/ai-coach",
-    cta: "Meet AI Coach",
-  },
-  {
-    title: "JOURNAL",
-    description:
-      "Record and review your trading decisions, identify patterns in your execution, and build consistency over time.",
-    href: "/journal",
-    cta: "Open Journal",
-  },
+const products = [
+  { title: "ANALYZER", text: "Structured market analysis that shows the conditions behind a potential setup — not a blind signal.", href: "/analyzer", action: "Open Analyzer" },
+  { title: "SCANNER AUTOMATION", text: "Monitor defined market conditions and identify qualifying setups without watching every candle.", href: "/scanner-automation", action: "Open Scanner" },
+  { title: "AUTOMATED TRADER", text: "Connect your TradingView strategy, broker and MT5 execution workflow from one controlled workspace.", href: "/automated-trader", action: "Connect Trading" },
+  { title: "AI COACH", text: "Ask questions about market structure, strategy conditions, analysis and trading decisions.", href: "/ai-coach", action: "Open AI Coach" },
+  { title: "JOURNAL", text: "Record trades, review decisions and turn your execution history into useful trading data.", href: "/journal", action: "Open Journal" },
+  { title: "REFERRAL", text: "Access your VaultTrades referral area and manage your referral activity from one place.", href: "/referral-vault", action: "Open Referral" },
 ];
+
+const workflow = [
+  ["01", "ANALYZE", "Use Analyzer to understand structure, liquidity and the conditions behind a potential setup."],
+  ["02", "CONFIRM", "Wait for the confirmation required by the strategy instead of chasing the first indication."],
+  ["03", "EXECUTE", "Take the trade yourself or use the Automated Trader workflow where enabled."],
+  ["04", "MONITOR", "Track the active trade, execution state and important levels."],
+  ["05", "REVIEW", "Use Journal and AI Coach to review decisions and improve consistency."],
+] as const;
 
 export default function HomePage() {
   return (
-    <main style={{ minHeight: "calc(100vh - 61px)", background: "#050812", color: "#f4f6fb" }}>
-      <section style={{ maxWidth: 1280, margin: "0 auto", padding: "64px 24px 76px", textAlign: "center" }}>
-        <img src="/images/vaulttrades-logo.png" alt="VaultTrades" style={{ width: 180, maxWidth: "60vw", height: "auto", margin: "0 auto 18px" }} />
-        <div style={{ color: "#d4a637", fontSize: 13, fontWeight: 800, letterSpacing: ".2em", marginBottom: 10 }}>Built by Traders.</div>
-        <div style={{ color: "#aeb5c6", fontSize: 15, marginBottom: 30 }}>Focus, discipline, consistency.</div>
-        <h1 style={{ maxWidth: 900, margin: "0 auto", fontSize: "clamp(40px, 6vw, 72px)", lineHeight: 1.04, letterSpacing: "-.045em" }}>Trade with a plan. Learn why the market says yes — or no.</h1>
-        <p style={{ maxWidth: 720, margin: "24px auto 30px", color: "#aeb5c6", fontSize: 17, lineHeight: 1.7 }}>VaultTrades is a strategy-driven market analysis and trading education platform designed to help traders understand the conditions behind a trade — not blindly follow signals.</p>
-
-        <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap", marginBottom: 64 }}>
-          <Link href="/analyzer" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "14px 26px", borderRadius: 9, background: "#d4a637", color: "#050812", fontWeight: 800, textDecoration: "none" }}>Open Analyzer</Link>
-          <Link href="/automated-trader" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "14px 26px", borderRadius: 9, border: "1px solid rgba(212,166,55,.45)", color: "#f4f6fb", fontWeight: 800, textDecoration: "none" }}>Explore Automated Trades</Link>
+    <main className="vt-home">
+      <section className="vt-hero">
+        <div className="vt-eyebrow">BUILT BY TRADERS.</div>
+        <h1>One workspace for a more disciplined trading process.</h1>
+        <p>VaultTrades brings analysis, confirmation, execution, monitoring and review into one trading workspace. Understand the setup before you act.</p>
+        <div className="vt-actions">
+          <Link className="vt-primary" href="/analyzer">Open Analyzer</Link>
+          <Link className="vt-secondary" href="/how-it-works">See How It Works</Link>
         </div>
+        <div className="vt-hero-note">Focus. Discipline. Consistency.</div>
+      </section>
 
-        <h2 style={{ margin: "0 0 22px", fontSize: 15, letterSpacing: ".14em", color: "#dfe3ec", fontWeight: 800 }}>EVERYTHING YOU NEED TO TRADE WITH UNDERSTANDING</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 16, textAlign: "left" }}>
-          {baseCards.map((card) => (
-            <article key={card.title} style={{ minHeight: 285, display: "flex", flexDirection: "column", padding: 24, borderRadius: 14, border: card.title === "AUTOMATED TRADER" ? "1px solid rgba(212,166,55,.32)" : "1px solid rgba(255,255,255,.09)", background: "linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.018))", boxShadow: "0 18px 50px rgba(0,0,0,.18)" }}>
-              <div style={{ width: 34, height: 2, background: "#d4a637", marginBottom: 20 }} />
-              <h3 style={{ margin: "0 0 14px", fontSize: 17, letterSpacing: ".08em" }}>{card.title}</h3>
-              <p style={{ margin: 0, color: "#aeb5c6", fontSize: 14, lineHeight: 1.7 }}>{card.description}</p>
-              <Link href={card.href} style={{ marginTop: "auto", paddingTop: 22, color: "#d4a637", fontSize: 13, fontWeight: 800, textDecoration: "none" }}>{card.cta} →</Link>
+      <section className="vt-section">
+        <div className="vt-section-head">
+          <div>
+            <div className="vt-label">YOUR TRADING WORKFLOW</div>
+            <h2>From analysis to review</h2>
+          </div>
+          <Link className="vt-text-link" href="/how-it-works">View the full process →</Link>
+        </div>
+        <div className="vt-workflow">
+          {workflow.map(([number, title, text]) => (
+            <article className="vt-workflow-card" key={number}>
+              <span>{number}</span>
+              <h3>{title}</h3>
+              <p>{text}</p>
             </article>
           ))}
         </div>
-
-        <section style={{ marginTop: 60 }}>
-          <h2 style={{ margin: "0 0 10px", fontSize: "clamp(24px, 4vw, 38px)", letterSpacing: "-.025em" }}>Built for traders who want to understand, not just follow.</h2>
-          <p style={{ margin: "0 0 22px", color: "#aeb5c6" }}>Unlock the complete VaultTrades platform.</p>
-          <Link href="/profile" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "14px 28px", borderRadius: 9, background: "#d4a637", color: "#050812", fontWeight: 800, textDecoration: "none" }}>Subscribe to VaultTrades</Link>
-        </section>
       </section>
 
-      <footer style={{ borderTop: "1px solid rgba(255,255,255,.08)", padding: "34px 24px 40px", color: "#7f8799", fontSize: 12, textAlign: "center" }}>
-        <div style={{ color: "#f4f6fb", fontWeight: 800, letterSpacing: ".12em", marginBottom: 10 }}>VAULTTRADES</div>
+      <section className="vt-section">
+        <div className="vt-label">VAULTTRADES PRODUCTS</div>
+        <h2>Tools that support the process</h2>
+        <p className="vt-section-intro">Each product has a defined role. You can start with Analyzer and add the tools you need as your workflow develops.</p>
+        <div className="vt-products">
+          {products.map((product) => (
+            <article className="vt-product-card" key={product.title}>
+              <div className="vt-product-mark" />
+              <div className="vt-product-title">{product.title}</div>
+              <p>{product.text}</p>
+              <Link href={product.href}>{product.action} →</Link>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="vt-section vt-start">
+        <div className="vt-label">GET STARTED</div>
+        <h2>Start with the tool that explains the trade.</h2>
+        <p>Analyzer is the natural starting point. Build your understanding first, then connect the rest of the VaultTrades workflow when you are ready.</p>
+        <div className="vt-actions">
+          <Link className="vt-primary" href="/analyzer">Start with Analyzer</Link>
+          <Link className="vt-secondary" href="/profile">View Access</Link>
+        </div>
+      </section>
+
+      <footer className="vt-footer">
+        <div className="vt-footer-brand">VAULTTRADES</div>
         <div>Built by Traders. Focus, discipline, consistency.</div>
-        <p style={{ maxWidth: 900, margin: "18px auto 10px", lineHeight: 1.7 }}><strong>Disclaimer:</strong> VaultTrades is an analytical tool designed to assist with market analysis and strategy evaluation. It does not provide financial advice, investment advice or a guarantee of trading results. Trading involves substantial risk and users remain solely responsible for their own trading decisions.</p>
+        <p><strong>Disclaimer:</strong> VaultTrades is an analytical and trading-support platform. It does not provide financial advice, investment advice or a guarantee of trading results. Trading involves substantial risk and users remain solely responsible for their own trading decisions.</p>
         <div>© 2026 VaultTrades. All rights reserved.</div>
       </footer>
     </main>
