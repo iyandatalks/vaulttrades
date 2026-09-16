@@ -13,26 +13,28 @@ async function getUserContext() {
   if (!user) return null;
 
   const admin = createAdminClient();
-  const [{ data: subscription }, { data: feature }] = await Promise.all([
+  const [{ data: appUser }, { data: subscription }, { data: feature }] = await Promise.all([
+    admin.from("users").select("id,role,is_active,license_expires_at").eq("auth_user_id", user.id).maybeSingle(),
     admin.from("automated_trader_subscriptions").select("status,current_period_end").eq("auth_user_id", user.id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
-    admin.from("user_feature_access").select("status,start_at,end_at").eq("user_id", user.id).eq("feature_code", "automation").order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    admin.from("user_feature_access").select("status,start_at,end_at").eq("user_id", appUser?.id ?? "00000000-0000-0000-0000-000000000000").eq("feature_code", "automation").order("created_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
 
   const subscriptionActive = subscription?.status === "active" && (!subscription.current_period_end || new Date(subscription.current_period_end).getTime() > Date.now());
   const featureActive = feature?.status === "active" && (!feature.start_at || new Date(feature.start_at).getTime() <= Date.now()) && (!feature.end_at || new Date(feature.end_at).getTime() > Date.now());
+  const adminActive = appUser?.role === "admin" && appUser.is_active !== false;
 
-  return { user, admin, subscriptionActive, featureActive, subscription, feature };
+  return { user, appUser, admin, subscriptionActive, featureActive, adminActive, subscription, feature };
 }
 
 export async function GET() {
   try {
     const context = await getUserContext();
-    if (!context) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (!context.subscriptionActive && !context.featureActive) return NextResponse.json({ error: "Automated Trader access is not active" }, { status: 403 });
+    if (!context || !context.appUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!context.subscriptionActive && !context.featureActive && !context.adminActive) return NextResponse.json({ error: "Automated Trader access is not active" }, { status: 403 });
 
     const { data: license, error } = await context.admin.from("product_licenses")
       .select("id,status,start_at,end_at,access_key,platform,mt_login,broker_name,broker_server,purchased_product_code,entitlement_code,updated_at")
-      .eq("user_id", context.user.id).eq("entitlement_code", "automation").eq("platform", "mt5")
+      .eq("user_id", context.appUser.id).eq("entitlement_code", "automation").eq("platform", "mt5")
       .order("created_at", { ascending: false }).limit(1).maybeSingle();
 
     if (error) throw error;
@@ -40,7 +42,7 @@ export async function GET() {
       ok: true,
       active: Boolean(license && license.status === "active" && (!license.end_at || new Date(license.end_at).getTime() > Date.now())),
       license: license ?? null,
-      access_source: context.subscriptionActive ? "subscription" : "feature_grant"
+      access_source: context.adminActive ? "admin" : context.subscriptionActive ? "subscription" : "feature_grant"
     });
   } catch (error) {
     console.error("Automated Trader access-key GET error", error);
@@ -51,21 +53,21 @@ export async function GET() {
 export async function POST() {
   try {
     const context = await getUserContext();
-    if (!context) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (!context.subscriptionActive && !context.featureActive) return NextResponse.json({ error: "Automated Trader access is not active" }, { status: 403 });
+    if (!context || !context.appUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!context.subscriptionActive && !context.featureActive && !context.adminActive) return NextResponse.json({ error: "Automated Trader access is not active" }, { status: 403 });
 
     const { data: account } = await context.admin.from("automated_trader_accounts")
       .select("mt_login,broker_name,broker_server,is_execution_account,status")
       .eq("auth_user_id", context.user.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
 
-    const endAt = context.feature?.end_at ?? context.subscription?.current_period_end ?? null;
+    const endAt = context.feature?.end_at ?? context.subscription?.current_period_end ?? context.appUser.license_expires_at ?? null;
     const accessKey = makeAccessKey();
     const { data: existing } = await context.admin.from("product_licenses")
-      .select("id").eq("user_id", context.user.id).eq("entitlement_code", "automation").eq("platform", "mt5")
+      .select("id").eq("user_id", context.appUser.id).eq("entitlement_code", "automation").eq("platform", "mt5")
       .order("created_at", { ascending: false }).limit(1).maybeSingle();
 
     const payload = {
-      user_id: context.user.id,
+      user_id: context.appUser.id,
       email: context.user.email ?? null,
       purchased_product_code: "automated_trader_m15",
       entitlement_code: "automation",
@@ -79,7 +81,7 @@ export async function POST() {
       broker_server: account?.broker_server ?? null,
       approved_by: "automated-trader-access",
       source_payment_snapshot: {
-        source: context.subscriptionActive ? "automated_trader_subscription" : "user_feature_access",
+        source: context.adminActive ? "admin" : context.subscriptionActive ? "automated_trader_subscription" : "user_feature_access",
         account_status: account?.status ?? null,
         is_execution_account: account?.is_execution_account ?? false
       },
