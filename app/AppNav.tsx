@@ -4,17 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const tabs = [
-  { href: "/", label: "Home" },
+  { href: "/", label: "VAULTTRADES" },
   { href: "/dashboard", label: "Dashboard" },
   { href: "/products", label: "Products" },
   { href: "/how-it-works", label: "How It Works" },
   { href: "/profile", label: "Profile" },
-  { href: "/analyzer", label: "Analyzer" },
-  { href: "/scanner-automation", label: "Scanner" },
-  { href: "/automated-trader", label: "Automated Trader" },
-  { href: "/ai-coach", label: "AI Coach" },
-  { href: "/journal", label: "Journal" },
-  { href: "/referral-vault", label: "Referral" },
 ];
 
 export default function AppNav() {
