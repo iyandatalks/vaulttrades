@@ -1,208 +1,165 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
 
-function text(value: unknown) {
-  return typeof value === "string" ? value.trim() : "";
-}
+function text(value: unknown) { return typeof value === "string" ? value.trim() : ""; }
+function num(value: unknown) { const n = Number(value); return Number.isFinite(n) ? n : null; }
 
-function num(value: unknown) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
+function parseSignal(body: any) {
+  const symbol = text(body.symbol || body.canonical_symbol || body.ticker);
+  const direction = text(body.direction || body.action).toUpperCase();
+  const timeframe = text(body.timeframe || body.tf || "M15");
+  const strategyId = text(body.strategy_id || body.strategy || "tradingview");
+  const strategyName = text(body.strategy_name || body.strategy || "TradingView");
+  const entry = num(body.entry || body.entry_price);
+  const stopLoss = num(body.stop_loss || body.sl);
+  const tp1 = num(body.tp1 || body.tp);
+  const tp2 = num(body.tp2);
+  const tp3 = num(body.tp3);
+  const tp4 = num(body.tp4);
+  const confidence = num(body.confidence);
+  const rr = num(body.rr);
+  const executionMode = text(body.execution_mode || "OBSERVE").toUpperCase();
+  return { symbol, direction, timeframe, strategyId, strategyName, entry, stopLoss, tp1, tp2, tp3, tp4, confidence, rr, executionMode };
 }
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const accessKey = text(body.access_key || body.accessKey || body.secret);
-    if (!accessKey) {
-      return NextResponse.json({ error: "access_key is required" }, { status: 401 });
+    const webhookSecret = text(body.webhook_secret || body.webhookSecret || body.secret);
+    const configuredSecret = text(process.env.VAULTTRADES_TRADINGVIEW_WEBHOOK_SECRET);
+    const suppliedAccessKey = text(body.access_key || body.accessKey);
+    const masterMode = Boolean(configuredSecret && webhookSecret && webhookSecret === configuredSecret);
+    const signal = parseSignal(body);
+
+    if (!signal.symbol || !["BUY", "SELL"].includes(signal.direction) || signal.entry === null || signal.stopLoss === null || signal.tp1 === null) {
+      return NextResponse.json({ error: "Invalid signal. Required: symbol, direction (BUY/SELL), entry, stop_loss/sl and tp1/tp." }, { status: 400 });
     }
-
-    const symbol = text(body.symbol || body.canonical_symbol || body.ticker);
-    const direction = text(body.direction || body.action).toUpperCase();
-    const timeframe = text(body.timeframe || body.tf || "M15");
-    const strategyId = text(body.strategy_id || body.strategy || "tradingview");
-    const strategyName = text(body.strategy_name || body.strategy || "TradingView");
-    const entry = num(body.entry || body.entry_price);
-    const stopLoss = num(body.stop_loss || body.sl);
-    const tp1 = num(body.tp1 || body.tp);
-    const tp2 = num(body.tp2);
-    const tp3 = num(body.tp3);
-    const tp4 = num(body.tp4);
-    const confidence = num(body.confidence);
-    const rr = num(body.rr);
-    const suppliedTradeId = text(body.signal_id || body.trade_id);
-    const executionMode = text(body.execution_mode || "OBSERVE").toUpperCase();
-
-    if (!symbol || !["BUY", "SELL"].includes(direction) || entry === null || stopLoss === null || tp1 === null) {
-      return NextResponse.json({
-        error: "Invalid signal. Required: symbol, direction (BUY/SELL), entry, stop_loss/sl and tp1/tp."
-      }, { status: 400 });
-    }
-
-    if (!["OBSERVE", "LIVE"].includes(executionMode)) {
+    if (!["OBSERVE", "LIVE"].includes(signal.executionMode)) {
       return NextResponse.json({ error: "execution_mode must be OBSERVE or LIVE" }, { status: 400 });
     }
 
     const admin = createAdminClient();
-    const { data: license, error: licenseError } = await admin
-      .from("product_licenses")
-      .select("id,user_id,status,start_at,end_at,platform,mt_login,broker_name,broker_server")
-      .eq("access_key", accessKey)
-      .eq("status", "active")
-      .maybeSingle();
+    let licenses: any[] = [];
 
-    if (licenseError) throw licenseError;
-    if (!license?.user_id) {
-      return NextResponse.json({ error: "Invalid or inactive VaultTrades access key" }, { status: 401 });
+    if (masterMode) {
+      const { data, error } = await admin
+        .from("product_licenses")
+        .select("id,user_id,status,start_at,end_at,platform,mt_login,broker_name,broker_server")
+        .eq("status", "active")
+        .eq("platform", "mt5")
+        .eq("entitlement_code", "automation");
+      if (error) throw error;
+      const now = Date.now();
+      licenses = (data || []).filter((license) => !license.end_at || new Date(license.end_at).getTime() > now);
+    } else if (suppliedAccessKey) {
+      const { data: license, error } = await admin
+        .from("product_licenses")
+        .select("id,user_id,status,start_at,end_at,platform,mt_login,broker_name,broker_server")
+        .eq("access_key", suppliedAccessKey)
+        .eq("status", "active")
+        .maybeSingle();
+      if (error) throw error;
+      if (!license?.user_id) return NextResponse.json({ error: "Invalid or inactive VaultTrades access key" }, { status: 401 });
+      if (license.end_at && new Date(license.end_at).getTime() <= Date.now()) return NextResponse.json({ error: "VaultTrades access key has expired" }, { status: 403 });
+      licenses = [license];
+    } else {
+      return NextResponse.json({ error: "Webhook authentication failed" }, { status: 401 });
     }
 
-    const now = Date.now();
-    if (license.end_at && new Date(license.end_at).getTime() <= now) {
-      return NextResponse.json({ error: "VaultTrades access key has expired" }, { status: 403 });
-    }
+    if (licenses.length === 0) return NextResponse.json({ ok: true, queued: 0, message: "No active MT5 copy-trading accounts are currently enabled." });
 
-    const fingerprint = text(body.signal_fingerprint) || [
-      license.user_id,
-      symbol.toUpperCase(),
-      direction,
-      strategyId,
-      timeframe,
-      entry,
-      stopLoss,
-      tp1,
-      tp2 ?? "",
-      tp3 ?? "",
-      tp4 ?? "",
-      text(body.timestamp || body.time || "")
-    ].join("|");
+    const baseTradeId = text(body.signal_id || body.trade_id) || `TV-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const baseFingerprint = text(body.signal_fingerprint) || [signal.symbol.toUpperCase(), signal.direction, signal.strategyId, signal.timeframe, signal.entry, signal.stopLoss, signal.tp1, signal.tp2 ?? "", signal.tp3 ?? "", signal.tp4 ?? "", text(body.timestamp || body.time || "")].join("|");
+    const results: any[] = [];
 
-    const tradeId = suppliedTradeId || `TV-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    for (const license of licenses) {
+      const fingerprint = `${baseFingerprint}|${license.user_id}`;
+      const tradeId = licenses.length === 1 && !masterMode ? baseTradeId : `${baseTradeId}-${String(license.user_id).slice(0, 8)}`;
+      const { data: existing } = await admin.from("scanner_signals").select("id,trade_id,status").eq("auth_user_id", license.user_id).eq("signal_fingerprint", fingerprint).maybeSingle();
+      if (existing) {
+        results.push({ user_id: license.user_id, duplicate: true, signal_id: existing.id, trade_id: existing.trade_id, status: existing.status });
+        continue;
+      }
 
-    const { data: existing } = await admin
-      .from("scanner_signals")
-      .select("id,trade_id,status")
-      .eq("signal_fingerprint", fingerprint)
-      .maybeSingle();
+      const payload = {
+        source: "tradingview",
+        trade_id: tradeId,
+        symbol: signal.symbol,
+        direction: signal.direction,
+        timeframe: signal.timeframe,
+        entry: signal.entry,
+        stop_loss: signal.stopLoss,
+        tp1: signal.tp1,
+        tp2: signal.tp2,
+        tp3: signal.tp3,
+        tp4: signal.tp4,
+        confidence: signal.confidence,
+        rr: signal.rr,
+        execution_mode: signal.executionMode,
+        raw: body,
+        received_at: new Date().toISOString()
+      };
 
-    if (existing) {
-      return NextResponse.json({
-        ok: true,
-        duplicate: true,
-        signal_id: existing.id,
-        trade_id: existing.trade_id,
-        status: existing.status
-      });
-    }
-
-    const payload = {
-      source: "tradingview",
-      trade_id: tradeId,
-      symbol,
-      direction,
-      timeframe,
-      entry,
-      stop_loss: stopLoss,
-      tp1,
-      tp2,
-      tp3,
-      tp4,
-      confidence,
-      rr,
-      execution_mode: executionMode,
-      raw: body,
-      received_at: new Date().toISOString()
-    };
-
-    const { data: signal, error: signalError } = await admin
-      .from("scanner_signals")
-      .insert({
+      const { data: createdSignal, error: signalError } = await admin.from("scanner_signals").insert({
         auth_user_id: license.user_id,
         trade_id: tradeId,
         signal_fingerprint: fingerprint,
         market_category: text(body.market_category || "FOREX"),
-        canonical_symbol: symbol.toUpperCase(),
-        direction,
-        strategy_id: strategyId,
-        strategy_name: strategyName,
-        timeframe,
-        entry,
-        stop_loss: stopLoss,
-        tp1,
-        tp2,
-        tp3,
-        tp4,
-        confidence,
-        rr,
+        canonical_symbol: signal.symbol.toUpperCase(),
+        direction: signal.direction,
+        strategy_id: signal.strategyId,
+        strategy_name: signal.strategyName,
+        timeframe: signal.timeframe,
+        entry: signal.entry,
+        stop_loss: signal.stopLoss,
+        tp1: signal.tp1,
+        tp2: signal.tp2,
+        tp3: signal.tp3,
+        tp4: signal.tp4,
+        confidence: signal.confidence,
+        rr: signal.rr,
         status: "EXECUTION_PENDING",
         confirmation_conditions: Array.isArray(body.confirmation_conditions) ? body.confirmation_conditions : [],
         missing_conditions: Array.isArray(body.missing_conditions) ? body.missing_conditions : [],
         execution_payload: payload,
         source_snapshot: body,
         fired_at: new Date().toISOString()
-      })
-      .select("id,trade_id,status")
-      .single();
+      }).select("id,trade_id,status").single();
+      if (signalError) throw signalError;
 
-    if (signalError) throw signalError;
-
-    const { data: queue, error: queueError } = await admin
-      .from("automated_trader_execution_queue")
-      .insert({
-        signal_id: signal.id,
+      const { data: queue, error: queueError } = await admin.from("automated_trader_execution_queue").insert({
+        signal_id: createdSignal.id,
         signal_fingerprint: fingerprint,
         auth_user_id: license.user_id,
-        execution_mode: executionMode,
-        strategy_id: strategyId,
-        strategy_name: strategyName,
-        canonical_symbol: symbol.toUpperCase(),
-        direction,
-        timeframe,
-        entry,
-        stop_loss: stopLoss,
-        tp1,
-        tp2,
-        tp3,
-        tp4,
+        execution_mode: signal.executionMode,
+        strategy_id: signal.strategyId,
+        strategy_name: signal.strategyName,
+        canonical_symbol: signal.symbol.toUpperCase(),
+        direction: signal.direction,
+        timeframe: signal.timeframe,
+        entry: signal.entry,
+        stop_loss: signal.stopLoss,
+        tp1: signal.tp1,
+        tp2: signal.tp2,
+        tp3: signal.tp3,
+        tp4: signal.tp4,
         status: "queued",
-        payload: {
-          ...payload,
-          auth_user_id: license.user_id,
-          mt_login: license.mt_login,
-          broker_name: license.broker_name,
-          broker_server: license.broker_server
-        }
-      })
-      .select("id,status,execution_mode")
-      .single();
-
-    if (queueError) {
-      await admin.from("scanner_signals").update({ status: "CONFIRMED" }).eq("id", signal.id);
-      throw queueError;
+        payload: { ...payload, auth_user_id: license.user_id, mt_login: license.mt_login, broker_name: license.broker_name, broker_server: license.broker_server }
+      }).select("id,status,execution_mode").single();
+      if (queueError) {
+        await admin.from("scanner_signals").update({ status: "CONFIRMED" }).eq("id", createdSignal.id);
+        throw queueError;
+      }
+      results.push({ user_id: license.user_id, duplicate: false, signal_id: createdSignal.id, trade_id: createdSignal.trade_id, queue_id: queue.id, status: queue.status });
     }
 
-    return NextResponse.json({
-      ok: true,
-      duplicate: false,
-      signal_id: signal.id,
-      trade_id: signal.trade_id,
-      queue_id: queue.id,
-      execution_mode: queue.execution_mode,
-      status: "EXECUTION_PENDING"
-    }, { status: 201 });
+    return NextResponse.json({ ok: true, mode: masterMode ? "MASTER_FANOUT" : "SINGLE_ACCOUNT", queued: results.filter(r => !r.duplicate).length, duplicates: results.filter(r => r.duplicate).length, results }, { status: 201 });
   } catch (error) {
     console.error("TradingView execution webhook error", error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : "TradingView webhook failed" }, { status: 500 });
+    return NextResponse.json({ error: "TradingView webhook failed" }, { status: 500 });
   }
 }
 
 export async function GET() {
-  return NextResponse.json({
-    ok: true,
-    service: "VaultTrades TradingView execution webhook",
-    method: "POST",
-    status: "ready",
-    execution_modes: ["OBSERVE", "LIVE"],
-    default_execution_mode: "OBSERVE"
-  });
+  return NextResponse.json({ ok: true, service: "VaultTrades TradingView execution webhook", method: "POST", status: "ready", authentication: "private" });
 }
