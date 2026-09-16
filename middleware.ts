@@ -9,6 +9,8 @@ const paidProtectedPaths = [
 
 const featureProtectedPaths: Record<string, string> = {
   "/analyzer": "analyzer",
+  "/scanner-automation": "scanner",
+  "/automated-trader": "automation",
   "/referral-vault": "referral",
 };
 
@@ -30,8 +32,6 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   const pathname = request.nextUrl.pathname;
 
-  // Keep the public AI Scanner endpoint URL unchanged while routing its
-  // request through the persistent active-entry handoff layer.
   if (pathname === "/api/ai-scanner") {
     const url = request.nextUrl.clone();
     url.pathname = "/api/ai-scanner-state";
@@ -89,5 +89,16 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/api/ai-scanner", "/analyzer/:path*", "/referral-vault/:path*", "/ai-coach/:path*", "/journal/:path*", "/strategies/:path*", "/subscription/:path*", "/profile/:path*"],
+  matcher: [
+    "/api/ai-scanner",
+    "/analyzer/:path*",
+    "/scanner-automation/:path*",
+    "/automated-trader/:path*",
+    "/referral-vault/:path*",
+    "/ai-coach/:path*",
+    "/journal/:path*",
+    "/strategies/:path*",
+    "/subscription/:path*",
+    "/profile/:path*",
+  ],
 };
