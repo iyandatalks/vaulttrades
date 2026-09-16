@@ -17,11 +17,8 @@ const SUBSCRIPTION_EVENTS: Record<string, string> = {
 async function grantFeature(admin: any, userId: string, feature: string, start: string, end: string | null, status: string) {
   const { data: existing } = await admin.from("user_feature_access").select("id").eq("user_id", userId).eq("feature_code", feature).eq("status", "active").order("created_at", { ascending: false }).limit(1).maybeSingle();
   if (status === "active") {
-    if (existing) {
-      await admin.from("user_feature_access").update({ start_at: start, end_at: end, updated_at: new Date().toISOString(), grant_reason: "PayPal subscription active" }).eq("id", existing.id);
-    } else {
-      await admin.from("user_feature_access").insert({ user_id: userId, feature_code: feature, status: "active", start_at: start, end_at: end, granted_by: "paypal_webhook", grant_reason: "PayPal subscription active" });
-    }
+    if (existing) await admin.from("user_feature_access").update({ start_at: start, end_at: end, updated_at: new Date().toISOString(), grant_reason: "PayPal subscription active" }).eq("id", existing.id);
+    else await admin.from("user_feature_access").insert({ user_id: userId, feature_code: feature, status: "active", start_at: start, end_at: end, granted_by: "paypal_webhook", grant_reason: "PayPal subscription active" });
   } else if (existing) {
     await admin.from("user_feature_access").update({ end_at: end || new Date().toISOString(), updated_at: new Date().toISOString(), grant_reason: `PayPal subscription ${status}` }).eq("id", existing.id);
   }
@@ -38,15 +35,7 @@ export async function POST(request: Request) {
     const h = request.headers;
     const verification = await paypalRequest("/v1/notifications/verify-webhook-signature", {
       method: "POST",
-      body: JSON.stringify({
-        auth_algo: h.get("paypal-auth-algo"),
-        cert_url: h.get("paypal-cert-url"),
-        transmission_id: h.get("paypal-transmission-id"),
-        transmission_sig: h.get("paypal-transmission-sig"),
-        transmission_time: h.get("paypal-transmission-time"),
-        webhook_id: webhookId,
-        webhook_event: event,
-      }),
+      body: JSON.stringify({ auth_algo: h.get("paypal-auth-algo"), cert_url: h.get("paypal-cert-url"), transmission_id: h.get("paypal-transmission-id"), transmission_sig: h.get("paypal-transmission-sig"), transmission_time: h.get("paypal-transmission-time"), webhook_id: webhookId, webhook_event: event }),
     });
     if (verification.verification_status !== "SUCCESS") return NextResponse.json({ error: "Invalid PayPal webhook signature." }, { status: 401 });
 
@@ -55,7 +44,7 @@ export async function POST(request: Request) {
 
     const admin = createAdminClient();
     const resource = event.resource || {};
-    const subscriptionId = String(resource.id || resource.billing_agreement_id || resource.supplementary_data?.related_ids?.subscription_id || "");
+    const subscriptionId = String(resource.supplementary_data?.related_ids?.subscription_id || resource.billing_agreement_id || resource.id || "");
     if (!subscriptionId) return NextResponse.json({ received: true, ignored: true, reason: "No subscription reference" }, { status: 200 });
 
     if (event.id) {
@@ -88,24 +77,9 @@ export async function POST(request: Request) {
     const status = SUBSCRIPTION_EVENTS[eventType];
     const start = providerSubscription?.start_time ? new Date(providerSubscription.start_time).toISOString() : new Date().toISOString();
     const nextBilling = providerSubscription?.billing_info?.next_billing_time ? new Date(providerSubscription.billing_info.next_billing_time).toISOString() : null;
-    const terminal = status === "expired";
-    const accessEnd = terminal ? new Date().toISOString() : nextBilling;
+    const accessEnd = status === "expired" ? new Date().toISOString() : nextBilling;
 
-    await admin.from("product_licenses").upsert({
-      user_id: profile.id,
-      email: profile.email,
-      purchased_product_code: product.code,
-      entitlement_code: product.entitlement,
-      status: status === "active" ? "active" : status,
-      payment_reference: subscriptionId,
-      approved_at: status === "active" ? new Date().toISOString() : null,
-      start_at: start,
-      end_at: accessEnd,
-      platform: product.entitlement === "automation" ? "mt5" : "web",
-      source_payment_snapshot: { provider: "paypal", plan_id: planId, subscription_id: subscriptionId, product_code: product.code, amount: product.price, currency: "USD", event_type: eventType },
-      updated_at: new Date().toISOString(),
-    }, { onConflict: "payment_reference,entitlement_code" });
-
+    await admin.from("product_licenses").upsert({ user_id: profile.id, email: profile.email, purchased_product_code: product.code, entitlement_code: product.entitlement, status: status === "active" ? "active" : status, payment_reference: subscriptionId, approved_at: status === "active" ? new Date().toISOString() : null, start_at: start, end_at: accessEnd, platform: product.entitlement === "automation" ? "mt5" : "web", source_payment_snapshot: { provider: "paypal", plan_id: planId, subscription_id: subscriptionId, product_code: product.code, amount: product.price, currency: "USD", event_type: eventType }, updated_at: new Date().toISOString() }, { onConflict: "payment_reference,entitlement_code" });
     await grantFeature(admin, profile.id, product.entitlement, start, accessEnd, status);
 
     if (product.entitlement === "automation") {
