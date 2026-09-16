@@ -12,7 +12,10 @@ export async function POST() {
     if (!user) return NextResponse.json({ error: "You must be logged in." }, { status: 401 });
 
     const planId = process.env.PAYPAL_AUTOMATED_TRADER_PLAN_ID;
-    if (!planId) return NextResponse.json({ error: "Automated Trader billing is not configured yet. The PayPal recurring plan ID must be added by the administrator." }, { status: 503 });
+    if (!planId) {
+      console.error("Automated Trader PayPal configuration missing: PAYPAL_AUTOMATED_TRADER_PLAN_ID");
+      return NextResponse.json({ error: "Automated Trader checkout is currently unavailable. Please contact VaultTrades support." }, { status: 503 });
+    }
 
     const admin = createAdminClient();
     const { data: profile } = await admin.from("users").select("id,email").eq("auth_user_id", user.id).maybeSingle();
@@ -34,7 +37,7 @@ export async function POST() {
     });
 
     const approvalUrl = result.links?.find((link: any) => link.rel === "approve")?.href;
-    if (!approvalUrl) return NextResponse.json({ error: "PayPal did not return an approval URL." }, { status: 502 });
+    if (!approvalUrl) return NextResponse.json({ error: "Unable to start secure checkout. Please contact VaultTrades support." }, { status: 502 });
 
     await admin.from("automated_trader_subscriptions").upsert({
       auth_user_id: user.id,
@@ -48,6 +51,6 @@ export async function POST() {
     return NextResponse.json({ subscriptionId: result.id, approveUrl: approvalUrl });
   } catch (error) {
     console.error("Automated Trader PayPal subscription error", error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to start Automated Trader subscription." }, { status: 500 });
+    return NextResponse.json({ error: "Unable to start secure checkout. Please contact VaultTrades support." }, { status: 500 });
   }
 }
