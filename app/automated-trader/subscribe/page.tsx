@@ -13,10 +13,10 @@ export default function AutomatedTraderSubscribePage() {
     try {
       const response = await fetch("/api/automated-trader/subscribe", { method: "POST" });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Unable to start Automated Trader checkout.");
+      if (!response.ok) throw new Error(data.error || "Automated Trader checkout is currently unavailable. Please contact VaultTrades support.");
       window.location.href = data.approveUrl;
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Unable to start Automated Trader checkout.");
+      setError(e instanceof Error ? e.message : "Automated Trader checkout is currently unavailable. Please contact VaultTrades support.");
       setLoading(false);
     }
   };
@@ -27,7 +27,7 @@ export default function AutomatedTraderSubscribePage() {
         <div style={{ color: "#d4a637", fontSize: 12, fontWeight: 800, letterSpacing: ".18em" }}>AUTOMATED TRADER</div>
         <h1 style={{ fontSize: 38, margin: "12px 0" }}>Start Automated Trading</h1>
         <p style={{ color: "#aeb5c6", lineHeight: 1.7, maxWidth: 500, margin: "0 auto" }}>
-          Activate your Automated Trader service, then return to VaultTrades to connect MT5 and configure the instruments you want automation to trade.
+          Activate your Automated Trader service, then return to VaultTrades to complete your copy-trading account setup.
         </p>
 
         <div style={{ marginTop: 26, padding: 24, borderRadius: 12, border: "1px solid rgba(212,166,55,.3)", background: "#050812" }}>
@@ -36,7 +36,7 @@ export default function AutomatedTraderSubscribePage() {
             $99.99 <span style={{ color: "#aeb5c6", fontSize: 14, fontWeight: 500 }}>/ month</span>
           </div>
           <div style={{ marginTop: 10, color: "#7f8799", fontSize: 12, lineHeight: 1.6 }}>
-            Monthly automated copy-trading service. Payment is processed securely through PayPal and access is enabled only after server-side subscription verification.
+            Monthly automated copy-trading service. Payment is processed securely through PayPal.
           </div>
         </div>
 
@@ -45,7 +45,7 @@ export default function AutomatedTraderSubscribePage() {
         </button>
         {error && <div style={{ marginTop: 16, padding: 14, borderRadius: 9, background: "rgba(220,70,70,.12)", color: "#ffb5b5", textAlign: "left" }}>{error}</div>}
         <p style={{ marginTop: 18, color: "#7f8799", fontSize: 12, lineHeight: 1.5 }}>
-          Already subscribed? Return to Automated Trader to manage your MT5 connection and instruments.
+          Already subscribed? Return to Automated Trader to manage your copy-trading account.
         </p>
         <Link href="/automated-trader" style={{ display: "inline-block", marginTop: 4, color: "#d4a637", fontWeight: 800, textDecoration: "none" }}>
           Back to Automated Trader
