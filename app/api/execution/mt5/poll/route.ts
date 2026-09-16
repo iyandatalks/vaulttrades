@@ -12,41 +12,33 @@ export async function POST(request: Request) {
     const workerId = text(body.worker_id || "mt5-ea");
     const executionMode = text(body.execution_mode || "LIVE").toUpperCase();
 
-    if (!accessKey) {
-      return NextResponse.json({ error: "access_key is required" }, { status: 401 });
-    }
-    if (!["OBSERVE", "LIVE"].includes(executionMode)) {
-      return NextResponse.json({ error: "execution_mode must be OBSERVE or LIVE" }, { status: 400 });
-    }
+    if (!accessKey) return NextResponse.json({ error: "access_key is required" }, { status: 401 });
+    if (!["OBSERVE", "LIVE"].includes(executionMode)) return NextResponse.json({ error: "execution_mode must be OBSERVE or LIVE" }, { status: 400 });
 
     const admin = createAdminClient();
     const { data: license, error: licenseError } = await admin
       .from("product_licenses")
       .select("user_id,status,end_at,mt_login,broker_name,broker_server")
-      .eq("access_key", accessKey)
-      .eq("status", "active")
+      .eq("access_key", accessKey).eq("status", "active").eq("platform", "mt5").eq("entitlement_code", "automation")
       .maybeSingle();
 
     if (licenseError) throw licenseError;
-    if (!license?.user_id) {
-      return NextResponse.json({ error: "Invalid or inactive VaultTrades access key" }, { status: 401 });
-    }
-    if (license.end_at && new Date(license.end_at).getTime() <= Date.now()) {
-      return NextResponse.json({ error: "VaultTrades access key has expired" }, { status: 403 });
-    }
+    if (!license?.user_id) return NextResponse.json({ error: "Invalid or inactive VaultTrades access key" }, { status: 401 });
+    if (license.end_at && new Date(license.end_at).getTime() <= Date.now()) return NextResponse.json({ error: "VaultTrades access key has expired" }, { status: 403 });
+
+    const { data: appUser, error: userError } = await admin.from("users").select("auth_user_id").eq("id", license.user_id).maybeSingle();
+    if (userError) throw userError;
+    if (!appUser?.auth_user_id) return NextResponse.json({ error: "VaultTrades license is not linked to an authenticated user" }, { status: 403 });
 
     const { data: jobs, error: claimError } = await admin.rpc("claim_mt5_execution_job", {
-      p_user_id: license.user_id,
+      p_user_id: appUser.auth_user_id,
       p_worker_id: workerId,
       p_execution_mode: executionMode
     });
 
     if (claimError) throw claimError;
-
     const job = Array.isArray(jobs) ? jobs[0] : jobs;
-    if (!job) {
-      return NextResponse.json({ ok: true, available: false, execution_mode: executionMode });
-    }
+    if (!job) return NextResponse.json({ ok: true, available: false, execution_mode: executionMode });
 
     return NextResponse.json({
       ok: true,
@@ -69,11 +61,7 @@ export async function POST(request: Request) {
         tp4: job.tp4,
         execution_mode: job.execution_mode,
         payload: job.payload,
-        broker: {
-          mt_login: license.mt_login,
-          broker_name: license.broker_name,
-          broker_server: license.broker_server
-        },
+        broker: { mt_login: license.mt_login, broker_name: license.broker_name, broker_server: license.broker_server },
         claimed_at: job.claimed_at,
         claimed_by: job.claimed_by
       }
@@ -85,10 +73,5 @@ export async function POST(request: Request) {
 }
 
 export async function GET() {
-  return NextResponse.json({
-    ok: true,
-    service: "VaultTrades MT5 execution queue",
-    method: "POST",
-    modes: ["OBSERVE", "LIVE"]
-  });
+  return NextResponse.json({ ok: true, service: "VaultTrades MT5 execution queue", method: "POST", modes: ["OBSERVE", "LIVE"] });
 }
