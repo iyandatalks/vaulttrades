@@ -15,36 +15,29 @@ export async function POST(request: Request) {
     const executionReference = text(body.execution_reference || body.ticket || body.order_id);
     const failureReason = text(body.failure_reason || body.error);
 
-    if (!accessKey || !queueId) {
-      return NextResponse.json({ error: "access_key and queue_id are required" }, { status: 400 });
-    }
-    if (!["executed", "failed", "cancelled", "observed"].includes(status)) {
-      return NextResponse.json({ error: "status must be executed, failed, cancelled or observed" }, { status: 400 });
-    }
-    if (status === "executed" && !executionReference) {
-      return NextResponse.json({ error: "execution_reference is required for executed status" }, { status: 400 });
-    }
+    if (!accessKey || !queueId) return NextResponse.json({ error: "access_key and queue_id are required" }, { status: 400 });
+    if (!["executed", "failed", "cancelled", "observed"].includes(status)) return NextResponse.json({ error: "status must be executed, failed, cancelled or observed" }, { status: 400 });
+    if (status === "executed" && !executionReference) return NextResponse.json({ error: "execution_reference is required for executed status" }, { status: 400 });
 
     const admin = createAdminClient();
     const { data: license, error: licenseError } = await admin
       .from("product_licenses")
       .select("user_id,status,end_at")
-      .eq("access_key", accessKey)
-      .eq("status", "active")
+      .eq("access_key", accessKey).eq("status", "active").eq("platform", "mt5").eq("entitlement_code", "automation")
       .maybeSingle();
 
     if (licenseError) throw licenseError;
-    if (!license?.user_id) {
-      return NextResponse.json({ error: "Invalid or inactive VaultTrades access key" }, { status: 401 });
-    }
-    if (license.end_at && new Date(license.end_at).getTime() <= Date.now()) {
-      return NextResponse.json({ error: "VaultTrades access key has expired" }, { status: 403 });
-    }
+    if (!license?.user_id) return NextResponse.json({ error: "Invalid or inactive VaultTrades access key" }, { status: 401 });
+    if (license.end_at && new Date(license.end_at).getTime() <= Date.now()) return NextResponse.json({ error: "VaultTrades access key has expired" }, { status: 403 });
+
+    const { data: appUser, error: userError } = await admin.from("users").select("auth_user_id").eq("id", license.user_id).maybeSingle();
+    if (userError) throw userError;
+    if (!appUser?.auth_user_id) return NextResponse.json({ error: "VaultTrades license is not linked to an authenticated user" }, { status: 403 });
 
     const update = {
       status,
       claimed_by: workerId,
-      executed_at: ["executed", "failed", "cancelled", "observed"].includes(status) ? new Date().toISOString() : null,
+      executed_at: new Date().toISOString(),
       execution_reference: executionReference || null,
       failure_reason: failureReason || null
     };
@@ -52,17 +45,11 @@ export async function POST(request: Request) {
     const { data: queue, error: updateError } = await admin
       .from("automated_trader_execution_queue")
       .update(update)
-      .eq("id", queueId)
-      .eq("auth_user_id", license.user_id)
-      .eq("status", "claimed")
-      .eq("claimed_by", workerId)
-      .select("id,status,execution_reference,failure_reason,executed_at")
-      .maybeSingle();
+      .eq("id", queueId).eq("auth_user_id", appUser.auth_user_id).eq("status", "claimed").eq("claimed_by", workerId)
+      .select("id,status,execution_reference,failure_reason,executed_at").maybeSingle();
 
     if (updateError) throw updateError;
-    if (!queue) {
-      return NextResponse.json({ error: "Queue item is not claimed by this worker or does not belong to this account" }, { status: 409 });
-    }
+    if (!queue) return NextResponse.json({ error: "Queue item is not claimed by this worker or does not belong to this account" }, { status: 409 });
 
     return NextResponse.json({ ok: true, queue });
   } catch (error) {
@@ -72,9 +59,5 @@ export async function POST(request: Request) {
 }
 
 export async function GET() {
-  return NextResponse.json({
-    ok: true,
-    service: "VaultTrades MT5 execution acknowledgement",
-    method: "POST"
-  });
+  return NextResponse.json({ ok: true, service: "VaultTrades MT5 execution acknowledgement", method: "POST" });
 }
