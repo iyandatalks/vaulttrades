@@ -3,15 +3,25 @@ import { publishAutomatedScannerSignal } from '../signals/publishAutomatedScanne
 import { scanVaultAutoFib, VAULT_AUTO_FIB_CRYPTO_SYMBOLS, VAULT_AUTO_FIB_FOREX_SYMBOLS, type VaultAutoFibSymbol } from './vaultAutoFib';
 
 const CRYPTO_SET = new Set<string>(VAULT_AUTO_FIB_CRYPTO_SYMBOLS);
+const XAUUSD: VaultAutoFibSymbol = 'XAU/USD';
 const marketType = (symbol: string) => CRYPTO_SET.has(symbol) ? 'CRYPTO' : 'FOREX';
 
 type ScannerAutomationConfig = {
   auth_user_id: string;
+  enabled: boolean;
   enabled_strategies: string[] | null;
   forex_enabled: boolean;
   crypto_enabled: boolean;
   observe_mode: boolean;
 };
+
+function shouldRunM15() {
+  // The production scheduler has historically invoked this route every minute.
+  // Market analysis is M15, so do not spend Twelve Data credits 14 times between
+  // M15 candles. Run only on the M15 boundary.
+  const minute = new Date().getUTCMinutes();
+  return minute % 15 === 0;
+}
 
 export async function runScheduledVaultAutoFib() {
   const supabase = createServiceClient();
@@ -19,20 +29,34 @@ export async function runScheduledVaultAutoFib() {
   if (error) throw new Error(`Unable to load scanner automation configuration: ${error.message}`);
 
   const users = ((configs ?? []) as ScannerAutomationConfig[]).filter(
-    (x) => Array.isArray(x.enabled_strategies)
+    (x) => x.enabled === true
+      && Array.isArray(x.enabled_strategies)
       && x.enabled_strategies.includes('autoFibRetrace')
-      && (x.forex_enabled || x.crypto_enabled),
+      && x.forex_enabled,
   );
   if (!users.length) return { status: 'SKIPPED' as const, reason: 'no_enabled_auto_fib_automation_configs' };
 
-  const configuredSymbols = new Set<VaultAutoFibSymbol>();
-  for (const user of users) {
-    if (user.forex_enabled) VAULT_AUTO_FIB_FOREX_SYMBOLS.forEach((symbol) => configuredSymbols.add(symbol));
-    if (user.crypto_enabled) VAULT_AUTO_FIB_CRYPTO_SYMBOLS.forEach((symbol) => configuredSymbols.add(symbol));
+  if (!shouldRunM15()) {
+    return {
+      status: 'SKIPPED' as const,
+      reason: 'waiting_for_m15_boundary',
+      symbolsScanned: [] as VaultAutoFibSymbol[],
+    };
   }
 
-  const symbols = [...configuredSymbols];
-  const signals = await scanVaultAutoFib(symbols);
+  // Phase 1 is intentionally XAUUSD only. The UI can retain the generic
+  // Forex/metals toggle, but the scheduled engine must not spend API credits
+  // scanning unrelated pairs.
+  const symbols: VaultAutoFibSymbol[] = [XAUUSD];
+  let signals: Awaited<ReturnType<typeof scanVaultAutoFib>>;
+  try {
+    signals = await scanVaultAutoFib(symbols);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('[scanner-automation] market scan failed', { symbols, message });
+    throw new Error(`Vault Auto Fib market scan failed: ${message}`);
+  }
+
   let published = 0;
   let duplicates = 0;
   const errors: string[] = [];
@@ -44,49 +68,53 @@ export async function runScheduledVaultAutoFib() {
       if (category === 'FOREX' && !user.forex_enabled) continue;
       if (category === 'CRYPTO' && !user.crypto_enabled) continue;
 
-      const result = await publishAutomatedScannerSignal({
-        authUserId: user.auth_user_id,
-        runKey,
-        marketType: category,
-        symbol: signal.symbol,
-        timeframe: '15m',
-        strategyId: 'autoFibRetrace',
-        scanner: {
-          projectedDirection: signal.side,
-          analysisState: 'CONFIRMED',
-          isExecutable: true,
-          actualEntry: signal.entry,
-          stopLoss: signal.stopLoss,
-          tp1: signal.tp1,
-          tp2: signal.tp2,
-          tp3: signal.tp3,
-          tp4: signal.takeProfit,
-          projectedProbability: signal.confidence,
-          confirmations: signal.reason,
-          tradeReason: `Fresh M15 Vault Auto Fib master-strategy confirmation for ${signal.symbol}. UT Bot is optional additional confluence.`,
-          rr: signal.stopLoss !== signal.entry
-            ? Math.abs(signal.tp1 - signal.entry) / Math.abs(signal.entry - signal.stopLoss)
-            : null,
-        },
-        analysis: {
-          source: 'vaulttradesauto',
-          sourceStrategy: 'Vault Auto Fib Retrace + UT Bot optional confluence',
-          authoritative: true,
-          observeMode: user.observe_mode,
-          timeframe: 'M15',
-          automation: 'AUTOMATED',
-          signalTime: signal.signalTime,
+      try {
+        const result = await publishAutomatedScannerSignal({
+          authUserId: user.auth_user_id,
+          runKey,
           marketType: category,
-          entryConfirmation: signal.entryConfirmation,
-          confirmationBar: signal.entryConfirmation.retestIndex != null
-            ? String(signal.entryConfirmation.retestIndex)
-            : undefined,
-        },
-      });
+          symbol: signal.symbol,
+          timeframe: '15m',
+          strategyId: 'autoFibRetrace',
+          scanner: {
+            projectedDirection: signal.side,
+            analysisState: 'CONFIRMED',
+            isExecutable: true,
+            actualEntry: signal.entry,
+            stopLoss: signal.stopLoss,
+            tp1: signal.tp1,
+            tp2: signal.tp2,
+            tp3: signal.tp3,
+            tp4: signal.takeProfit,
+            projectedProbability: signal.confidence,
+            confirmations: signal.reason,
+            tradeReason: `Fresh M15 Vault Auto Fib master-strategy confirmation for ${signal.symbol}. UT Bot is optional additional confluence.`,
+            rr: signal.stopLoss !== signal.entry
+              ? Math.abs(signal.tp1 - signal.entry) / Math.abs(signal.entry - signal.stopLoss)
+              : null,
+          },
+          analysis: {
+            source: 'vaulttradesauto',
+            sourceStrategy: 'Vault Auto Fib Retrace + UT Bot optional confluence',
+            authoritative: true,
+            observeMode: user.observe_mode,
+            timeframe: 'M15',
+            automation: 'AUTOMATED',
+            signalTime: signal.signalTime,
+            marketType: category,
+            entryConfirmation: signal.entryConfirmation,
+            confirmationBar: signal.entryConfirmation.retestIndex != null
+              ? String(signal.entryConfirmation.retestIndex)
+              : undefined,
+          },
+        });
 
-      if (result.published) published++;
-      if (result.duplicate) duplicates++;
-      if (result.error) errors.push(`${user.auth_user_id}/${signal.symbol}: ${result.error}`);
+        if (result.published) published++;
+        if (result.duplicate) duplicates++;
+        if (result.error) errors.push(`${user.auth_user_id}/${signal.symbol}: ${result.error}`);
+      } catch (error) {
+        errors.push(`${user.auth_user_id}/${signal.symbol}: ${error instanceof Error ? error.message : String(error)}`);
+      }
     }
   }
 
