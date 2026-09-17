@@ -28,7 +28,9 @@ export default function RegisterForm() {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
 
-    const confirmationRedirect = `${window.location.origin}/auth/callback`;
+    const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "");
+    const siteUrl = configuredSiteUrl || window.location.origin;
+    const confirmationRedirect = `${siteUrl}/auth/callback`;
 
     const { data, error: signUpError } = await supabase.auth.signUp({
       email: email.trim(),
