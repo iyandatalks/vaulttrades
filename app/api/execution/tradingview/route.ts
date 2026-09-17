@@ -8,7 +8,7 @@ function parseSignal(body: any) {
   const rawSymbol = text(body.symbol || body.canonical_symbol || body.ticker).toUpperCase();
   const symbol = rawSymbol.replace(/^[A-Z0-9_]+:/, "").replace(/[^A-Z0-9]/g, "");
   const direction = text(body.direction || body.action).toUpperCase();
-  const timeframe = text(body.timeframe || body.tf || "M15");
+  const timeframe = text(body.timeframe || body.tf || "M15").toUpperCase();
   const strategyId = text(body.strategy_id || body.strategy || "tradingview");
   const strategyName = text(body.strategy_name || body.strategy || "TradingView");
   const entry = num(body.entry || body.entry_price);
@@ -33,7 +33,10 @@ export async function POST(request: Request) {
     const signal = parseSignal(body);
 
     if (signal.symbol !== "XAUUSD") {
-      return NextResponse.json({ error: "Unsupported symbol" }, { status: 400 });
+      return NextResponse.json({ error: "Unsupported symbol. This webhook currently accepts XAUUSD only." }, { status: 400 });
+    }
+    if (signal.timeframe !== "M15") {
+      return NextResponse.json({ error: "Unsupported timeframe. This webhook currently accepts M15 only." }, { status: 400 });
     }
     if (!["BUY", "SELL"].includes(signal.direction) || signal.entry === null || signal.stopLoss === null || signal.tp1 === null) {
       return NextResponse.json({ error: "Invalid signal. Required: direction (BUY/SELL), entry, stop_loss/sl and tp1/tp." }, { status: 400 });
@@ -88,7 +91,7 @@ export async function POST(request: Request) {
       const coachContext = {
         symbol: "XAUUSD",
         direction: signal.direction,
-        timeframe: signal.timeframe,
+        timeframe: "M15",
         entry: signal.entry,
         stop_loss: signal.stopLoss,
         tp1: signal.tp1,
@@ -112,7 +115,7 @@ export async function POST(request: Request) {
         trade_id: tradeId,
         symbol: "XAUUSD",
         direction: signal.direction,
-        timeframe: signal.timeframe,
+        timeframe: "M15",
         entry: signal.entry,
         stop_loss: signal.stopLoss,
         tp1: signal.tp1,
@@ -136,7 +139,7 @@ export async function POST(request: Request) {
         direction: signal.direction,
         strategy_id: signal.strategyId,
         strategy_name: signal.strategyName,
-        timeframe: signal.timeframe,
+        timeframe: "M15",
         entry: signal.entry,
         stop_loss: signal.stopLoss,
         tp1: signal.tp1,
@@ -163,7 +166,7 @@ export async function POST(request: Request) {
         strategy_name: signal.strategyName,
         canonical_symbol: "XAUUSD",
         direction: signal.direction,
-        timeframe: signal.timeframe,
+        timeframe: "M15",
         entry: signal.entry,
         stop_loss: signal.stopLoss,
         tp1: signal.tp1,
@@ -180,7 +183,7 @@ export async function POST(request: Request) {
       results.push({ user_id: license.user_id, duplicate: false, signal_id: createdSignal.id, trade_id: createdSignal.trade_id, queue_id: queue.id, status: queue.status });
     }
 
-    return NextResponse.json({ ok: true, mode: masterMode ? "MASTER_FANOUT" : "SINGLE_ACCOUNT", symbol: "XAUUSD", queued: results.filter(r => !r.duplicate).length, duplicates: results.filter(r => r.duplicate).length, results }, { status: 201 });
+    return NextResponse.json({ ok: true, mode: masterMode ? "MASTER_FANOUT" : "SINGLE_ACCOUNT", symbol: "XAUUSD", timeframe: "M15", queued: results.filter(r => !r.duplicate).length, duplicates: results.filter(r => r.duplicate).length, results }, { status: 201 });
   } catch (error) {
     console.error("TradingView execution webhook error", error);
     return NextResponse.json({ error: "TradingView webhook failed" }, { status: 500 });
@@ -188,5 +191,5 @@ export async function POST(request: Request) {
 }
 
 export async function GET() {
-  return NextResponse.json({ ok: true, service: "VaultTrades TradingView execution webhook", method: "POST", status: "ready", authentication: "private", symbol: "XAUUSD" });
+  return NextResponse.json({ ok: true, service: "VaultTrades TradingView execution webhook", method: "POST", status: "ready", authentication: "private", symbol: "XAUUSD", timeframe: "M15" });
 }
