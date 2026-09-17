@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 const products = [
-  ["01", "ANALYZER", "$73.99 / month", "Structured chart analysis, strategy conditions and trade planning.", "https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-7SU27254MK962725RNGROPDQ", "Subscribe to Analyzer", "/analyzer", "analyzer"],
-  ["02", "SCANNER AUTOMATION / SIGNALS", "$9.99 / month", "Automated monitoring and confirmed VaultTrades signal delivery.", "https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-6V815454631119629NHESLKI", "Subscribe to Scanner", "/scanner-automation", "scanner"],
-  ["03", "AUTOMATED TRADER", "$99.99 / month", "VaultTrades copy-trading service with a connected MT5 execution account.", "https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-0YR675118F424491GNJ7LAEQ", "Subscribe to Automated Trader", "/automated-trader", "automation"],
+  ["01", "ANALYZER", "$73.99 / month", "VaultTrades structured chart analysis, strategy conditions and trade planning.", "https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-7SU27254MK962725RNGROPDQ", "Subscribe to Analyzer", "/analyzer", "analyzer"],
+  ["02", "SCANNER SIGNALS", "$9.99 / month", "VaultTrades monitoring and confirmed signal delivery.", "https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-6V815454631119629NHESLKI", "Subscribe to Scanner", "/scanner-automation", "scanner"],
+  ["03", "AUTOMATED TRADER", "$99.99 / month", "VaultTrades copy-trading service. No analysis. No following signals. Connect and trade.", "https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-0YR675118F424491GNJ7LAEQ", "Subscribe to Automated Trader", "/automated-trader", "automation"],
 ] as const;
 
 type AccessResponse = { access?: Record<string, boolean>; admin?: boolean };
@@ -39,7 +39,7 @@ export default function ProductsPage() {
               <p style={{ color: "#d4a637", fontWeight: 900, fontSize: 24, margin: "12px 0" }}>{price}</p>
               <p>{text}</p>
               <div className="vt-actions" style={{ marginTop: 18 }}>
-                <a className="vt-primary" href={checkout}> {checkoutLabel} </a>
+                <a className="vt-primary" href={checkout}>{checkoutLabel}</a>
                 {loaded && access[feature] === true && (
                   <Link className="vt-secondary" href={productHref}>View product</Link>
                 )}
