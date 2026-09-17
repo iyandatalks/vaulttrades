@@ -5,7 +5,8 @@ function text(value: unknown) { return typeof value === "string" ? value.trim() 
 function num(value: unknown) { const n = Number(value); return Number.isFinite(n) ? n : null; }
 
 function parseSignal(body: any) {
-  const symbol = text(body.symbol || body.canonical_symbol || body.ticker);
+  const rawSymbol = text(body.symbol || body.canonical_symbol || body.ticker).toUpperCase();
+  const symbol = rawSymbol.replace(/^[A-Z0-9_]+:/, "").replace(/[^A-Z0-9]/g, "");
   const direction = text(body.direction || body.action).toUpperCase();
   const timeframe = text(body.timeframe || body.tf || "M15");
   const strategyId = text(body.strategy_id || body.strategy || "tradingview");
@@ -31,8 +32,11 @@ export async function POST(request: Request) {
     const masterMode = Boolean(configuredSecret && webhookSecret && webhookSecret === configuredSecret);
     const signal = parseSignal(body);
 
-    if (!signal.symbol || !["BUY", "SELL"].includes(signal.direction) || signal.entry === null || signal.stopLoss === null || signal.tp1 === null) {
-      return NextResponse.json({ error: "Invalid signal. Required: symbol, direction (BUY/SELL), entry, stop_loss/sl and tp1/tp." }, { status: 400 });
+    if (signal.symbol !== "XAUUSD") {
+      return NextResponse.json({ error: "Unsupported symbol" }, { status: 400 });
+    }
+    if (!["BUY", "SELL"].includes(signal.direction) || signal.entry === null || signal.stopLoss === null || signal.tp1 === null) {
+      return NextResponse.json({ error: "Invalid signal. Required: direction (BUY/SELL), entry, stop_loss/sl and tp1/tp." }, { status: 400 });
     }
     if (!["OBSERVE", "LIVE"].includes(signal.executionMode)) {
       return NextResponse.json({ error: "execution_mode must be OBSERVE or LIVE" }, { status: 400 });
@@ -69,7 +73,7 @@ export async function POST(request: Request) {
     if (licenses.length === 0) return NextResponse.json({ ok: true, queued: 0, message: "No active MT5 copy-trading accounts are currently enabled." });
 
     const baseTradeId = text(body.signal_id || body.trade_id) || `TV-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const baseFingerprint = text(body.signal_fingerprint) || [signal.symbol.toUpperCase(), signal.direction, signal.strategyId, signal.timeframe, signal.entry, signal.stopLoss, signal.tp1, signal.tp2 ?? "", signal.tp3 ?? "", signal.tp4 ?? "", text(body.timestamp || body.time || "")].join("|");
+    const baseFingerprint = text(body.signal_fingerprint) || [signal.symbol, signal.direction, signal.strategyId, signal.timeframe, signal.entry, signal.stopLoss, signal.tp1, signal.tp2 ?? "", signal.tp3 ?? "", signal.tp4 ?? "", text(body.timestamp || body.time || "")].join("|");
     const results: any[] = [];
 
     for (const license of licenses) {
@@ -81,10 +85,32 @@ export async function POST(request: Request) {
         continue;
       }
 
+      const coachContext = {
+        symbol: "XAUUSD",
+        direction: signal.direction,
+        timeframe: signal.timeframe,
+        entry: signal.entry,
+        stop_loss: signal.stopLoss,
+        tp1: signal.tp1,
+        tp2: signal.tp2,
+        tp3: signal.tp3,
+        tp4: signal.tp4,
+        confidence: signal.confidence,
+        rr: signal.rr,
+        strategy_id: signal.strategyId,
+        strategy_name: signal.strategyName,
+        confirmation_conditions: Array.isArray(body.confirmation_conditions) ? body.confirmation_conditions : [],
+        missing_conditions: Array.isArray(body.missing_conditions) ? body.missing_conditions : [],
+        market_profile: body.market_profile ?? null,
+        session_profile: body.session_profile ?? null,
+        liquidity_targets: Array.isArray(body.liquidity_targets) ? body.liquidity_targets : [],
+        signal_status: "FIRED"
+      };
+
       const payload = {
         source: "tradingview",
         trade_id: tradeId,
-        symbol: signal.symbol,
+        symbol: "XAUUSD",
         direction: signal.direction,
         timeframe: signal.timeframe,
         entry: signal.entry,
@@ -96,6 +122,7 @@ export async function POST(request: Request) {
         confidence: signal.confidence,
         rr: signal.rr,
         execution_mode: signal.executionMode,
+        coach_context: coachContext,
         raw: body,
         received_at: new Date().toISOString()
       };
@@ -104,8 +131,8 @@ export async function POST(request: Request) {
         auth_user_id: license.user_id,
         trade_id: tradeId,
         signal_fingerprint: fingerprint,
-        market_category: text(body.market_category || "FOREX"),
-        canonical_symbol: signal.symbol.toUpperCase(),
+        market_category: "GOLD",
+        canonical_symbol: "XAUUSD",
         direction: signal.direction,
         strategy_id: signal.strategyId,
         strategy_name: signal.strategyName,
@@ -119,8 +146,8 @@ export async function POST(request: Request) {
         confidence: signal.confidence,
         rr: signal.rr,
         status: "EXECUTION_PENDING",
-        confirmation_conditions: Array.isArray(body.confirmation_conditions) ? body.confirmation_conditions : [],
-        missing_conditions: Array.isArray(body.missing_conditions) ? body.missing_conditions : [],
+        confirmation_conditions: coachContext.confirmation_conditions,
+        missing_conditions: coachContext.missing_conditions,
         execution_payload: payload,
         source_snapshot: body,
         fired_at: new Date().toISOString()
@@ -134,7 +161,7 @@ export async function POST(request: Request) {
         execution_mode: signal.executionMode,
         strategy_id: signal.strategyId,
         strategy_name: signal.strategyName,
-        canonical_symbol: signal.symbol.toUpperCase(),
+        canonical_symbol: "XAUUSD",
         direction: signal.direction,
         timeframe: signal.timeframe,
         entry: signal.entry,
@@ -153,7 +180,7 @@ export async function POST(request: Request) {
       results.push({ user_id: license.user_id, duplicate: false, signal_id: createdSignal.id, trade_id: createdSignal.trade_id, queue_id: queue.id, status: queue.status });
     }
 
-    return NextResponse.json({ ok: true, mode: masterMode ? "MASTER_FANOUT" : "SINGLE_ACCOUNT", queued: results.filter(r => !r.duplicate).length, duplicates: results.filter(r => r.duplicate).length, results }, { status: 201 });
+    return NextResponse.json({ ok: true, mode: masterMode ? "MASTER_FANOUT" : "SINGLE_ACCOUNT", symbol: "XAUUSD", queued: results.filter(r => !r.duplicate).length, duplicates: results.filter(r => r.duplicate).length, results }, { status: 201 });
   } catch (error) {
     console.error("TradingView execution webhook error", error);
     return NextResponse.json({ error: "TradingView webhook failed" }, { status: 500 });
@@ -161,5 +188,5 @@ export async function POST(request: Request) {
 }
 
 export async function GET() {
-  return NextResponse.json({ ok: true, service: "VaultTrades TradingView execution webhook", method: "POST", status: "ready", authentication: "private" });
+  return NextResponse.json({ ok: true, service: "VaultTrades TradingView execution webhook", method: "POST", status: "ready", authentication: "private", symbol: "XAUUSD" });
 }
