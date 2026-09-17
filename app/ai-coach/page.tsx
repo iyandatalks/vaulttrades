@@ -3,20 +3,31 @@
 import { useState } from "react";
 import MarketTimingIntelligenceEngine from "./MarketTimingIntelligenceEngine";
 
+const FAQS = [
+  "Why did price not go directly to final TP?",
+  "Why should I collect partial profit at TP1?",
+  "When can I consider moving to break-even?",
+  "What liquidity is price targeting next?",
+  "How do I tell continuation from reversal?",
+  "Can I collect 70% and wait for the remaining target?",
+  "What happens when price reaches a high-risk zone?",
+  "Explain the XAUUSD 4276 → 4318 → 4332 example.",
+];
+
 export default function AICoachPage() {
   const [q, setQ] = useState("");
   const [a, setA] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const ask = async () => {
-    if (!q.trim()) return;
+  const ask = async (question = q) => {
+    if (!question.trim()) return;
     setLoading(true);
     setA("");
     try {
       const r = await fetch("/api/coach", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: q }),
+        body: JSON.stringify({ question }),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Unable to get a response.");
@@ -36,8 +47,27 @@ export default function AICoachPage() {
         <div className="section-label">AI COACH</div>
         <h1 className="title">Learn from the Analysis</h1>
         <p className="muted">
-          Ask questions about trading concepts, strategy rules, or why a setup is confirmed, developing, waiting, or invalid. AI Coach explains; the Strategy Engine remains the source of truth.
+          Ask questions about trading concepts, session profiling, liquidity, trade management, or why a setup is confirmed, developing, waiting, or invalid. AI Coach explains; the Strategy Engine remains the source of truth.
         </p>
+
+        <div style={{ marginTop: 24 }}>
+          <div className="section-label">FREQUENTLY ASKED QUESTIONS</div>
+          <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
+            {FAQS.map((faq) => (
+              <button
+                key={faq}
+                type="button"
+                className="condition-box"
+                onClick={() => { setQ(faq); void ask(faq); }}
+                disabled={loading}
+                style={{ textAlign: "left", cursor: loading ? "wait" : "pointer" }}
+              >
+                {faq}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div style={{ display: "grid", gap: 12, marginTop: 24 }}>
           <textarea
             className="coach-question"
