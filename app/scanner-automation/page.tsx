@@ -130,7 +130,7 @@ export default function ScannerAutomationPage() {
           <div>
             <div className="section-label">SCANNER AUTOMATION</div>
             <h1 className="title">Scanner Automation</h1>
-            <p className="muted">Manage the automated scanner and monitor newly confirmed signals from one place.</p>
+            <p className="muted">Manage automated monitoring and monitor newly confirmed VaultTrades signals from one place.</p>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <button type="button" onClick={() => void loadSignals()} disabled={refreshing} style={{ padding: "10px 16px", borderRadius: 8, border: "1px solid rgba(212,166,55,.45)", background: "rgba(212,166,55,.08)", color: "#d4a637", fontWeight: 800, cursor: refreshing ? "wait" : "pointer" }}>
@@ -147,7 +147,7 @@ export default function ScannerAutomationPage() {
             <div>
               <div className="section-label">AUTOMATION CONFIGURATION</div>
               <h2 style={{ margin: "6px 0 4px", fontSize: 20 }}>Signal Feed</h2>
-              <p className="muted" style={{ margin: 0 }}>The scanner runs automatically and publishes only confirmed signals. This does not change the existing entry-confirmation process.</p>
+              <p className="muted" style={{ margin: 0 }}>Only confirmed signals are published. A confirmed signal is handed to automation immediately when the alert is received; the two-hour window below controls how long it remains visible in this feed.</p>
             </div>
             <div style={{ fontWeight: 800, fontSize: 12, padding: "7px 10px", borderRadius: 999, border: "1px solid rgba(255,255,255,.12)" }}>{config.enabled ? "AUTOMATION ON" : "AUTOMATION OFF"}</div>
           </div>
@@ -189,7 +189,7 @@ export default function ScannerAutomationPage() {
           <div>
             <div className="section-label">CONFIRMED SIGNALS</div>
             <h2 style={{ margin: "6px 0 4px", fontSize: 20 }}>Signal Feed</h2>
-            <p className="muted" style={{ margin: 0 }}>Only newly confirmed signals from the last 2 hours are shown.</p>
+            <p className="muted" style={{ margin: 0 }}>Only newly confirmed signals are shown for 2 hours. The feed is a display window; automation is triggered when the signal reaches VaultTrades.</p>
           </div>
         </div>
         <div style={{ overflowX: "auto" }}>
@@ -203,7 +203,7 @@ export default function ScannerAutomationPage() {
                 const values = [formatAge(signal.fired_at, now), signal.canonical_symbol, signal.timeframe, signal.strategy_name, signal.direction, signal.entry?.toFixed(2) ?? "—", signal.stop_loss?.toFixed(2) ?? "—", signal.tp1?.toFixed(2) ?? "—", signal.tp2?.toFixed(2) ?? "—", signal.tp3?.toFixed(2) ?? "—", signal.confidence != null ? `${signal.confidence}%` : "—", signal.status];
                 return <tr key={signal.id} style={{ background: rowBackground }}>{values.map((value, index) => <td key={index} style={{ padding: "10px 8px", fontSize: 12, borderBottom: "1px solid rgba(255,255,255,.06)", whiteSpace: "nowrap", fontWeight: index === 4 ? 800 : 400 }}>{value}</td>)}</tr>;
               })}
-              {!signals.length && <tr><td colSpan={12} style={{ padding: 28, textAlign: "center" }} className="muted">Waiting for a new confirmed automated signal…</td></tr>}
+              {!signals.length && <tr><td colSpan={12} style={{ padding: 28, textAlign: "center" }} className="muted">Waiting for a new confirmed signal…</td></tr>}
             </tbody>
           </table>
         </div>
