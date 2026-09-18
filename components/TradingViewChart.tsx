@@ -20,6 +20,21 @@ type TradingViewChartProps = {
   } | null;
 };
 
+function normalizeInterval(value: string) {
+  const normalized = value.toUpperCase().trim();
+  const map: Record<string, string> = {
+    M1: "1",
+    M5: "5",
+    M10: "10",
+    M15: "15",
+    M30: "30",
+    H1: "60",
+    H4: "240",
+    D1: "D",
+  };
+  return map[normalized] ?? value;
+}
+
 function levelRows(signal: NonNullable<TradingViewChartProps["signal"]>) {
   return [
     ["TP4", signal.tp4],
@@ -60,7 +75,7 @@ export default function TradingViewChart({
     script.innerHTML = JSON.stringify({
       autosize: true,
       symbol,
-      interval,
+      interval: normalizeInterval(interval),
       timezone: "Africa/Johannesburg",
       theme: "dark",
       style: "1",
@@ -94,7 +109,7 @@ export default function TradingViewChart({
       <div style={{ padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,.08)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
         <div>
           <div style={{ fontSize: 10, letterSpacing: ".10em", fontWeight: 800, opacity: 0.65 }}>TRADINGVIEW MARKET CHART</div>
-          <div style={{ marginTop: 4, fontSize: 16, fontWeight: 800 }}>XAUUSD · M5</div>
+          <div style={{ marginTop: 4, fontSize: 16, fontWeight: 800 }}>{symbol.replace(/^OANDA:/, "")} · {String(signal?.timeframe ?? interval).toUpperCase()}</div>
         </div>
         <div style={{ fontSize: 10, padding: "6px 9px", borderRadius: 999, border: "1px solid rgba(212,166,55,.35)", color: "#d4a637", fontWeight: 800 }}>LIVE MARKET DATA</div>
       </div>
