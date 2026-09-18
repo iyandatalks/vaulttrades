@@ -30,10 +30,17 @@ function validateStrategyTimeframe(strategyId: string, timeframe: string) {
   if (strategyId === "justine-session-liquidity-m15" && timeframe !== "M15") {
     return "Justine Session Liquidity must send timeframe M15.";
   }
+  if (strategyId === "ema20-pullback-morning-engine") {
+    const allowed = ["M1", "M5", "M10", "M15", "M30", "H1", "H4", "D1"];
+    if (!allowed.includes(timeframe)) {
+      return "EMA20 Pullback Morning Engine supports M1, M5, M10, M15, M30, H1, H4 and D1."; 
+    }
+    return null;
+  }
   if (strategyId === "vault_auto_select_fib_retrace_latest" || strategyId === "justine-session-liquidity-m15") {
     return null;
   }
-  return "Unsupported TradingView strategy_id. This webhook accepts the VaultTrades FIB M5 and Justine M15 strategies.";
+  return "Unsupported TradingView strategy_id. This webhook accepts VaultTrades FIB M5, Justine M15 and EMA20 Pullback Morning Engine signals.";
 }
 
 export async function POST(request: Request) {
@@ -299,7 +306,8 @@ export async function GET() {
     symbol: "XAUUSD",
     strategies: {
       fib: { strategy_id: "vault_auto_select_fib_retrace_latest", timeframe: "M5" },
-      justine: { strategy_id: "justine-session-liquidity-m15", timeframe: "M15" }
+      justine: { strategy_id: "justine-session-liquidity-m15", timeframe: "M15" },
+      ema: { strategy_id: "ema20-pullback-morning-engine", timeframes: ["M1", "M5", "M10", "M15", "M30", "H1", "H4", "D1"] }
     }
   });
 }
