@@ -136,7 +136,10 @@ export default function ScannerAutomationPage() {
     void loadSignals();
     void loadHistory();
     void loadConfig();
-    const id = setInterval(() => void loadSignals(), 15000);
+    const id = setInterval(() => {
+      void loadSignals();
+      void loadHistory();
+    }, 15000);
     return () => clearInterval(id);
   }, []);
 
@@ -223,13 +226,13 @@ export default function ScannerAutomationPage() {
         </div>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead><tr>{["Time", "Symbol", "TF", "Side", "Entry", "SL", "TP1", "TP2", "TP3", "TP4", "Status", "Trade ID"].map((heading) => <th key={heading} style={{ textAlign: "left", padding: "10px 8px", fontSize: 12, borderBottom: "1px solid rgba(212,166,55,.25)", whiteSpace: "nowrap" }}>{heading}</th>)}</tr></thead>
+            <thead><tr>{["Time", "Symbol", "TF", "Strategy", "Side", "Entry", "SL", "TP1", "TP2", "TP3", "TP4", "Status", "Trade ID"].map((heading) => <th key={heading} style={{ textAlign: "left", padding: "10px 8px", fontSize: 12, borderBottom: "1px solid rgba(212,166,55,.25)", whiteSpace: "nowrap" }}>{heading}</th>)}</tr></thead>
             <tbody>
               {historySignals.map((signal) => {
-                const values = [new Date(signal.fired_at).toLocaleString(), signal.canonical_symbol, signal.timeframe, signal.direction, signal.entry?.toFixed(2) ?? "—", signal.stop_loss?.toFixed(2) ?? "—", signal.tp1?.toFixed(2) ?? "—", signal.tp2?.toFixed(2) ?? "—", signal.tp3?.toFixed(2) ?? "—", signal.tp4?.toFixed(2) ?? "—", signal.status, signal.trade_id];
+                const values = [new Date(signal.fired_at).toLocaleString(), signal.canonical_symbol, signal.timeframe, signal.strategy_name, signal.direction, signal.entry?.toFixed(2) ?? "—", signal.stop_loss?.toFixed(2) ?? "—", signal.tp1?.toFixed(2) ?? "—", signal.tp2?.toFixed(2) ?? "—", signal.tp3?.toFixed(2) ?? "—", signal.tp4?.toFixed(2) ?? "—", signal.status, signal.trade_id];
                 return <tr key={signal.id}>{values.map((value, index) => <td key={index} style={{ padding: "10px 8px", fontSize: 12, borderBottom: "1px solid rgba(255,255,255,.06)", whiteSpace: "nowrap", fontWeight: index === 3 ? 800 : 400 }}>{value}</td>)}</tr>;
               })}
-              {!historySignals.length && <tr><td colSpan={12} style={{ padding: 28, textAlign: "center" }} className="muted">No XAUUSD TradingView signals were recorded in the last five days.</td></tr>}
+              {!historySignals.length && <tr><td colSpan={13} style={{ padding: 28, textAlign: "center" }} className="muted">No XAUUSD TradingView signals were recorded in the last five days.</td></tr>}
             </tbody>
           </table>
         </div>
