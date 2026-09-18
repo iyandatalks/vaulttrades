@@ -85,7 +85,7 @@ export default function ScannerAutomationPage() {
   const loadHistory = async () => {
     setHistoryLoading(true);
     try {
-      const response = await fetch("/api/signals/history?days=5&strategy=vault_auto_select_fib_retrace_latest&timeframe=M5&symbol=XAUUSD", { cache: "no-store" });
+      const response = await fetch("/api/signals/history?days=5&symbol=XAUUSD", { cache: "no-store" });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Unable to load five-day signal history.");
       setHistorySignals(data.signals || []);
@@ -207,14 +207,14 @@ export default function ScannerAutomationPage() {
       )}
 
       <section className="card" style={{ marginTop: 16 }}>
-        <TradingViewChart symbol="OANDA:XAUUSD" interval="5" height={620} signal={signals[0] ?? null} />
+        <TradingViewChart symbol="OANDA:XAUUSD" interval={signals[0]?.timeframe ?? "M5"} height={620} signal={signals[0] ?? null} />
       </section>
 
       <section className="card" style={{ marginTop: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
           <div>
             <div className="section-label">FIVE-DAY SIGNAL HISTORY</div>
-            <h2 style={{ margin: "6px 0 4px", fontSize: 20 }}>XAUUSD · FIB M5</h2>
+            <h2 style={{ margin: "6px 0 4px", fontSize: 20 }}>XAUUSD · TradingView Signals</h2>
             <p className="muted" style={{ margin: 0 }}>Signals actually recorded by VaultTrades during the last five days.</p>
           </div>
           <button type="button" onClick={() => void loadHistory()} disabled={historyLoading} style={{ padding: "10px 16px", borderRadius: 8, border: "1px solid rgba(212,166,55,.45)", background: "rgba(212,166,55,.08)", color: "#d4a637", fontWeight: 800, cursor: historyLoading ? "wait" : "pointer" }}>
@@ -229,7 +229,7 @@ export default function ScannerAutomationPage() {
                 const values = [new Date(signal.fired_at).toLocaleString(), signal.canonical_symbol, signal.timeframe, signal.direction, signal.entry?.toFixed(2) ?? "—", signal.stop_loss?.toFixed(2) ?? "—", signal.tp1?.toFixed(2) ?? "—", signal.tp2?.toFixed(2) ?? "—", signal.tp3?.toFixed(2) ?? "—", signal.tp4?.toFixed(2) ?? "—", signal.status, signal.trade_id];
                 return <tr key={signal.id}>{values.map((value, index) => <td key={index} style={{ padding: "10px 8px", fontSize: 12, borderBottom: "1px solid rgba(255,255,255,.06)", whiteSpace: "nowrap", fontWeight: index === 3 ? 800 : 400 }}>{value}</td>)}</tr>;
               })}
-              {!historySignals.length && <tr><td colSpan={12} style={{ padding: 28, textAlign: "center" }} className="muted">No XAUUSD FIB M5 signals were recorded in the last five days.</td></tr>}
+              {!historySignals.length && <tr><td colSpan={12} style={{ padding: 28, textAlign: "center" }} className="muted">No XAUUSD TradingView signals were recorded in the last five days.</td></tr>}
             </tbody>
           </table>
         </div>
