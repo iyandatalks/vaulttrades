@@ -102,6 +102,38 @@ export async function POST(request: Request) {
       });
     }
 
+    // product_licenses.user_id references public.users.id, while scanner_signals.auth_user_id
+    // and automated_trader_execution_queue.auth_user_id reference auth.users.id. Resolve
+    // the application-user -> Supabase-auth-user mapping before writing the signal/queue.
+    const licenseUserIds = [...new Set(licenses.map((license) => license.user_id).filter(Boolean))];
+    const { data: appUsers, error: appUsersError } = await admin
+      .from("users")
+      .select("id,auth_user_id")
+      .in("id", licenseUserIds);
+    if (appUsersError) throw appUsersError;
+
+    const authUserByAppUser = new Map(
+      (appUsers || [])
+        .filter((appUser) => appUser.auth_user_id)
+        .map((appUser) => [appUser.id, appUser.auth_user_id])
+    );
+
+    licenses = licenses
+      .map((license) => ({ ...license, auth_user_id: authUserByAppUser.get(license.user_id) || null }))
+      .filter((license) => license.auth_user_id);
+
+    if (licenses.length === 0) {
+      return NextResponse.json({
+        ok: true,
+        mode: masterMode ? "MASTER_FANOUT" : "SINGLE_ACCOUNT",
+        symbol: signal.symbol,
+        timeframe: signal.timeframe,
+        strategy_id: signal.strategyId,
+        queued: 0,
+        message: "Active automation licenses were found, but none are linked to a Supabase Auth user."
+      });
+    }
+
     const baseTradeId = text(body.signal_id || body.trade_id) || `TV-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const baseFingerprint = text(body.signal_fingerprint) || [
       signal.symbol, signal.direction, signal.strategyId, signal.timeframe,
@@ -119,7 +151,7 @@ export async function POST(request: Request) {
       const { data: existing } = await admin
         .from("scanner_signals")
         .select("id,trade_id,status")
-        .eq("auth_user_id", license.user_id)
+        .eq("auth_user_id", license.auth_user_id)
         .eq("signal_fingerprint", fingerprint)
         .maybeSingle();
 
@@ -173,7 +205,7 @@ export async function POST(request: Request) {
       };
 
       const { data: createdSignal, error: signalError } = await admin.from("scanner_signals").insert({
-        auth_user_id: license.user_id,
+        auth_user_id: license.auth_user_id,
         trade_id: tradeId,
         signal_fingerprint: fingerprint,
         market_category: "GOLD",
@@ -219,7 +251,7 @@ export async function POST(request: Request) {
         status: "queued",
         payload: {
           ...payload,
-          auth_user_id: license.user_id,
+          auth_user_id: license.auth_user_id,
           mt_login: license.mt_login,
           broker_name: license.broker_name,
           broker_server: license.broker_server
