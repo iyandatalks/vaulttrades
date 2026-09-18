@@ -23,6 +23,19 @@ function parseSignal(body: any) {
   return { symbol, direction, timeframe, strategyId, strategyName, entry, stopLoss, tp1, tp2, tp3, tp4, confidence, rr, executionMode };
 }
 
+function validateStrategyTimeframe(strategyId: string, timeframe: string) {
+  if (strategyId === "vault_auto_select_fib_retrace_latest" && timeframe !== "M5") {
+    return "FIB Retracement must send timeframe M5.";
+  }
+  if (strategyId === "justine-session-liquidity-m15" && timeframe !== "M15") {
+    return "Justine Session Liquidity must send timeframe M15.";
+  }
+  if (strategyId === "vault_auto_select_fib_retrace_latest" || strategyId === "justine-session-liquidity-m15") {
+    return null;
+  }
+  return "Unsupported TradingView strategy_id. This webhook accepts the VaultTrades FIB M5 and Justine M15 strategies.";
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -35,12 +48,16 @@ export async function POST(request: Request) {
     if (signal.symbol !== "XAUUSD") {
       return NextResponse.json({ error: "Unsupported symbol. This webhook currently accepts XAUUSD only." }, { status: 400 });
     }
-    if (signal.timeframe !== "M15") {
-      return NextResponse.json({ error: "Unsupported timeframe. This webhook currently accepts M15 only." }, { status: 400 });
+
+    const strategyTimeframeError = validateStrategyTimeframe(signal.strategyId, signal.timeframe);
+    if (strategyTimeframeError) {
+      return NextResponse.json({ error: strategyTimeframeError }, { status: 400 });
     }
+
     if (!["BUY", "SELL"].includes(signal.direction) || signal.entry === null || signal.stopLoss === null || signal.tp1 === null) {
       return NextResponse.json({ error: "Invalid signal. Required: direction (BUY/SELL), entry, stop_loss/sl and tp1/tp." }, { status: 400 });
     }
+
     if (!["OBSERVE", "LIVE"].includes(signal.executionMode)) {
       return NextResponse.json({ error: "execution_mode must be OBSERVE or LIVE" }, { status: 400 });
     }
@@ -73,25 +90,48 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Webhook authentication failed" }, { status: 401 });
     }
 
-    if (licenses.length === 0) return NextResponse.json({ ok: true, queued: 0, message: "No active MT5 copy-trading accounts are currently enabled." });
+    if (licenses.length === 0) {
+      return NextResponse.json({
+        ok: true,
+        mode: masterMode ? "MASTER_FANOUT" : "SINGLE_ACCOUNT",
+        symbol: signal.symbol,
+        timeframe: signal.timeframe,
+        strategy_id: signal.strategyId,
+        queued: 0,
+        message: "Signal received, but no active MT5 copy-trading accounts are currently enabled."
+      });
+    }
 
     const baseTradeId = text(body.signal_id || body.trade_id) || `TV-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const baseFingerprint = text(body.signal_fingerprint) || [signal.symbol, signal.direction, signal.strategyId, signal.timeframe, signal.entry, signal.stopLoss, signal.tp1, signal.tp2 ?? "", signal.tp3 ?? "", signal.tp4 ?? "", text(body.timestamp || body.time || "")].join("|");
+    const baseFingerprint = text(body.signal_fingerprint) || [
+      signal.symbol, signal.direction, signal.strategyId, signal.timeframe,
+      signal.entry, signal.stopLoss, signal.tp1, signal.tp2 ?? "", signal.tp3 ?? "",
+      signal.tp4 ?? "", text(body.timestamp || body.time || "")
+    ].join("|");
     const results: any[] = [];
 
     for (const license of licenses) {
       const fingerprint = `${baseFingerprint}|${license.user_id}`;
-      const tradeId = licenses.length === 1 && !masterMode ? baseTradeId : `${baseTradeId}-${String(license.user_id).slice(0, 8)}`;
-      const { data: existing } = await admin.from("scanner_signals").select("id,trade_id,status").eq("auth_user_id", license.user_id).eq("signal_fingerprint", fingerprint).maybeSingle();
+      const tradeId = licenses.length === 1 && !masterMode
+        ? baseTradeId
+        : `${baseTradeId}-${String(license.user_id).slice(0, 8)}`;
+
+      const { data: existing } = await admin
+        .from("scanner_signals")
+        .select("id,trade_id,status")
+        .eq("auth_user_id", license.user_id)
+        .eq("signal_fingerprint", fingerprint)
+        .maybeSingle();
+
       if (existing) {
         results.push({ user_id: license.user_id, duplicate: true, signal_id: existing.id, trade_id: existing.trade_id, status: existing.status });
         continue;
       }
 
       const coachContext = {
-        symbol: "XAUUSD",
+        symbol: signal.symbol,
         direction: signal.direction,
-        timeframe: "M15",
+        timeframe: signal.timeframe,
         entry: signal.entry,
         stop_loss: signal.stopLoss,
         tp1: signal.tp1,
@@ -113,9 +153,11 @@ export async function POST(request: Request) {
       const payload = {
         source: "tradingview",
         trade_id: tradeId,
-        symbol: "XAUUSD",
+        symbol: signal.symbol,
         direction: signal.direction,
-        timeframe: "M15",
+        timeframe: signal.timeframe,
+        strategy_id: signal.strategyId,
+        strategy_name: signal.strategyName,
         entry: signal.entry,
         stop_loss: signal.stopLoss,
         tp1: signal.tp1,
@@ -135,11 +177,11 @@ export async function POST(request: Request) {
         trade_id: tradeId,
         signal_fingerprint: fingerprint,
         market_category: "GOLD",
-        canonical_symbol: "XAUUSD",
+        canonical_symbol: signal.symbol,
         direction: signal.direction,
         strategy_id: signal.strategyId,
         strategy_name: signal.strategyName,
-        timeframe: "M15",
+        timeframe: signal.timeframe,
         entry: signal.entry,
         stop_loss: signal.stopLoss,
         tp1: signal.tp1,
@@ -155,6 +197,7 @@ export async function POST(request: Request) {
         source_snapshot: body,
         fired_at: new Date().toISOString()
       }).select("id,trade_id,status").single();
+
       if (signalError) throw signalError;
 
       const { data: queue, error: queueError } = await admin.from("automated_trader_execution_queue").insert({
@@ -164,9 +207,9 @@ export async function POST(request: Request) {
         execution_mode: signal.executionMode,
         strategy_id: signal.strategyId,
         strategy_name: signal.strategyName,
-        canonical_symbol: "XAUUSD",
+        canonical_symbol: signal.symbol,
         direction: signal.direction,
-        timeframe: "M15",
+        timeframe: signal.timeframe,
         entry: signal.entry,
         stop_loss: signal.stopLoss,
         tp1: signal.tp1,
@@ -174,16 +217,40 @@ export async function POST(request: Request) {
         tp3: signal.tp3,
         tp4: signal.tp4,
         status: "queued",
-        payload: { ...payload, auth_user_id: license.user_id, mt_login: license.mt_login, broker_name: license.broker_name, broker_server: license.broker_server }
+        payload: {
+          ...payload,
+          auth_user_id: license.user_id,
+          mt_login: license.mt_login,
+          broker_name: license.broker_name,
+          broker_server: license.broker_server
+        }
       }).select("id,status,execution_mode").single();
+
       if (queueError) {
         await admin.from("scanner_signals").update({ status: "CONFIRMED" }).eq("id", createdSignal.id);
         throw queueError;
       }
-      results.push({ user_id: license.user_id, duplicate: false, signal_id: createdSignal.id, trade_id: createdSignal.trade_id, queue_id: queue.id, status: queue.status });
+
+      results.push({
+        user_id: license.user_id,
+        duplicate: false,
+        signal_id: createdSignal.id,
+        trade_id: createdSignal.trade_id,
+        queue_id: queue.id,
+        status: queue.status
+      });
     }
 
-    return NextResponse.json({ ok: true, mode: masterMode ? "MASTER_FANOUT" : "SINGLE_ACCOUNT", symbol: "XAUUSD", timeframe: "M15", queued: results.filter(r => !r.duplicate).length, duplicates: results.filter(r => r.duplicate).length, results }, { status: 201 });
+    return NextResponse.json({
+      ok: true,
+      mode: masterMode ? "MASTER_FANOUT" : "SINGLE_ACCOUNT",
+      symbol: signal.symbol,
+      timeframe: signal.timeframe,
+      strategy_id: signal.strategyId,
+      queued: results.filter((r) => !r.duplicate).length,
+      duplicates: results.filter((r) => r.duplicate).length,
+      results
+    }, { status: 201 });
   } catch (error) {
     console.error("TradingView execution webhook error", error);
     return NextResponse.json({ error: "TradingView webhook failed" }, { status: 500 });
@@ -191,5 +258,16 @@ export async function POST(request: Request) {
 }
 
 export async function GET() {
-  return NextResponse.json({ ok: true, service: "VaultTrades TradingView execution webhook", method: "POST", status: "ready", authentication: "private", symbol: "XAUUSD", timeframe: "M15" });
+  return NextResponse.json({
+    ok: true,
+    service: "VaultTrades TradingView execution webhook",
+    method: "POST",
+    status: "ready",
+    authentication: "private",
+    symbol: "XAUUSD",
+    strategies: {
+      fib: { strategy_id: "vault_auto_select_fib_retrace_latest", timeframe: "M5" },
+      justine: { strategy_id: "justine-session-liquidity-m15", timeframe: "M15" }
+    }
+  });
 }
