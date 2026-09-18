@@ -235,7 +235,7 @@ export async function POST(request: Request) {
       const { data: queue, error: queueError } = await admin.from("automated_trader_execution_queue").insert({
         signal_id: createdSignal.id,
         signal_fingerprint: fingerprint,
-        auth_user_id: license.user_id,
+        auth_user_id: license.auth_user_id,
         execution_mode: signal.executionMode,
         strategy_id: signal.strategyId,
         strategy_name: signal.strategyName,
