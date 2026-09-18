@@ -1,5 +1,7 @@
 "use client";
 
+// TradingView signal feed: chart/history stay synchronized with recorded signal timeframes.
+
 import { useEffect, useState } from "react";
 import TradingViewChart from "../../components/TradingViewChart";
 
