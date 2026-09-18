@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import TradingViewChart from "../../components/TradingViewChart";
 
 const SIGNAL_MAX_AGE_HOURS = 2;
 const SIGNAL_MAX_AGE_MS = SIGNAL_MAX_AGE_HOURS * 60 * 60 * 1000;
@@ -59,6 +60,9 @@ export default function ScannerAutomationPage() {
   const [configError, setConfigError] = useState("");
   const [savingConfig, setSavingConfig] = useState(false);
   const [configSaved, setConfigSaved] = useState(false);
+  const [historySignals, setHistorySignals] = useState<Signal[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
 
   const loadSignals = async () => {
     setRefreshing(true);
@@ -73,6 +77,21 @@ export default function ScannerAutomationPage() {
       setError(e instanceof Error ? e.message : "Unable to load signals.");
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  const loadHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      const response = await fetch("/api/signals/history?days=5&strategy=vault_auto_select_fib_retrace_latest&timeframe=M5&symbol=XAUUSD", { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to load five-day signal history.");
+      setHistorySignals(data.signals || []);
+      setHistoryError("");
+    } catch (e) {
+      setHistoryError(e instanceof Error ? e.message : "Unable to load five-day signal history.");
+    } finally {
+      setHistoryLoading(false);
     }
   };
 
@@ -113,6 +132,7 @@ export default function ScannerAutomationPage() {
 
   useEffect(() => {
     void loadSignals();
+    void loadHistory();
     void loadConfig();
     const id = setInterval(() => void loadSignals(), 15000);
     return () => clearInterval(id);
@@ -183,6 +203,36 @@ export default function ScannerAutomationPage() {
           {configError && <p style={{ color: "#ffb5b5", marginTop: 12 }}>{configError}</p>}
         </section>
       )}
+
+      <section className="card" style={{ marginTop: 16 }}>
+        <TradingViewChart symbol="OANDA:XAUUSD" interval="5" height={620} />
+      </section>
+
+      <section className="card" style={{ marginTop: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+          <div>
+            <div className="section-label">FIVE-DAY SIGNAL HISTORY</div>
+            <h2 style={{ margin: "6px 0 4px", fontSize: 20 }}>XAUUSD · FIB M5</h2>
+            <p className="muted" style={{ margin: 0 }}>Signals actually recorded by VaultTrades during the last five days.</p>
+          </div>
+          <button type="button" onClick={() => void loadHistory()} disabled={historyLoading} style={{ padding: "10px 16px", borderRadius: 8, border: "1px solid rgba(212,166,55,.45)", background: "rgba(212,166,55,.08)", color: "#d4a637", fontWeight: 800, cursor: historyLoading ? "wait" : "pointer" }}>
+            {historyLoading ? "Loading…" : "Refresh 5-Day History"}
+          </button>
+        </div>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead><tr>{["Time", "Symbol", "TF", "Side", "Entry", "SL", "TP1", "TP2", "TP3", "TP4", "Status", "Trade ID"].map((heading) => <th key={heading} style={{ textAlign: "left", padding: "10px 8px", fontSize: 12, borderBottom: "1px solid rgba(212,166,55,.25)", whiteSpace: "nowrap" }}>{heading}</th>)}</tr></thead>
+            <tbody>
+              {historySignals.map((signal) => {
+                const values = [new Date(signal.fired_at).toLocaleString(), signal.canonical_symbol, signal.timeframe, signal.direction, signal.entry?.toFixed(2) ?? "—", signal.stop_loss?.toFixed(2) ?? "—", signal.tp1?.toFixed(2) ?? "—", signal.tp2?.toFixed(2) ?? "—", signal.tp3?.toFixed(2) ?? "—", signal.tp4?.toFixed(2) ?? "—", signal.status, signal.trade_id];
+                return <tr key={signal.id}>{values.map((value, index) => <td key={index} style={{ padding: "10px 8px", fontSize: 12, borderBottom: "1px solid rgba(255,255,255,.06)", whiteSpace: "nowrap", fontWeight: index === 3 ? 800 : 400 }}>{value}</td>)}</tr>;
+              })}
+              {!historySignals.length && <tr><td colSpan={12} style={{ padding: 28, textAlign: "center" }} className="muted">No XAUUSD FIB M5 signals were recorded in the last five days.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+        {historyError && <p style={{ color: "#ffb5b5", marginTop: 14 }}>{historyError}</p>}
+      </section>
 
       <section className="card" style={{ marginTop: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
