@@ -23,6 +23,8 @@ type Signal = {
   rr: number | null;
   status: string;
   fired_at: string;
+  execution_payload?: Record<string, unknown> | null;
+  source_snapshot?: Record<string, unknown> | null;
 };
 
 type ScannerConfig = {
@@ -205,7 +207,7 @@ export default function ScannerAutomationPage() {
       )}
 
       <section className="card" style={{ marginTop: 16 }}>
-        <TradingViewChart symbol="OANDA:XAUUSD" interval="5" height={620} />
+        <TradingViewChart symbol="OANDA:XAUUSD" interval="5" height={620} signal={signals[0] ?? null} />
       </section>
 
       <section className="card" style={{ marginTop: 16 }}>
