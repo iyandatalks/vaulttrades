@@ -67,6 +67,9 @@ export default function ScannerAutomationPage() {
   const [historySignals, setHistorySignals] = useState<Signal[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState("");
+  const [backtest, setBacktest] = useState<any>(null);
+  const [backtestLoading, setBacktestLoading] = useState(false);
+  const [selectedSignalId, setSelectedSignalId] = useState<string | null>(null);
 
   const loadSignals = async () => {
     setRefreshing(true);
@@ -212,7 +215,7 @@ export default function ScannerAutomationPage() {
       )}
 
       <section className="card" style={{ marginTop: 16 }}>
-        <TradingViewChart symbol="OANDA:XAUUSD" interval={signals[0]?.timeframe ?? "M5"} height={620} signal={signals[0] ?? null} />
+        <TradingViewChart symbol="OANDA:XAUUSD" interval={(historySignals.find(s => s.id === selectedSignalId)?.timeframe ?? signals[0]?.timeframe ?? "M5")} height={620} signal={(historySignals.find(s => s.id === selectedSignalId) ?? signals[0] ?? null)} />
       </section>
 
       <section className="card" style={{ marginTop: 16 }}>
