@@ -21,7 +21,7 @@ export async function GET(request: Request) {
 
     let query = supabase
       .from("scanner_signals")
-      .select("id,trade_id,market_category,canonical_symbol,direction,strategy_id,strategy_name,timeframe,entry,stop_loss,tp1,tp2,tp3,tp4,confidence,rr,status,confirmation_conditions,missing_conditions,execution_payload,source_snapshot,fired_at,created_at,updated_at,completed_at")
+      .select("id,trade_id,market_category,canonical_symbol,direction,strategy_id,strategy_name,timeframe,entry,stop_loss,tp1,tp2,tp3,tp4,tp5,confirmation_timeframe,entry_quality,confidence,rr,status,confirmation_conditions,missing_conditions,execution_payload,source_snapshot,fired_at,created_at,updated_at,completed_at")
       .eq("auth_user_id", user.id)
       .gte("fired_at", cutoff)
       .order("fired_at", { ascending: false })
