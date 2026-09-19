@@ -17,10 +17,13 @@ function parseSignal(body: any) {
   const tp2 = num(body.tp2);
   const tp3 = num(body.tp3);
   const tp4 = num(body.tp4);
+  const tp5 = num(body.tp5);
+  const confirmationTimeframe = text(body.confirmation_timeframe || body.confirmationTimeframe);
+  const entryQuality = text(body.entry_quality || body.entryQuality);
   const confidence = num(body.confidence);
   const rr = num(body.rr);
   const executionMode = text(body.execution_mode || "OBSERVE").toUpperCase();
-  return { symbol, direction, timeframe, strategyId, strategyName, entry, stopLoss, tp1, tp2, tp3, tp4, confidence, rr, executionMode };
+  return { symbol, direction, timeframe, strategyId, strategyName, entry, stopLoss, tp1, tp2, tp3, tp4, tp5, confirmationTimeframe, entryQuality, confidence, rr, executionMode };
 }
 
 function validateStrategyTimeframe(strategyId: string, timeframe: string) {
