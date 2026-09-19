@@ -14,6 +14,7 @@ type TradingViewChartProps = {
     tp2: number | null;
     tp3: number | null;
     tp4: number | null;
+    tp5: number | null;
     strategy_name: string;
     timeframe: string;
     fired_at: string;
