@@ -1,4 +1,13 @@
-import type { VaultAutoFibSymbol } from "./vaultAutoFib";
+export type VaultAutoFibSymbol =
+  | "XAU/USD"
+  | "EUR/USD"
+  | "GBP/USD"
+  | "USD/JPY"
+  | "AUD/USD"
+  | "USD/CAD"
+  | "BTC/USD"
+  | "ETH/USD"
+  | "SOL/USD";
 
 export type VaultAutoFibRunResult = {
   status: "SKIPPED" | "COMPLETED";
