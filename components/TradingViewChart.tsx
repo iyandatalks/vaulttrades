@@ -38,6 +38,7 @@ function normalizeInterval(value: string) {
 
 function levelRows(signal: NonNullable<TradingViewChartProps["signal"]>) {
   return [
+    ["TP5", signal.tp5],
     ["TP4", signal.tp4],
     ["TP3", signal.tp3],
     ["TP2", signal.tp2],
