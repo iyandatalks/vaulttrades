@@ -126,6 +126,20 @@ export async function POST(request: Request) {
     const configuredSecret = authText(process.env.VAULTTRADES_TRADINGVIEW_WEBHOOK_SECRET);
     const suppliedAccessKey = authText(body.access_key ?? body.accessKey);
     const masterMode = Boolean(configuredSecret && webhookSecret && webhookSecret === configuredSecret);
+
+    // Safe authentication diagnostics: never log the secret itself.
+    console.log("[tradingview-webhook] auth diagnostics", {
+      requestId,
+      strategyId: signal.strategyId,
+      timeframe: signal.timeframe,
+      signalId: text(body.signal_id || body.trade_id) || null,
+      receivedSecretPresent: Boolean(webhookSecret),
+      receivedSecretLength: webhookSecret.length,
+      configuredSecretPresent: Boolean(configuredSecret),
+      configuredSecretLength: configuredSecret.length,
+      secretMatch: Boolean(configuredSecret && webhookSecret && webhookSecret === configuredSecret),
+      accessKeyPresent: Boolean(suppliedAccessKey)
+    });
     if (!configuredSecret && !suppliedAccessKey) {
       await auditWebhook(admin, { requestId, stage: "AUTHENTICATION", status: "FAILED", signal, errorCode: "SERVER_SECRET_NOT_CONFIGURED", errorMessage: "VAULTTRADES_TRADINGVIEW_WEBHOOK_SECRET is not configured in the production runtime.", payload: body });
       return NextResponse.json({ error: "TradingView webhook authentication is not configured on the server." }, { status: 500 });
