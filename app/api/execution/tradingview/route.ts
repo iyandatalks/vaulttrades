@@ -97,14 +97,17 @@ export async function POST(request: Request) {
 
     const strategyTimeframeError = validateStrategyTimeframe(signal.strategyId, signal.timeframe);
     if (strategyTimeframeError) {
+      await auditWebhook(admin, { requestId, stage: "VALIDATION", status: "REJECTED", signal, errorCode: "STRATEGY_TIMEFRAME", errorMessage: strategyTimeframeError, payload: body });
       return NextResponse.json({ error: strategyTimeframeError }, { status: 400 });
     }
 
     if (!["BUY", "SELL"].includes(signal.direction) || signal.entry === null || signal.stopLoss === null || signal.tp1 === null) {
+      await auditWebhook(admin, { requestId, stage: "VALIDATION", status: "REJECTED", signal, errorCode: "INVALID_SIGNAL_FIELDS", errorMessage: "Required direction/entry/stop_loss/tp1 fields are missing or invalid.", payload: body });
       return NextResponse.json({ error: "Invalid signal. Required: direction (BUY/SELL), entry, stop_loss/sl and tp1/tp." }, { status: 400 });
     }
 
     if (!["OBSERVE", "LIVE"].includes(signal.executionMode)) {
+      await auditWebhook(admin, { requestId, stage: "VALIDATION", status: "REJECTED", signal, errorCode: "INVALID_EXECUTION_MODE", errorMessage: "execution_mode must be OBSERVE or LIVE", payload: body });
       return NextResponse.json({ error: "execution_mode must be OBSERVE or LIVE" }, { status: 400 });
     }
 
@@ -128,8 +131,14 @@ export async function POST(request: Request) {
         .eq("status", "active")
         .maybeSingle();
       if (error) throw error;
-      if (!license?.user_id) return NextResponse.json({ error: "Invalid or inactive VaultTrades access key" }, { status: 401 });
-      if (license.end_at && new Date(license.end_at).getTime() <= Date.now()) return NextResponse.json({ error: "VaultTrades access key has expired" }, { status: 403 });
+      if (!license?.user_id) {
+        await auditWebhook(admin, { requestId, stage: "AUTHENTICATION", status: "REJECTED", signal, errorCode: "ACCESS_KEY_INVALID", errorMessage: "Invalid or inactive VaultTrades access key", payload: body });
+        return NextResponse.json({ error: "Invalid or inactive VaultTrades access key" }, { status: 401 });
+      }
+      if (license.end_at && new Date(license.end_at).getTime() <= Date.now()) {
+        await auditWebhook(admin, { requestId, stage: "AUTHENTICATION", status: "REJECTED", signal, errorCode: "ACCESS_KEY_EXPIRED", errorMessage: "VaultTrades access key has expired", payload: body });
+        return NextResponse.json({ error: "VaultTrades access key has expired" }, { status: 403 });
+      }
       licenses = [license];
     } else {
       await auditWebhook(admin, { requestId, stage: "AUTHENTICATION", status: "REJECTED", signal, errorCode: "AUTH_FAILED", errorMessage: "Webhook authentication failed", payload: body });
@@ -373,6 +382,11 @@ export async function POST(request: Request) {
     }, { status: 201 });
   } catch (error) {
     console.error("TradingView execution webhook error", error);
+    try {
+      const requestId = request.headers.get("x-vercel-id") || "unknown";
+      const admin = createAdminClient();
+      await auditWebhook(admin, { requestId, stage: "EXCEPTION", status: "FAILED", errorCode: "WEBHOOK_EXCEPTION", errorMessage: error instanceof Error ? error.message : String(error) });
+    } catch {}
     return NextResponse.json({ error: "TradingView webhook failed" }, { status: 500 });
   }
 }
