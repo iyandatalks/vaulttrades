@@ -16,7 +16,7 @@ function freshSignalCutoff() { return new Date(Date.now() - SIGNAL_MAX_AGE_HOURS
 export async function GET() {
   const supabase = await createClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) return Response.json({ error: "Authentication required." }, { status: 401 });
   const cutoff = freshSignalCutoff();
-  const { data, error } = await supabase.from("scanner_signals").select("id,trade_id,market_category,canonical_symbol,direction,strategy_id,strategy_name,timeframe,entry,stop_loss,tp1,tp2,tp3,tp4,tp5,confirmation_timeframe,entry_quality,confidence,rr,status,confirmation_conditions,missing_conditions,execution_payload,fired_at,created_at,updated_at,completed_at").eq("auth_user_id", user.id).gte("fired_at", cutoff).order("fired_at", { ascending: false }).limit(100);
+  const { data, error } = await supabase.from("scanner_signals").select("id,trade_id,market_category,canonical_symbol,direction,strategy_id,strategy_name,timeframe,entry,stop_loss,tp1,tp2,tp3,tp4,tp5,confirmation_timeframe,entry_quality,confidence,rr,status,confirmation_conditions,missing_conditions,execution_payload,fired_at,created_at,updated_at,completed_at").eq("auth_user_id", user.id).gte("fired_at", cutoff).eq("execution_payload->>source", "tradingview").order("fired_at", { ascending: false }).limit(100);
   if (error) return Response.json({ error: error.message }, { status: 500 });
   return Response.json({ signals: data ?? [], historyWindowHours: SIGNAL_MAX_AGE_HOURS });
 }
