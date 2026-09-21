@@ -75,7 +75,48 @@ export default function ScannerAutomationPage() {
   const [supervisionLoading, setSupervisionLoading] = useState(false);
   const [supervisionError, setSupervisionError] = useState("");
   const [selectedSignalId, setSelectedSignalId] = useState<string | null>(null);
-  const selectedSignal = historySignals.find(s => s.id === selectedSignalId) ?? signals.find(s => s.id === selectedSignalId) ?? signals[0] ?? null;
+  const [selectedStrategyId, setSelectedStrategyId] = useState("ema20-pullback-morning-engine");
+  const [selectedTimeframe, setSelectedTimeframe] = useState("M15");
+  const [selectedSignalLoading, setSelectedSignalLoading] = useState(false);
+
+  const selectedSignal =
+    historySignals.find(s => s.id === selectedSignalId) ??
+    signals.find(s => s.id === selectedSignalId) ??
+    null;
+
+  const strategyOptions = [
+    { id: "ema20-pullback-morning-engine", name: "EMA20 Pullback Morning Engine" },
+    { id: "justine-session-liquidity-m15", name: "Justine Core + Session Liquidity" },
+    { id: "vault_auto_select_fib_retrace_latest", name: "Vault Auto Select FIB Retrace" },
+  ];
+
+  const timeframeOptions = ["M1", "M5", "M10", "M15", "M30", "H1", "H4", "D1"];
+
+  const loadSelectedSignal = async (strategyId: string, timeframe: string) => {
+    setSelectedSignalLoading(true);
+    try {
+      const params = new URLSearchParams({
+        days: "30",
+        symbol: "XAUUSD",
+        source: "tradingview",
+        strategy: strategyId,
+        timeframe,
+      });
+      const response = await fetch(`/api/signals/history?${params.toString()}`, { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to load the selected TradingView signal.");
+      const matching = (data.signals || []) as Signal[];
+      setHistorySignals(matching);
+      setSelectedSignalId(matching[0]?.id ?? null);
+      setHistoryError("");
+    } catch (e) {
+      setHistorySignals([]);
+      setSelectedSignalId(null);
+      setHistoryError(e instanceof Error ? e.message : "Unable to load the selected TradingView signal.");
+    } finally {
+      setSelectedSignalLoading(false);
+    }
+  };
 
   const loadSignals = async () => {
     setRefreshing(true);
@@ -166,13 +207,18 @@ export default function ScannerAutomationPage() {
     void loadHistory();
     void loadConfig();
     void loadSupervision();
+    void loadSelectedSignal(selectedStrategyId, selectedTimeframe);
     const id = setInterval(() => {
       void loadSignals();
-      void loadHistory();
+      void loadSelectedSignal(selectedStrategyId, selectedTimeframe);
       void loadSupervision();
     }, 15000);
     return () => clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    void loadSelectedSignal(selectedStrategyId, selectedTimeframe);
+  }, [selectedStrategyId, selectedTimeframe]);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 30000);
@@ -301,11 +347,42 @@ export default function ScannerAutomationPage() {
       )}
 
       <section className="card" style={{ marginTop: 16 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 10, flexWrap: "wrap" }}>
-          <div><div className="section-label">SELECTED SIGNAL</div><div style={{ fontSize: 13, fontWeight: 800 }}>{(historySignals.find(s => s.id === selectedSignalId) ?? signals.find(s => s.id === selectedSignalId) ?? signals[0]) ? "Signal selected — click any feed/history row to inspect it on the chart." : "Waiting for a recorded TradingView signal."}</div></div>
-          {selectedSignalId && <button type="button" onClick={() => setSelectedSignalId(null)} style={{ padding: "7px 11px", borderRadius: 8, border: "1px solid rgba(255,255,255,.12)", background: "transparent", color: "inherit", fontWeight: 700 }}>Show latest</button>}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, marginBottom: 14, flexWrap: "wrap" }}>
+          <div>
+            <div className="section-label">SELECTED SIGNAL</div>
+            <h2 style={{ margin: "6px 0 4px", fontSize: 20 }}>TradingView Signal Selector</h2>
+            <p className="muted" style={{ margin: 0 }}>
+              Select the strategy and timeframe you want to inspect. The app shows only a signal actually recorded from TradingView for that selection.
+            </p>
+          </div>
+          {selectedSignalLoading && <span className="muted" style={{ fontSize: 11 }}>Checking recorded signals…</span>}
         </div>
-        <TradingViewChart symbol="OANDA:XAUUSD" interval={(selectedSignal?.timeframe ?? "M5")} height={620} signal={selectedSignal} />
+
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(260px, 1.4fr) minmax(140px, .6fr)", gap: 12, marginBottom: 14 }}>
+          <label style={{ display: "grid", gap: 6 }}>
+            <span className="section-label">STRATEGY</span>
+            <select value={selectedStrategyId} onChange={(e) => setSelectedStrategyId(e.target.value)} style={{ padding: "12px 13px", borderRadius: 8, border: "1px solid rgba(212,166,55,.35)", background: "#050812", color: "#f4f6fb", fontWeight: 800 }}>
+              {strategyOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
+            </select>
+          </label>
+          <label style={{ display: "grid", gap: 6 }}>
+            <span className="section-label">TIMEFRAME</span>
+            <select value={selectedTimeframe} onChange={(e) => setSelectedTimeframe(e.target.value)} style={{ padding: "12px 13px", borderRadius: 8, border: "1px solid rgba(212,166,55,.35)", background: "#050812", color: "#f4f6fb", fontWeight: 800 }}>
+              {timeframeOptions.map((timeframe) => <option key={timeframe} value={timeframe}>{timeframe}</option>)}
+            </select>
+          </label>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12, padding: "10px 12px", borderRadius: 8, background: "rgba(255,255,255,.025)", border: "1px solid rgba(255,255,255,.08)" }}>
+          <div style={{ fontSize: 12, fontWeight: 800 }}>
+            XAUUSD · {strategyOptions.find((option) => option.id === selectedStrategyId)?.name} · {selectedTimeframe}
+          </div>
+          <div style={{ fontSize: 11, fontWeight: 800, color: selectedSignal ? "#d4a637" : "inherit" }}>
+            {selectedSignal ? `RECORDED SIGNAL · ${selectedSignal.direction}` : "WAITING FOR A RECORDED TRADINGVIEW SIGNAL"}
+          </div>
+        </div>
+
+        <TradingViewChart symbol="OANDA:XAUUSD" interval={selectedTimeframe} height={620} signal={selectedSignal} />
       </section>
 
       <section className="card" style={{ marginTop: 16 }}>
