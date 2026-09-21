@@ -3,7 +3,6 @@
 // TradingView signal feed: chart/history stay synchronized with recorded signal timeframes.
 
 import { useEffect, useState } from "react";
-import TradingViewChart from "../../components/TradingViewChart";
 import type { SupervisionResponse } from "../../lib/scanner-automation/supervisionTypes";
 
 const SIGNAL_MAX_AGE_HOURS = 2;
@@ -74,55 +73,6 @@ export default function ScannerAutomationPage() {
   const [supervision, setSupervision] = useState<SupervisionResponse | null>(null);
   const [supervisionLoading, setSupervisionLoading] = useState(false);
   const [supervisionError, setSupervisionError] = useState("");
-  const [selectedSignalId, setSelectedSignalId] = useState<string | null>(null);
-  const [selectedStrategyId, setSelectedStrategyId] = useState("ema20-pullback-morning-engine");
-  const [selectedTimeframe, setSelectedTimeframe] = useState("M15");
-  const [selectedSignalLoading, setSelectedSignalLoading] = useState(false);
-
-  const selectedSignal =
-    historySignals.find(s => s.id === selectedSignalId) ??
-    signals.find(s => s.id === selectedSignalId) ??
-    null;
-
-  const automationMatrix = [
-    { id: "ema20-pullback-morning-engine", name: "EMA20 Pullback Morning Engine", timeframes: ["M5", "M15", "M30", "H1"] },
-    { id: "justine-session-liquidity-m15", name: "Justine Core + Session Liquidity", timeframes: ["M5", "M15", "H1"] },
-    { id: "vault_auto_select_fib_retrace_latest", name: "Vault Auto Select FIB Retrace", timeframes: ["M5", "M15", "H1"] },
-  ] as const;
-
-  const strategyOptions = automationMatrix;
-  const selectedStrategy = automationMatrix.find((option) => option.id === selectedStrategyId) ?? automationMatrix[0];
-  const timeframeOptions = selectedStrategy.timeframes;
-  const automationAlertSlots = automationMatrix.flatMap((strategy) =>
-    strategy.timeframes.map((timeframe) => ({ strategyId: strategy.id, strategyName: strategy.name, timeframe }))
-  );
-
-  const loadSelectedSignal = async (strategyId: string, timeframe: string) => {
-    setSelectedSignalLoading(true);
-    try {
-      const params = new URLSearchParams({
-        days: "30",
-        symbol: "XAUUSD",
-        source: "tradingview",
-        strategy: strategyId,
-        timeframe,
-      });
-      const response = await fetch(`/api/signals/history?${params.toString()}`, { cache: "no-store" });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Unable to load the selected TradingView signal.");
-      const matching = (data.signals || []) as Signal[];
-      setHistorySignals(matching);
-      setSelectedSignalId(matching[0]?.id ?? null);
-      setHistoryError("");
-    } catch (e) {
-      setHistorySignals([]);
-      setSelectedSignalId(null);
-      setHistoryError(e instanceof Error ? e.message : "Unable to load the selected TradingView signal.");
-    } finally {
-      setSelectedSignalLoading(false);
-    }
-  };
-
   const loadSignals = async () => {
     setRefreshing(true);
     try {
@@ -146,7 +96,6 @@ export default function ScannerAutomationPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Unable to load five-day signal history.");
       setHistorySignals(data.signals || []);
-      if (!selectedSignalId && data.signals?.[0]?.id) setSelectedSignalId(data.signals[0].id);
       setHistoryError("");
     } catch (e) {
       setHistoryError(e instanceof Error ? e.message : "Unable to load five-day signal history.");
@@ -212,18 +161,12 @@ export default function ScannerAutomationPage() {
     void loadHistory();
     void loadConfig();
     void loadSupervision();
-    void loadSelectedSignal(selectedStrategyId, selectedTimeframe);
     const id = setInterval(() => {
       void loadSignals();
-      void loadSelectedSignal(selectedStrategyId, selectedTimeframe);
       void loadSupervision();
     }, 15000);
     return () => clearInterval(id);
   }, []);
-
-  useEffect(() => {
-    void loadSelectedSignal(selectedStrategyId, selectedTimeframe);
-  }, [selectedStrategyId, selectedTimeframe]);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 30000);
@@ -275,11 +218,43 @@ export default function ScannerAutomationPage() {
             <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 700 }}><input type="checkbox" checked={config.crypto_enabled} disabled={savingConfig} onChange={(e) => void saveConfig({ crypto_enabled: e.target.checked })} /> Crypto</label>
           </div>
 
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginTop: 14 }}>
-            <span className="muted" style={{ fontSize: 11 }}>Strategy: {config.enabled_strategies.includes("autoFibRetrace") ? "Vault Auto Fib Retrace + TP Ladder" : "Not configured"} · Trading window: {formatTime(config.trade_time_start)}–{formatTime(config.trade_time_end)} · Timezone: {config.timezone}</span>
-            {configSaved && <span style={{ fontSize: 11, fontWeight: 800 }}>Saved</span>}
-            {savingConfig && <span className="muted" style={{ fontSize: 11 }}>Saving…</span>}
+          <div style={{ marginTop: 18, padding: "14px", borderRadius: 10, border: "1px solid rgba(212,166,55,.22)", background: "rgba(212,166,55,.035)" }}>
+            <div className="section-label">TRADINGVIEW AUTOMATION · 10 ALERT SLOTS</div>
+            <p className="muted" style={{ margin: "6px 0 12px", fontSize: 11 }}>
+              These ten strategy/timeframe combinations are the complete automation set. They are displayed together and are not selected from a dropdown.
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8 }}>
+              {[
+                ["01", "EMA20 Pullback Morning Engine", "ema20-pullback-morning-engine", "M5"],
+                ["02", "EMA20 Pullback Morning Engine", "ema20-pullback-morning-engine", "M15"],
+                ["03", "EMA20 Pullback Morning Engine", "ema20-pullback-morning-engine", "M30"],
+                ["04", "EMA20 Pullback Morning Engine", "ema20-pullback-morning-engine", "H1"],
+                ["05", "Justine Core + Session Liquidity", "justine-session-liquidity-m15", "M5"],
+                ["06", "Justine Core + Session Liquidity", "justine-session-liquidity-m15", "H1"],
+                ["07", "Justine Core + Session Liquidity", "justine-session-liquidity-m15", "M15"],
+                ["08", "Vault Auto Select FIB Retrace", "vault_auto_select_fib_retrace_latest", "M5"],
+                ["09", "Vault Auto Select FIB Retrace", "vault_auto_select_fib_retrace_latest", "M15"],
+                ["10", "Vault Auto Select FIB Retrace", "vault_auto_select_fib_retrace_latest", "H1"],
+              ].map(([slot, name, id, timeframe]) => (
+                <div key={slot} style={{ display: "grid", gridTemplateColumns: "48px minmax(0,1fr) auto", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,.09)", background: "rgba(255,255,255,.02)" }}>
+                  <div style={{ fontSize: 10, fontWeight: 900, color: "#d4a637" }}>ALERT {slot}</div>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 850 }}>{name}</div>
+                    <div className="muted" style={{ fontSize: 10, marginTop: 2 }}>{id}</div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: 13, fontWeight: 900 }}>XAUUSD · {timeframe}</div>
+                    <div style={{ fontSize: 10, fontWeight: 900, marginTop: 3 }}>{config.enabled ? "ENABLED" : "DISABLED"} · {config.observe_mode ? "OBSERVE" : "LIVE"}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="muted" style={{ fontSize: 11, marginTop: 10 }}>
+              Analysis-only timeframes: M1 · M10 · H4 · D1. They remain available for analysis but are not part of automation.
+            </div>
           </div>
+          {configSaved && <div style={{ marginTop: 10, fontSize: 11, fontWeight: 800 }}>Saved</div>}
+          {savingConfig && <div className="muted" style={{ marginTop: 10, fontSize: 11 }}>Saving…</div>}
           {configError && <p style={{ color: "#ffb5b5", marginTop: 12 }}>{configError}</p>}
         </section>
       )}
@@ -352,69 +327,11 @@ export default function ScannerAutomationPage() {
       )}
 
       <section className="card" style={{ marginTop: 16 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, marginBottom: 14, flexWrap: "wrap" }}>
-          <div>
-            <div className="section-label">SELECTED SIGNAL</div>
-            <h2 style={{ margin: "6px 0 4px", fontSize: 20 }}>TradingView Signal Selector</h2>
-            <p className="muted" style={{ margin: 0 }}>
-              Select the strategy and timeframe you want to inspect. The app shows only a signal actually recorded from TradingView for that selection.
-            </p>
-          </div>
-          {selectedSignalLoading && <span className="muted" style={{ fontSize: 11 }}>Checking recorded signals…</span>}
-        </div>
-
-        <div style={{ marginBottom: 14, padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(212,166,55,.20)", background: "rgba(212,166,55,.035)" }}>
-          <div className="section-label">AUTOMATION ALERT MATRIX · 10 SLOTS</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 8, marginTop: 10 }}>
-            {automationAlertSlots.map((slot, index) => (
-              <button
-                key={slot.strategyId + slot.timeframe}
-                type="button"
-                onClick={() => { setSelectedStrategyId(slot.strategyId); setSelectedTimeframe(slot.timeframe); }}
-                style={{
-                  textAlign: "left",
-                  padding: "9px 11px",
-                  borderRadius: 8,
-                  border: selectedStrategyId === slot.strategyId && selectedTimeframe === slot.timeframe ? "1px solid rgba(212,166,55,.75)" : "1px solid rgba(255,255,255,.10)",
-                  background: selectedStrategyId === slot.strategyId && selectedTimeframe === slot.timeframe ? "rgba(212,166,55,.12)" : "rgba(255,255,255,.025)",
-                  color: "#f4f6fb",
-                  cursor: "pointer"
-                }}
-              >
-                <div style={{ fontSize: 10, opacity: .65, fontWeight: 800 }}>ALERT {index + 1}</div>
-                <div style={{ fontSize: 12, fontWeight: 800, marginTop: 3 }}>{slot.strategyName}</div>
-                <div style={{ fontSize: 11, marginTop: 2, color: "#d4a637", fontWeight: 900 }}>XAUUSD · {slot.timeframe}</div>
-              </button>
-            ))}
-          </div>
-          <div className="muted" style={{ fontSize: 11, marginTop: 9 }}>These are the only TradingView strategy/timeframe combinations accepted for automation. M1, M10, H4 and D1 remain analysis-only.</div>
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(260px, 1.4fr) minmax(140px, .6fr)", gap: 12, marginBottom: 14 }}>
-          <label style={{ display: "grid", gap: 6 }}>
-            <span className="section-label">STRATEGY</span>
-            <select value={selectedStrategyId} onChange={(e) => setSelectedStrategyId(e.target.value)} style={{ padding: "12px 13px", borderRadius: 8, border: "1px solid rgba(212,166,55,.35)", background: "#050812", color: "#f4f6fb", fontWeight: 800 }}>
-              {strategyOptions.map((option) => <option key={option.id} value={option.id}>{option.name} · {option.timeframes.join("/")}</option>)}
-            </select>
-          </label>
-          <label style={{ display: "grid", gap: 6 }}>
-            <span className="section-label">TIMEFRAME</span>
-            <select value={selectedTimeframe} onChange={(e) => setSelectedTimeframe(e.target.value)} style={{ padding: "12px 13px", borderRadius: 8, border: "1px solid rgba(212,166,55,.35)", background: "#050812", color: "#f4f6fb", fontWeight: 800 }}>
-              {timeframeOptions.map((timeframe) => <option key={timeframe} value={timeframe}>{timeframe}</option>)}
-            </select>
-          </label>
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12, padding: "10px 12px", borderRadius: 8, background: "rgba(255,255,255,.025)", border: "1px solid rgba(255,255,255,.08)" }}>
-          <div style={{ fontSize: 12, fontWeight: 800 }}>
-            XAUUSD · {strategyOptions.find((option) => option.id === selectedStrategyId)?.name} · {selectedTimeframe}
-          </div>
-          <div style={{ fontSize: 11, fontWeight: 800, color: selectedSignal ? "#d4a637" : "inherit" }}>
-            {selectedSignal ? `RECORDED SIGNAL · ${selectedSignal.direction}` : "WAITING FOR A RECORDED TRADINGVIEW SIGNAL"}
-          </div>
-        </div>
-
-        <TradingViewChart symbol="OANDA:XAUUSD" interval={selectedTimeframe} height={620} signal={selectedSignal} />
+        <div className="section-label">AUTOMATION SCOPE</div>
+        <h2 style={{ margin: "6px 0 4px", fontSize: 20 }}>Fixed TradingView Alert Coverage</h2>
+        <p className="muted" style={{ margin: 0 }}>
+          Automation is defined by the ten fixed slots above. There is no strategy/timeframe selector on this page. M1, M10, H4 and D1 are analysis-only.
+        </p>
       </section>
 
       <section className="card" style={{ marginTop: 16 }}>
@@ -460,7 +377,7 @@ export default function ScannerAutomationPage() {
                 const isSell = signal.direction.toUpperCase() === "SELL";
                 const rowBackground = isBuy ? "rgba(34,197,94,.12)" : isSell ? "rgba(239,68,68,.12)" : "transparent";
                 const values = [formatAge(signal.fired_at, now), signal.canonical_symbol, signal.timeframe, signal.confirmation_timeframe ?? "—", signal.strategy_name, signal.direction, signal.entry?.toFixed(2) ?? "—", signal.stop_loss?.toFixed(2) ?? "—", signal.tp1?.toFixed(2) ?? "—", signal.tp2?.toFixed(2) ?? "—", signal.tp3?.toFixed(2) ?? "—", signal.tp4?.toFixed(2) ?? "—", signal.tp5?.toFixed(2) ?? "—", signal.entry_quality ?? "—", signal.confidence != null ? `${signal.confidence}%` : "—", signal.status];
-                return <tr key={signal.id} onClick={() => setSelectedSignalId(signal.id)} style={{ background: selectedSignalId === signal.id ? "rgba(212,166,55,.12)" : rowBackground, cursor: "pointer" }}>{values.map((value, index) => <td key={index} style={{ padding: "10px 8px", fontSize: 12, borderBottom: "1px solid rgba(255,255,255,.06)", whiteSpace: "nowrap", fontWeight: index === 4 ? 800 : 400 }}>{value}</td>)}</tr>;
+                return <tr key={signal.id} style={{ background: rowBackground }}>{values.map((value, index) => <td key={index} style={{ padding: "10px 8px", fontSize: 12, borderBottom: "1px solid rgba(255,255,255,.06)", whiteSpace: "nowrap", fontWeight: index === 4 ? 800 : 400 }}>{value}</td>)}</tr>;
               })}
               {!signals.length && <tr><td colSpan={16} style={{ padding: 28, textAlign: "center" }} className="muted">Waiting for a new confirmed signal…</td></tr>}
             </tbody>
