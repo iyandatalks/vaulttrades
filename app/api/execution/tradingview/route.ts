@@ -26,6 +26,39 @@ function parseSignal(body: any) {
   return { symbol, direction, timeframe, strategyId, strategyName, entry, stopLoss, tp1, tp2, tp3, tp4, tp5, confirmationTimeframe, entryQuality, confidence, rr, executionMode };
 }
 
+async function auditWebhook(admin: ReturnType<typeof createAdminClient>, event: {
+  requestId: string; stage: string; status: string; signal?: ReturnType<typeof parseSignal>;
+  signalId?: string | null; queueId?: string | null; errorCode?: string | null; errorMessage?: string | null; payload?: Record<string, unknown>;
+}) {
+  try {
+    const sanitized = event.payload ? { ...event.payload } : undefined;
+    if (sanitized) {
+      delete sanitized.webhook_secret;
+      delete sanitized.webhookSecret;
+      delete sanitized.secret;
+      delete sanitized.access_key;
+      delete sanitized.accessKey;
+    }
+    await admin.from("tradingview_webhook_events").insert({
+      request_id: event.requestId,
+      stage: event.stage,
+      status: event.status,
+      symbol: event.signal?.symbol ?? null,
+      direction: event.signal?.direction ?? null,
+      timeframe: event.signal?.timeframe ?? null,
+      strategy_id: event.signal?.strategyId ?? null,
+      execution_mode: event.signal?.executionMode ?? null,
+      signal_id: event.signalId ?? null,
+      queue_id: event.queueId ?? null,
+      error_code: event.errorCode ?? null,
+      error_message: event.errorMessage ?? null,
+      payload: sanitized ?? null,
+    });
+  } catch (auditError) {
+    console.error("[tradingview-webhook] audit write failed", auditError);
+  }
+}
+
 function validateStrategyTimeframe(strategyId: string, timeframe: string) {
   if (strategyId === "vault_auto_select_fib_retrace_latest" && timeframe !== "M5") {
     return "FIB Retracement must send timeframe M5.";
@@ -48,14 +81,17 @@ function validateStrategyTimeframe(strategyId: string, timeframe: string) {
 
 export async function POST(request: Request) {
   try {
+    const requestId = request.headers.get("x-vercel-id") || crypto.randomUUID();
     const body = await request.json();
+    const admin = createAdminClient();
+    const signal = parseSignal(body);
+    await auditWebhook(admin, { requestId, stage: "RECEIVED", status: "RECEIVED", signal, payload: body });
     const webhookSecret = text(body.webhook_secret || body.webhookSecret || body.secret);
     const configuredSecret = text(process.env.VAULTTRADES_TRADINGVIEW_WEBHOOK_SECRET);
     const suppliedAccessKey = text(body.access_key || body.accessKey);
     const masterMode = Boolean(configuredSecret && webhookSecret && webhookSecret === configuredSecret);
-    const signal = parseSignal(body);
-
     if (signal.symbol !== "XAUUSD") {
+      await auditWebhook(admin, { requestId, stage: "VALIDATION", status: "REJECTED", signal, errorCode: "UNSUPPORTED_SYMBOL", errorMessage: "Unsupported symbol", payload: body });
       return NextResponse.json({ error: "Unsupported symbol. This webhook currently accepts XAUUSD only." }, { status: 400 });
     }
 
@@ -72,7 +108,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "execution_mode must be OBSERVE or LIVE" }, { status: 400 });
     }
 
-    const admin = createAdminClient();
     let licenses: any[] = [];
 
     if (masterMode) {
@@ -97,6 +132,7 @@ export async function POST(request: Request) {
       if (license.end_at && new Date(license.end_at).getTime() <= Date.now()) return NextResponse.json({ error: "VaultTrades access key has expired" }, { status: 403 });
       licenses = [license];
     } else {
+      await auditWebhook(admin, { requestId, stage: "AUTHENTICATION", status: "REJECTED", signal, errorCode: "AUTH_FAILED", errorMessage: "Webhook authentication failed", payload: body });
       return NextResponse.json({ error: "Webhook authentication failed" }, { status: 401 });
     }
 
@@ -130,6 +166,7 @@ export async function POST(request: Request) {
     }
 
     if (licenses.length === 0) {
+      await auditWebhook(admin, { requestId, stage: "ROUTING", status: "NO_ACCOUNT", signal, errorCode: "NO_ACTIVE_ACCOUNT", errorMessage: "No active automation account or observer was available", payload: body });
       return NextResponse.json({
         ok: true,
         mode: masterMode ? "MASTER_FANOUT" : "SINGLE_ACCOUNT",
@@ -195,6 +232,7 @@ export async function POST(request: Request) {
         .maybeSingle();
 
       if (existing) {
+        await auditWebhook(admin, { requestId, stage: "DEDUPLICATION", status: "DUPLICATE", signal, signalId: existing.id, payload: body });
         results.push({ user_id: license.user_id, duplicate: true, signal_id: existing.id, trade_id: existing.trade_id, status: existing.status });
         continue;
       }
@@ -308,8 +346,10 @@ export async function POST(request: Request) {
 
       if (queueError) {
         await admin.from("scanner_signals").update({ status: "CONFIRMED" }).eq("id", createdSignal.id);
+        await auditWebhook(admin, { requestId, stage: "QUEUE", status: "FAILED", signal, signalId: createdSignal.id, errorCode: queueError.code ?? "QUEUE_INSERT_FAILED", errorMessage: queueError.message, payload: body });
         throw queueError;
       }
+      await auditWebhook(admin, { requestId, stage: "PERSISTED", status: "SUCCESS", signal, signalId: createdSignal.id, queueId: queue.id, payload: body });
 
       results.push({
         user_id: license.user_id,
