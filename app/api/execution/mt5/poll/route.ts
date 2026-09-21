@@ -59,6 +59,7 @@ export async function POST(request: Request) {
         tp2: job.tp2,
         tp3: job.tp3,
         tp4: job.tp4,
+        tp5: job.tp5,
         execution_mode: job.execution_mode,
         payload: job.payload,
         broker: { mt_login: license.mt_login, broker_name: license.broker_name, broker_server: license.broker_server },
