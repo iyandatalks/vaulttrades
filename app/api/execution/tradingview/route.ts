@@ -3,7 +3,7 @@ import { createAdminClient } from "../../../../lib/supabase/admin";
 
 function text(value: unknown) { return typeof value === "string" ? value.trim() : ""; }
 function authText(value: unknown) {
-  return text(value).replace(/^["']|["']$/g, "").trim();
+  return text(value).replace(/^[\"']|[\"']$/g, "").trim();
 }
 function num(value: unknown) { const n = Number(value); return Number.isFinite(n) ? n : null; }
 
@@ -64,7 +64,10 @@ async function auditWebhook(admin: ReturnType<typeof createAdminClient>, event: 
 
 function validateStrategyTimeframe(strategyId: string, timeframe: string) {
   if (strategyId === "vault_auto_select_fib_retrace_latest") {
-    if (timeframe !== "M5") return "FIB Retracement must send timeframe M5.";
+    const allowed = ["M1", "M5", "M10", "M15", "M30", "H1", "H4", "D1"];
+    if (!allowed.includes(timeframe)) {
+      return "FIB Retracement supports M1, M5, M10, M15, M30, H1, H4 and D1.";
+    }
     return null;
   }
   if (strategyId === "justine-session-liquidity-m15") {
@@ -81,7 +84,7 @@ function validateStrategyTimeframe(strategyId: string, timeframe: string) {
     }
     return null;
   }
-  return "Unsupported TradingView strategy_id. This webhook accepts VaultTrades FIB M5, Justine M1/M5/M10/M15/M30/H1/H4/D1 and EMA20 Pullback Morning Engine signals.";
+  return "Unsupported TradingView strategy_id. This webhook accepts VaultTrades FIB M1/M5/M10/M15/M30/H1/H4/D1, Justine M1/M5/M10/M15/M30/H1/H4/D1 and EMA20 Pullback Morning Engine M1/M5/M10/M15/M30/H1/H4/D1.";
 }
 
 export async function POST(request: Request) {
@@ -90,9 +93,6 @@ export async function POST(request: Request) {
     const rawBody = await request.text();
     const admin = createAdminClient();
 
-    // TradingView can deliver the alert() payload as JSON, or as text containing
-    // a JSON object. Never call request.json() directly here: a non-JSON alert
-    // must be recorded as a rejected webhook, not become a server exception.
     let body: any;
     try {
       body = JSON.parse(rawBody);
@@ -100,18 +100,13 @@ export async function POST(request: Request) {
       const start = rawBody.indexOf("{");
       const end = rawBody.lastIndexOf("}");
       if (start >= 0 && end > start) {
-        try {
-          body = JSON.parse(rawBody.slice(start, end + 1));
-        } catch {
-          body = null;
-        }
+        try { body = JSON.parse(rawBody.slice(start, end + 1)); } catch { body = null; }
       } else {
         body = null;
       }
     }
 
     if (!body || typeof body !== "object" || Array.isArray(body)) {
-      const requestId = request.headers.get("x-vercel-id") || crypto.randomUUID();
       await auditWebhook(admin, {
         requestId,
         stage: "RECEIVED",
@@ -194,9 +189,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Webhook authentication failed" }, { status: 401 });
     }
 
-    // OBSERVE mode must remain testable even when no MT5 execution account is connected.
-    // In that case, route the authenticated master signal to the active admin observer only.
-    // LIVE mode still requires an active automation license/account and never falls back.
     if (licenses.length === 0 && masterMode && signal.executionMode === "OBSERVE") {
       const { data: observers, error: observerError } = await admin
         .from("users")
@@ -232,9 +224,6 @@ export async function POST(request: Request) {
       });
     }
 
-    // product_licenses.user_id references public.users.id, while scanner_signals.auth_user_id
-    // and automated_trader_execution_queue.auth_user_id reference auth.users.id. Resolve
-    // the application-user -> Supabase-auth-user mapping before writing the signal/queue.
     const licenseUserIds = [...new Set(licenses.map((license) => license.user_id).filter(Boolean))];
     const { data: appUsers, error: appUsersError } = await admin
       .from("users")
@@ -274,6 +263,7 @@ export async function POST(request: Request) {
 
     for (const license of licenses) {
       const fingerprint = `${baseFingerprint}|${license.user_id}`;
+
       const tradeId = licenses.length === 1 && !masterMode
         ? baseTradeId
         : `${baseTradeId}-${String(license.user_id).slice(0, 8)}`;
@@ -357,6 +347,7 @@ export async function POST(request: Request) {
         tp2: signal.tp2,
         tp3: signal.tp3,
         tp4: signal.tp4,
+        tp5: signal.tp5,
         confidence: signal.confidence,
         rr: signal.rr,
         status: "EXECUTION_PENDING",
@@ -445,7 +436,7 @@ export async function GET() {
     authentication: "private",
     symbol: "XAUUSD",
     strategies: {
-      fib: { strategy_id: "vault_auto_select_fib_retrace_latest", timeframe: "M5" },
+      fib: { strategy_id: "vault_auto_select_fib_retrace_latest", timeframes: ["M1","M5","M10","M15","M30","H1","H4","D1"] },
       justine: { strategy_id: "justine-session-liquidity-m15", timeframes: ["M1","M5","M10","M15","M30","H1","H4","D1"] },
       ema: { strategy_id: "ema20-pullback-morning-engine", timeframes: ["M1", "M5", "M10", "M15", "M30", "H1", "H4", "D1"] }
     }
