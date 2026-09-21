@@ -22,37 +22,12 @@ export async function GET(request: Request) {
     return Response.json({ error: "Unauthorized cron invocation." }, { status: 401 });
   }
 
-  const run = {
-    started_at: new Date().toISOString(),
-    status: "RUNNING",
-  };
-  const { data: createdRun } = await supabase.from("scanner_automation_runs").insert(run).select("id").single();
-
   try {
-    const vaultAutoFib: any = await runScheduledVaultAutoFib();
-    if (createdRun?.id) {
-      await supabase.from("scanner_automation_runs").update({
-        completed_at: new Date().toISOString(),
-        status: vaultAutoFib.status,
-        reason: vaultAutoFib.reason ?? null,
-        signals_detected: vaultAutoFib.signalsDetected ?? 0,
-        signals_published: vaultAutoFib.signalsPublished ?? 0,
-        duplicates: vaultAutoFib.duplicates ?? 0,
-        details: vaultAutoFib,
-      }).eq("id", createdRun.id);
-    }
-    return Response.json({ vaultAutoFib, run_id: createdRun?.id ?? null }, { status: 200 });
+    const vaultAutoFib = await runScheduledVaultAutoFib();
+    return Response.json({ vaultAutoFib }, { status: 200 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (createdRun?.id) {
-      await supabase.from("scanner_automation_runs").update({
-        completed_at: new Date().toISOString(),
-        status: "FAILED",
-        error_message: message,
-      }).eq("id", createdRun.id);
-    }
     return Response.json(
-      { status: "FAILED", error: message, run_id: createdRun?.id ?? null },
+      { status: "FAILED", error: error instanceof Error ? error.message : String(error) },
       { status: 500 },
     );
   }
