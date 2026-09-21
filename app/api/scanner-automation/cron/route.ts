@@ -29,15 +29,15 @@ export async function GET(request: Request) {
   const { data: createdRun } = await supabase.from("scanner_automation_runs").insert(run).select("id").single();
 
   try {
-    const vaultAutoFib = await runScheduledVaultAutoFib();
+    const vaultAutoFib: any = await runScheduledVaultAutoFib();
     if (createdRun?.id) {
       await supabase.from("scanner_automation_runs").update({
         completed_at: new Date().toISOString(),
         status: vaultAutoFib.status,
-        reason: "reason" in vaultAutoFib ? vaultAutoFib.reason ?? null : null,
-        signals_detected: "signalsDetected" in vaultAutoFib ? vaultAutoFib.signalsDetected ?? 0 : 0,
-        signals_published: "signalsPublished" in vaultAutoFib ? vaultAutoFib.signalsPublished ?? 0 : 0,
-        duplicates: "duplicates" in vaultAutoFib ? vaultAutoFib.duplicates ?? 0 : 0,
+        reason: vaultAutoFib.reason ?? null,
+        signals_detected: vaultAutoFib.signalsDetected ?? 0,
+        signals_published: vaultAutoFib.signalsPublished ?? 0,
+        duplicates: vaultAutoFib.duplicates ?? 0,
         details: vaultAutoFib,
       }).eq("id", createdRun.id);
     }
