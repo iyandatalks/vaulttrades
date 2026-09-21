@@ -112,7 +112,7 @@ export default function ScannerAutomationPage() {
   const loadSupervision = async () => {
     setSupervisionLoading(true);
     try {
-      const response = await fetch("/api/scanner-automation/supervision?hours=24", { cache: "no-store" });
+      const response = await fetch("/api/scanner-automation/audit?supervision=1", { cache: "no-store" });
       const data = await response.json() as SupervisionResponse | { error?: string };
       if (!response.ok) throw new Error("error" in data && data.error ? data.error : "Unable to load scanner supervision.");
       setSupervision(data as SupervisionResponse);
