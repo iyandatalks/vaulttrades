@@ -35,9 +35,9 @@ export async function GET(request: Request) {
         completed_at: new Date().toISOString(),
         status: vaultAutoFib.status,
         reason: vaultAutoFib.reason ?? null,
-        signals_detected: vaultAutoFib.signalsDetected ?? 0,
-        signals_published: vaultAutoFib.signalsPublished ?? 0,
-        duplicates: vaultAutoFib.duplicates ?? 0,
+        signals_detected: "signalsDetected" in vaultAutoFib ? vaultAutoFib.signalsDetected ?? 0 : 0,
+        signals_published: "signalsPublished" in vaultAutoFib ? vaultAutoFib.signalsPublished ?? 0 : 0,
+        duplicates: "duplicates" in vaultAutoFib ? vaultAutoFib.duplicates ?? 0 : 0,
         details: vaultAutoFib,
       }).eq("id", createdRun.id);
     }
