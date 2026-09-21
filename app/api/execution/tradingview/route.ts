@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
 
 function text(value: unknown) { return typeof value === "string" ? value.trim() : ""; }
+function authText(value: unknown) {
+  return text(value).replace(/^["']|["']$/g, "").trim();
+}
 function num(value: unknown) { const n = Number(value); return Number.isFinite(n) ? n : null; }
 
 function parseSignal(body: any) {
@@ -125,10 +128,15 @@ export async function POST(request: Request) {
 
     const signal = parseSignal(body);
     await auditWebhook(admin, { requestId, stage: "RECEIVED", status: "RECEIVED", signal, payload: body });
-    const webhookSecret = text(body.webhook_secret || body.webhookSecret || body.secret);
-    const configuredSecret = text(process.env.VAULTTRADES_TRADINGVIEW_WEBHOOK_SECRET);
-    const suppliedAccessKey = text(body.access_key || body.accessKey);
+    const webhookSecret = authText(body.webhook_secret ?? body.webhookSecret ?? body.secret);
+    const configuredSecret = authText(process.env.VAULTTRADES_TRADINGVIEW_WEBHOOK_SECRET);
+    const suppliedAccessKey = authText(body.access_key ?? body.accessKey);
     const masterMode = Boolean(configuredSecret && webhookSecret && webhookSecret === configuredSecret);
+    if (!configuredSecret && !suppliedAccessKey) {
+      await auditWebhook(admin, { requestId, stage: "AUTHENTICATION", status: "FAILED", signal, errorCode: "SERVER_SECRET_NOT_CONFIGURED", errorMessage: "VAULTTRADES_TRADINGVIEW_WEBHOOK_SECRET is not configured in the production runtime.", payload: body });
+      return NextResponse.json({ error: "TradingView webhook authentication is not configured on the server." }, { status: 500 });
+    }
+
     if (signal.symbol !== "XAUUSD") {
       await auditWebhook(admin, { requestId, stage: "VALIDATION", status: "REJECTED", signal, errorCode: "UNSUPPORTED_SYMBOL", errorMessage: "Unsupported symbol", payload: body });
       return NextResponse.json({ error: "Unsupported symbol. This webhook currently accepts XAUUSD only." }, { status: 400 });
@@ -193,24 +201,20 @@ export async function POST(request: Request) {
         .select("id,auth_user_id")
         .eq("role", "admin")
         .eq("is_active", true)
-        .not("auth_user_id", "is", null)
-        .limit(1);
+        .not("auth_user_id", "is", null);
       if (observerError) throw observerError;
 
-      const observer = observers?.[0];
-      if (observer?.id && observer.auth_user_id) {
-        licenses = [{
-          id: null,
-          user_id: observer.id,
-          auth_user_id: observer.auth_user_id,
-          status: "active",
-          platform: "observe",
-          mt_login: null,
-          broker_name: null,
-          broker_server: null,
-          observer_only: true
-        }];
-      }
+      licenses = (observers || []).map((observer) => ({
+        id: null,
+        user_id: observer.id,
+        auth_user_id: observer.auth_user_id,
+        status: "active",
+        platform: "observe",
+        mt_login: null,
+        broker_name: null,
+        broker_server: null,
+        observer_only: true
+      }));
     }
 
     if (licenses.length === 0) {
@@ -393,7 +397,7 @@ export async function POST(request: Request) {
       }).select("id,status,execution_mode").single();
 
       if (queueError) {
-        await admin.from("scanner_signals").update({ status: "CONFIRMED" }).eq("id", createdSignal.id);
+        await admin.from("scanner_signals").update({ status: "EXECUTION_FAILED", completed_at: null }).eq("id", createdSignal.id);
         await auditWebhook(admin, { requestId, stage: "QUEUE", status: "FAILED", signal, signalId: createdSignal.id, errorCode: queueError.code ?? "QUEUE_INSERT_FAILED", errorMessage: queueError.message, payload: body });
         throw queueError;
       }
