@@ -15,6 +15,7 @@ type TradingViewChartProps = {
     tp3: number | null;
     tp4: number | null;
     tp5: number | null;
+    strategy_id?: string;
     strategy_name: string;
     timeframe: string;
     fired_at: string;
@@ -127,7 +128,7 @@ export default function TradingViewChart({
                 <div style={{ fontSize: 18, fontWeight: 900 }}>{signal.direction.toUpperCase()}</div>
                 <div style={{ fontSize: 10, fontWeight: 800, opacity: .7 }}>{signal.timeframe}</div>
               </div>
-              <div style={{ fontSize: 10, opacity: .65, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{signal.strategy_name}</div>
+              <div style={{ fontSize: 10, opacity: .65, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{signal.strategy_name}</div><div style={{ fontSize: 9, opacity: .5, marginTop: 4 }}>{signal.strategy_id ?? "TradingView"} · {new Date(signal.fired_at).toLocaleTimeString()}</div>
             </div>
 
             <div style={{ position: "absolute", top: 16, right: 16, bottom: 16, zIndex: 5, width: 205, padding: 12, borderRadius: 10, border: "1px solid rgba(212,166,55,.35)", background: "rgba(8,8,8,.88)", backdropFilter: "blur(8px)", pointerEvents: "none" }}>
