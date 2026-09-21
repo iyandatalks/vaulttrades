@@ -142,6 +142,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: strategyTimeframeError }, { status: 400 });
     }
 
+    if (!text(body.signal_id || body.trade_id)) {
+      await auditWebhook(admin, { requestId, stage: "VALIDATION", status: "REJECTED", signal, errorCode: "SIGNAL_ID_REQUIRED", errorMessage: "TradingView payload must include signal_id.", payload: body });
+      return NextResponse.json({ error: "Invalid signal. signal_id is required." }, { status: 400 });
+    }
+
     if (!["BUY", "SELL"].includes(signal.direction) || signal.entry === null || signal.stopLoss === null || signal.tp1 === null) {
       await auditWebhook(admin, { requestId, stage: "VALIDATION", status: "REJECTED", signal, errorCode: "INVALID_SIGNAL_FIELDS", errorMessage: "Required direction/entry/stop_loss/tp1 fields are missing or invalid.", payload: body });
       return NextResponse.json({ error: "Invalid signal. Required: direction (BUY/SELL), entry, stop_loss/sl and tp1/tp." }, { status: 400 });
@@ -182,8 +187,12 @@ export async function POST(request: Request) {
       }
       licenses = [license];
     } else {
-      await auditWebhook(admin, { requestId, stage: "AUTHENTICATION", status: "REJECTED", signal, errorCode: "AUTH_FAILED", errorMessage: "Webhook authentication failed", payload: body });
-      return NextResponse.json({ error: "Webhook authentication failed" }, { status: 401 });
+      const errorCode = webhookSecret ? "AUTH_FAILED" : "WEBHOOK_SECRET_MISSING";
+      const errorMessage = webhookSecret
+        ? "Webhook authentication failed: supplied webhook_secret does not match the production secret."
+        : "Webhook authentication failed: webhook_secret was not supplied in the TradingView JSON payload.";
+      await auditWebhook(admin, { requestId, stage: "AUTHENTICATION", status: "REJECTED", signal, errorCode, errorMessage, payload: body });
+      return NextResponse.json({ error: errorMessage }, { status: 401 });
     }
 
     if (licenses.length === 0 && masterMode && signal.executionMode === "OBSERVE") {
