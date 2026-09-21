@@ -1,12 +1,12 @@
-import { createClient } from "../../../../../lib/supabase/server";
-import { createAdminClient } from "../../../../../lib/supabase/admin";
+import { createClient } from "../../../../lib/supabase/server";
+import { createAdminClient } from "../../../../lib/supabase/admin";
 import type {
   SupervisedQueueRow,
   SupervisedScannerRun,
   SupervisedSignal,
   SupervisionResponse,
   TradingViewWebhookEvent,
-} from "../../../../../lib/scanner-automation/supervisionTypes";
+} from "../../../../lib/scanner-automation/supervisionTypes";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
