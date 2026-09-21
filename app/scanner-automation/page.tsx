@@ -84,13 +84,18 @@ export default function ScannerAutomationPage() {
     signals.find(s => s.id === selectedSignalId) ??
     null;
 
-  const strategyOptions = [
-    { id: "ema20-pullback-morning-engine", name: "EMA20 Pullback Morning Engine" },
-    { id: "justine-session-liquidity-m15", name: "Justine Core + Session Liquidity" },
-    { id: "vault_auto_select_fib_retrace_latest", name: "Vault Auto Select FIB Retrace" },
-  ];
+  const automationMatrix = [
+    { id: "ema20-pullback-morning-engine", name: "EMA20 Pullback Morning Engine", timeframes: ["M5", "M15", "M30", "H1"] },
+    { id: "justine-session-liquidity-m15", name: "Justine Core + Session Liquidity", timeframes: ["M5", "M15", "H1"] },
+    { id: "vault_auto_select_fib_retrace_latest", name: "Vault Auto Select FIB Retrace", timeframes: ["M5", "M15", "H1"] },
+  ] as const;
 
-  const timeframeOptions = ["M1", "M5", "M10", "M15", "M30", "H1", "H4", "D1"];
+  const strategyOptions = automationMatrix;
+  const selectedStrategy = automationMatrix.find((option) => option.id === selectedStrategyId) ?? automationMatrix[0];
+  const timeframeOptions = selectedStrategy.timeframes;
+  const automationAlertSlots = automationMatrix.flatMap((strategy) =>
+    strategy.timeframes.map((timeframe) => ({ strategyId: strategy.id, strategyName: strategy.name, timeframe }))
+  );
 
   const loadSelectedSignal = async (strategyId: string, timeframe: string) => {
     setSelectedSignalLoading(true);
@@ -358,11 +363,38 @@ export default function ScannerAutomationPage() {
           {selectedSignalLoading && <span className="muted" style={{ fontSize: 11 }}>Checking recorded signals…</span>}
         </div>
 
+        <div style={{ marginBottom: 14, padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(212,166,55,.20)", background: "rgba(212,166,55,.035)" }}>
+          <div className="section-label">AUTOMATION ALERT MATRIX · 10 SLOTS</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 8, marginTop: 10 }}>
+            {automationAlertSlots.map((slot, index) => (
+              <button
+                key={slot.strategyId + slot.timeframe}
+                type="button"
+                onClick={() => { setSelectedStrategyId(slot.strategyId); setSelectedTimeframe(slot.timeframe); }}
+                style={{
+                  textAlign: "left",
+                  padding: "9px 11px",
+                  borderRadius: 8,
+                  border: selectedStrategyId === slot.strategyId && selectedTimeframe === slot.timeframe ? "1px solid rgba(212,166,55,.75)" : "1px solid rgba(255,255,255,.10)",
+                  background: selectedStrategyId === slot.strategyId && selectedTimeframe === slot.timeframe ? "rgba(212,166,55,.12)" : "rgba(255,255,255,.025)",
+                  color: "#f4f6fb",
+                  cursor: "pointer"
+                }}
+              >
+                <div style={{ fontSize: 10, opacity: .65, fontWeight: 800 }}>ALERT {index + 1}</div>
+                <div style={{ fontSize: 12, fontWeight: 800, marginTop: 3 }}>{slot.strategyName}</div>
+                <div style={{ fontSize: 11, marginTop: 2, color: "#d4a637", fontWeight: 900 }}>XAUUSD · {slot.timeframe}</div>
+              </button>
+            ))}
+          </div>
+          <div className="muted" style={{ fontSize: 11, marginTop: 9 }}>These are the only TradingView strategy/timeframe combinations accepted for automation. M1, M10, H4 and D1 remain analysis-only.</div>
+        </div>
+
         <div style={{ display: "grid", gridTemplateColumns: "minmax(260px, 1.4fr) minmax(140px, .6fr)", gap: 12, marginBottom: 14 }}>
           <label style={{ display: "grid", gap: 6 }}>
             <span className="section-label">STRATEGY</span>
             <select value={selectedStrategyId} onChange={(e) => setSelectedStrategyId(e.target.value)} style={{ padding: "12px 13px", borderRadius: 8, border: "1px solid rgba(212,166,55,.35)", background: "#050812", color: "#f4f6fb", fontWeight: 800 }}>
-              {strategyOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
+              {strategyOptions.map((option) => <option key={option.id} value={option.id}>{option.name} · {option.timeframes.join("/")}</option>)}
             </select>
           </label>
           <label style={{ display: "grid", gap: 6 }}>
