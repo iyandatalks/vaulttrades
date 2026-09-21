@@ -16,6 +16,7 @@ export async function GET(request: Request) {
     const strategy = searchParams.get("strategy");
     const timeframe = searchParams.get("timeframe");
     const symbol = searchParams.get("symbol");
+    const source = searchParams.get("source");
 
     const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
@@ -30,6 +31,7 @@ export async function GET(request: Request) {
     if (strategy) query = query.eq("strategy_id", strategy);
     if (timeframe) query = query.eq("timeframe", timeframe.toUpperCase());
     if (symbol) query = query.eq("canonical_symbol", symbol.toUpperCase().replace("/", ""));
+    if (source) query = query.eq("execution_payload->>source", source.toLowerCase());
 
     const { data, error } = await query;
     if (error) {
