@@ -1,6 +1,7 @@
 import { createServiceClient } from '../supabase/service';
 import { publishAutomatedScannerSignal } from '../signals/publishAutomatedScannerSignal';
 import { scanVaultAutoFib, VAULT_AUTO_FIB_CRYPTO_SYMBOLS, VAULT_AUTO_FIB_FOREX_SYMBOLS, type VaultAutoFibSymbol } from './vaultAutoFib';
+import type { VaultAutoFibRunResult } from "./supervisionTypes";
 
 const CRYPTO_SET = new Set<string>(VAULT_AUTO_FIB_CRYPTO_SYMBOLS);
 const XAUUSD: VaultAutoFibSymbol = 'XAU/USD';
@@ -23,7 +24,7 @@ function shouldRunM15() {
   return minute % 15 === 0;
 }
 
-export async function runScheduledVaultAutoFib() {
+export async function runScheduledVaultAutoFib(): Promise<VaultAutoFibRunResult> {
   const supabase = createServiceClient();
   const { data: configs, error } = await supabase.rpc('get_enabled_scanner_automation_configs');
   if (error) throw new Error(`Unable to load scanner automation configuration: ${error.message}`);
@@ -34,13 +35,29 @@ export async function runScheduledVaultAutoFib() {
       && x.enabled_strategies.includes('autoFibRetrace')
       && x.forex_enabled,
   );
-  if (!users.length) return { status: 'SKIPPED' as const, reason: 'no_enabled_auto_fib_automation_configs' };
+  if (!users.length) {
+    return {
+      status: "SKIPPED",
+      reason: "no_enabled_auto_fib_automation_configs",
+      timeframe: null,
+      symbolsScanned: [],
+      signalsDetected: 0,
+      signalsPublished: 0,
+      duplicates: 0,
+      errors: [],
+    };
+  }
 
   if (!shouldRunM15()) {
     return {
-      status: 'SKIPPED' as const,
-      reason: 'waiting_for_m15_boundary',
-      symbolsScanned: [] as VaultAutoFibSymbol[],
+      status: "SKIPPED",
+      reason: "waiting_for_m15_boundary",
+      timeframe: "M15",
+      symbolsScanned: [],
+      signalsDetected: 0,
+      signalsPublished: 0,
+      duplicates: 0,
+      errors: [],
     };
   }
 
@@ -119,8 +136,9 @@ export async function runScheduledVaultAutoFib() {
   }
 
   return {
-    status: 'COMPLETED' as const,
-    timeframe: 'M15' as const,
+    status: "COMPLETED",
+    reason: null,
+    timeframe: "M15",
     symbolsScanned: symbols,
     signalsDetected: signals.length,
     signalsPublished: published,
