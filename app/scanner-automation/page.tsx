@@ -4,7 +4,6 @@
 
 import { useEffect, useState } from "react";
 import TradingViewChart from "../../components/TradingViewChart";
-import type { SupervisionResponse } from "../../lib/scanner-automation/supervisionTypes";
 
 const SIGNAL_MAX_AGE_HOURS = 2;
 const SIGNAL_MAX_AGE_MS = SIGNAL_MAX_AGE_HOURS * 60 * 60 * 1000;
@@ -71,9 +70,8 @@ export default function ScannerAutomationPage() {
   const [historySignals, setHistorySignals] = useState<Signal[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState("");
-  const [supervision, setSupervision] = useState<SupervisionResponse | null>(null);
-  const [supervisionLoading, setSupervisionLoading] = useState(false);
-  const [supervisionError, setSupervisionError] = useState("");
+  const [backtest, setBacktest] = useState<any>(null);
+  const [backtestLoading, setBacktestLoading] = useState(false);
   const [selectedSignalId, setSelectedSignalId] = useState<string | null>(null);
   const selectedSignal = historySignals.find(s => s.id === selectedSignalId) ?? signals.find(s => s.id === selectedSignalId) ?? signals[0] ?? null;
 
@@ -106,21 +104,6 @@ export default function ScannerAutomationPage() {
       setHistoryError(e instanceof Error ? e.message : "Unable to load five-day signal history.");
     } finally {
       setHistoryLoading(false);
-    }
-  };
-
-  const loadSupervision = async () => {
-    setSupervisionLoading(true);
-    try {
-      const response = await fetch("/api/scanner-automation/audit?supervision=1", { cache: "no-store" });
-      const data = await response.json() as SupervisionResponse | { error?: string };
-      if (!response.ok) throw new Error("error" in data && data.error ? data.error : "Unable to load scanner supervision.");
-      setSupervision(data as SupervisionResponse);
-      setSupervisionError("");
-    } catch (e) {
-      setSupervisionError(e instanceof Error ? e.message : "Unable to load scanner supervision.");
-    } finally {
-      setSupervisionLoading(false);
     }
   };
 
@@ -163,11 +146,9 @@ export default function ScannerAutomationPage() {
     void loadSignals();
     void loadHistory();
     void loadConfig();
-    void loadSupervision();
     const id = setInterval(() => {
       void loadSignals();
       void loadHistory();
-      void loadSupervision();
     }, 15000);
     return () => clearInterval(id);
   }, []);
@@ -230,65 +211,6 @@ export default function ScannerAutomationPage() {
           {configError && <p style={{ color: "#ffb5b5", marginTop: 12 }}>{configError}</p>}
         </section>
       )}
-
-      <section className="card" style={{ marginTop: 16 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <div>
-            <div className="section-label">SIGNAL SUPERVISION</div>
-            <h2 style={{ margin: "6px 0 4px", fontSize: 20 }}>Production Signal Supervision</h2>
-            <p className="muted" style={{ margin: 0 }}>Observe the TradingView webhook, signal ledger, execution queue and scheduled scanner as one monitored chain.</p>
-          </div>
-          <button type="button" onClick={() => void loadSupervision()} disabled={supervisionLoading} style={{ padding: "10px 16px", borderRadius: 8, border: "1px solid rgba(212,166,55,.45)", background: "rgba(212,166,55,.08)", color: "#d4a637", fontWeight: 800, cursor: supervisionLoading ? "wait" : "pointer" }}>
-            {supervisionLoading ? "Checking…" : "Refresh Supervision"}
-          </button>
-        </div>
-
-        {supervision && (
-          <>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10, marginTop: 18 }}>
-              {[
-                ["Webhook received", supervision.tradingView.received],
-                ["Signals persisted", supervision.tradingView.persisted],
-                ["Rejected", supervision.tradingView.rejected],
-                ["Failed", supervision.tradingView.failed],
-                ["Queue total", supervision.executionQueue.total],
-                ["Queue pending", supervision.executionQueue.queued],
-              ].map(([label, value]) => (
-                <div key={label} style={{ padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,.10)", background: "rgba(255,255,255,.025)" }}>
-                  <div className="muted" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".08em" }}>{label}</div>
-                  <div style={{ fontWeight: 900, fontSize: 18, marginTop: 5 }}>{value}</div>
-                </div>
-              ))}
-            </div>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
-              {[
-                ["Webhook", supervision.health.webhookReceiving],
-                ["Persistence", supervision.health.signalPersisting],
-                ["Queue", supervision.health.queueAvailable],
-                ["Scanner run", supervision.health.scannerRunObserved],
-              ].map(([label, healthy]) => (
-                <div key={label} style={{ padding: "7px 10px", borderRadius: 999, border: "1px solid rgba(255,255,255,.12)", fontSize: 11, fontWeight: 800 }}>
-                  {label}: {healthy ? "OK" : "WAITING"}
-                </div>
-              ))}
-              <span className="muted" style={{ fontSize: 11, alignSelf: "center" }}>
-                Last activity: {supervision.health.lastActivityAt ? new Date(supervision.health.lastActivityAt).toLocaleString() : "none in 24h"}
-              </span>
-            </div>
-            {supervision.tradingView.latestEvent && (
-              <div style={{ marginTop: 14, padding: 12, borderRadius: 10, border: "1px solid rgba(212,166,55,.18)", background: "rgba(212,166,55,.04)", fontSize: 12 }}>
-                <strong>Latest webhook:</strong> {supervision.tradingView.latestEvent.status} · {supervision.tradingView.latestEvent.stage} · {supervision.tradingView.latestEvent.symbol ?? "—"} · {supervision.tradingView.latestEvent.timeframe ?? "—"} · {supervision.tradingView.latestEvent.strategy_id ?? "—"}
-              </div>
-            )}
-            {supervision.scannerEngine.latestRun && (
-              <div style={{ marginTop: 10, fontSize: 11 }} className="muted">
-                Latest scanner run: {supervision.scannerEngine.latestRun.status} · detected {supervision.scannerEngine.latestRun.signals_detected ?? 0} · published {supervision.scannerEngine.latestRun.signals_published ?? 0} · duplicates {supervision.scannerEngine.latestRun.duplicates ?? 0}
-              </div>
-            )}
-          </>
-        )}
-        {supervisionError && <p style={{ color: "#ffb5b5", marginTop: 14 }}>{supervisionError}</p>}
-      </section>
 
       {!config && (
         <section className="card" style={{ marginTop: 16 }}>
