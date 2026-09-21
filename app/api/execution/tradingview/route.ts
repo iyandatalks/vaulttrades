@@ -100,6 +100,35 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Webhook authentication failed" }, { status: 401 });
     }
 
+    // OBSERVE mode must remain testable even when no MT5 execution account is connected.
+    // In that case, route the authenticated master signal to the active admin observer only.
+    // LIVE mode still requires an active automation license/account and never falls back.
+    if (licenses.length === 0 && masterMode && signal.executionMode === "OBSERVE") {
+      const { data: observers, error: observerError } = await admin
+        .from("users")
+        .select("id,auth_user_id")
+        .eq("role", "admin")
+        .eq("is_active", true)
+        .not("auth_user_id", "is", null)
+        .limit(1);
+      if (observerError) throw observerError;
+
+      const observer = observers?.[0];
+      if (observer?.id && observer.auth_user_id) {
+        licenses = [{
+          id: null,
+          user_id: observer.id,
+          auth_user_id: observer.auth_user_id,
+          status: "active",
+          platform: "observe",
+          mt_login: null,
+          broker_name: null,
+          broker_server: null,
+          observer_only: true
+        }];
+      }
+    }
+
     if (licenses.length === 0) {
       return NextResponse.json({
         ok: true,
@@ -108,7 +137,7 @@ export async function POST(request: Request) {
         timeframe: signal.timeframe,
         strategy_id: signal.strategyId,
         queued: 0,
-        message: "Signal received, but no active MT5 copy-trading accounts are currently enabled."
+        message: "Signal received, but no active automation account is currently enabled."
       });
     }
 
