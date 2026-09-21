@@ -177,7 +177,7 @@ export async function POST(request: Request) {
     const baseFingerprint = text(body.signal_fingerprint) || [
       signal.symbol, signal.direction, signal.strategyId, signal.timeframe,
       signal.entry, signal.stopLoss, signal.tp1, signal.tp2 ?? "", signal.tp3 ?? "",
-      signal.tp4 ?? "", text(body.timestamp || body.time || "")
+      signal.tp4 ?? "", signal.tp5 ?? "", text(body.timestamp || body.time || "")
     ].join("|");
     const results: any[] = [];
 
