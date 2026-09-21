@@ -34,7 +34,7 @@ export async function GET(request: Request) {
       await supabase.from("scanner_automation_runs").update({
         completed_at: new Date().toISOString(),
         status: vaultAutoFib.status,
-        reason: vaultAutoFib.reason ?? null,
+        reason: "reason" in vaultAutoFib ? vaultAutoFib.reason ?? null : null,
         signals_detected: "signalsDetected" in vaultAutoFib ? vaultAutoFib.signalsDetected ?? 0 : 0,
         signals_published: "signalsPublished" in vaultAutoFib ? vaultAutoFib.signalsPublished ?? 0 : 0,
         duplicates: "duplicates" in vaultAutoFib ? vaultAutoFib.duplicates ?? 0 : 0,
