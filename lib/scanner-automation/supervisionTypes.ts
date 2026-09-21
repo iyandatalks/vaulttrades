@@ -1,3 +1,16 @@
+import type { VaultAutoFibSymbol } from "./vaultAutoFib";
+
+export type VaultAutoFibRunResult = {
+  status: "SKIPPED" | "COMPLETED";
+  reason: string | null;
+  timeframe: "M15" | null;
+  symbolsScanned: VaultAutoFibSymbol[];
+  signalsDetected: number;
+  signalsPublished: number;
+  duplicates: number;
+  errors: string[];
+};
+
 export type SupervisionStatus = "RECEIVED" | "SUCCESS" | "REJECTED" | "FAILED" | "DUPLICATE" | "NO_ACCOUNT";
 
 export type TradingViewWebhookEvent = {
