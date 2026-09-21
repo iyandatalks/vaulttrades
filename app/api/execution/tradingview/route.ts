@@ -63,28 +63,25 @@ async function auditWebhook(admin: ReturnType<typeof createAdminClient>, event: 
 }
 
 function validateStrategyTimeframe(strategyId: string, timeframe: string) {
-  if (strategyId === "vault_auto_select_fib_retrace_latest") {
-    const allowed = ["M1", "M5", "M10", "M15", "M30", "H1", "H4", "D1"];
-    if (!allowed.includes(timeframe)) {
-      return "FIB Retracement supports M1, M5, M10, M15, M30, H1, H4 and D1.";
-    }
-    return null;
+  const automationTimeframes: Record<string, string[]> = {
+    "ema20-pullback-morning-engine": ["M5", "M15", "M30", "H1"],
+    "justine-session-liquidity-m15": ["M5", "M15", "H1"],
+    "vault_auto_select_fib_retrace_latest": ["M5", "M15", "H1"],
+  };
+  const allowed = automationTimeframes[strategyId];
+  if (!allowed) {
+    return "Unsupported TradingView strategy_id.";
   }
-  if (strategyId === "justine-session-liquidity-m15") {
-    const allowed = ["M1", "M5", "M10", "M15", "M30", "H1", "H4", "D1"];
-    if (!allowed.includes(timeframe)) {
-      return "Justine Session Liquidity supports M1, M5, M10, M15, M30, H1, H4 and D1.";
-    }
-    return null;
+  if (!allowed.includes(timeframe)) {
+    const label =
+      strategyId === "ema20-pullback-morning-engine"
+        ? "EMA20 Pullback Morning Engine"
+        : strategyId === "justine-session-liquidity-m15"
+          ? "Justine Session Liquidity"
+          : "FIB Retracement";
+    return `${label} automation is enabled only for ${allowed.join(", ")}. Other TradingView timeframes remain available for user analysis but are not automatable.`;
   }
-  if (strategyId === "ema20-pullback-morning-engine") {
-    const allowed = ["M1", "M5", "M10", "M15", "M30", "H1", "H4", "D1"];
-    if (!allowed.includes(timeframe)) {
-      return "EMA20 Pullback Morning Engine supports M1, M5, M10, M15, M30, H1, H4 and D1.";
-    }
-    return null;
-  }
-  return "Unsupported TradingView strategy_id. This webhook accepts VaultTrades FIB M1/M5/M10/M15/M30/H1/H4/D1, Justine M1/M5/M10/M15/M30/H1/H4/D1 and EMA20 Pullback Morning Engine M1/M5/M10/M15/M30/H1/H4/D1.";
+  return null;
 }
 
 export async function POST(request: Request) {
@@ -436,9 +433,9 @@ export async function GET() {
     authentication: "private",
     symbol: "XAUUSD",
     strategies: {
-      fib: { strategy_id: "vault_auto_select_fib_retrace_latest", timeframes: ["M1","M5","M10","M15","M30","H1","H4","D1"] },
-      justine: { strategy_id: "justine-session-liquidity-m15", timeframes: ["M1","M5","M10","M15","M30","H1","H4","D1"] },
-      ema: { strategy_id: "ema20-pullback-morning-engine", timeframes: ["M1", "M5", "M10", "M15", "M30", "H1", "H4", "D1"] }
+      fib: { strategy_id: "vault_auto_select_fib_retrace_latest", automatable_timeframes: ["M5","M15","H1"], analysis_timeframes: ["M1","M5","M10","M15","M30","H1","H4","D1"] },
+      justine: { strategy_id: "justine-session-liquidity-m15", automatable_timeframes: ["M5","M15","H1"], analysis_timeframes: ["M1","M5","M10","M15","M30","H1","H4","D1"] },
+      ema: { strategy_id: "ema20-pullback-morning-engine", automatable_timeframes: ["M5","M15","M30","H1"], analysis_timeframes: ["M1","M5","M10","M15","M30","H1","H4","D1"] }
     }
   });
 }
