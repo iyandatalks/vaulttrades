@@ -48,7 +48,7 @@ async function auditWebhook(admin: ReturnType<typeof createAdminClient>, event: 
       timeframe: event.signal?.timeframe ?? null,
       strategy_id: event.signal?.strategyId ?? null,
       execution_mode: event.signal?.executionMode ?? null,
-      signal_id: event.signalId ?? null,
+      signal_id: event.signalId && /^[0-9a-fA-F-]{36}$/.test(event.signalId) ? event.signalId : null,
       queue_id: event.queueId ?? null,
       error_code: event.errorCode ?? null,
       error_message: event.errorMessage ?? null,
@@ -82,8 +82,47 @@ function validateStrategyTimeframe(strategyId: string, timeframe: string) {
 export async function POST(request: Request) {
   try {
     const requestId = request.headers.get("x-vercel-id") || crypto.randomUUID();
-    const body = await request.json();
+    const rawBody = await request.text();
     const admin = createAdminClient();
+
+    // TradingView can deliver the alert() payload as JSON, or as text containing
+    // a JSON object. Never call request.json() directly here: a non-JSON alert
+    // must be recorded as a rejected webhook, not become a server exception.
+    let body: any;
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      const start = rawBody.indexOf("{");
+      const end = rawBody.lastIndexOf("}");
+      if (start >= 0 && end > start) {
+        try {
+          body = JSON.parse(rawBody.slice(start, end + 1));
+        } catch {
+          body = null;
+        }
+      } else {
+        body = null;
+      }
+    }
+
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      const requestId = request.headers.get("x-vercel-id") || crypto.randomUUID();
+      await auditWebhook(admin, {
+        requestId,
+        stage: "RECEIVED",
+        status: "REJECTED",
+        errorCode: "INVALID_JSON_PAYLOAD",
+        errorMessage: "TradingView webhook received a non-JSON payload. The endpoint is reachable, but no structured signal object was found.",
+        payload: { raw_body: rawBody.slice(0, 8000) }
+      });
+      return NextResponse.json({
+        ok: false,
+        error: "Invalid TradingView payload",
+        code: "INVALID_JSON_PAYLOAD",
+        message: "The webhook endpoint received the request, but the body was not a JSON signal payload."
+      }, { status: 400 });
+    }
+
     const signal = parseSignal(body);
     await auditWebhook(admin, { requestId, stage: "RECEIVED", status: "RECEIVED", signal, payload: body });
     const webhookSecret = text(body.webhook_secret || body.webhookSecret || body.secret);
