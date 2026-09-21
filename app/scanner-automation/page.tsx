@@ -73,6 +73,7 @@ export default function ScannerAutomationPage() {
   const [backtest, setBacktest] = useState<any>(null);
   const [backtestLoading, setBacktestLoading] = useState(false);
   const [selectedSignalId, setSelectedSignalId] = useState<string | null>(null);
+  const selectedSignal = historySignals.find(s => s.id === selectedSignalId) ?? signals.find(s => s.id === selectedSignalId) ?? signals[0] ?? null;
 
   const loadSignals = async () => {
     setRefreshing(true);
@@ -80,7 +81,7 @@ export default function ScannerAutomationPage() {
       const response = await fetch("/api/signals", { cache: "no-store" });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Unable to load signals.");
-      setSignals((data.signals || []).filter((signal: Signal) => Date.now() - new Date(signal.fired_at).getTime() <= SIGNAL_MAX_AGE_MS));
+      const fresh = (data.signals || []).filter((signal: Signal) => Date.now() - new Date(signal.fired_at).getTime() <= SIGNAL_MAX_AGE_MS); setSignals(fresh); if (!selectedSignalId && fresh[0]?.id) setSelectedSignalId(fresh[0].id);
       setError("");
       setLastRefreshed(Date.now());
     } catch (e) {
@@ -93,10 +94,11 @@ export default function ScannerAutomationPage() {
   const loadHistory = async () => {
     setHistoryLoading(true);
     try {
-      const response = await fetch("/api/signals/history?days=5&symbol=XAUUSD", { cache: "no-store" });
+      const response = await fetch("/api/signals/history?days=5&symbol=XAUUSD&source=tradingview", { cache: "no-store" });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Unable to load five-day signal history.");
       setHistorySignals(data.signals || []);
+      if (!selectedSignalId && data.signals?.[0]?.id) setSelectedSignalId(data.signals[0].id);
       setHistoryError("");
     } catch (e) {
       setHistoryError(e instanceof Error ? e.message : "Unable to load five-day signal history.");
@@ -222,15 +224,15 @@ export default function ScannerAutomationPage() {
           <div><div className="section-label">SELECTED SIGNAL</div><div style={{ fontSize: 13, fontWeight: 800 }}>{(historySignals.find(s => s.id === selectedSignalId) ?? signals.find(s => s.id === selectedSignalId) ?? signals[0]) ? "Signal selected — click any feed/history row to inspect it on the chart." : "Waiting for a recorded TradingView signal."}</div></div>
           {selectedSignalId && <button type="button" onClick={() => setSelectedSignalId(null)} style={{ padding: "7px 11px", borderRadius: 8, border: "1px solid rgba(255,255,255,.12)", background: "transparent", color: "inherit", fontWeight: 700 }}>Show latest</button>}
         </div>
-        <TradingViewChart symbol="OANDA:XAUUSD" interval={(historySignals.find(s => s.id === selectedSignalId)?.timeframe ?? signals[0]?.timeframe ?? "M5")} height={620} signal={(historySignals.find(s => s.id === selectedSignalId) ?? signals[0] ?? null)} />
+        <TradingViewChart symbol="OANDA:XAUUSD" interval={(selectedSignal?.timeframe ?? "M5")} height={620} signal={selectedSignal} />
       </section>
 
       <section className="card" style={{ marginTop: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
           <div>
-            <div className="section-label">FIVE-DAY SIGNAL HISTORY</div>
+            <div className="section-label">TRADINGVIEW SIGNAL HISTORY</div>
             <h2 style={{ margin: "6px 0 4px", fontSize: 20 }}>XAUUSD · TradingView Signals</h2>
-            <p className="muted" style={{ margin: 0 }}>Signals actually recorded by VaultTrades during the last five days.</p>
+            <p className="muted" style={{ margin: 0 }}>Only authenticated TradingView signals recorded by the webhook are shown here.</p>
           </div>
           <button type="button" onClick={() => void loadHistory()} disabled={historyLoading} style={{ padding: "10px 16px", borderRadius: 8, border: "1px solid rgba(212,166,55,.45)", background: "rgba(212,166,55,.08)", color: "#d4a637", fontWeight: 800, cursor: historyLoading ? "wait" : "pointer" }}>
             {historyLoading ? "Loading…" : "Refresh 5-Day History"}
@@ -254,9 +256,9 @@ export default function ScannerAutomationPage() {
       <section className="card" style={{ marginTop: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
           <div>
-            <div className="section-label">CONFIRMED SIGNALS</div>
+            <div className="section-label">LIVE TRADINGVIEW SIGNAL FEED</div>
             <h2 style={{ margin: "6px 0 4px", fontSize: 20 }}>Signal Feed</h2>
-            <p className="muted" style={{ margin: 0 }}>Only newly confirmed signals are shown for 2 hours. The feed is a display window; automation is triggered when the signal reaches VaultTrades.</p>
+            <p className="muted" style={{ margin: 0 }}>Real webhook-recorded signals only. OBSERVE prevents live execution while still proving the complete signal path.</p>
           </div>
         </div>
         <div style={{ overflowX: "auto" }}>
