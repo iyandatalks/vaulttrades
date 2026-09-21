@@ -218,6 +218,10 @@ export default function ScannerAutomationPage() {
       )}
 
       <section className="card" style={{ marginTop: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 10, flexWrap: "wrap" }}>
+          <div><div className="section-label">SELECTED SIGNAL</div><div style={{ fontSize: 13, fontWeight: 800 }}>{(historySignals.find(s => s.id === selectedSignalId) ?? signals.find(s => s.id === selectedSignalId) ?? signals[0]) ? "Signal selected — click any feed/history row to inspect it on the chart." : "Waiting for a recorded TradingView signal."}</div></div>
+          {selectedSignalId && <button type="button" onClick={() => setSelectedSignalId(null)} style={{ padding: "7px 11px", borderRadius: 8, border: "1px solid rgba(255,255,255,.12)", background: "transparent", color: "inherit", fontWeight: 700 }}>Show latest</button>}
+        </div>
         <TradingViewChart symbol="OANDA:XAUUSD" interval={(historySignals.find(s => s.id === selectedSignalId)?.timeframe ?? signals[0]?.timeframe ?? "M5")} height={620} signal={(historySignals.find(s => s.id === selectedSignalId) ?? signals[0] ?? null)} />
       </section>
 
@@ -264,7 +268,7 @@ export default function ScannerAutomationPage() {
                 const isSell = signal.direction.toUpperCase() === "SELL";
                 const rowBackground = isBuy ? "rgba(34,197,94,.12)" : isSell ? "rgba(239,68,68,.12)" : "transparent";
                 const values = [formatAge(signal.fired_at, now), signal.canonical_symbol, signal.timeframe, signal.confirmation_timeframe ?? "—", signal.strategy_name, signal.direction, signal.entry?.toFixed(2) ?? "—", signal.stop_loss?.toFixed(2) ?? "—", signal.tp1?.toFixed(2) ?? "—", signal.tp2?.toFixed(2) ?? "—", signal.tp3?.toFixed(2) ?? "—", signal.tp4?.toFixed(2) ?? "—", signal.tp5?.toFixed(2) ?? "—", signal.entry_quality ?? "—", signal.confidence != null ? `${signal.confidence}%` : "—", signal.status];
-                return <tr key={signal.id} style={{ background: rowBackground }}>{values.map((value, index) => <td key={index} style={{ padding: "10px 8px", fontSize: 12, borderBottom: "1px solid rgba(255,255,255,.06)", whiteSpace: "nowrap", fontWeight: index === 4 ? 800 : 400 }}>{value}</td>)}</tr>;
+                return <tr key={signal.id} onClick={() => setSelectedSignalId(signal.id)} style={{ background: selectedSignalId === signal.id ? "rgba(212,166,55,.12)" : rowBackground, cursor: "pointer" }}>{values.map((value, index) => <td key={index} style={{ padding: "10px 8px", fontSize: 12, borderBottom: "1px solid rgba(255,255,255,.06)", whiteSpace: "nowrap", fontWeight: index === 4 ? 800 : 400 }}>{value}</td>)}</tr>;
               })}
               {!signals.length && <tr><td colSpan={16} style={{ padding: 28, textAlign: "center" }} className="muted">Waiting for a new confirmed signal…</td></tr>}
             </tbody>
