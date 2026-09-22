@@ -621,6 +621,39 @@ bool ProcessSignal(const string signal)
 }
 
 //==================================================================
+// Extract the actual signal object from the VaultTrades API wrapper.
+//
+// Production GET responses are shaped like:
+// {"ok":true,"status":"SIGNAL_READY","signals":[{"signal_id":"...",...}]}
+// The previous parser extracted the OUTER wrapper and therefore logged
+// "signal_id missing" even when the nested signal contained the ID.
+//==================================================================
+string ExtractSignalObject(const string json)
+{
+   int searchFrom = 0;
+
+   while(searchFrom < StringLen(json))
+   {
+      int objectStart = StringFind(json,"{",searchFrom);
+
+      if(objectStart < 0)
+         break;
+
+      string candidate = ExtractFirstObject(StringSubstr(json,objectStart));
+
+      if(candidate == "")
+         break;
+
+      if(JsonString(candidate,"signal_id") != "")
+         return candidate;
+
+      searchFrom = objectStart + 1;
+   }
+
+   return "";
+}
+
+//==================================================================
 // Poll and extract signal object
 //==================================================================
 void PollSignal()
@@ -630,32 +663,20 @@ void PollSignal()
    if(response == "")
       return;
 
-   // API responses can be either an object or an array.
-   // Find the object containing signal_id when possible.
-   int signalPos = StringFind(response,"\"signal_id\"");
+   string signal = ExtractSignalObject(response);
 
-   if(signalPos >= 0)
+   if(signal == "")
    {
-      int start = StringFind(response,"{",signalPos);
+      string status = JsonString(response,"status");
 
-      if(start >= 0)
-      {
-         string tail = StringSubstr(response,start);
-         string signal = ExtractFirstObject(tail);
+      if(status == "WAITING")
+         return;
 
-         if(signal != "")
-         {
-            ProcessSignal(signal);
-            return;
-         }
-      }
+      Print("VaultTrades EMA20: no signal object with signal_id found in response.");
+      return;
    }
 
-   // Fallback for a direct object response.
-   string signal = ExtractFirstObject(response);
-
-   if(signal != "")
-      ProcessSignal(signal);
+   ProcessSignal(signal);
 }
 
 //==================================================================
