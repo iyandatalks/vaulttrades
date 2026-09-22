@@ -17,18 +17,18 @@ const dt=(v:string|null|undefined)=>v?new Date(v).toLocaleString():"—";
 export default function AutomationPage(){
   const [signals,setSignals]=useState<Signal[]>([]);
   const [query,setQuery]=useState("");
-  const [loading,setLoading]=useState(true);
+  const [loading,setLoading]=useState(true);\n  const [refreshing,setRefreshing]=useState(false);
   const [error,setError]=useState("");
 
-  const load=async()=>{
+  const load=async(manual=false)=>{\n    if(manual)setRefreshing(true);
     try{
       setError("");
-      const r=await fetch("/api/automation/signals",{cache:"no-store"});
+      const r=await fetch("/api/automation/signals?ts="+Date.now(),{cache:"no-store"});
       const d=await r.json();
       if(!r.ok) throw new Error(d.error||"Unable to load signals");
       setSignals(d.signals||[]);
     }catch(e){setError(e instanceof Error?e.message:"Unable to load signals");}
-    finally{setLoading(false);}
+    finally{setLoading(false);if(manual)setRefreshing(false);}
   };
 
   useEffect(()=>{
@@ -50,15 +50,15 @@ export default function AutomationPage(){
       <header className="vt-info-hero">
         <div className="vt-label">VAULTTRADES AUTOMATION</div>
         <h1>TradingView Signal Automation</h1>
-        <p>TradingView remains the signal source. This page observes and records the signals received through the VaultTrades webhook before live trade execution is enabled.</p>
+        <p></p>
         <div className="vt-actions" style={{justifyContent:"flex-start",marginTop:18}}>
           <Link className="vt-secondary" href="/automated-trader/subscribe">Automation — $99.99 / month</Link>
-          <button className="vt-secondary" onClick={()=>void load()}>Refresh</button>
+          <button className="vt-secondary" onClick={()=>void load(true)} disabled={refreshing}>{refreshing?"Refreshing…":"Refresh"}</button>
         </div>
       </header>
 
       <section className="vt-info-card" style={{marginBottom:20}}>
-        <div className="vt-label">TRADINGVIEW WIDGET</div>
+        <div className="vt-label">LIVE CHART</div>
         <div style={{marginTop:12,overflow:"hidden",borderRadius:12,border:"1px solid rgba(212,166,55,.22)",background:"#050812"}}>
           <iframe title="TradingView XAUUSD" src="https://www.tradingview.com/widgetembed/?symbol=OANDA%3AXAUUSD&interval=15&hidesidetoolbar=1&symboledit=1&saveimage=0&toolbarbg=f1f3f6&studies=%5B%5D&theme=dark&style=1&timezone=Africa%2FJohannesburg&withdateranges=1&hideideas=1&hidelegend=0" style={{width:"100%",height:520,border:0}} loading="lazy" />
         </div>
