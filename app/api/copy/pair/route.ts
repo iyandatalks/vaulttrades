@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { randomBytes, createHash } from "crypto";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 
 export const runtime = "nodejs";
 
@@ -8,10 +10,12 @@ export async function POST() {
   const { data: { user } } = await auth.auth.getUser();
   if (!user) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
 
-  // Pairing storage/execution is intentionally not faked here.
-  // This endpoint is the contract the MT5 Copier EA will use once the copy tables/API are connected.
-  return NextResponse.json(
-    { error: "COPY_BACKEND_NOT_CONFIGURED", message: "MT5 copy connection backend has not been enabled yet." },
-    { status: 501 }
-  );
+  const code = randomBytes(5).toString("hex").toUpperCase();
+  const hash = createHash("sha256").update(code).digest("hex");
+  const db = createServiceClient();
+
+  await db.from("copy_pairing_codes").update({ revoked_at: new Date().toISOString() }).eq("auth_user_id", user.id).is("redeemed_at", null).is("revoked_at", null);
+  const { error } = await db.from("copy_pairing_codes").insert({ auth_user_id:user.id, code_hash:hash, expires_at:new Date(Date.now()+15*60*1000).toISOString() });
+  if (error) return NextResponse.json({ error:"PAIRING_CREATE_FAILED" }, { status:500 });
+  return NextResponse.json({ pairingCode:code, expiresInSeconds:900 });
 }
