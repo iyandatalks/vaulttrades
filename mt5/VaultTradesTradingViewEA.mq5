@@ -1,197 +1,342 @@
 //+------------------------------------------------------------------+
-//| VaultTradesTradingViewEA.mq5                                    |
-//| TradingView -> VaultTrades -> MT5                               |
+//| VaultTrades EMA20 Automation EA                                  |
+//| TradingView -> VaultTrades -> MT5                                |
 //+------------------------------------------------------------------+
 #property strict
-#property version "2.00"
-#property description "VaultTrades production TradingView bridge. OBSERVE by default; tick Enable Live Execution for LIVE."
+#property version   "3.00"
+#property description "Dedicated VaultTrades EMA20 bridge. Only Key Code and Enable Live Execution are configurable."
 
 #include <Trade/Trade.mqh>
+
 CTrade trade;
 
-// PRODUCTION ENDPOINT — DO NOT CHANGE.
-// TradingView -> VaultTrades app -> MT5 signal polling.
-const string VAULTTRADES_EXECUTION_URL = "https://vaulttradesve.com/api/execution/tradingview";
+//==================================================================
+// PRODUCTION CONFIGURATION — DO NOT CHANGE IN MT5
+//==================================================================
+const string VAULTTRADES_URL = "https://vaulttradesve.com/api/execution/tradingview";
+const string STRATEGY_ID     = "ema20-pullback-morning-engine";
+const string TV_SYMBOL       = "XAUUSD";
 
-input string InpWebhookSecret = "";
-input string InpStrategyID = "ema20-pullback-morning-engine";
+// Broker symbol resolution is automatic.
+// The EA tries exact XAUUSD first, then broker suffix/prefix variants,
+// then common GOLD aliases. No manual symbol mapping is required.
+const double LOT_SIZE        = 0.01;
+const int    POLL_SECONDS    = 2;
+const int    DEVIATION_PTS  = 50;
+const long   MAGIC_NUMBER   = 20260922;
 
-// ONE operational switch:
-// unchecked = OBSERVE
-// checked   = LIVE
-input bool InpEnableLiveExecution = false;
+//==================================================================
+// ONLY TWO MT5 CONTROLS
+//==================================================================
 
-input string InpTradingViewSymbol = "XAUUSD";
-input string InpMT5SymbolMapping = "XAUUSD";
-input double InpLots = 0.01;
-input int InpPollSeconds = 2;
-input int InpDeviationPoints = 50;
-input long InpMagicNumber = 20260922;
+// Enter the VaultTrades webhook key code supplied for this EA.
+input string InpKeyCode = "";
 
-string g_lastSignalId = "";
-datetime g_lastPoll = 0;
+// OFF = OBSERVE: receive/log signals, never place an order.
+// ON  = LIVE: receive and execute eligible EMA20 signals.
+input bool   InpEnableLiveExecution = false;
 
+//==================================================================
+// Runtime state
+//==================================================================
+string   g_lastSignalId = "";
+datetime g_lastPoll     = 0;
+string   g_brokerSymbol = "";
+
+//==================================================================
+// JSON helpers
+//==================================================================
 string JsonString(const string json,const string key)
 {
-   string needle="\"" + key + "\":";
-   int p=StringFind(json,needle);
-   if(p<0) return "";
-   p+=StringLen(needle);
+   string needle = "\"" + key + "\":";
+   int p = StringFind(json,needle);
 
-   while(p<StringLen(json) &&
-         (StringGetCharacter(json,p)==' ' || StringGetCharacter(json,p)=='\t'))
+   if(p < 0)
+      return "";
+
+   p += StringLen(needle);
+
+   while(p < StringLen(json))
+   {
+      ushort c = StringGetCharacter(json,p);
+
+      if(c != ' ' && c != '\t' && c != '\r' && c != '\n')
+         break;
+
       p++;
+   }
 
-   if(p>=StringLen(json) || StringGetCharacter(json,p)!='\"')
+   if(p >= StringLen(json) || StringGetCharacter(json,p) != '\"')
       return "";
 
    p++;
-   int e=p;
 
-   while(e<StringLen(json))
+   int e = p;
+
+   while(e < StringLen(json))
    {
-      if(StringGetCharacter(json,e)=='\"' &&
-         (e==p || StringGetCharacter(json,e-1)!='\\'))
+      ushort c = StringGetCharacter(json,e);
+
+      if(c == '\"' && (e == p || StringGetCharacter(json,e - 1) != '\\'))
          break;
+
       e++;
    }
 
-   if(e>=StringLen(json)) return "";
-   return StringSubstr(json,p,e-p);
+   if(e >= StringLen(json))
+      return "";
+
+   return StringSubstr(json,p,e - p);
 }
 
 double JsonNumber(const string json,const string key)
 {
-   string needle="\"" + key + "\":";
-   int p=StringFind(json,needle);
-   if(p<0) return 0.0;
+   string needle = "\"" + key + "\":";
+   int p = StringFind(json,needle);
 
-   p+=StringLen(needle);
+   if(p < 0)
+      return 0.0;
 
-   while(p<StringLen(json) &&
-         (StringGetCharacter(json,p)==' ' || StringGetCharacter(json,p)=='\t'))
-      p++;
+   p += StringLen(needle);
 
-   int e=p;
-
-   while(e<StringLen(json))
+   while(p < StringLen(json))
    {
-      ushort c=StringGetCharacter(json,e);
-      if((c>='0'&&c<='9') || c=='-' || c=='+' ||
-         c=='.' || c=='e' || c=='E')
-         e++;
-      else
+      ushort c = StringGetCharacter(json,p);
+
+      if(c != ' ' && c != '\t' && c != '\r' && c != '\n')
          break;
+
+      p++;
    }
 
-   return StringToDouble(StringSubstr(json,p,e-p));
+   int e = p;
+
+   while(e < StringLen(json))
+   {
+      ushort c = StringGetCharacter(json,e);
+
+      if((c >= '0' && c <= '9') ||
+         c == '-' || c == '+' || c == '.' ||
+         c == 'e' || c == 'E')
+      {
+         e++;
+      }
+      else
+      {
+         break;
+      }
+   }
+
+   if(e <= p)
+      return 0.0;
+
+   return StringToDouble(StringSubstr(json,p,e - p));
 }
 
+//==================================================================
+// Extract the first complete JSON object from an API response.
+// Handles nested objects and quoted braces.
+//==================================================================
 string ExtractFirstObject(const string json)
 {
-   int start=StringFind(json,"{");
-   if(start<0) return "";
+   int start = StringFind(json,"{");
 
-   int depth=0;
-   bool inString=false;
-   bool escaped=false;
+   if(start < 0)
+      return "";
 
-   for(int i=start;i<StringLen(json);i++)
+   int depth = 0;
+   bool inString = false;
+   bool escaped = false;
+
+   for(int i = start; i < StringLen(json); i++)
    {
-      ushort c=StringGetCharacter(json,i);
+      ushort c = StringGetCharacter(json,i);
 
       if(inString)
       {
-         if(escaped) { escaped=false; continue; }
-         if(c=='\\') { escaped=true; continue; }
-         if(c=='\"') inString=false;
+         if(escaped)
+         {
+            escaped = false;
+            continue;
+         }
+
+         if(c == '\\')
+         {
+            escaped = true;
+            continue;
+         }
+
+         if(c == '\"')
+            inString = false;
+
          continue;
       }
 
-      if(c=='\"') { inString=true; continue; }
+      if(c == '\"')
+      {
+         inString = true;
+         continue;
+      }
 
-      if(c=='{')
+      if(c == '{')
+      {
          depth++;
-      else if(c=='}')
+      }
+      else if(c == '}')
       {
          depth--;
-         if(depth==0)
-            return StringSubstr(json,start,i-start+1);
+
+         if(depth == 0)
+            return StringSubstr(json,start,i - start + 1);
       }
    }
 
    return "";
 }
 
-string ResolveMT5Symbol()
+//==================================================================
+// Broker symbol resolver
+//==================================================================
+bool IsUsableSymbol(const string symbol)
 {
-   string mapped=InpMT5SymbolMapping;
-   StringTrimLeft(mapped);
-   StringTrimRight(mapped);
+   if(symbol == "")
+      return false;
 
-   // Exact mapping wins.
-   if(mapped!="" && SymbolSelect(mapped,true))
-      return mapped;
+   long tradeMode = SymbolInfoInteger(symbol,SYMBOL_TRADE_MODE);
 
-   // Automatic XAUUSD broker-suffix resolution.
-   string base=InpTradingViewSymbol;
-   if(base=="") base="XAUUSD";
+   if(tradeMode == SYMBOL_TRADE_MODE_DISABLED)
+      return false;
 
-   if(SymbolSelect(base,true))
-      return base;
+   return SymbolSelect(symbol,true);
+}
 
-   int total=SymbolsTotal(false);
+string FindSymbolStartingWith(const string base)
+{
+   string upperBase = base;
+   StringToUpper(upperBase);
 
-   for(int i=0;i<total;i++)
+   // First search visible symbols.
+   int total = SymbolsTotal(false);
+
+   for(int i = 0; i < total; i++)
    {
-      string candidate=SymbolName(i,false);
-      string upper=candidate;
-      StringToUpper(upper);
+      string candidate = SymbolName(i,false);
+      string upperCandidate = candidate;
+      StringToUpper(upperCandidate);
 
-      if(StringFind(upper,base)==0)
+      if(StringFind(upperCandidate,upperBase) == 0 &&
+         IsUsableSymbol(candidate))
       {
-         if(SymbolSelect(candidate,true))
-            return candidate;
+         return candidate;
       }
    }
 
-   // Search all symbols, including hidden Market Watch symbols.
-   total=SymbolsTotal(true);
+   // Then search all broker symbols, including hidden Market Watch symbols.
+   total = SymbolsTotal(true);
 
-   for(int j=0;j<total;j++)
+   for(int j = 0; j < total; j++)
    {
-      string candidate2=SymbolName(j,true);
-      string upper2=candidate2;
-      StringToUpper(upper2);
+      string candidate2 = SymbolName(j,true);
+      string upperCandidate2 = candidate2;
+      StringToUpper(upperCandidate2);
 
-      if(StringFind(upper2,base)==0)
+      if(StringFind(upperCandidate2,upperBase) == 0 &&
+         IsUsableSymbol(candidate2))
       {
-         if(SymbolSelect(candidate2,true))
-            return candidate2;
+         return candidate2;
       }
    }
 
    return "";
 }
 
+string FindSymbolContaining(const string base)
+{
+   string upperBase = base;
+   StringToUpper(upperBase);
+
+   int total = SymbolsTotal(true);
+
+   for(int i = 0; i < total; i++)
+   {
+      string candidate = SymbolName(i,true);
+      string upperCandidate = candidate;
+      StringToUpper(upperCandidate);
+
+      if(StringFind(upperCandidate,upperBase) >= 0 &&
+         IsUsableSymbol(candidate))
+      {
+         return candidate;
+      }
+   }
+
+   return "";
+}
+
+string ResolveXAUUSDSymbol()
+{
+   // 1. Exact canonical symbol.
+   if(IsUsableSymbol(TV_SYMBOL))
+      return TV_SYMBOL;
+
+   // 2. Standard broker suffix variants: XAUUSDm, XAUUSD.a, XAUUSDpro, etc.
+   string resolved = FindSymbolStartingWith(TV_SYMBOL);
+
+   if(resolved != "")
+      return resolved;
+
+   // 3. Common broker gold aliases.
+   string aliases[6] =
+   {
+      "GOLD",
+      "GOLDm",
+      "GOLD.a",
+      "GOLDpro",
+      "XAUUSD.",
+      "XAUUSD-"
+   };
+
+   for(int i = 0; i < ArraySize(aliases); i++)
+   {
+      if(IsUsableSymbol(aliases[i]))
+         return aliases[i];
+   }
+
+   // 4. Last-resort containing search.
+   resolved = FindSymbolContaining("XAUUSD");
+
+   if(resolved != "")
+      return resolved;
+
+   resolved = FindSymbolContaining("GOLD");
+
+   return resolved;
+}
+
+//==================================================================
+// Current EA execution mode
+//==================================================================
 string CurrentMode()
 {
-   if(InpEnableLiveExecution)
-      return "LIVE";
-   return "OBSERVE";
+   return InpEnableLiveExecution ? "LIVE" : "OBSERVE";
 }
 
-string Poll()
+//==================================================================
+// Poll VaultTrades
+//==================================================================
+string PollVaultTrades()
 {
-   string mode=CurrentMode();
+   string mode = CurrentMode();
 
-   string url=VAULTTRADES_EXECUTION_URL+
-              "?strategy_id="+InpStrategyID+
-              "&symbol="+InpTradingViewSymbol+
-              "&execution_mode="+mode;
+   string url =
+      VAULTTRADES_URL +
+      "?strategy_id=" + STRATEGY_ID +
+      "&symbol=" + TV_SYMBOL +
+      "&execution_mode=" + mode;
 
-   string headers="Accept: application/json\r\n"+
-                  "X-VaultTrades-Webhook-Secret: "+InpWebhookSecret+"\r\n";
+   string headers =
+      "Accept: application/json\r\n" +
+      "X-VaultTrades-Webhook-Secret: " + InpKeyCode + "\r\n";
 
    char data[];
    char result[];
@@ -199,7 +344,7 @@ string Poll()
 
    ResetLastError();
 
-   int status=WebRequest(
+   int status = WebRequest(
       "GET",
       url,
       headers,
@@ -209,51 +354,65 @@ string Poll()
       resultHeaders
    );
 
-   if(status==-1)
+   if(status == -1)
    {
       Print(
-         "VaultTrades WebRequest failed. Error=",
+         "VaultTrades WebRequest error=",
          GetLastError(),
-         ". MT5 must allow: https://vaulttradesve.com"
+         ". Add https://vaulttradesve.com in MT5: ",
+         "Tools > Options > Expert Advisors > Allow WebRequest."
       );
+
       return "";
    }
 
-   if(status!=200)
+   if(status != 200)
    {
       Print(
-         "VaultTrades bridge HTTP=",
+         "VaultTrades HTTP=",
          status,
          " response=",
          CharArrayToString(result)
       );
+
       return "";
    }
 
    return CharArrayToString(result);
 }
 
+//==================================================================
+// Send MT5 acknowledgement to VaultTrades
+//==================================================================
 bool PostAck(const string signalId,const ulong ticket)
 {
-   string headers=
-      "Content-Type: application/json\r\n"+
-      "X-VaultTrades-Webhook-Secret: "+InpWebhookSecret+"\r\n";
+   if(InpKeyCode == "" || signalId == "")
+      return false;
 
-   string body=
-      "{\"signal_id\":\""+signalId+
-      "\",\"event\":\"MT5_ACK\""+
-      ",\"ticket\":"+IntegerToString((long)ticket)+
-      ",\"source\":\"MT5\"}";
+   string headers =
+      "Content-Type: application/json\r\n" +
+      "X-VaultTrades-Webhook-Secret: " + InpKeyCode + "\r\n";
+
+   string body =
+      "{"
+      "\"signal_id\":\"" + signalId + "\","
+      "\"event\":\"MT5_ACK\","
+      "\"ticket\":" + IntegerToString((long)ticket) + ","
+      "\"source\":\"MT5\","
+      "\"strategy_id\":\"" + STRATEGY_ID + "\""
+      "}";
 
    char data[];
-   StringToCharArray(body,data,0,-1,CP_UTF8);
-
    char result[];
    string resultHeaders;
 
-   int status=WebRequest(
+   StringToCharArray(body,data,0,-1,CP_UTF8);
+
+   ResetLastError();
+
+   int status = WebRequest(
       "POST",
-      VAULTTRADES_EXECUTION_URL,
+      VAULTTRADES_URL,
       headers,
       5000,
       data,
@@ -261,43 +420,68 @@ bool PostAck(const string signalId,const ulong ticket)
       resultHeaders
    );
 
-   if(status!=200)
+   if(status != 200)
    {
       Print(
-         "VaultTrades ACK failed HTTP=",
+         "VaultTrades ACK failed. HTTP=",
          status,
          " response=",
          CharArrayToString(result)
       );
+
       return false;
    }
+
+   Print(
+      "VaultTrades MT5 ACK sent. signal_id=",
+      signalId,
+      " ticket=",
+      ticket
+   );
 
    return true;
 }
 
-bool ExecuteSignal(const string signal)
+//==================================================================
+// Process one EMA20 signal
+//==================================================================
+bool ProcessSignal(const string signal)
 {
-   string signalId=JsonString(signal,"signal_id");
-   string direction=JsonString(signal,"direction");
-   string sourceSymbol=JsonString(signal,"symbol");
-   string mode=JsonString(signal,"execution_mode");
+   string signalId    = JsonString(signal,"signal_id");
+   string direction   = JsonString(signal,"direction");
+   string sourceSymbol= JsonString(signal,"symbol");
+   string mode        = JsonString(signal,"execution_mode");
+   string strategyId  = JsonString(signal,"strategy_id");
 
-   double entry=JsonNumber(signal,"entry_price");
-   double sl=JsonNumber(signal,"stop_loss");
-   double tp=JsonNumber(signal,"tp1");
+   double entry = JsonNumber(signal,"entry_price");
+   double sl    = JsonNumber(signal,"stop_loss");
+   double tp    = JsonNumber(signal,"tp1");
 
-   if(signalId=="")
+   if(signalId == "")
+   {
+      Print("VaultTrades EMA20: signal_id missing.");
       return false;
+   }
 
-   if(signalId==g_lastSignalId)
-      return false;
-
-   string expectedMode=CurrentMode();
-
-   if(mode!=expectedMode)
+   // This EA is dedicated to EMA20 only.
+   if(strategyId != "" && strategyId != STRATEGY_ID)
    {
       Print(
-         "VaultTrades mode mismatch. EA=",
+         "VaultTrades EMA20: ignored non-EMA20 strategy. strategy_id=",
+         strategyId
+      );
+      return false;
+   }
+
+   if(signalId == g_lastSignalId)
+      return false;
+
+   string expectedMode = CurrentMode();
+
+   if(mode != expectedMode)
+   {
+      Print(
+         "VaultTrades EMA20: mode mismatch. EA=",
          expectedMode,
          " signal=",
          mode,
@@ -307,31 +491,30 @@ bool ExecuteSignal(const string signal)
       return false;
    }
 
-   string brokerSymbol=ResolveMT5Symbol();
+   if(g_brokerSymbol == "")
+      g_brokerSymbol = ResolveXAUUSDSymbol();
 
-   if(brokerSymbol=="")
+   if(g_brokerSymbol == "")
    {
       Print(
-         "VaultTrades cannot resolve MT5 gold symbol. TradingView=",
-         InpTradingViewSymbol,
-         " mapping=",
-         InpMT5SymbolMapping
+         "VaultTrades EMA20: XAUUSD broker symbol could not be resolved."
       );
       return false;
    }
 
-   // OBSERVE never places an order.
-   if(expectedMode=="OBSERVE")
+   // OBSERVE: receive the real signal and display it in Experts/Journal.
+   // No order is sent.
+   if(expectedMode == "OBSERVE")
    {
       Print(
-         "VaultTrades OBSERVE RECEIVED | signal_id=",
+         "VAULTTRADES EMA20 OBSERVE | signal_id=",
          signalId,
          " | direction=",
          direction,
          " | TV=",
          sourceSymbol,
          " | MT5=",
-         brokerSymbol,
+         g_brokerSymbol,
          " | entry=",
          DoubleToString(entry,5),
          " | SL=",
@@ -340,70 +523,93 @@ bool ExecuteSignal(const string signal)
          DoubleToString(tp,5)
       );
 
-      g_lastSignalId=signalId;
+      g_lastSignalId = signalId;
       return true;
    }
 
-   if(sl<=0 || tp<=0 || entry<=0)
+   // LIVE validation.
+   if(direction != "BUY" && direction != "SELL")
    {
-      Print("VaultTrades LIVE rejected invalid prices. signal_id=",signalId);
+      Print(
+         "VaultTrades EMA20 LIVE: invalid direction=",
+         direction,
+         " signal_id=",
+         signalId
+      );
       return false;
    }
 
-   trade.SetExpertMagicNumber(InpMagicNumber);
-   trade.SetDeviationInPoints(InpDeviationPoints);
-   trade.SetTypeFillingBySymbol(brokerSymbol);
+   if(entry <= 0.0 || sl <= 0.0 || tp <= 0.0)
+   {
+      Print(
+         "VaultTrades EMA20 LIVE: invalid prices. signal_id=",
+         signalId,
+         " entry=",
+         entry,
+         " SL=",
+         sl,
+         " TP1=",
+         tp
+      );
+      return false;
+   }
 
-   bool ok=false;
+   trade.SetExpertMagicNumber(MAGIC_NUMBER);
+   trade.SetDeviationInPoints(DEVIATION_PTS);
+   trade.SetTypeFillingBySymbol(g_brokerSymbol);
 
-   if(direction=="BUY")
-      ok=trade.Buy(
-         InpLots,
-         brokerSymbol,
+   bool ok = false;
+
+   if(direction == "BUY")
+   {
+      ok = trade.Buy(
+         LOT_SIZE,
+         g_brokerSymbol,
          0.0,
          sl,
          tp,
-         "VaultTrades "+signalId
+         "VaultTrades EMA20 " + signalId
       );
-   else if(direction=="SELL")
-      ok=trade.Sell(
-         InpLots,
-         brokerSymbol,
-         0.0,
-         sl,
-         tp,
-         "VaultTrades "+signalId
-      );
+   }
    else
    {
-      Print("VaultTrades invalid direction=",direction);
-      return false;
+      ok = trade.Sell(
+         LOT_SIZE,
+         g_brokerSymbol,
+         0.0,
+         sl,
+         tp,
+         "VaultTrades EMA20 " + signalId
+      );
    }
 
    if(!ok)
    {
       Print(
-         "VaultTrades LIVE order failed. retcode=",
+         "VaultTrades EMA20 LIVE order failed. signal_id=",
+         signalId,
+         " retcode=",
          trade.ResultRetcode(),
-         " ",
+         " description=",
          trade.ResultRetcodeDescription()
       );
+
       return false;
    }
 
-   ulong ticket=trade.ResultOrder();
+   ulong ticket = trade.ResultOrder();
 
-   g_lastSignalId=signalId;
+   g_lastSignalId = signalId;
 
    PostAck(signalId,ticket);
 
    Print(
-      "VaultTrades LIVE EXECUTED | signal_id=",
+      "VAULTTRADES EMA20 LIVE EXECUTED | signal_id=",
       signalId,
       " | direction=",
       direction,
       " | MT5=",
-      brokerSymbol,
+      g_brokerSymbol,
       " | ticket=",
       ticket
    );
@@ -411,57 +617,104 @@ bool ExecuteSignal(const string signal)
    return true;
 }
 
+//==================================================================
+// Poll and extract signal object
+//==================================================================
 void PollSignal()
 {
-   string response=Poll();
+   string response = PollVaultTrades();
 
-   if(response=="")
+   if(response == "")
       return;
 
-   string signal=ExtractFirstObject(response);
+   // API responses can be either an object or an array.
+   // Find the object containing signal_id when possible.
+   int signalPos = StringFind(response,"\"signal_id\"");
 
-   if(signal=="")
-      return;
+   if(signalPos >= 0)
+   {
+      int start = StringFind(response,"{",signalPos);
 
-   ExecuteSignal(signal);
+      if(start >= 0)
+      {
+         string tail = StringSubstr(response,start);
+         string signal = ExtractFirstObject(tail);
+
+         if(signal != "")
+         {
+            ProcessSignal(signal);
+            return;
+         }
+      }
+   }
+
+   // Fallback for a direct object response.
+   string signal = ExtractFirstObject(response);
+
+   if(signal != "")
+      ProcessSignal(signal);
 }
 
+//==================================================================
+// Initialization
+//==================================================================
 int OnInit()
 {
-   if(InpWebhookSecret=="")
-      Print("WARNING: VaultTrades webhook secret is empty.");
+   if(InpKeyCode == "")
+   {
+      Print(
+         "VaultTrades EMA20 EA: Key Code is required. ",
+         "Enter the VaultTrades webhook key code in the single Key Code field."
+      );
+   }
 
-   string brokerSymbol=ResolveMT5Symbol();
+   g_brokerSymbol = ResolveXAUUSDSymbol();
 
-   Print(
-      "VaultTrades EA READY | endpoint=",
-      VAULTTRADES_EXECUTION_URL,
-      " | strategy=",
-      InpStrategyID,
-      " | mode=",
-      CurrentMode(),
-      " | TradingView symbol=",
-      InpTradingViewSymbol,
-      " | MT5 symbol=",
-      brokerSymbol
-   );
+   Print("============================================================");
+   Print("VaultTrades EMA20 Automation EA");
+   Print("Strategy ID: ",STRATEGY_ID);
+   Print("Endpoint: ",VAULTTRADES_URL);
+   Print("TradingView symbol: ",TV_SYMBOL);
+   Print("Resolved MT5 symbol: ",g_brokerSymbol);
+   Print("Mode: ",CurrentMode());
+   Print("Live execution: ",InpEnableLiveExecution ? "ENABLED" : "OBSERVE");
+   Print("============================================================");
 
-   EventSetTimer(MathMax(1,InpPollSeconds));
+   if(g_brokerSymbol == "")
+   {
+      Print(
+         "VaultTrades EMA20 EA WARNING: no usable XAUUSD/GOLD symbol found."
+      );
+   }
+
+   EventSetTimer(MathMax(1,POLL_SECONDS));
 
    return INIT_SUCCEEDED;
 }
 
+//==================================================================
+// Deinitialization
+//==================================================================
 void OnDeinit(const int reason)
 {
    EventKillTimer();
+
+   Print(
+      "VaultTrades EMA20 Automation EA stopped. reason=",
+      reason
+   );
 }
 
+//==================================================================
+// Timer
+//==================================================================
 void OnTimer()
 {
-   if((TimeCurrent()-g_lastPoll)<InpPollSeconds)
+   if((TimeCurrent() - g_lastPoll) < POLL_SECONDS)
       return;
 
-   g_lastPoll=TimeCurrent();
+   g_lastPoll = TimeCurrent();
 
    PollSignal();
 }
+//+------------------------------------------------------------------+
