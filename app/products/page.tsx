@@ -5,7 +5,8 @@ import { useEffect, useState } from "react";
 
 const products = [
   ["01", "ANALYZER", "$73.99 / month", "VaultTrades structured chart analysis, strategy conditions and trade planning.", "https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-7SU27254MK962725RNGROPDQ", "Subscribe to Analyzer", "/analyzer", "analyzer"],
-  ["02", "AUTOMATION", "$99.99 / month", "VaultTrades TradingView signal automation and trade execution.", "https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-0YR675118F424491GNJ7LAEQ", "Get Access to Automation", "/automation", "automation"],
+  ["03", "SCANNER SIGNALS", "$9.99 / month", "VaultTrades monitoring and confirmed signal delivery.", "https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-6V815454631119629NHESLKI", "Subscribe to Scanner", "/scanner-automation", "scanner"],
+  ["02", "AUTOMATED TRADER", "$99.99 / month", "VaultTrades TradingView signal automation and trade execution.", "https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-0YR675118F424491GNJ7LAEQ", "Get Access to Automated Trader", "/automation", "automation"],
 ] as const;
 
 type AccessResponse = { access?: Record<string, boolean>; admin?: boolean };
@@ -27,7 +28,7 @@ export default function ProductsPage() {
       <div className="vt-info-wrap">
         <header className="vt-info-hero">
           <div className="vt-label">VAULTTRADES PRODUCTS</div>
-          <h1>Two services. Two defined jobs.</h1>
+          <h1>Three services. Three defined jobs.</h1>
           <p>Choose the VaultTrades service you need.</p>
         </header>
         <section className="vt-info-grid">
