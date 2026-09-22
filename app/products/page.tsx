@@ -5,8 +5,7 @@ import { useEffect, useState } from "react";
 
 const products = [
   ["01", "ANALYZER", "$73.99 / month", "VaultTrades structured chart analysis, strategy conditions and trade planning.", "https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-7SU27254MK962725RNGROPDQ", "Subscribe to Analyzer", "/analyzer", "analyzer"],
-  ["02", "SCANNER SIGNALS", "$9.99 / month", "VaultTrades monitoring and confirmed signal delivery.", "https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-6V815454631119629NHESLKI", "Subscribe to Scanner", "/scanner-automation", "scanner"],
-  ["03", "AUTOMATED TRADER", "$99.99 / month", "VaultTrades copy-trading service. No analysis. No following signals. Connect and trade.", "https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-0YR675118F424491GNJ7LAEQ", "Subscribe to Automated Trader", "/automated-trader", "automation"],
+  ["02", "AUTOMATION", "$99.99 / month", "VaultTrades TradingView signal automation and trade execution.", "https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-0YR675118F424491GNJ7LAEQ", "Get Access to Automation", "/automation", "automation"],
 ] as const;
 
 type AccessResponse = { access?: Record<string, boolean>; admin?: boolean };
