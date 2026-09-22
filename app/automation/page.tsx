@@ -17,10 +17,12 @@ const dt=(v:string|null|undefined)=>v?new Date(v).toLocaleString():"—";
 export default function AutomationPage(){
   const [signals,setSignals]=useState<Signal[]>([]);
   const [query,setQuery]=useState("");
-  const [loading,setLoading]=useState(true);\n  const [refreshing,setRefreshing]=useState(false);
+  const [loading,setLoading]=useState(true);
+  const [refreshing,setRefreshing]=useState(false);
   const [error,setError]=useState("");
 
-  const load=async(manual=false)=>{\n    if(manual)setRefreshing(true);
+  const load=async(manual=false)=>{
+    if(manual)setRefreshing(true);
     try{
       setError("");
       const r=await fetch("/api/automation/signals?ts="+Date.now(),{cache:"no-store"});
@@ -50,7 +52,6 @@ export default function AutomationPage(){
       <header className="vt-info-hero">
         <div className="vt-label">VAULTTRADES AUTOMATION</div>
         <h1>TradingView Signal Automation</h1>
-        <p></p>
         <div className="vt-actions" style={{justifyContent:"flex-start",marginTop:18}}>
           <Link className="vt-secondary" href="/automated-trader/subscribe">Automation — $99.99 / month</Link>
           <button className="vt-secondary" onClick={()=>void load(true)} disabled={refreshing}>{refreshing?"Refreshing…":"Refresh"}</button>
@@ -66,7 +67,9 @@ export default function AutomationPage(){
 
       <section className="vt-info-card" style={{marginBottom:20}}>
         <div className="vt-label">SIGNAL SEARCH</div>
-        <input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search signal ID, strategy, timeframe, direction or status..." aria-label="Search signals" style={{width:"100%",marginTop:10,padding:"13px 14px",borderRadius:9,border:"1px solid rgba(212,166,55,.25)",background:"#050812",color:"#f4f6fb",outline:"none"}} />
+        <div style={{marginTop:8,color:"#8992a7",fontSize:13}}>Search received signals by signal ID, strategy, timeframe, direction or status.</div>
+        <input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search signal ID, strategy, timeframe, direction or status..." aria-label="Search signals" style={{width:"100%",marginTop:10,padding:"13px 14px",borderRadius:9,border:"1px solid rgba(212,166,55,.25)",background:"#050812",color:"#f4f6fb",outline:"none"}} />{query&&<button className="vt-secondary" onClick={()=>setQuery("")}>Clear</button>}</div>
+        <div style={{marginTop:9,color:"#8992a7",fontSize:12}}>{query?`Showing ${filtered.length} matching signal${filtered.length===1?"":"s"}.`:`Showing ${signals.length} received signal${signals.length===1?"":"s"}.`}</div>
       </section>
 
       <section className="vt-info-card">
