@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 
 const tools = [
   ["ANALYZER", "Analyze → Confirm → Plan", "Analyze a market setup before execution.", "/analyzer", "Open Analyzer", "analyzer"],
-  ["AUTOMATION", "Receive → Record → Automate", "Receive confirmed TradingView signals and monitor their trade lifecycle.", "/automation", "Open Automation", "automation"],
+  ["COPY", "Connect → Copy → Monitor", "Connect an MT5 account to the VaultTrades copy infrastructure and monitor its connection.", "/copy", "Open Copy", "copy"],
   ["AI COACH", "Ask → Understand → Improve", "Question the analysis, strategy conditions and trading decisions.", "/ai-coach", "Open AI Coach", "ai_coach"],
   ["JOURNAL", "Record → Review → Improve", "Keep your trading decisions and outcomes in one place.", "/journal", "Open Journal", "journal"],
   ["REFERRAL", "Share → Track → Earn", "Manage your VaultTrades referral activity.", "/referral-vault", "Open Referral", "referral"],
@@ -25,7 +25,7 @@ export default function DashboardPage() {
       .finally(() => setLoaded(true));
   }, []);
 
-  const availableTools = loaded ? tools.filter(tool => access[tool[5]]) : [];
+  const availableTools = loaded ? tools.filter(tool => access[tool[5]] || (tool[5] === "copy" && access.automation)) : [];
 
   return (
     <main className="vt-info-page">
@@ -33,16 +33,14 @@ export default function DashboardPage() {
         <header className="vt-info-hero">
           <div className="vt-label">VAULTTRADES WORKSPACE</div>
           <h1>Your trading process, in one place.</h1>
-          <p>Only the VaultTrades tools included in your granted access appear here. Your workspace is opened from this dashboard rather than the main navigation.</p>
+          <p>Analyzer remains the discretionary analysis workspace. Copy is the separate MT5 execution product.</p>
         </header>
-
         <section className="vt-start vt-info-card" style={{ textAlign: "left", marginBottom: 24 }}>
           <div className="vt-label">WORKSPACE ACCESS</div>
           <h2 style={{ margin: "10px 0 8px", fontSize: 27 }}>{loaded ? availableTools.length + " tools available" : "Loading your tools..."}</h2>
-          <p style={{ maxWidth: 760 }}>Your access is controlled by the VaultTrades entitlement system. Tools not granted to your account are not shown in this workspace.</p>
+          <p style={{ maxWidth: 760 }}>Only products included in your VaultTrades entitlement are shown.</p>
           <div className="vt-actions" style={{ justifyContent: "flex-start" }}><Link className="vt-secondary" href="/how-it-works">How It Works</Link></div>
         </section>
-
         <section className="vt-info-grid">
           {availableTools.map(([title, flow, description, href, action]) => (
             <article className="vt-info-card" key={title}>
