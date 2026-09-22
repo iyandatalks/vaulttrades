@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
 
-const FEATURES = ["analyzer", "scanner", "automation", "ai_coach", "journal", "referral"] as const;
+const FEATURES = ["analyzer", "scanner", "copy", "ai_coach", "journal", "referral"] as const;
 
 export async function GET() {
   try {
@@ -27,6 +27,12 @@ export async function GET() {
     if (profile.is_active === true && profile.license_status === "active") {
       access.ai_coach = true;
       access.journal = true;
+    }
+
+    // Preserve existing Automated Trader entitlements during the product transition.
+    if (!access.copy) {
+      const { data } = await admin.rpc("has_feature_access", { p_auth_user_id: user.id, p_feature_code: "automation" });
+      access.copy = data === true;
     }
 
     return NextResponse.json({ authenticated: true, admin: false, access });
