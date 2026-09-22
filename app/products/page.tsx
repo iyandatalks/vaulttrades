@@ -27,7 +27,7 @@ export default function ProductsPage() {
       <div className="vt-info-wrap">
         <header className="vt-info-hero">
           <div className="vt-label">VAULTTRADES PRODUCTS</div>
-          <h1>Three services. Three defined jobs.</h1>
+          <h1>Two services. Two defined jobs.</h1>
           <p>Choose the VaultTrades service you need.</p>
         </header>
         <section className="vt-info-grid">
