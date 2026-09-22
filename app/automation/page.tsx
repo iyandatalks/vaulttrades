@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 
 type Signal = {
   id:string; signal_id:string; strategy_id:string; strategy_name:string|null; symbol:string; direction:string; timeframe:string;
@@ -64,7 +63,6 @@ export default function AutomationPage(){
         <div className="vt-label">VAULTTRADES AUTOMATION</div>
         <h1>TradingView Signal Automation</h1>
         <div className="vt-actions" style={{justifyContent:"flex-start",marginTop:18}}>
-          <Link className="vt-secondary" href="/automated-trader/subscribe">Automation — $99.99 / month</Link>
           <button className="vt-secondary" onClick={()=>void load(true)} disabled={refreshing}>{refreshing?"Refreshing…":"Refresh"}</button>
         </div>
       </header>
