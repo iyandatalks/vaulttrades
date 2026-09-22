@@ -29,9 +29,13 @@ const allowedEventStatus: Record<string, string> = {
   TRADE_CLOSED: "CLOSED",
 };
 
-const authSecret = (request: Request, body?: Record<string, unknown>) =>
-  text(request.headers.get("x-vaulttrades-webhook-secret")) ||
-  text(body?.webhook_secret ?? body?.webhookSecret ?? body?.secret);
+const authSecret = (request: Request, body?: Record<string, unknown>) => {
+  const url = new URL(request.url);
+  return text(request.headers.get("x-vaulttrades-webhook-secret")) ||
+    text(url.searchParams.get("secret")) ||
+    text(url.searchParams.get("token")) ||
+    text(body?.webhook_secret ?? body?.webhookSecret ?? body?.secret);
+};
 
 const checkSecret = (request: Request, body?: Record<string, unknown>) => {
   const configuredSecret = text(process.env.VAULTTRADES_TRADINGVIEW_WEBHOOK_SECRET);
@@ -51,15 +55,15 @@ export async function GET(request: Request) {
   const symbol = text(url.searchParams.get("symbol")).toUpperCase() || "XAUUSD";
   const mode = text(url.searchParams.get("execution_mode")).toUpperCase() || "LIVE";
 
-  if (mode !== "LIVE") {
-    return NextResponse.json({ ok: true, status: "NO_EXECUTION", signals: [] });
+  if (!["OBSERVE", "LIVE"].includes(mode)) {
+    return NextResponse.json({ ok: false, error: "INVALID_EXECUTION_MODE" }, { status: 422 });
   }
 
   const db = createServiceClient();
   let query = db.from("automation_signals")
     .select("id,signal_id,signal_fingerprint,strategy_id,strategy_name,symbol,direction,timeframe,entry_price,stop_loss,tp1,tp2,tp3,tp4,tp5,rr,execution_mode,event,source,generated_at,received_at,status,payload")
     .eq("status", "OPEN")
-    .eq("execution_mode", "LIVE")
+    .eq("execution_mode", mode)
     .eq("symbol", symbol)
     .order("generated_at", { ascending: true })
     .limit(1);
