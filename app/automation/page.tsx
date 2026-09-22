@@ -35,6 +35,14 @@ export default function AutomationPage(){
   };
 
   useEffect(()=>{
+    void (async()=>{
+      try{
+        const r=await fetch("/api/dashboard/access",{cache:"no-store"});
+        const d=await r.json();
+        if(!d.access?.automation && !d.admin){ window.location.replace("/products"); return; }
+        setAccessChecked(true);
+      }catch{ window.location.replace("/products"); }
+    })();
     void load();
     const timer=window.setInterval(()=>void load(),15000);
     return()=>window.clearInterval(timer);
@@ -48,7 +56,9 @@ export default function AutomationPage(){
 
   const headers=["Signal ID","Strategy","TF","Dir","Entry","SL","TP1","TP2","TP3","TP4","TP5","Generated","TP1 Hit","TP2 Hit","TP3 Hit","TP4 Hit","TP5 Hit","SL Hit","Closed","Status"];
 
-  if(!accessChecked) return <main className="vt-info-page"><div className="vt-info-wrap"><div className="vt-info-card">Checking access…</div></div></main>;\n\n  return <main className="vt-info-page">
+  if(!accessChecked) return <main className="vt-info-page"><div className="vt-info-wrap"><div className="vt-info-card">Checking access…</div></div></main>;
+
+  return <main className="vt-info-page">
     <div className="vt-info-wrap">
       <header className="vt-info-hero">
         <div className="vt-label">VAULTTRADES AUTOMATION</div>
@@ -69,7 +79,10 @@ export default function AutomationPage(){
       <section className="vt-info-card" style={{marginBottom:20}}>
         <button type="button" className="vt-label" onClick={()=>document.getElementById("signal-search-input")?.focus()} style={{background:"none",border:0,padding:0,cursor:"pointer",textAlign:"left"}}>SIGNAL SEARCH</button>
         <div style={{marginTop:8,color:"#8992a7",fontSize:13}}>Search received signals by signal ID, strategy, timeframe, direction or status.</div>
-        <div style={{marginTop:8,color:"#8992a7",fontSize:13}}>Search by Signal ID, strategy, timeframe, direction, or status.</div>\n        <input id="signal-search-input" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search signal ID, strategy, timeframe, direction or status..." aria-label="Search signals" style={{width:"100%",marginTop:10,padding:"13px 14px",borderRadius:9,border:"1px solid rgba(212,166,55,.25)",background:"#050812",color:"#f4f6fb",outline:"none"}} />{query&&<button className="vt-secondary" onClick={()=>setQuery("")}>Clear</button>}</div>
+        <div style={{display:"flex",gap:10,marginTop:10}}>
+          <input id="signal-search-input" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Signal ID, strategy, timeframe, direction or status" aria-label="Search signals" style={{flex:1,padding:"13px 14px",borderRadius:9,border:"1px solid rgba(212,166,55,.25)",background:"#050812",color:"#f4f6fb",outline:"none"}} />
+          {query&&<button className="vt-secondary" onClick={()=>setQuery("")}>Clear</button>}
+        </div>
         <div style={{marginTop:9,color:"#8992a7",fontSize:12}}>{query?`Showing ${filtered.length} matching signal${filtered.length===1?"":"s"}.`:`Showing ${signals.length} received signal${signals.length===1?"":"s"}.`}</div>
       </section>
 
