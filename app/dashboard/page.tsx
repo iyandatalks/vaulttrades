@@ -5,8 +5,7 @@ import { useEffect, useState } from "react";
 
 const tools = [
   ["ANALYZER", "Analyze → Confirm → Plan", "Analyze a market setup before execution.", "/analyzer", "Open Analyzer", "analyzer"],
-  ["SCANNER", "Monitor → Detect → Review", "Monitor defined conditions and qualifying setups.", "/scanner-automation", "Open Scanner", "scanner"],
-  ["AUTOMATED TRADER", "Copy → Execute → Monitor", "Connect the MT5 account that will receive VaultTrades copy trades.", "/automated-trader", "Open Automated Trader", "automation"],
+  ["AUTOMATION", "Receive → Record → Automate", "Receive confirmed TradingView signals and monitor their trade lifecycle.", "/automation", "Open Automation", "automation"],
   ["AI COACH", "Ask → Understand → Improve", "Question the analysis, strategy conditions and trading decisions.", "/ai-coach", "Open AI Coach", "ai_coach"],
   ["JOURNAL", "Record → Review → Improve", "Keep your trading decisions and outcomes in one place.", "/journal", "Open Journal", "journal"],
   ["REFERRAL", "Share → Track → Earn", "Manage your VaultTrades referral activity.", "/referral-vault", "Open Referral", "referral"],
@@ -39,7 +38,7 @@ export default function DashboardPage() {
 
         <section className="vt-start vt-info-card" style={{ textAlign: "left", marginBottom: 24 }}>
           <div className="vt-label">WORKSPACE ACCESS</div>
-          <h2 style={{ margin: "10px 0 8px", fontSize: 27 }}>{loaded ? `${availableTools.length} tools available` : "Loading your tools..."}</h2>
+          <h2 style={{ margin: "10px 0 8px", fontSize: 27 }}>{loaded ? availableTools.length + " tools available" : "Loading your tools..."}</h2>
           <p style={{ maxWidth: 760 }}>Your access is controlled by the VaultTrades entitlement system. Tools not granted to your account are not shown in this workspace.</p>
           <div className="vt-actions" style={{ justifyContent: "flex-start" }}><Link className="vt-secondary" href="/how-it-works">How It Works</Link></div>
         </section>
@@ -54,22 +53,6 @@ export default function DashboardPage() {
             </article>
           ))}
           {loaded && availableTools.length === 0 && <article className="vt-info-card"><h2>No workspace tools yet</h2><p>Once access is granted, the relevant VaultTrades tools will appear here.</p></article>}
-        </section>
-
-        <section className="vt-connection" style={{ marginTop: 24 }}>
-          <article className="vt-status-card">
-            <div className="vt-label">AUTOMATED TRADER</div>
-            <h2 style={{ margin: "10px 0 4px", fontSize: 24 }}>Copy-trading connection</h2>
-            <div className="vt-status-row"><span className="vt-status-name">VaultTrades service</span><span className="vt-status-pill">SIGNAL</span></div>
-            <div className="vt-status-row"><span className="vt-status-name">Customer MT5 account</span><span className="vt-status-pill">DESTINATION</span></div>
-            <div className="vt-status-row"><span className="vt-status-name">Trade handoff</span><span className="vt-status-pill">AUTOMATED</span></div>
-          </article>
-          <article className="vt-technical">
-            <div className="vt-label">DISCIPLINED WORKFLOW</div>
-            <h2 style={{ margin: "10px 0 8px", fontSize: 24 }}>Analyze. Confirm. Execute. Review.</h2>
-            <p>VaultTrades is designed around a process. A potential area is not automatically an entry; confirmation remains part of the trading decision.</p>
-            <Link className="vt-text-link" href="/how-it-works">Read the complete workflow →</Link>
-          </article>
         </section>
       </div>
     </main>
