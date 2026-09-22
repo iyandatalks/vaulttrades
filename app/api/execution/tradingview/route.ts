@@ -29,13 +29,50 @@ const allowedEventStatus: Record<string, string> = {
   TRADE_CLOSED: "CLOSED",
 };
 
-export async function GET() {
+const authSecret = (request: Request, body?: Record<string, unknown>) =>
+  text(request.headers.get("x-vaulttrades-webhook-secret")) ||
+  text(body?.webhook_secret ?? body?.webhookSecret ?? body?.secret);
+
+const checkSecret = (request: Request, body?: Record<string, unknown>) => {
+  const configuredSecret = text(process.env.VAULTTRADES_TRADINGVIEW_WEBHOOK_SECRET);
+  const receivedSecret = authSecret(request, body);
+  if (!configuredSecret) return { ok: false, status: 500, error: "WEBHOOK_SECRET_NOT_CONFIGURED" };
+  if (!receivedSecret) return { ok: false, status: 401, error: "WEBHOOK_SECRET_MISSING" };
+  if (receivedSecret !== configuredSecret) return { ok: false, status: 401, error: "AUTH_FAILED" };
+  return { ok: true as const };
+};
+
+export async function GET(request: Request) {
+  const auth = checkSecret(request);
+  if (!auth.ok) return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
+
+  const url = new URL(request.url);
+  const strategyId = text(url.searchParams.get("strategy_id"));
+  const symbol = text(url.searchParams.get("symbol")).toUpperCase() || "XAUUSD";
+  const mode = text(url.searchParams.get("execution_mode")).toUpperCase() || "LIVE";
+
+  if (mode !== "LIVE") {
+    return NextResponse.json({ ok: true, status: "NO_EXECUTION", signals: [] });
+  }
+
+  const db = createServiceClient();
+  let query = db.from("automation_signals")
+    .select("id,signal_id,signal_fingerprint,strategy_id,strategy_name,symbol,direction,timeframe,entry_price,stop_loss,tp1,tp2,tp3,tp4,tp5,rr,execution_mode,event,source,generated_at,received_at,status,payload")
+    .eq("status", "OPEN")
+    .eq("execution_mode", "LIVE")
+    .eq("symbol", symbol)
+    .order("generated_at", { ascending: true })
+    .limit(1);
+
+  if (strategyId) query = query.eq("strategy_id", strategyId);
+
+  const { data, error } = await query;
+  if (error) return NextResponse.json({ ok: false, error: "PERSISTENCE_FAILED", detail: error.message }, { status: 500 });
+
   return NextResponse.json({
-    service: "VaultTrades Automation TradingView webhook",
-    status: "READY",
-    mode: "OBSERVE",
-    source: "TradingView",
-    endpoint: "/api/execution/tradingview",
+    ok: true,
+    status: data?.length ? "SIGNAL_READY" : "WAITING",
+    signals: data ?? [],
   });
 }
 
@@ -46,20 +83,44 @@ export async function POST(request: Request) {
   try { body = await request.json(); }
   catch { return NextResponse.json({ ok: false, request_id: requestId, error: "INVALID_JSON" }, { status: 400 }); }
 
-  const receivedSecret = text(body.webhook_secret ?? body.webhookSecret ?? body.secret);
-  const configuredSecret = text(process.env.VAULTTRADES_TRADINGVIEW_WEBHOOK_SECRET);
-
-  if (!configuredSecret) return NextResponse.json({ ok: false, request_id: requestId, error: "WEBHOOK_SECRET_NOT_CONFIGURED" }, { status: 500 });
-  if (!receivedSecret) return NextResponse.json({ ok: false, request_id: requestId, error: "WEBHOOK_SECRET_MISSING" }, { status: 401 });
-  if (receivedSecret !== configuredSecret) return NextResponse.json({ ok: false, request_id: requestId, error: "AUTH_FAILED" }, { status: 401 });
+  const auth = checkSecret(request, body);
+  if (!auth.ok) return NextResponse.json({ ok: false, request_id: requestId, error: auth.error }, { status: auth.status });
 
   const signalId = text(body.signal_id ?? body.trade_id);
+  const event = text(body.event).toUpperCase() || "CONFIRMED_ENTRY";
+  const receivedAt = new Date().toISOString();
+
+  // MT5 acknowledges that a TradingView signal has been consumed/executed.
+  if (event === "MT5_ACK") {
+    if (!signalId) return NextResponse.json({ ok: false, request_id: requestId, error: "SIGNAL_ID_REQUIRED" }, { status: 422 });
+
+    const db = createServiceClient();
+    const updates: Record<string, unknown> = {
+      status: "EXECUTED",
+      last_update_at: receivedAt,
+      updated_at: receivedAt,
+      payload: body,
+    };
+    if (body.ticket !== undefined) updates.mt5_ticket = num(body.ticket);
+    if (body.order_ticket !== undefined) updates.mt5_order_ticket = num(body.order_ticket);
+
+    const { data, error } = await db.from("automation_signals")
+      .update(updates)
+      .eq("signal_id", signalId)
+      .select("id,signal_id,status")
+      .maybeSingle();
+
+    if (error) return NextResponse.json({ ok: false, request_id: requestId, error: "PERSISTENCE_FAILED", detail: error.message }, { status: 500 });
+    if (!data) return NextResponse.json({ ok: false, request_id: requestId, error: "SIGNAL_NOT_FOUND", signal_id: signalId }, { status: 404 });
+
+    return NextResponse.json({ ok: true, request_id: requestId, event, signal: data });
+  }
+
   const strategyId = text(body.strategy_id);
   const strategyName = text(body.strategy_name) || null;
   const symbol = text(body.symbol || body.ticker).toUpperCase();
   const direction = text(body.direction ?? body.action).toUpperCase();
   const timeframe = text(body.timeframe);
-  const event = text(body.event).toUpperCase() || "CONFIRMED_ENTRY";
   const source = text(body.source) || "TradingView";
   const executionMode = (text(body.execution_mode) || "OBSERVE").toUpperCase();
   const generatedAt = time(body.timestamp ?? body.generated_at);
@@ -69,8 +130,10 @@ export async function POST(request: Request) {
   if (!["BUY","SELL"].includes(direction)) return NextResponse.json({ok:false,request_id:requestId,error:"INVALID_DIRECTION"},{status:422});
   if (!["OBSERVE","LIVE"].includes(executionMode)) return NextResponse.json({ok:false,request_id:requestId,error:"INVALID_EXECUTION_MODE"},{status:422});
 
+  const entry=num(body.entry ?? body.entry_price);
+  if(entry===null) return NextResponse.json({ok:false,request_id:requestId,error:"ENTRY_REQUIRED"},{status:422});
+
   const db = createServiceClient();
-  const receivedAt = new Date().toISOString();
 
   if (event !== "CONFIRMED_ENTRY" && allowedEventStatus[event]) {
     const updates: Record<string, unknown> = { status: allowedEventStatus[event], last_update_at: receivedAt, updated_at: receivedAt, payload: body };
@@ -84,9 +147,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ok:true,request_id:requestId,event,signal:data});
   }
 
-  const entry=num(body.entry ?? body.entry_price);
-  if(entry===null) return NextResponse.json({ok:false,request_id:requestId,error:"ENTRY_REQUIRED"},{status:422});
-
   const row = {
     signal_id: signalId, signal_fingerprint: text(body.signal_fingerprint)||null,
     strategy_id: strategyId, strategy_name: strategyName, symbol, direction, timeframe,
@@ -95,7 +155,7 @@ export async function POST(request: Request) {
     generated_at:generatedAt, received_at:receivedAt, status:"OPEN", last_update_at:receivedAt, payload:body, updated_at:receivedAt
   };
 
-  const {data,error}=await db.from("automation_signals").upsert(row,{onConflict:"signal_id"}).select("id,signal_id,strategy_id,symbol,direction,timeframe,entry_price,status,generated_at,received_at").single();
+  const {data,error}=await db.from("automation_signals").upsert(row,{onConflict:"signal_id"}).select("id,signal_id,strategy_id,symbol,direction,timeframe,entry_price,stop_loss,tp1,status,execution_mode,generated_at,received_at").single();
   if(error) return NextResponse.json({ok:false,request_id:requestId,error:"PERSISTENCE_FAILED",detail:error.message},{status:500});
-  return NextResponse.json({ok:true,request_id:requestId,mode:"OBSERVE",signal:data});
+  return NextResponse.json({ok:true,request_id:requestId,mode:executionMode,signal:data});
 }
