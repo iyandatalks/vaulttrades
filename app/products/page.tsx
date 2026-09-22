@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 const products = [
-  ["01", "ANALYZER", "$73.99 / month", "VaultTrades structured chart analysis, strategy conditions and trade planning.", "https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-7SU27254MK962725RNGROPDQ", "Subscribe to Analyzer", "/analyzer", "analyzer"],
+  ["01", "ANALYZER", "$73.99 / month", "Discretionary market analysis, strategy conditions and trade planning. Analyzer helps traders understand a setup before they decide what to do.", "https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-7SU27254MK962725RNGROPDQ", "Subscribe to Analyzer", "/analyzer", "analyzer"],
   ["03", "SCANNER SIGNALS", "$9.99 / month", "VaultTrades monitoring and confirmed signal delivery.", "https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-6V815454631119629NHESLKI", "Subscribe to Scanner", "/scanner-automation", "scanner"],
-  ["02", "AUTOMATED TRADER", "$99.99 / month", "VaultTrades TradingView signal automation and trade execution.", "https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-0YR675118F424491GNJ7LAEQ", "Get Access to Automated Trader", "/automation", "automation"],
+  ["02", "COPY TRADING", "$99.99 / month", "Connect your MT5 account to the VaultTrades copy infrastructure. No TradingView webhook setup is required for the customer.", "https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-0YR675118F424491GNJ7LAEQ", "Get Access to Copy Trading", "/copy", "copy"],
 ] as const;
 
 type AccessResponse = { access?: Record<string, boolean>; admin?: boolean };
@@ -29,7 +29,7 @@ export default function ProductsPage() {
         <header className="vt-info-hero">
           <div className="vt-label">VAULTTRADES PRODUCTS</div>
           <h1>Three services. Three defined jobs.</h1>
-          <p>Choose the VaultTrades service you need.</p>
+          <p>Analyzer is for discretionary analysis. Scanner monitors defined conditions. Copy is the execution product for customers who want VaultTrades trades copied to MT5.</p>
         </header>
         <section className="vt-info-grid">
           {products.map(([number, title, price, text, checkout, checkoutLabel, productHref, feature]) => (
@@ -40,7 +40,7 @@ export default function ProductsPage() {
               <p>{text}</p>
               <div className="vt-actions" style={{ marginTop: 18 }}>
                 <a className="vt-primary" href={checkout}>{checkoutLabel}</a>
-                {loaded && access[feature] === true && (
+                {loaded && (access[feature] === true || (feature === "copy" && access.automation === true)) && (
                   <Link className="vt-secondary" href={productHref}>View product</Link>
                 )}
               </div>
