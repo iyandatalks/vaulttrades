@@ -47,8 +47,7 @@ const checkSecret = (request: Request, body?: Record<string, unknown>) => {
 };
 
 export async function GET(request: Request) {
-  const auth = checkSecret(request);
-  if (!auth.ok) return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
+  // MT5 polling is read-only. TradingView POSTs and MT5 acknowledgements remain authenticated.
 
   const url = new URL(request.url);
   const strategyId = text(url.searchParams.get("strategy_id"));
