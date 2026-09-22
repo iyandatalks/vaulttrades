@@ -271,6 +271,12 @@ bool SendEvent(PendingEvent &e)
    return ok;
   }
 
+void PublishOrQueue(PendingEvent &e)
+  {
+   if(!SendEvent(e))
+      Enqueue(e);
+  }
+
 void FlushQueue()
   {
    int sent=0;
@@ -463,8 +469,7 @@ void QueueDealEvent(ulong dealTicket)
       );
 
       TrackPosition(positionId,symbol,direction,volume,sl,tp,timeMs);
-      Enqueue(e);
-      SendEvent(e);
+      PublishOrQueue(e);
       return;
      }
 
@@ -508,12 +513,11 @@ void QueueDealEvent(ulong dealTicket)
          payload
       );
 
-      Enqueue(e);
-      SendEvent(e);
+      PublishOrQueue(e);
 
       if(tracked>=0)
         {
-         if(PositionSelectByTicket((ulong)PositionGetInteger(POSITION_TICKET)))
+         if(PositionSelect(symbol))
             TrackPosition(positionId,
                           symbol,
                           direction,
@@ -592,8 +596,7 @@ void CheckPositionModifications()
                payload
             );
 
-            Enqueue(e);
-            SendEvent(e);
+            PublishOrQueue(e);
 
             g_positions[i].volume=volume;
             g_positions[i].stopLoss=sl;
