@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 import { createServiceClient } from "@/lib/supabase/service";
 
 export const runtime = "nodejs";
@@ -46,6 +47,16 @@ const checkSecret = (request: Request, body?: Record<string, unknown>) => {
   return { ok: true as const };
 };
 
+// Authoritative per-signal identity. Preserve TradingView signal_id when present;
+// otherwise derive a deterministic ID before Supabase persistence.
+const buildSignalIdentity = (body: Record<string, unknown>, generatedAt: string) => {
+  const supplied = text(body.signal_id ?? body.trade_id);
+  if (supplied) return { signalId: supplied, generated: false };
+  const canonical = [text(body.strategy_id), text(body.symbol ?? body.ticker).toUpperCase(), text(body.direction ?? body.action).toUpperCase(), text(body.timeframe), generatedAt, num(body.entry ?? body.entry_price), num(body.stop_loss), num(body.tp1)].join("|");
+  const fingerprint = createHash("sha256").update(canonical).digest("hex").slice(0, 24);
+  return { signalId: `VT-${fingerprint}`, generated: true };
+};
+
 export async function GET(request: Request) {
   // MT5 polling is read-only. TradingView POSTs and MT5 acknowledgements remain authenticated.
 
@@ -89,9 +100,11 @@ export async function POST(request: Request) {
   const auth = checkSecret(request, body);
   if (!auth.ok) return NextResponse.json({ ok: false, request_id: requestId, error: auth.error }, { status: auth.status });
 
-  const signalId = text(body.signal_id ?? body.trade_id);
   const event = text(body.event).toUpperCase() || "CONFIRMED_ENTRY";
   const receivedAt = new Date().toISOString();
+  const generatedAtForIdentity = time(body.timestamp ?? body.generated_at) || receivedAt;
+  const identity = buildSignalIdentity(body, generatedAtForIdentity);
+  const signalId = identity.signalId;
 
   // MT5 acknowledges that a TradingView signal has been consumed/executed.
   if (event === "MT5_ACK") {
@@ -129,7 +142,7 @@ export async function POST(request: Request) {
   const generatedAt = time(body.timestamp ?? body.generated_at);
 
   if (!signalId || !strategyId || !symbol || !direction || !timeframe || !generatedAt)
-    return NextResponse.json({ ok:false, request_id:requestId, error:"VALIDATION_FAILED", required:["signal_id","strategy_id","symbol","direction","timeframe","timestamp"] }, {status:422});
+    return NextResponse.json({ ok:false, request_id:requestId, error:"VALIDATION_FAILED", required:["strategy_id","symbol","direction","timeframe","timestamp"] }, {status:422});
   if (!["BUY","SELL"].includes(direction)) return NextResponse.json({ok:false,request_id:requestId,error:"INVALID_DIRECTION"},{status:422});
   if (!["OBSERVE","LIVE"].includes(executionMode)) return NextResponse.json({ok:false,request_id:requestId,error:"INVALID_EXECUTION_MODE"},{status:422});
 
@@ -151,7 +164,7 @@ export async function POST(request: Request) {
   }
 
   const row = {
-    signal_id: signalId, signal_fingerprint: text(body.signal_fingerprint)||null,
+    signal_id: signalId, signal_fingerprint: text(body.signal_fingerprint) || createHash("sha256").update([strategyId,symbol,direction,timeframe,generatedAt,entry,num(body.stop_loss),num(body.tp1)].join("|")).digest("hex"),
     strategy_id: strategyId, strategy_name: strategyName, symbol, direction, timeframe,
     entry_price: entry, stop_loss:num(body.stop_loss), tp1:num(body.tp1), tp2:num(body.tp2), tp3:num(body.tp3), tp4:num(body.tp4), tp5:num(body.tp5),
     rr:num(body.rr), confidence:num(body.confidence), execution_mode:executionMode, event, source,
@@ -160,5 +173,5 @@ export async function POST(request: Request) {
 
   const {data,error}=await db.from("automation_signals").upsert(row,{onConflict:"signal_id"}).select("id,signal_id,strategy_id,symbol,direction,timeframe,entry_price,stop_loss,tp1,status,execution_mode,generated_at,received_at").single();
   if(error) return NextResponse.json({ok:false,request_id:requestId,error:"PERSISTENCE_FAILED",detail:error.message},{status:500});
-  return NextResponse.json({ok:true,request_id:requestId,mode:executionMode,signal:data});
+  return NextResponse.json({ok:true,request_id:requestId,mode:executionMode,signal_id:signalId,signal_id_generated:identity.generated,signal:data});
 }
