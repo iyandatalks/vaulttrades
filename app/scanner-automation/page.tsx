@@ -79,7 +79,7 @@ export default function ScannerAutomationPage() {
       const response = await fetch("/api/signals", { cache: "no-store" });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Unable to load signals.");
-      const fresh = (data.signals || []).filter((signal: Signal) => Date.now() - new Date(signal.fired_at).getTime() <= SIGNAL_MAX_AGE_MS); setSignals(fresh); if (!selectedSignalId && fresh[0]?.id) setSelectedSignalId(fresh[0].id);
+      const fresh = (data.signals || []).filter((signal: Signal) => Date.now() - new Date(signal.fired_at).getTime() <= SIGNAL_MAX_AGE_MS); setSignals(fresh);
       setError("");
       setLastRefreshed(Date.now());
     } catch (e) {
