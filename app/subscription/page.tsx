@@ -1,19 +1,22 @@
 "use client";
 
-import { Suspense, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { createBrowserClient } from "@supabase/ssr";
 
 const PRODUCTS = [
   { code: "analyzer_monthly", name: "Analyzer", price: "73.99", suffix: "/month", description: "Structured chart analysis, strategy conditions and trade planning.", type: "checkout" },
-  { code: "founders_mentorship_once", name: "Founders Mentorship", price: "53", suffix: " once off", description: "A focused mentorship program with a 1-hour one-on-one session.", type: "link" },
+  { code: "founders_mentorship_once", name: "Founders Mentorship", price: "53", suffix: " once off", description: "A focused mentorship program with a 1-hour one-on-one session." },
   { code: "automated_trader_monthly", name: "Copy Trading", price: "99.99", suffix: "/month", description: "VaultTrades copy trading with connected MT5 execution.", type: "checkout" },
 ] as const;
 
-const FOUNDERS_CHECKOUT = "/founders-mentorship/purchase";
-
 function SubscriptionContent() {
+  const router = useRouter();
   const params = useSearchParams();
   const requested = params.get("product") || "analyzer_monthly";
+  const autoStart = params.get("start") === "1";
+  const startedRef = useRef(false);
+  const selected = PRODUCTS.some((product) => product.code === requested) ? requested : "analyzer_monthly";
   const [loading, setLoading] = useState("");
   const [error, setError] = useState("");
 
@@ -21,7 +24,19 @@ function SubscriptionContent() {
     setLoading(productCode);
     setError("");
     try {
-      const response = await fetch("/api/paypal/create-order", {
+      const sb = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+      const { data } = await sb.auth.getUser();
+
+      if (!data.user) {
+        const next = "/subscription?product=" + encodeURIComponent(productCode) + "&start=1";
+        router.replace("/auth/register?next=" + encodeURIComponent(next));
+        return;
+      }
+
+      const response = await fetch("/api/paypal/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ productCode }),
@@ -51,15 +66,9 @@ function SubscriptionContent() {
               <div style={{ color: "#d4a637", fontSize: 32, fontWeight: 900 }}>${product.price}<span style={{ color: "#aeb5c6", fontSize: 13, fontWeight: 500 }}>{product.suffix}</span></div>
               <p style={{ color: "#aeb5c6", lineHeight: 1.6, minHeight: 52 }}>{product.description}</p>
 
-              {product.type === "link" ? (
-                <a href={FOUNDERS_CHECKOUT} style={{ display: "block", width: "100%", marginTop: 16, padding: "13px 16px", borderRadius: 8, background: "#d4a637", color: "#050812", fontWeight: 900, textAlign: "center", textDecoration: "none" }}>
-                  Pay for Founders Mentorship
-                </a>
-              ) : (
-                <button onClick={() => void startPayPal(product.code)} disabled={Boolean(loading)} style={{ width: "100%", marginTop: 16, padding: "13px 16px", border: 0, borderRadius: 8, background: "#d4a637", color: "#050812", fontWeight: 900, cursor: loading ? "wait" : "pointer" }}>
-                  {loading === product.code ? "Opening PayPal..." : "Subscribe with PayPal"}
+              <button onClick={() => void startPayPal(product.code)} disabled={Boolean(loading)} style={{ width: "100%", marginTop: 16, padding: "13px 16px", border: 0, borderRadius: 8, background: "#d4a637", color: "#050812", fontWeight: 900, cursor: loading ? "wait" : "pointer" }}>
+                  {loading === product.code ? "Opening PayPal..." : "Continue to PayPal"}
                 </button>
-              )}
             </article>
           ))}
         </div>
