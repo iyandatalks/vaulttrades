@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 const products = [
-  ["01", "ANALYZER", "$73.99 / month", "Discretionary market analysis, strategy conditions and trade planning. Analyzer helps traders understand a setup before they decide what to do.", "https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-7SU27254MK962725RNGROPDQ", "Subscribe to Analyzer", "/analyzer", "analyzer"],
-  ["02", "FOUNDERS MENTORSHIP", "$53 once off", "A focused mentorship program with a 1-hour one-on-one session. Payment is once-off. After payment is confirmed, VaultTrades directs you to book your session.", "/founders-mentorship/purchase", "Join Founders Mentorship", "/founders-mentorship", "founders_mentorship"],
-  ["03", "COPY TRADING", "$99.99 / month", "Connect your MT5 account to the VaultTrades copy infrastructure. No TradingView webhook setup is required for the customer.", "https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-0YR675118F424491GNJ7LAEQ", "Subscribe to Copy Trading", "/copy", "copy"],
+  ["01", "ANALYZER", "$73.99 / month", "Discretionary market analysis, strategy conditions and trade planning. Analyzer helps traders understand a setup before they decide what to do.", "/subscription?product=analyzer_monthly&start=1", "Continue to Checkout", "/analyzer", "analyzer"],
+  ["02", "FOUNDERS MENTORSHIP", "$53 once off", "A focused mentorship program with a 1-hour one-on-one session. Payment is once-off. After payment is confirmed, VaultTrades directs you to book your session.", "/subscription?product=founders_mentorship_once&start=1", "Continue to Checkout", "/founders-mentorship", "founders_mentorship"],
+  ["03", "COPY TRADING", "$99.99 / month", "Connect your MT5 account to the VaultTrades copy infrastructure. No TradingView webhook setup is required for the customer.", "/subscription?product=automated_trader_monthly&start=1", "Continue to Checkout", "/copy", "copy"],
 ] as const;
 
 type AccessResponse = { access?: Record<string, boolean>; admin?: boolean };
