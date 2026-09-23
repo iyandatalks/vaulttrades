@@ -25,7 +25,7 @@ export const PAYPAL_PRODUCTS: Record<string, VaultTradesPayPalProduct> = {
     planId: "P-0YR675118F424491GNJ7LAEQ",
     entitlement: "automation",
     billingMode: "monthly",
-    returnPath: "/copy?payment=success",
+    returnPath: "/subscription/paypal/success?product=automated_trader_monthly",
   },
   founders_mentorship_once: {
     code: "founders_mentorship_once",
@@ -34,7 +34,7 @@ export const PAYPAL_PRODUCTS: Record<string, VaultTradesPayPalProduct> = {
     planId: "P-7PG440523L908841RNJ2GXQQ",
     entitlement: "founders_mentorship",
     billingMode: "once_off",
-    returnPath: "/founders-mentorship/booking?payment=success",
+    returnPath: "/subscription/paypal/success?product=founders_mentorship_once",
   },
 };
 
