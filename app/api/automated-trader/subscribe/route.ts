@@ -4,7 +4,7 @@ import { createAdminClient } from "../../../../lib/supabase/admin";
 import { paypalRequest } from "../../../../lib/paypal";
 import { getPayPalProduct } from "../../../../lib/paypal-products";
 
-const RETURN_BASE = "https://vaulttrades.vercel.app/automated-trader";
+const RETURN_BASE = "https://vaulttradesve.com/copy";
 const PRODUCT = getPayPalProduct("automated_trader_monthly")!;
 
 export async function POST() {
