@@ -295,6 +295,7 @@ string JsonStr(string json,string key,int from)
 
    return UnescapeJson(StringSubstr(json,q0,qe-q0));
   }
+
 // Number value of 'key' (0.0 when missing/not numeric)
 double JsonNum(string json,string key,int from)
   {
@@ -593,7 +594,8 @@ void AddMappingRow(string executionId,
    g_mapPosition[n]=position;
    g_mapState[n]=state;
    g_mapExecVolume[n]=execVolume;
-   g_mapExecPrice[n]=execPrice;   g_mapErrorCode[n]=errorCode;
+   g_mapExecPrice[n]=execPrice;
+   g_mapErrorCode[n]=errorCode;
    g_mapErrorMessage[n]=errorMessage;
 
    SaveMapping();
@@ -892,7 +894,8 @@ bool ValidateStops(string symbol,string direction,double &sl,double &tp,string &
            {
             err="TP_TOO_CLOSE";
             return false;
-           }        }
+           }
+        }
      }
 
    return true;
@@ -1191,7 +1194,8 @@ void ExecuteOpen(Command &c)
    // Obtain the actual position ticket by its durable tag
    ulong position=FindLiveCopiedPosition(c.masterTradeId);
 
-   double execPrice=0;   if(position!=0 && SelectPositionByTicket(position))
+   double execPrice=0;
+   if(position!=0 && SelectPositionByTicket(position))
       execPrice=PositionGetDouble(POSITION_PRICE_OPEN);
    else
       execPrice=trade.ResultPrice();
