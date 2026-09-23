@@ -41,7 +41,6 @@ export default function HowItWorksPage() {
             <div className="vt-label">SHARED CUSTOMER TOOLS</div>
             <h2 style={{ margin: "10px 0 8px", fontSize: 22 }}>Journal · AI Coach · Wealth Builder</h2>
             <p>These supporting tools are available when a customer has any active paid VaultTrades product. They remain separate from the primary product service.</p>
-            <p style={{ marginTop: 12 }}>Admin users have permanent access to all product and supporting tools.</p>
           </article>
         </section>
 
@@ -49,7 +48,7 @@ export default function HowItWorksPage() {
           <div className="vt-start">
             <div className="vt-label">READY TO START?</div>
             <h2>Choose the service that matches your workflow.</h2>
-            <p>Analyzer and Copy Trading are monthly services. Founders Mentorship is a $53 once-off purchase with a 7-day one-on-one window. Any active product also unlocks Journal, AI Coach and the Funded Account Wealth Builder.</p>
+            <p>Analyzer and Copy Trading are monthly services. Founders Mentorship is a once-off purchase with a 7-day one-on-one window. Any active product also unlocks Journal, AI Coach and the Funded Account Wealth Builder to members trading the prop firms.</p>
             <div className="vt-actions"><Link className="vt-primary" href="/products">View Products</Link><Link className="vt-secondary" href="/founders-mentorship/purchase">Founders Mentorship</Link></div>
           </div>
         </section>
