@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 
@@ -22,7 +22,7 @@ const DESTINATIONS: Record<string, { accessKey: string; path: string; label: str
   },
 };
 
-export default function PayPalSuccessPage() {
+function PayPalSuccessContent() {
   const router = useRouter();
   const params = useSearchParams();
   const product = params.get("product") || "analyzer_monthly";
@@ -100,5 +100,22 @@ export default function PayPalSuccessPage() {
         )}
       </section>
     </main>
+  );
+}
+
+
+export default function PayPalSuccessPage() {
+  return (
+    <Suspense fallback={
+      <main style={{ minHeight: "100vh", background: "#050812", color: "#f4f6fb", display: "grid", placeItems: "center", padding: 24 }}>
+        <section style={{ maxWidth: 620, width: "100%", padding: 32, borderRadius: 14, background: "#0a0f1c", border: "1px solid rgba(212,166,55,.25)" }}>
+          <div style={{ color: "#d4a637", fontWeight: 800, letterSpacing: ".16em", fontSize: 12 }}>VAULTTRADES</div>
+          <h1 style={{ margin: "12px 0" }}>Payment confirmation</h1>
+          <p style={{ color: "#aeb5c6", lineHeight: 1.7 }}>Preparing payment confirmation…</p>
+        </section>
+      </main>
+    }>
+      <PayPalSuccessContent />
+    </Suspense>
   );
 }
