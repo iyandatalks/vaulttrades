@@ -137,9 +137,7 @@ export default function ProfilePage() {
               {admin ? "All VaultTrades tools are available" : availableTools.length + (availableTools.length === 1 ? " tool available" : " tools available")}
             </h2>
             <p style={{ maxWidth: 760 }}>
-              {admin
-                ? "Admin access is permanent across the VaultTrades workspace."
-                : "This list is generated from your current active product entitlement. Only access that is currently available to your account is shown."}
+              This list is generated from your current active product entitlement. Only access that is currently available to your account is shown.
             </p>
 
             {productTools.length > 0 && (
