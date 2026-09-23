@@ -52,7 +52,7 @@ function SubscriptionContent() {
               <p style={{ color: "#aeb5c6", lineHeight: 1.6, minHeight: 52 }}>{product.description}</p>
 
               {product.type === "link" ? (
-                <a href={FOUNDERS_PAYPAL} style={{ display: "block", width: "100%", marginTop: 16, padding: "13px 16px", borderRadius: 8, background: "#d4a637", color: "#050812", fontWeight: 900, textAlign: "center", textDecoration: "none" }}>
+                <a href={FOUNDERS_CHECKOUT} style={{ display: "block", width: "100%", marginTop: 16, padding: "13px 16px", borderRadius: 8, background: "#d4a637", color: "#050812", fontWeight: 900, textAlign: "center", textDecoration: "none" }}>
                   Pay for Founders Mentorship
                 </a>
               ) : (
