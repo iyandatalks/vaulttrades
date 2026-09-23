@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createHash } from "crypto";
 import { createServiceClient } from "@/lib/supabase/service";
+import { getCopyAccess, revokeExpiredFollower } from "@/lib/copy-access";
 
 export const runtime = "nodejs";
 
@@ -17,11 +18,25 @@ export async function GET(req: Request) {
 
   const { data: follower } = await db
     .from("copy_followers")
-    .select("id,status,copy_enabled")
+    .select("id,auth_user_id,status,copy_enabled")
     .eq("api_token_hash", sha256(token))
     .maybeSingle();
 
-  if (!follower || follower.status === "disabled") {
+  if (!follower) {
+    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  }
+
+  const access = await getCopyAccess(String(follower.auth_user_id));
+  if (!access.active) {
+    await revokeExpiredFollower(follower.id);
+    return NextResponse.json({
+      error: "COPY_SUBSCRIPTION_EXPIRED",
+      accessUntil: access.endAt,
+      commands: [],
+    }, { status: 403 });
+  }
+
+  if (follower.status === "disabled") {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
@@ -63,6 +78,7 @@ export async function GET(req: Request) {
 
   return NextResponse.json({
     commands: commands || [],
+    accessUntil: access.endAt,
     settings: {
       lotMode: link?.lot_mode ?? "fixed",
       lotValue: link?.lot_value ?? 0.01,
