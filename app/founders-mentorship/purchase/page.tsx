@@ -5,8 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 
-const PAYPAL_URL = "https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-7PG440523L908841RNJ2GXQQ";
-const RETURN_PATH = "/founders-mentorship/purchase";
+const RETURN_PATH = "/subscription?product=founders_mentorship_once&start=1";
 const PRODUCT_CODE = "founders_mentorship_once";
 
 export default function FoundersPurchasePage() {
@@ -92,7 +91,7 @@ export default function FoundersPurchasePage() {
               <p className="muted">{error}</p>
             </div>
             <div className="vt-actions" style={{ marginTop: 18 }}>
-              <a className="primary" href={PAYPAL_URL}>Continue to PayPal</a>
+              <Link className="primary" href={RETURN_PATH}>Try checkout again</Link>
               <Link className="secondary" href="/products">Back to Products</Link>
             </div>
             <p className="muted" style={{ marginTop: 12 }}>
