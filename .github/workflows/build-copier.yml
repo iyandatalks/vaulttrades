@@ -59,7 +59,7 @@ jobs:
 
           Copy-Item -Path (Join-Path (Resolve-Path '.ci-mt5-include').Path '*') -Destination $includeRoot -Recurse -Force
 
-          $tradeInclude = Join-Path $includeRoot 'TradeTrade.mqh'
+          $tradeInclude = Join-Path $includeRoot 'Trade/Trade.mqh'
           $objectInclude = Join-Path $includeRoot 'Object.mqh'
           if (-not (Test-Path $tradeInclude)) { throw "Trade.mqh not found in CI include tree: $tradeInclude" }
           if (-not (Test-Path $objectInclude)) { throw "Object.mqh not found in CI include tree: $objectInclude" }
