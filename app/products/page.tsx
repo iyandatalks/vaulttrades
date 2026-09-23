@@ -39,9 +39,10 @@ export default function ProductsPage() {
               <p style={{ color: "#d4a637", fontWeight: 900, fontSize: 24, margin: "12px 0" }}>{price}</p>
               <p>{text}</p>
               <div className="vt-actions" style={{ marginTop: 18 }}>
-                <a className="vt-primary" href={checkout}>{checkoutLabel}</a>
-                {loaded && (access[feature] === true || (feature === "copy" && access.automation === true)) && (
-                  <Link className="vt-secondary" href={productHref}>View product</Link>
+                {feature === "copy" && loaded && (access[feature] === true || access.automation === true) ? (
+                  <Link className="vt-primary" href={productHref}>View Copy Trading</Link>
+                ) : (
+                  <a className="vt-primary" href={checkout}>{checkoutLabel}</a>
                 )}
               </div>
             </article>
