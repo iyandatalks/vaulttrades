@@ -61,16 +61,86 @@ export async function POST(req: Request) {
     symbol,
   });
 
+  // Master Publisher event contract.
+  // These fields are intentionally explicit so a malformed/incomplete
+  // MT5 event is diagnosed in one response instead of through repeated
+  // back-and-forth testing.
+  const invalidFields: string[] = [];
+
+  if (typeof masterId !== "string" || !masterId.trim())
+    invalidFields.push("masterId");
+
   if (
-    typeof masterId !== "string" ||
-    !masterId ||
-    (typeof masterTradeId !== "string" && typeof masterTradeId !== "number") ||
-    !["OPEN", "MODIFY", "CLOSE"].includes(String(eventType)) ||
-    typeof symbol !== "string" ||
-    !symbol
-  ) {
-    console.warn("[copy/master/events] invalid event", { requestId });
-    return json({ error: "INVALID_EVENT", requestId }, 400);
+    typeof masterTradeId !== "string" &&
+    typeof masterTradeId !== "number"
+  )
+    invalidFields.push("masterTradeId");
+
+  if (typeof eventId !== "string" || !eventId.trim())
+    invalidFields.push("eventId");
+
+  if (
+    typeof eventType !== "string" ||
+    !["OPEN", "MODIFY", "CLOSE"].includes(eventType)
+  )
+    invalidFields.push("eventType");
+
+  if (typeof symbol !== "string" || !symbol.trim())
+    invalidFields.push("symbol");
+
+  if (direction !== "BUY" && direction !== "SELL")
+    invalidFields.push("direction");
+
+  if (finiteNumber(volume) === null)
+    invalidFields.push("volume");
+
+  if (finiteNumber(price) === null)
+    invalidFields.push("price");
+
+  if (finiteNumber(stopLoss) === null)
+    invalidFields.push("stopLoss");
+
+  if (finiteNumber(takeProfit) === null)
+    invalidFields.push("takeProfit");
+
+  if (finiteNumber(eventTimeMs) === null)
+    invalidFields.push("eventTimeMs");
+
+  if (
+    payload === null ||
+    typeof payload !== "object" ||
+    Array.isArray(payload)
+  )
+    invalidFields.push("payload");
+
+  if (invalidFields.length > 0) {
+    console.warn("[copy/master/events] invalid event contract", {
+      requestId,
+      invalidFields,
+    });
+    return json(
+      {
+        error: "INVALID_EVENT",
+        message: "Master Publisher event is missing or has invalid required fields.",
+        missingOrInvalidFields: invalidFields,
+        requiredFields: [
+          "masterId",
+          "masterTradeId",
+          "eventId",
+          "eventType",
+          "symbol",
+          "direction",
+          "volume",
+          "price",
+          "stopLoss",
+          "takeProfit",
+          "eventTimeMs",
+          "payload",
+        ],
+        requestId,
+      },
+      400,
+    );
   }
 
   let db;
