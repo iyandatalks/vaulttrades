@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 
 type Status = {
   connected?: boolean;
+  subscriptionActive?: boolean;
+  accessUntil?: string | null;
   account?: { login?: string; server?: string; status?: string } | null;
   error?: string;
 };
@@ -16,9 +18,15 @@ export default function CopyConnectPage() {
 
   useEffect(() => {
     fetch("/api/copy/status", { cache: "no-store" })
-      .then(r => r.json())
-      .then(setStatus)
-      .catch(() => setStatus({ error: "Unable to load copy connection status." }));
+      .then(async r => {
+        const d = await r.json();
+        if (!r.ok || d.subscriptionActive !== true) {
+          window.location.replace("/products?product=copy");
+          return;
+        }
+        setStatus(d);
+      })
+      .catch(() => window.location.replace("/products?product=copy"));
   }, []);
 
   const generate = async () => {
@@ -158,6 +166,13 @@ export default function CopyConnectPage() {
           <button className="vt-primary" onClick={() => void generate()} disabled={busy} style={{ marginTop: 14 }}>
             {busy ? "Generating…" : "Generate Pairing Code"}
           </button>
+
+          {status?.accessUntil && (
+            <p className="muted" style={{ marginTop: 14, marginBottom: 0 }}>
+              Copy Trading access is active until <strong>{new Date(status.accessUntil).toLocaleDateString()}</strong>.
+              A new pairing code must be generated after the subscription renews.
+            </p>
+          )}
 
           {pairingCode && (
             <div style={{ marginTop: 18, padding: 20, borderRadius: 12, background: "#050812", border: "1px solid rgba(212,166,55,.35)", textAlign: "center" }}>
