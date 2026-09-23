@@ -7,7 +7,7 @@ const BOOKING_URL = "https://calendar.app.google/TowDKSnxKnapRxfNg8";
 export default async function FoundersBookingPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login?next=/founders-mentorship/booking");
+  if (!user) redirect("/auth/login?next=/founders-mentorship/booking");
 
   const access = await getProductAccess(user.id);
   if (!access.foundersMentorship) redirect("/products");
