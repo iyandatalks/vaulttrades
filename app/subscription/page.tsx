@@ -28,9 +28,9 @@ function SubscriptionContent() {
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
       );
-      const { data } = await sb.auth.getUser();
+      const { data: authData } = await sb.auth.getUser();
 
-      if (!data.user) {
+      if (!authData.user) {
         const next = "/subscription?product=" + encodeURIComponent(productCode) + "&start=1";
         router.replace("/auth/register?next=" + encodeURIComponent(next));
         return;
@@ -50,6 +50,12 @@ function SubscriptionContent() {
       setLoading("");
     }
   };
+
+  useEffect(() => {
+    if (!autoStart || startedRef.current) return;
+    startedRef.current = true;
+    void startPayPal(selected);
+  }, [autoStart, selected]);
 
   return (
     <main style={{ minHeight: "calc(100vh - 61px)", background: "#050812", color: "#f4f6fb", padding: "48px 20px" }}>
