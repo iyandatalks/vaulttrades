@@ -47,9 +47,18 @@ jobs:
           Copy-Item -Force $source (Join-Path $expertsRoot 'VaultTrades_Copier.mq5')
           $compileLog = Join-Path $expertsRoot 'VaultTrades_Copier.log'
           $compileSource = Join-Path $expertsRoot 'VaultTrades_Copier.mq5'
-          & $env:METAEDITOR "/compile:$compileSource" "/log:$compileLog"
+          & $env:METAEDITOR /portable "/compile:$compileSource" /include:"$mql5Root" /log
           $exitCode = $LASTEXITCODE
-          if (-not (Test-Path $compileLog)) { throw 'MetaEditor did not create a compilation log.' }
+          Start-Sleep -Seconds 2
+          $compiled = Join-Path $expertsRoot 'VaultTrades_Copier.ex5'
+          if (-not (Test-Path $compiled)) {
+            throw "Expected compiled file was not created: $compiled"
+          }
+          $compileLogs = Get-ChildItem -Path $expertsRoot -Filter 'VaultTrades_Copier.log' -File -ErrorAction SilentlyContinue
+          if (-not $compileLogs) {
+            throw 'MetaEditor did not create the expected compilation log.'
+          }
+          $compileLog = $compileLogs.FullName
           $log = Get-Content -Raw $compileLog
           Write-Host $log
           if ($exitCode -ne 0) { throw "MetaEditor exited with code $exitCode." }
