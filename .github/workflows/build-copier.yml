@@ -47,11 +47,16 @@ jobs:
               editor_win="C:\\Metatrader-5\\MetaEditor64.exe"; \
               echo "Using MetaEditor: $editor"; \
               echo "Compiling: $source_win"; \
+              rm -f "$mtroot/MQL5/Experts/VaultTrades_Copier.ex5" "$mtroot/MQL5/Experts/VaultTrades_Copier.log"; \
               wine "$editor_win" "/compile:$source_win" /log; \
               code=$?; \
               echo "MetaEditor exit code: $code"; \
               find "$mtroot/MQL5/Experts" -maxdepth 1 -type f -name "VaultTrades_Copier.*" -ls || true; \
-              exit $code \
+              if [ -f "$mtroot/MQL5/Experts/VaultTrades_Copier.log" ]; then cat "$mtroot/MQL5/Experts/VaultTrades_Copier.log"; fi; \
+              test -f "$mtroot/MQL5/Experts/VaultTrades_Copier.ex5"; \
+              cp -f "$mtroot/MQL5/Experts/VaultTrades_Copier.ex5" /workspace/mt5/VaultTrades_Copier.ex5; \
+              if [ -f "$mtroot/MQL5/Experts/VaultTrades_Copier.log" ]; then cp -f "$mtroot/MQL5/Experts/VaultTrades_Copier.log" /workspace/mt5/VaultTrades_Copier.log; fi; \
+              exit 0 \
             '
 
           test -f mt5/VaultTrades_Copier.ex5
