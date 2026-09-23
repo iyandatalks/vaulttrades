@@ -110,6 +110,27 @@ export default function CopyConnectPage() {
           </p>
         </section>
 
+        <section className="vt-info-card" style={{ marginTop: 24, border: "1px solid rgba(212,166,55,.35)" }}>
+          <div className="vt-label">DOWNLOAD · VAULTTRADES COPIER</div>
+          <h2 style={{ marginTop: 10 }}>Download the compiled MT5 Copier EA.</h2>
+          <p>
+            Download the compiled <strong>VaultTrades_Copier.ex5</strong> and place it in your MT5
+            <strong> MQL5 → Experts </strong> folder. The download is the compiled EA customers run
+            in MT5; you do not need the source code to operate it.
+          </p>
+          <a
+            className="vt-primary"
+            href="/downloads/VaultTrades_Copier.ex5"
+            download="VaultTrades_Copier.ex5"
+            style={{ display: "inline-block", marginTop: 10 }}
+          >
+            Download VaultTrades Copier EA (.ex5) ↓
+          </a>
+          <p className="muted" style={{ marginTop: 12, marginBottom: 0 }}>
+            Version 1.00 · Windows MT5 desktop/VPS
+          </p>
+        </section>
+
         <section className="vt-info-card" style={{ marginTop: 24 }}>
           <div className="vt-label">STEP 2 · INSTALL THE SOFTWARE</div>
           <h2 style={{ marginTop: 10 }}>Install the VaultTrades Copier EA into MT5.</h2>
