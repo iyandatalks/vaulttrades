@@ -2,78 +2,108 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { createBrowserClient } from "@supabase/ssr";
 
 const PAYPAL_URL = "https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-7PG440523L908841RNJ2GXQQ";
+const RETURN_PATH = "/founders-mentorship/purchase";
+const PRODUCT_CODE = "founders_mentorship_once";
 
 export default function FoundersPurchasePage() {
+  const router = useRouter();
   const [checking, setChecking] = useState(true);
-  const [paid, setPaid] = useState(false);
-  const [authenticated, setAuthenticated] = useState(true);
+  const [starting, setStarting] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     let stopped = false;
 
-    const check = async () => {
+    const startCheckout = async () => {
       try {
-        const response = await fetch("/api/dashboard/access", { cache: "no-store" });
-        const data = await response.json();
-        if (stopped) return;
+        const sb = createBrowserClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        );
+        const { data } = await sb.auth.getUser();
 
-        if (response.status === 401) {
-          setAuthenticated(false);
-          setChecking(false);
+        if (!data.user) {
+          router.replace("/auth/login?next=" + encodeURIComponent(RETURN_PATH));
           return;
         }
 
-        const active = response.ok && data?.access?.founders_mentorship === true;
-        setAuthenticated(true);
-        setPaid(active);
-        setChecking(false);
+        const accessResponse = await fetch("/api/dashboard/access", { cache: "no-store" });
+        const access = await accessResponse.json().catch(() => ({}));
 
-        if (active) window.location.href = "/founders-mentorship/booking?payment=success";
-      } catch {
-        if (!stopped) setChecking(false);
+        if (accessResponse.ok && access?.access?.founders_mentorship === true) {
+          router.replace("/founders-mentorship/booking?payment=success");
+          return;
+        }
+
+        if (stopped) return;
+
+        setChecking(false);
+        setStarting(true);
+        setError("");
+
+        const response = await fetch("/api/paypal/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ productCode: PRODUCT_CODE }),
+        });
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok || !result?.approveUrl) {
+          throw new Error(result?.error || "Unable to start PayPal checkout.");
+        }
+
+        window.location.href = result.approveUrl;
+      } catch (e) {
+        if (!stopped) {
+          setChecking(false);
+          setStarting(false);
+          setError(e instanceof Error ? e.message : "Unable to start PayPal checkout.");
+        }
       }
     };
 
-    void check();
-    const interval = window.setInterval(() => void check(), 3000);
-
+    void startCheckout();
     return () => {
       stopped = true;
-      window.clearInterval(interval);
     };
-  }, []);
+  }, [router]);
 
   return (
     <main className="shell">
       <section className="card">
-        <div className="section-label">FOUNDERS MENTORSHIP · $53 ONCE OFF</div>
+        <div className="section-label">FOUNDERS MENTORSHIP · ONCE OFF</div>
         <h1 className="title">Secure your place</h1>
-        <p className="muted">Complete the once-off PayPal payment for the 7-day Founders Mentorship Program. Your VaultTrades account must be signed in so the confirmed payment can be linked to your access.</p>
+        {checking && (
+          <p className="muted">Checking your VaultTrades account before opening secure PayPal checkout…</p>
+        )}
 
-        {!authenticated ? (
-          <div className="condition-box" style={{ marginTop: 22 }}>
-            <strong>Sign in before payment</strong>
-            <p className="muted">Use your VaultTrades account first, then return here to complete PayPal checkout.</p>
-            <div className="vt-actions" style={{ marginTop: 14 }}>
-              <Link className="primary" href="/auth/login?next=/founders-mentorship/purchase">Sign in to VaultTrades</Link>
-            </div>
-          </div>
-        ) : (
+        {!checking && starting && (
+          <p className="muted">Opening secure PayPal checkout…</p>
+        )}
+
+        {error && (
           <>
-            <div className="vt-actions" style={{ marginTop: 22 }}>
-              <a className="primary" href={PAYPAL_URL} target="_blank" rel="noreferrer">Pay $53 with PayPal</a>
+            <div className="condition-box" style={{ marginTop: 18 }}>
+              <strong>PayPal checkout could not be opened automatically.</strong>
+              <p className="muted">{error}</p>
+            </div>
+            <div className="vt-actions" style={{ marginTop: 18 }}>
+              <a className="primary" href={PAYPAL_URL}>Continue to PayPal</a>
               <Link className="secondary" href="/products">Back to Products</Link>
             </div>
-            <p className="muted" style={{ marginTop: 12 }}>Use the same email address as your VaultTrades account in PayPal so the payment confirmation can be matched automatically.</p>
+            <p className="muted" style={{ marginTop: 12 }}>
+              Use the same email address as your VaultTrades account in PayPal.
+            </p>
           </>
         )}
 
-        <div className="condition-box" style={{ marginTop: 18 }}>
-          <strong>{paid ? "Payment confirmed" : checking ? "Checking payment status…" : authenticated ? "Waiting for payment confirmation" : "VaultTrades sign-in required"}</strong>
-          <p className="muted">{paid ? "Opening your booking page." : authenticated ? "Keep this page open after completing PayPal. It will automatically redirect once VaultTrades receives the payment confirmation." : "After signing in, open this page again to start payment."}</p>
-        </div>
+        {!checking && !starting && !error && (
+          <p className="muted">Preparing your secure PayPal checkout…</p>
+        )}
       </section>
     </main>
   );
