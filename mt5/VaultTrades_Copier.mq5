@@ -12,7 +12,7 @@
 
 CTrade trade;
 
-input string InpApiBaseUrl       = "";      // VaultTrades production API base URL
+input string InpApiBaseUrl       = "https://vaulttradesve.com"; // VaultTrades production API base URL
 input string InpPairingCode      = "";      // 10-character code from VaultTrades Copy
 input string InpApiToken         = "";      // optional persisted token override
 input string InpCopierVersion    = "1.00";
@@ -80,6 +80,70 @@ string JsonStringAt(string json,string key,int fromPos=0)
          return out;
 
       out+=(string)CharToString((uchar)ch);
+     }
+
+   return "";
+  }
+
+string JsonObjectAt(string json,string key,int fromPos=0)
+  {
+   string needle="\"" + key + "\":";
+   int p=StringFind(json,needle,fromPos);
+   if(p<0)
+      return "";
+
+   int start=p+StringLen(needle);
+   while(start<StringLen(json))
+     {
+      ushort ch=StringGetCharacter(json,start);
+      if(ch==' ' || ch=='\\t' || ch=='\\r' || ch=='\\n')
+         start++;
+      else
+         break;
+     }
+
+   if(start>=StringLen(json) || StringGetCharacter(json,start)!='{')
+      return "";
+
+   int depth=0;
+   bool inString=false;
+   bool escaped=false;
+
+   for(int i=start;i<StringLen(json);i++)
+     {
+      ushort ch=StringGetCharacter(json,i);
+
+      if(inString)
+        {
+         if(escaped)
+           {
+            escaped=false;
+            continue;
+           }
+         if(ch=='\\')
+           {
+            escaped=true;
+            continue;
+           }
+         if(ch=='"')
+            inString=false;
+         continue;
+        }
+
+      if(ch=='"')
+        {
+         inString=true;
+         continue;
+        }
+
+      if(ch=='{')
+         depth++;
+      else if(ch=='}')
+        {
+         depth--;
+         if(depth==0)
+            return StringSubstr(json,start,i-start+1);
+        }
      }
 
    return "";
@@ -316,12 +380,12 @@ bool Ack(string executionId,string status,long ticket,double volume,
          double price,string errorCode,string errorMessage)
   {
    string body=StringFormat(
-      "{\"executionId\":\"%s\",\"status\":\"%s\",\"followerTradeId\":\"%I64d\",\"executedVolume\":%.8f,\"executedPrice\":%.10f,\"errorCode\":\"%s\",\"errorMessage\":\"%s\"}",
+      "{\"executionId\":\"%s\",\"status\":\"%s\",\"followerTradeId\":\"%I64d\",\"executedVolume\":%s,\"executedPrice\":%s,\"errorCode\":\"%s\",\"errorMessage\":\"%s\"}",
       JsonEscape(executionId),
       JsonEscape(status),
       ticket,
-      volume,
-      price,
+      DoubleToString(volume,8),
+      DoubleToString(price,10),
       JsonEscape(errorCode),
       JsonEscape(errorMessage)
    );
@@ -623,7 +687,7 @@ void ProcessPollResponse(string response)
    // Current API returns a JSON object containing:
    // commands:[...], settings:{...}
    // We process each command by locating command_id boundaries.
-   string settingsJson=JsonStringAt(response,"settings");
+   string settingsJson=JsonObjectAt(response,"settings");
    if(settingsJson=="")
       settingsJson=response;
 
