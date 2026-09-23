@@ -74,6 +74,15 @@ export default function CopyPage() {
           </div>
         </section>
 
+        <section className="vt-info-card" style={{ marginTop: 24, border: "1px solid rgba(212,166,55,.35)" }}>
+          <div className="vt-label">SUBSCRIPTION ACCESS</div>
+          <h2 style={{ marginTop: 10 }}>Copy Trading is active for the current billing period.</h2>
+          <p>{statusText || "Your subscription access is active."}</p>
+          <p className="muted" style={{ marginBottom: 0 }}>
+            When this billing period ends, copying is disabled. After renewal, generate a new pairing code to reconnect the MT5 account.
+          </p>
+        </section>
+
         <section className="vt-info-card" style={{ marginTop: 24 }}>
           <div className="vt-label">YOUR NEXT ACTION</div>
           <h2 style={{ marginTop: 10 }}>
