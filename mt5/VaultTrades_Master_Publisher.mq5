@@ -12,7 +12,7 @@
 //==================================================================
 // INPUTS
 //==================================================================
-input string InpApiBaseUrl            = ""; // e.g. https://YOUR-PRODUCTION-DOMAIN
+input string InpApiBaseUrl            = "https://vaulttradesve.com";
 input string InpMasterId              = "197e2437-ed62-4292-b0ed-3cb6ebcc624a";
 input string InpMasterApiKey          = ""; // VAULTTRADES_MASTER_API_KEY
 input ulong  InpStrategyMagic         = 20260922;
@@ -243,21 +243,29 @@ bool PostJson(string endpoint,string body,string &response,int &httpCode)
 //==================================================================
 string BuildEventJson(PendingEvent &e)
   {
-   return StringFormat(
-      "{\"masterId\":\"%s\",\"masterTradeId\":\"%s\",\"eventId\":\"%s\",\"eventType\":\"%s\",\"symbol\":\"%s\",\"direction\":\"%s\",\"volume\":%.8f,\"price\":%.10f,\"stopLoss\":%.10f,\"takeProfit\":%.10f,\"eventTimeMs\":%I64d,\"payload\":%s}",
-      JsonEscape(InpMasterId),
-      JsonEscape(e.masterTradeId),
-      JsonEscape(e.eventId),
-      JsonEscape(e.eventType),
-      JsonEscape(e.symbol),
-      JsonEscape(e.direction),
-      e.volume,
-      e.price,
-      e.stopLoss,
-      e.takeProfit,
-      e.eventTimeMs,
-      e.payload=="" ? "{}" : e.payload
-   );
+   // Build the JSON explicitly rather than through StringFormat.
+   // This prevents locale/format-specifier issues from corrupting the
+   // request body before it reaches the VaultTrades JSON parser.
+   string payload=e.payload;
+   if(payload=="")
+      payload="{}";
+
+   string body="{";
+   body += "\"masterId\":\""      + JsonEscape(InpMasterId)       + "\",";
+   body += "\"masterTradeId\":\"" + JsonEscape(e.masterTradeId)  + "\",";
+   body += "\"eventId\":\""       + JsonEscape(e.eventId)        + "\",";
+   body += "\"eventType\":\""     + JsonEscape(e.eventType)      + "\",";
+   body += "\"symbol\":\""        + JsonEscape(e.symbol)         + "\",";
+   body += "\"direction\":\""     + JsonEscape(e.direction)      + "\",";
+   body += "\"volume\":"           + DoubleToString(e.volume,8)   + ",";
+   body += "\"price\":"            + DoubleToString(e.price,10)    + ",";
+   body += "\"stopLoss\":"         + DoubleToString(e.stopLoss,10) + ",";
+   body += "\"takeProfit\":"       + DoubleToString(e.takeProfit,10) + ",";
+   body += "\"eventTimeMs\":"      + (string)e.eventTimeMs + ",";
+   body += "\"payload\":"          + payload;
+   body += "}";
+
+   return body;
   }
 
 bool SendEvent(PendingEvent &e)
