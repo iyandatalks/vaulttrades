@@ -1,0 +1,74 @@
+name: Build VaultTrades Copier EA
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - mt5/VaultTrades_Copier.mq5
+      - .github/workflows/build-copier.yml
+
+permissions:
+  contents: write
+
+jobs:
+  build-copier:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install MetaTrader 5
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installer = Join-Path $env:RUNNER_TEMP 'mt5setup.exe'
+          $installRoot = Join-Path $env:RUNNER_TEMP 'VaultTrades-MT5'
+          Invoke-WebRequest -Uri 'https://download.terminal.free/cdn/web/metaquotes.ltd/mt5/mt5setup.exe' -OutFile $installer
+          Start-Process -FilePath $installer -ArgumentList '/auto', ('/path:"' + $installRoot + '"') -Wait -NoNewWindow
+          if (-not (Test-Path $installRoot)) { throw "MetaTrader 5 installation directory was not created: $installRoot" }
+          $metaEditor = Get-ChildItem -Path $installRoot -Recurse -Filter 'metaeditor64.exe' -File -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $metaEditor) { throw "metaeditor64.exe was not found under $installRoot" }
+          "MT5_ROOT=$installRoot" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "METAEDITOR=$($metaEditor.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Compile VaultTrades Copier
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $source = (Resolve-Path 'mt5/VaultTrades_Copier.mq5').Path
+          $mql5Root = Join-Path $env:MT5_ROOT 'MQL5'
+          $expertsRoot = Join-Path $mql5Root 'Experts'
+          New-Item -ItemType Directory -Force -Path $expertsRoot | Out-Null
+          Copy-Item -Force $source (Join-Path $expertsRoot 'VaultTrades_Copier.mq5')
+          $compileLog = Join-Path $expertsRoot 'VaultTrades_Copier.log'
+          $compileSource = Join-Path $expertsRoot 'VaultTrades_Copier.mq5'
+          & $env:METAEDITOR "/compile:$compileSource" "/log:$compileLog"
+          $exitCode = $LASTEXITCODE
+          if (-not (Test-Path $compileLog)) { throw 'MetaEditor did not create a compilation log.' }
+          $log = Get-Content -Raw $compileLog
+          Write-Host $log
+          if ($exitCode -ne 0) { throw "MetaEditor exited with code $exitCode." }
+          if ($log -notmatch '0 error') { throw 'Copier compilation did not report zero errors.' }
+          $compiled = Join-Path $expertsRoot 'VaultTrades_Copier.ex5'
+          if (-not (Test-Path $compiled)) { throw "Expected compiled file was not created: $compiled" }
+          New-Item -ItemType Directory -Force -Path 'public/downloads' | Out-Null
+          Copy-Item -Force $compiled 'public/downloads/VaultTrades_Copier.ex5'
+          $sha256 = (Get-FileHash 'public/downloads/VaultTrades_Copier.ex5' -Algorithm SHA256).Hash
+          $meta = @{ product='VaultTrades Customer Copier'; file='VaultTrades_Copier.ex5'; version='1.00'; source='mt5/VaultTrades_Copier.mq5'; sha256=$sha256; builtAtUtc=(Get-Date).ToUniversalTime().ToString('o') } | ConvertTo-Json
+          $meta | Set-Content 'public/downloads/VaultTrades_Copier.version.json' -Encoding utf8
+
+      - name: Publish compiled Copier to main
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/downloads/VaultTrades_Copier.ex5 public/downloads/VaultTrades_Copier.version.json
+          if (git diff --cached --quiet) { Write-Host 'Compiled Copier is already current; nothing to commit.'; exit 0 }
+          git commit -m 'Publish compiled VaultTrades Copier EA'
+          git push origin HEAD:main
