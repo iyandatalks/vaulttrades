@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   build-copier:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
@@ -22,148 +22,67 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install MetaTrader 5
-        shell: pwsh
+      - name: Compile Copier with current MetaTrader 5 toolchain
+        shell: bash
         run: |
-          $ErrorActionPreference = 'Stop'
-          $installer = Join-Path $env:RUNNER_TEMP 'mt5setup.exe'
-          $installRoot = Join-Path $env:RUNNER_TEMP 'VaultTrades-MT5'
-          Invoke-WebRequest -Uri 'https://download.terminal.free/cdn/web/metaquotes.ltd/mt5/mt5setup.exe' -OutFile $installer
-          Start-Process -FilePath $installer -ArgumentList '/auto', ('/path:"' + $installRoot + '"') -Wait -NoNewWindow
-          if (-not (Test-Path $installRoot)) { throw "MetaTrader 5 installation directory was not created: $installRoot" }
-          $metaEditor = Get-ChildItem -Path $installRoot -Recurse -Filter 'metaeditor64.exe' -File -ErrorAction SilentlyContinue | Select-Object -First 1
-          if (-not $metaEditor) { throw "metaeditor64.exe was not found under $installRoot" }
-          Start-Process -FilePath $metaEditor.FullName -ArgumentList '/portable' -WorkingDirectory $installRoot | Out-Null
-          Start-Sleep -Seconds 8
-          Get-Process -Name 'metaeditor64' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-          "MT5_ROOT=$installRoot" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          "METAEDITOR=$($metaEditor.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          set -euo pipefail
 
-      - name: Checkout MQL5 standard library for CI
-        uses: actions/checkout@v4
-        with:
-          repository: gsemet/mt5-include
-          ref: d913f3880a6120e7f8d276b97e819c3e7d97e95b
-          path: .ci-mt5-include
-          fetch-depth: 1
+          mkdir -p public/downloads
 
-      - name: Compile VaultTrades Copier
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $source = (Resolve-Path 'mt5/VaultTrades_Copier.mq5').Path
+          docker pull ghcr.io/thodinh/mt5:latest
 
-          $buildMql5 = Join-Path $env:RUNNER_TEMP 'VaultTrades-MQL5'
-          $includeRoot = Join-Path $buildMql5 'Include'
-          New-Item -ItemType Directory -Force -Path $includeRoot | Out-Null
+          docker run --rm \
+            -v "$PWD:/workspace" \
+            -w /workspace \
+            ghcr.io/thodinh/mt5:latest \
+            wine /opt/mt5/MetaEditor64.exe \
+              /portable \
+              /compile:/workspace/mt5/VaultTrades_Copier.mq5 \
+              /log
 
-          Copy-Item -Path (Join-Path (Resolve-Path '.ci-mt5-include').Path '*') -Destination $includeRoot -Recurse -Force
+          test -f mt5/VaultTrades_Copier.ex5
 
-          $tradeInclude = Join-Path $includeRoot 'Trade/Trade.mqh'
-          $objectInclude = Join-Path $includeRoot 'Object.mqh'
-          if (-not (Test-Path $tradeInclude)) { throw "Trade.mqh not found in CI include tree: $tradeInclude" }
-          if (-not (Test-Path $objectInclude)) { throw "Object.mqh not found in CI include tree: $objectInclude" }
+          if find mt5 -maxdepth 1 -type f -name 'VaultTrades_Copier.log' -print -quit | grep -q .; then
+            cat mt5/VaultTrades_Copier.log
+          fi
 
-          # CI-only compatibility patch for the copied standard library.
-          # The VaultTrades EA source itself is not modified.
-          $tradeText = Get-Content -Raw $tradeInclude
-          $tradeText = $tradeText.Replace('if(!IsStopped())','if(!::IsStopped())')
+          if find mt5 -maxdepth 1 -type f -name 'VaultTrades_Copier.log' -print -quit | xargs -r grep -Eq '(^|[^0-9])([1-9][0-9]*) error'; then
+            echo "Copier compilation reported errors."
+            exit 1
+          fi
 
-          $setFillingLine = '   void              SetTypeFilling(const ENUM_ORDER_TYPE_FILLING filling) { m_type_filling=filling;    }'
-          if (-not $tradeText.Contains('SetTypeFillingBySymbol')) {
-            if (-not $tradeText.Contains($setFillingLine)) {
-              throw 'Expected CTrade::SetTypeFilling declaration was not found.'
-            }
-            $tradeText = $tradeText.Replace(
-              $setFillingLine,
-              $setFillingLine + [Environment]::NewLine + '   bool              SetTypeFillingBySymbol(const string symbol);'
-            )
+          cp -f mt5/VaultTrades_Copier.ex5 public/downloads/VaultTrades_Copier.ex5
 
-            $definition = @'
-//+------------------------------------------------------------------+
-//| Set order filling type according to symbol filling mode         |
-//+------------------------------------------------------------------+
-bool CTrade::SetTypeFillingBySymbol(const string symbol)
-  {
-   uint filling=(uint)SymbolInfoInteger(symbol,SYMBOL_FILLING_MODE);
-   if((filling&SYMBOL_FILLING_FOK)==SYMBOL_FILLING_FOK)
-     {
-      m_type_filling=ORDER_FILLING_FOK;
-      return(true);
-     }
-   if((filling&SYMBOL_FILLING_IOC)==SYMBOL_FILLING_IOC)
-     {
-      m_type_filling=ORDER_FILLING_IOC;
-      return(true);
-     }
-   return(false);
-  }
-//+------------------------------------------------------------------+
-'@
-            if (-not $tradeText.Contains('bool CTrade::PositionOpen')) {
-              throw 'Expected CTrade::PositionOpen definition was not found.'
-            }
-            $tradeText = $tradeText.Replace('bool CTrade::PositionOpen',$definition + [Environment]::NewLine + 'bool CTrade::PositionOpen')
+          sha256="$(sha256sum public/downloads/VaultTrades_Copier.ex5 | awk '{print $1}')"
+          size="$(stat -c '%s' public/downloads/VaultTrades_Copier.ex5)"
+          source_sha256="$(sha256sum mt5/VaultTrades_Copier.mq5 | awk '{print $1}')"
+
+          cat > public/downloads/VaultTrades_Copier.version.json <<EOF
+          {
+            "product": "VaultTrades Customer Copier",
+            "file": "VaultTrades_Copier.ex5",
+            "version": "1.00",
+            "sizeBytes": $size,
+            "sha256": "$sha256",
+            "source": "mt5/VaultTrades_Copier.mq5",
+            "sourceSha256": "$source_sha256"
           }
-          Set-Content -Path $tradeInclude -Value $tradeText -Encoding utf8
-
-          Write-Host "Using CI include root: $includeRoot"
-
-          $compileLog = Join-Path (Split-Path $source -Parent) 'VaultTrades_Copier.log'
-          $compileArgs = @(
-            '/portable',
-            "/compile:$source",
-            "/include:$buildMql5",
-            '/log'
-          )
-
-          & $env:METAEDITOR @compileArgs
-          $exitCode = $LASTEXITCODE
-          Start-Sleep -Seconds 2
-
-          if (-not (Test-Path $compileLog)) {
-            Write-Host "Compilation log not found at expected path. Searching..."
-            $compileLog = Get-ChildItem -Path (Split-Path $source -Parent) -Filter 'VaultTrades_Copier.log' -File -ErrorAction SilentlyContinue | Select-Object -First 1
-            if (-not $compileLog) { throw 'MetaEditor did not create a compilation log.' }
-            $compileLog = $compileLog.FullName
-          }
-
-          $log = Get-Content -Raw $compileLog
-          Write-Host $log
-
-          if ($exitCode -ne 0) { throw "MetaEditor exited with code $exitCode." }
-          if ($log -match '(?i)(error\s*\(|\b[1-9][0-9]*\s+error)') {
-            throw 'Copier compilation reported errors.'
-          }
-          if ($log -notmatch '(?i)0\s+error') {
-            throw 'Copier compilation did not report zero errors.'
-          }
-
-          $compiled = Join-Path (Split-Path $source -Parent) 'VaultTrades_Copier.ex5'
-          if (-not (Test-Path $compiled)) { throw "Expected compiled file was not created: $compiled" }
-
-          New-Item -ItemType Directory -Force -Path 'public/downloads' | Out-Null
-          Copy-Item -Force $compiled 'public/downloads/VaultTrades_Copier.ex5'
-
-          $sha256 = (Get-FileHash 'public/downloads/VaultTrades_Copier.ex5' -Algorithm SHA256).Hash
-          $meta = @{
-            product = 'VaultTrades Customer Copier'
-            file = 'VaultTrades_Copier.ex5'
-            version = '1.00'
-            source = 'mt5/VaultTrades_Copier.mq5'
-            sha256 = $sha256
-            builtAtUtc = (Get-Date).ToUniversalTime().ToString('o')
-          } | ConvertTo-Json
-
-          $meta | Set-Content 'public/downloads/VaultTrades_Copier.version.json' -Encoding utf8
+          EOF
 
       - name: Publish compiled Copier to main
-        shell: pwsh
+        shell: bash
         run: |
-          $ErrorActionPreference = 'Stop'
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           git add public/downloads/VaultTrades_Copier.ex5 public/downloads/VaultTrades_Copier.version.json
-          if (git diff --cached --quiet) { Write-Host 'Compiled Copier is already current; nothing to commit.'; exit 0 }
-          git commit -m 'Publish compiled VaultTrades Copier EA'
+
+          if git diff --cached --quiet; then
+            echo "Compiled Copier is already current; nothing to commit."
+            exit 0
+          fi
+
+          git commit -m "Publish compiled VaultTrades Copier EA"
           git push origin HEAD:main
