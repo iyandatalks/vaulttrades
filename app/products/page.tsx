@@ -60,7 +60,7 @@ export default function ProductsPage() {
         <section className="vt-info-card" style={{ marginTop: 18 }}>
           <div className="vt-label">INCLUDED WITH ANY ACTIVE PRODUCT</div>
           <h2>Journal · AI Coach · Funded Account Wealth Builder</h2>
-          <p>Subscribe to any current VaultTrades product and these three supporting tools become available in your Dashboard for the duration of your active entitlement. Admin access is permanent.</p>
+          <p>Subscribe to any current VaultTrades product and these three supporting tools become available in your Dashboard for the duration of your active entitlement.</p>
         </section>
       </div>
     </main>
