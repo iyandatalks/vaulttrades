@@ -16,6 +16,9 @@ export async function POST(request: Request) {
     const productCode = String(body?.productCode || "analyzer_monthly");
     const product = getPayPalProduct(productCode);
     if (!product) return NextResponse.json({ error: "Invalid VaultTrades product." }, { status: 400 });
+    if (product.billingMode === "once_off") {
+      return NextResponse.json({ error: "This product uses its PayPal one-off payment link." }, { status: 400 });
+    }
 
     const admin = createAdminClient();
     const { data: profile, error: profileError } = await admin.from("users").select("id,email").eq("auth_user_id", user.id).maybeSingle();
