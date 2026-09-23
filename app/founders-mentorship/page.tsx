@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 
-const BOOKING_URL = "https://calendar.app.google/TowDKSnxKnapRxfNg8";
+const BOOKING_URL = "https://calendar.app.google/RpASwPtYb89kaDPV8";
 
 const days = [
   [1, "Day 1", "https://docs.google.com/presentation/d/1qRzJK9ZBEcro-A5tpGrgJ_sqazSeIvTh/edit?usp=drive_link&ouid=107858755837339377719&rtpof=true&sd=true"],
