@@ -42,7 +42,9 @@ jobs:
               include="$(find / -type f -path "*/MQL5/Include/Trade/Trade.mqh" 2>/dev/null | head -n 1)"; \
               test -n "$include"; \
               echo "Using standard library: $include"; \
-              wine "$editor" /portable /compile:/workspace/mt5/VaultTrades_Copier.mq5 /log \
+              source_win="$(winepath -w /workspace/mt5/VaultTrades_Copier.mq5)"; \
+              echo "Compiling: $source_win"; \
+              wine "$editor" /portable "/compile:$source_win" /log \
             '
 
           test -f mt5/VaultTrades_Copier.ex5
