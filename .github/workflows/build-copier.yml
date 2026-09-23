@@ -64,6 +64,49 @@ jobs:
           if (-not (Test-Path $tradeInclude)) { throw "Trade.mqh not found in CI include tree: $tradeInclude" }
           if (-not (Test-Path $objectInclude)) { throw "Object.mqh not found in CI include tree: $objectInclude" }
 
+          # CI-only compatibility patch for the copied standard library.
+          # The VaultTrades EA source itself is not modified.
+          $tradeText = Get-Content -Raw $tradeInclude
+          $tradeText = $tradeText.Replace('if(!IsStopped())','if(!::IsStopped())')
+
+          $setFillingLine = '   void              SetTypeFilling(const ENUM_ORDER_TYPE_FILLING filling) { m_type_filling=filling;    }'
+          if (-not $tradeText.Contains('SetTypeFillingBySymbol')) {
+            if (-not $tradeText.Contains($setFillingLine)) {
+              throw 'Expected CTrade::SetTypeFilling declaration was not found.'
+            }
+            $tradeText = $tradeText.Replace(
+              $setFillingLine,
+              $setFillingLine + [Environment]::NewLine + '   bool              SetTypeFillingBySymbol(const string symbol);'
+            )
+
+            $definition = @'
+//+------------------------------------------------------------------+
+//| Set order filling type according to symbol filling mode         |
+//+------------------------------------------------------------------+
+bool CTrade::SetTypeFillingBySymbol(const string symbol)
+  {
+   uint filling=(uint)SymbolInfoInteger(symbol,SYMBOL_FILLING_MODE);
+   if((filling&SYMBOL_FILLING_FOK)==SYMBOL_FILLING_FOK)
+     {
+      m_type_filling=ORDER_FILLING_FOK;
+      return(true);
+     }
+   if((filling&SYMBOL_FILLING_IOC)==SYMBOL_FILLING_IOC)
+     {
+      m_type_filling=ORDER_FILLING_IOC;
+      return(true);
+     }
+   return(false);
+  }
+//+------------------------------------------------------------------+
+'@
+            if (-not $tradeText.Contains('bool CTrade::PositionOpen')) {
+              throw 'Expected CTrade::PositionOpen definition was not found.'
+            }
+            $tradeText = $tradeText.Replace('bool CTrade::PositionOpen',$definition + [Environment]::NewLine + 'bool CTrade::PositionOpen')
+          }
+          Set-Content -Path $tradeInclude -Value $tradeText -Encoding utf8
+
           Write-Host "Using CI include root: $includeRoot"
 
           $compileLog = Join-Path (Split-Path $source -Parent) 'VaultTrades_Copier.log'
