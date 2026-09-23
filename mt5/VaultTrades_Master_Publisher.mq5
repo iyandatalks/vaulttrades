@@ -241,6 +241,98 @@ bool PostJson(string endpoint,string body,string &response,int &httpCode)
 //==================================================================
 // EVENT SERIALIZATION
 //==================================================================
+string BuildDealPayload(ulong dealTicket,
+                        string eventType,
+                        string symbol,
+                        string direction,
+                        double volume,
+                        double price,
+                        double stopLoss,
+                        double takeProfit,
+                        ulong positionId,
+                        long magic,
+                        long eventTimeMs)
+  {
+   string strategyId="ema20-pullback-morning-engine";
+   string strategyName="VaultTrades EMA20 Pullback Morning Engine";
+   string timeframe=EnumToString((ENUM_TIMEFRAMES)_Period);
+   string brokerServer=AccountInfoString(ACCOUNT_SERVER);
+
+   string comment=HistoryDealGetString(dealTicket,DEAL_COMMENT);
+   long orderTicket=HistoryDealGetInteger(dealTicket,DEAL_ORDER);
+   long reason=HistoryDealGetInteger(dealTicket,DEAL_REASON);
+   long entry=HistoryDealGetInteger(dealTicket,DEAL_ENTRY);
+   long dealType=HistoryDealGetInteger(dealTicket,DEAL_TYPE);
+   double profit=HistoryDealGetDouble(dealTicket,DEAL_PROFIT);
+   double commission=HistoryDealGetDouble(dealTicket,DEAL_COMMISSION);
+   double swap=HistoryDealGetDouble(dealTicket,DEAL_SWAP);
+   double fee=HistoryDealGetDouble(dealTicket,DEAL_FEE);
+
+   string body="{";
+   body += "\"schemaVersion\":1,";
+   body += "\"source\":\"VaultTrades EMA20 Pullback Morning Engine\",";
+   body += "\"strategyId\":\"" + JsonEscape(strategyId) + "\",";
+   body += "\"strategyName\":\"" + JsonEscape(strategyName) + "\",";
+   body += "\"eventType\":\"" + JsonEscape(eventType) + "\",";
+   body += "\"timeframe\":\"" + JsonEscape(timeframe) + "\",";
+   body += "\"accountLogin\":\"" + (string)g_login + "\",";
+   body += "\"brokerServer\":\"" + JsonEscape(brokerServer) + "\",";
+   body += "\"magicNumber\":" + (string)magic + ",";
+   body += "\"dealTicket\":\"" + (string)dealTicket + "\",";
+   body += "\"orderTicket\":\"" + (string)orderTicket + "\",";
+   body += "\"positionId\":\"" + (string)positionId + "\",";
+   body += "\"dealEntry\":" + (string)entry + ",";
+   body += "\"dealType\":" + (string)dealType + ",";
+   body += "\"reason\":" + (string)reason + ",";
+   body += "\"symbol\":\"" + JsonEscape(symbol) + "\",";
+   body += "\"direction\":\"" + JsonEscape(direction) + "\",";
+   body += "\"volume\":" + DoubleToString(volume,8) + ",";
+   body += "\"price\":" + DoubleToString(price,10) + ",";
+   body += "\"stopLoss\":" + DoubleToString(stopLoss,10) + ",";
+   body += "\"takeProfit\":" + DoubleToString(takeProfit,10) + ",";
+   body += "\"profit\":" + DoubleToString(profit,8) + ",";
+   body += "\"commission\":" + DoubleToString(commission,8) + ",";
+   body += "\"swap\":" + DoubleToString(swap,8) + ",";
+   body += "\"fee\":" + DoubleToString(fee,8) + ",";
+   body += "\"eventTimeMs\":" + (string)eventTimeMs + ",";
+   body += "\"comment\":\"" + JsonEscape(comment) + "\"";
+   body += "}";
+
+   return body;
+  }
+
+string BuildModificationPayload(string eventType,
+                                string symbol,
+                                string direction,
+                                double volume,
+                                double price,
+                                double stopLoss,
+                                double takeProfit,
+                                ulong positionId,
+                                long updateTimeMs)
+  {
+   string body="{";
+   body += "\"schemaVersion\":1,";
+   body += "\"source\":\"VaultTrades EMA20 Pullback Morning Engine\",";
+   body += "\"strategyId\":\"ema20-pullback-morning-engine\",";
+   body += "\"strategyName\":\"VaultTrades EMA20 Pullback Morning Engine\",";
+   body += "\"eventType\":\"" + JsonEscape(eventType) + "\",";
+   body += "\"timeframe\":\"" + JsonEscape(EnumToString((ENUM_TIMEFRAMES)_Period)) + "\",";
+   body += "\"accountLogin\":\"" + (string)g_login + "\",";
+   body += "\"brokerServer\":\"" + JsonEscape(AccountInfoString(ACCOUNT_SERVER)) + "\",";
+   body += "\"magicNumber\":" + (string)InpStrategyMagic + ",";
+   body += "\"positionId\":\"" + (string)positionId + "\",";
+   body += "\"symbol\":\"" + JsonEscape(symbol) + "\",";
+   body += "\"direction\":\"" + JsonEscape(direction) + "\",";
+   body += "\"volume\":" + DoubleToString(volume,8) + ",";
+   body += "\"price\":" + DoubleToString(price,10) + ",";
+   body += "\"stopLoss\":" + DoubleToString(stopLoss,10) + ",";
+   body += "\"takeProfit\":" + DoubleToString(takeProfit,10) + ",";
+   body += "\"updateTimeMs\":" + (string)updateTimeMs;
+   body += "}";
+
+   return body;
+  }
 string BuildEventJson(PendingEvent &e)
   {
    // Build the JSON explicitly rather than through StringFormat.
@@ -456,13 +548,18 @@ void QueueDealEvent(ulong dealTicket)
       string direction=(dealType==DEAL_TYPE_BUY ? "BUY" : "SELL");
       long timeMs=HistoryDealGetInteger(dealTicket,DEAL_TIME_MSC);
 
-      string payload=StringFormat(
-         "{\"source\":\"VaultTrades EMA20 Pullback Morning Engine\",\"dealTicket\":\"%I64u\",\"orderTicket\":\"%I64u\",\"positionId\":\"%I64u\",\"magic\":\"%I64d\",\"reason\":\"%I64d\"}",
+      string payload=BuildDealPayload(
          dealTicket,
-         (ulong)HistoryDealGetInteger(dealTicket,DEAL_ORDER),
+         "OPEN",
+         symbol,
+         direction,
+         volume,
+         price,
+         sl,
+         tp,
          positionId,
          magic,
-         HistoryDealGetInteger(dealTicket,DEAL_REASON)
+         timeMs
       );
 
       PendingEvent e=MakeEvent(
@@ -501,13 +598,18 @@ void QueueDealEvent(ulong dealTicket)
       double tp=HistoryDealGetDouble(dealTicket,DEAL_TP);
       long timeMs=HistoryDealGetInteger(dealTicket,DEAL_TIME_MSC);
 
-      string payload=StringFormat(
-         "{\"source\":\"VaultTrades EMA20 Pullback Morning Engine\",\"dealTicket\":\"%I64u\",\"orderTicket\":\"%I64u\",\"positionId\":\"%I64u\",\"reason\":\"%I64d\",\"profit\":%.8f}",
+      string payload=BuildDealPayload(
          dealTicket,
-         (ulong)HistoryDealGetInteger(dealTicket,DEAL_ORDER),
+         "CLOSE",
+         symbol,
+         direction,
+         volume,
+         price,
+         sl,
+         tp,
          positionId,
-         HistoryDealGetInteger(dealTicket,DEAL_REASON),
-         HistoryDealGetDouble(dealTicket,DEAL_PROFIT)
+         magic,
+         timeMs
       );
 
       PendingEvent e=MakeEvent(
@@ -588,9 +690,16 @@ void CheckPositionModifications()
 
          if(changed && updateMs!=g_positions[i].updateTimeMs)
            {
-            string payload=StringFormat(
-               "{\"source\":\"VaultTrades EMA20 Pullback Morning Engine\",\"positionId\":\"%I64u\",\"updateTimeMs\":%I64d}",
-               id,updateMs
+            string payload=BuildModificationPayload(
+               "MODIFY",
+               symbol,
+               g_positions[i].direction,
+               volume,
+               PositionGetDouble(POSITION_PRICE_OPEN),
+               sl,
+               tp,
+               id,
+               updateMs
             );
 
             PendingEvent e=MakeEvent(
