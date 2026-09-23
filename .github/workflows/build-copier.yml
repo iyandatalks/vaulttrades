@@ -36,10 +36,10 @@ jobs:
             -w /workspace \
             ghcr.io/thodinh/mt5:latest \
             bash -lc '              set -e; \
-              editor="$(find /opt/mt5 -type f -iname "MetaEditor64.exe" -o -type f -iname "metaeditor64.exe" | head -n 1)"; \
+              editor="$(find / -type f \( -iname "MetaEditor64.exe" -o -iname "metaeditor64.exe" \) 2>/dev/null | head -n 1)"; \
               test -n "$editor"; \
               echo "Using MetaEditor: $editor"; \
-              include="$(find /opt/mt5 -type f -path "*/MQL5/Include/Trade/Trade.mqh" | head -n 1)"; \
+              include="$(find / -type f -path "*/MQL5/Include/Trade/Trade.mqh" 2>/dev/null | head -n 1)"; \
               test -n "$include"; \
               echo "Using standard library: $include"; \
               wine "$editor" /portable /compile:/workspace/mt5/VaultTrades_Copier.mq5 /log \
