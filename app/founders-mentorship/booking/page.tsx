@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "../../../lib/supabase/server";
 import { getProductAccess } from "../../../lib/product-access";
 
-const BOOKING_URL = "https://calendar.app.google/TowDKSnxKnapRxfNg8";
+const BOOKING_URL = "https://calendar.app.google/RpASwPtYb89kaDPV8";
 
 export default async function FoundersBookingPage() {
   const supabase = await createClient();
