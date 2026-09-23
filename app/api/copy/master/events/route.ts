@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { createHash } from "crypto";
+import { getCopyAccess, revokeExpiredFollower } from "@/lib/copy-access";
 
 export const runtime = "nodejs";
 
@@ -289,7 +290,7 @@ export async function POST(req: Request) {
 
   const { data: links, error: linksError } = await db
     .from("copy_links")
-    .select("follower_id,lot_mode,lot_value")
+.select("follower_id,lot_mode,lot_value,copy_followers(auth_user_id,status)")
     .eq("master_id", masterId)
     .eq("status", "active");
 
@@ -310,6 +311,29 @@ export async function POST(req: Request) {
   let fanoutCount = 0;
 
   for (const link of links || []) {
+    const follower = Array.isArray(link.copy_followers) ? link.copy_followers[0] : link.copy_followers;
+    const authUserId = follower?.auth_user_id ? String(follower.auth_user_id) : "";
+    if (!authUserId) {
+      console.warn("[copy/master/events] skipping follower without auth identity", {
+        requestId,
+        eventId: event.id,
+        followerId: link.follower_id,
+      });
+      continue;
+    }
+
+    const access = await getCopyAccess(authUserId);
+    if (!access.active) {
+      await revokeExpiredFollower(link.follower_id);
+      console.info("[copy/master/events] follower subscription inactive; command not created", {
+        requestId,
+        eventId: event.id,
+        followerId: link.follower_id,
+        accessUntil: access.endAt,
+      });
+      continue;
+    }
+
     let requestedVolume = finiteNumber(volume);
 
     if (requestedVolume != null && link.lot_mode === "fixed") {
