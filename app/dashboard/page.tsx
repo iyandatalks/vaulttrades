@@ -36,7 +36,7 @@ export default function DashboardPage() {
         <header className="vt-info-hero">
           <div className="vt-label">VAULTTRADES WORKSPACE</div>
           <h1>Your trading process, in one place.</h1>
-          <p>Buy any current VaultTrades product and your shared Journal, AI Coach and Funded Account Wealth Builder tools become available for the active entitlement. Admin access is permanent to all tools.</p>
+          <p>Buy any current VaultTrades product and your shared Journal, AI Coach and Funded Account Wealth Builder tools become available for the active entitlement.</p>
         </header>
 
         <section className="vt-start vt-info-card" style={{ textAlign: "left", marginBottom: 24 }}>
