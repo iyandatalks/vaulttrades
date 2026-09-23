@@ -33,6 +33,9 @@ jobs:
           if (-not (Test-Path $installRoot)) { throw "MetaTrader 5 installation directory was not created: $installRoot" }
           $metaEditor = Get-ChildItem -Path $installRoot -Recurse -Filter 'metaeditor64.exe' -File -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $metaEditor) { throw "metaeditor64.exe was not found under $installRoot" }
+          Start-Process -FilePath $metaEditor.FullName -ArgumentList '/portable' -WorkingDirectory $installRoot | Out-Null
+          Start-Sleep -Seconds 8
+          Get-Process -Name 'metaeditor64' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
           "MT5_ROOT=$installRoot" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "METAEDITOR=$($metaEditor.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
@@ -41,13 +44,33 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $source = (Resolve-Path 'mt5/VaultTrades_Copier.mq5').Path
-          $mql5Root = Join-Path $env:MT5_ROOT 'MQL5'
+          $mql5Candidates = @(
+            (Join-Path $env:MT5_ROOT 'MQL5'),
+            (Join-Path $env:APPDATA 'MetaQuotes\Terminal')
+          )
+          $mql5Root = $null
+
+          foreach ($candidate in $mql5Candidates) {
+            if (Test-Path $candidate) {
+              $tradeInclude = Get-ChildItem -Path $candidate -Recurse -Filter 'Trade.mqh' -File -ErrorAction SilentlyContinue | Select-Object -First 1
+              if ($tradeInclude) {
+                $mql5Root = $tradeInclude.Directory.Parent.Parent.FullName
+                break
+              }
+            }
+          }
+
+          if (-not $mql5Root) {
+            throw 'Unable to locate an MQL5 data folder containing Include\Trade\Trade.mqh.'
+          }
+
+          Write-Host "Using MQL5 data root: $mql5Root"
           $expertsRoot = Join-Path $mql5Root 'Experts'
           New-Item -ItemType Directory -Force -Path $expertsRoot | Out-Null
           Copy-Item -Force $source (Join-Path $expertsRoot 'VaultTrades_Copier.mq5')
           $compileLog = Join-Path $expertsRoot 'VaultTrades_Copier.log'
           $compileSource = Join-Path $expertsRoot 'VaultTrades_Copier.mq5'
-          & $env:METAEDITOR /portable "/compile:$compileSource" /include:"$mql5Root" /log
+          & $env:METAEDITOR /portable "/compile:$compileSource" /log
           $exitCode = $LASTEXITCODE
           Start-Sleep -Seconds 2
           $compiled = Join-Path $expertsRoot 'VaultTrades_Copier.ex5'
