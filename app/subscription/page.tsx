@@ -9,7 +9,7 @@ const PRODUCTS = [
   { code: "automated_trader_monthly", name: "Copy Trading", price: "99.99", suffix: "/month", description: "VaultTrades copy trading with connected MT5 execution.", type: "checkout" },
 ] as const;
 
-const FOUNDERS_PAYPAL = "https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-7PG440523L908841RNJ2GXQQ";
+const FOUNDERS_CHECKOUT = "/founders-mentorship/purchase";
 
 function SubscriptionContent() {
   const params = useSearchParams();
