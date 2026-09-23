@@ -77,7 +77,7 @@ export async function POST(request: Request) {
     const status = SUBSCRIPTION_EVENTS[eventType];
     const start = providerSubscription?.start_time ? new Date(providerSubscription.start_time).toISOString() : new Date().toISOString();
     const nextBilling = providerSubscription?.billing_info?.next_billing_time ? new Date(providerSubscription.billing_info.next_billing_time).toISOString() : null;
-    const accessEnd = status === "expired" ? new Date().toISOString() : nextBilling;
+    const accessEnd = status === "active" ? nextBilling : new Date().toISOString();
 
     await admin.from("product_licenses").upsert({ user_id: profile.id, email: profile.email, purchased_product_code: product.code, entitlement_code: product.entitlement, status: status === "active" ? "active" : status, payment_reference: subscriptionId, approved_at: status === "active" ? new Date().toISOString() : null, start_at: start, end_at: accessEnd, platform: product.entitlement === "automation" ? "mt5" : "web", source_payment_snapshot: { provider: "paypal", plan_id: planId, subscription_id: subscriptionId, product_code: product.code, amount: product.price, currency: "USD", event_type: eventType }, updated_at: new Date().toISOString() }, { onConflict: "payment_reference,entitlement_code" });
     await grantFeature(admin, profile.id, product.entitlement, start, accessEnd, status);
