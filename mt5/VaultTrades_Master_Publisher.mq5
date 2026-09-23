@@ -205,11 +205,14 @@ bool PostJson(string endpoint,string body,string &response,int &httpCode)
       dataSize--;
 
    ResetLastError();
+   // IMPORTANT: use the WebRequest overload whose third argument is
+   // the HTTP headers string. The previous implementation passed the
+   // headers through the cookie/referer overload, so
+   // x-vaulttrades-master-key was never sent to VaultTrades.
    httpCode=WebRequest(
       "POST",
       url,
-      "",
-      "",
+      headers,
       InpHttpTimeoutMs,
       data,
       dataSize,
