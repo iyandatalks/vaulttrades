@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomBytes, createHash } from "crypto";
 import { createServiceClient } from "@/lib/supabase/service";
+import { getCopyAccess } from "@/lib/copy-access";
 
 export const runtime = "nodejs";
 
@@ -18,6 +19,14 @@ export async function POST(req:Request) {
   const {data:pair,error}=await db.from("copy_pairing_codes").select("id,auth_user_id,expires_at,redeemed_at,revoked_at").eq("code_hash",sha(code)).maybeSingle();
   if(error || !pair) return NextResponse.json({error:"INVALID_PAIRING_CODE"},{status:401});
   if(pair.redeemed_at || pair.revoked_at || new Date(pair.expires_at).getTime() < Date.now()) return NextResponse.json({error:"PAIRING_CODE_EXPIRED"},{status:401});
+
+  const access = await getCopyAccess(String(pair.auth_user_id));
+  if (!access.active) {
+    return NextResponse.json({
+      error: "COPY_SUBSCRIPTION_REQUIRED",
+      message: "An active VaultTrades Copy Trading subscription is required to pair this MT5 account.",
+    }, { status: 403 });
+  }
 
   const token=randomBytes(32).toString("hex");
   const {data:follower,error:fErr}=await db.from("copy_followers").upsert({
