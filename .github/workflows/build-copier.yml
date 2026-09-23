@@ -39,59 +39,79 @@ jobs:
           "MT5_ROOT=$installRoot" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "METAEDITOR=$($metaEditor.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
+      - name: Checkout MQL5 standard library for CI
+        uses: actions/checkout@v4
+        with:
+          repository: gsemet/mt5-include
+          ref: d913f3880a6120e7f8d276b97e819c3e7d97e95b
+          path: .ci-mt5-include
+          fetch-depth: 1
+
       - name: Compile VaultTrades Copier
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $source = (Resolve-Path 'mt5/VaultTrades_Copier.mq5').Path
-          $mql5Candidates = @(
-            (Join-Path $env:MT5_ROOT 'MQL5'),
-            (Join-Path $env:APPDATA 'MetaQuotes\Terminal')
+
+          $buildMql5 = Join-Path $env:RUNNER_TEMP 'VaultTrades-MQL5'
+          $includeRoot = Join-Path $buildMql5 'Include'
+          New-Item -ItemType Directory -Force -Path $includeRoot | Out-Null
+
+          Copy-Item -Path (Join-Path (Resolve-Path '.ci-mt5-include').Path '*') -Destination $includeRoot -Recurse -Force
+
+          $tradeInclude = Join-Path $includeRoot 'TradeTrade.mqh'
+          $objectInclude = Join-Path $includeRoot 'Object.mqh'
+          if (-not (Test-Path $tradeInclude)) { throw "Trade.mqh not found in CI include tree: $tradeInclude" }
+          if (-not (Test-Path $objectInclude)) { throw "Object.mqh not found in CI include tree: $objectInclude" }
+
+          Write-Host "Using CI include root: $includeRoot"
+
+          $compileLog = Join-Path (Split-Path $source -Parent) 'VaultTrades_Copier.log'
+          $compileArgs = @(
+            '/portable',
+            "/compile:$source",
+            "/include:$buildMql5",
+            '/log'
           )
-          $mql5Root = $null
 
-          foreach ($candidate in $mql5Candidates) {
-            if (Test-Path $candidate) {
-              $tradeInclude = Get-ChildItem -Path $candidate -Recurse -Filter 'Trade.mqh' -File -ErrorAction SilentlyContinue | Select-Object -First 1
-              if ($tradeInclude) {
-                $mql5Root = $tradeInclude.Directory.Parent.Parent.FullName
-                break
-              }
-            }
-          }
-
-          if (-not $mql5Root) {
-            throw 'Unable to locate an MQL5 data folder containing Include\Trade\Trade.mqh.'
-          }
-
-          Write-Host "Using MQL5 data root: $mql5Root"
-          $expertsRoot = Join-Path $mql5Root 'Experts'
-          New-Item -ItemType Directory -Force -Path $expertsRoot | Out-Null
-          Copy-Item -Force $source (Join-Path $expertsRoot 'VaultTrades_Copier.mq5')
-          $compileLog = Join-Path $expertsRoot 'VaultTrades_Copier.log'
-          $compileSource = Join-Path $expertsRoot 'VaultTrades_Copier.mq5'
-          & $env:METAEDITOR /portable "/compile:$compileSource" /log
+          & $env:METAEDITOR @compileArgs
           $exitCode = $LASTEXITCODE
           Start-Sleep -Seconds 2
-          $compiled = Join-Path $expertsRoot 'VaultTrades_Copier.ex5'
-          if (-not (Test-Path $compiled)) {
-            throw "Expected compiled file was not created: $compiled"
+
+          if (-not (Test-Path $compileLog)) {
+            Write-Host "Compilation log not found at expected path. Searching..."
+            $compileLog = Get-ChildItem -Path (Split-Path $source -Parent) -Filter 'VaultTrades_Copier.log' -File -ErrorAction SilentlyContinue | Select-Object -First 1
+            if (-not $compileLog) { throw 'MetaEditor did not create a compilation log.' }
+            $compileLog = $compileLog.FullName
           }
-          $compileLogs = Get-ChildItem -Path $expertsRoot -Filter 'VaultTrades_Copier.log' -File -ErrorAction SilentlyContinue
-          if (-not $compileLogs) {
-            throw 'MetaEditor did not create the expected compilation log.'
-          }
-          $compileLog = $compileLogs.FullName
+
           $log = Get-Content -Raw $compileLog
           Write-Host $log
+
           if ($exitCode -ne 0) { throw "MetaEditor exited with code $exitCode." }
-          if ($log -notmatch '0 error') { throw 'Copier compilation did not report zero errors.' }
-          $compiled = Join-Path $expertsRoot 'VaultTrades_Copier.ex5'
+          if ($log -match '(?i)(error\s*\(|\b[1-9][0-9]*\s+error)') {
+            throw 'Copier compilation reported errors.'
+          }
+          if ($log -notmatch '(?i)0\s+error') {
+            throw 'Copier compilation did not report zero errors.'
+          }
+
+          $compiled = Join-Path (Split-Path $source -Parent) 'VaultTrades_Copier.ex5'
           if (-not (Test-Path $compiled)) { throw "Expected compiled file was not created: $compiled" }
+
           New-Item -ItemType Directory -Force -Path 'public/downloads' | Out-Null
           Copy-Item -Force $compiled 'public/downloads/VaultTrades_Copier.ex5'
+
           $sha256 = (Get-FileHash 'public/downloads/VaultTrades_Copier.ex5' -Algorithm SHA256).Hash
-          $meta = @{ product='VaultTrades Customer Copier'; file='VaultTrades_Copier.ex5'; version='1.00'; source='mt5/VaultTrades_Copier.mq5'; sha256=$sha256; builtAtUtc=(Get-Date).ToUniversalTime().ToString('o') } | ConvertTo-Json
+          $meta = @{
+            product = 'VaultTrades Customer Copier'
+            file = 'VaultTrades_Copier.ex5'
+            version = '1.00'
+            source = 'mt5/VaultTrades_Copier.mq5'
+            sha256 = $sha256
+            builtAtUtc = (Get-Date).ToUniversalTime().ToString('o')
+          } | ConvertTo-Json
+
           $meta | Set-Content 'public/downloads/VaultTrades_Copier.version.json' -Encoding utf8
 
       - name: Publish compiled Copier to main
