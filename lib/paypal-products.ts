@@ -22,7 +22,7 @@ export const PAYPAL_PRODUCTS: Record<string, VaultTradesPayPalProduct> = {
     price: 99.99,
     planId: "P-0YR675118F424491GNJ7LAEQ",
     entitlement: "automation",
-    returnPath: "/automated-trader?payment=success",
+    returnPath: "/copy?payment=success",
   },
 };
 
