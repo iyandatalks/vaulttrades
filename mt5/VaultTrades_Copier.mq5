@@ -1,40 +1,94 @@
 //+------------------------------------------------------------------+
-//| VaultTrades | Customer Copier | Native MT5 EA                    |
-//| Receives master trade commands from VaultTrades and executes     |
-//| them on the customer's MT5 account.                              |
+//| VaultTrades | Customer Copier | Native MT5 Expert Advisor         |
+//| Polls the VaultTrades Copy API and mirrors master trades to the   |
+//| customer broker account.                                          |
 //+------------------------------------------------------------------+
 #property strict
-#property version "1.00"
+#property version   "1.00"
 #property description "VaultTrades Customer Copier"
-#property description "Native MT5 copy-trading execution bridge"
+#property description "Polls pending copy commands and executes OPEN/MODIFY/CLOSE"
+#property description "trades in the follower broker account."
 
 #include <Trade/Trade.mqh>
 
-CTrade trade;
-
-input string InpApiBaseUrl       = "https://vaulttradesve.com"; // VaultTrades production API base URL
-input string InpPairingCode      = "";      // 10-character code from VaultTrades Copy
-input string InpApiToken         = "";      // optional persisted token override
-input string InpCopierVersion    = "1.00";
-input int    InpPollSeconds      = 2;
-input int    InpHeartbeatSeconds = 30;
-input int    InpHttpTimeoutMs    = 5000;
-
-input ulong  InpMagicNumber      = 20260923;
-input int    InpDeviationPoints  = 50;
-input bool   InpAllowTrading     = true;
-input bool   InpShowStatus       = true;
-
-string g_baseUrl="";
-string g_token="";
-string g_followerId="";
-string g_tokenFile="";
-ulong  g_login=0;
-uint   g_lastHeartbeatTick=0;
-datetime g_lastStatus=0;
+//==================================================================
+// INPUTS
+//==================================================================
+input string InpApiBaseUrl         = "https://vaulttradesve.com"; // VaultTrades stable production domain
+input string InpPairingCode        = "";        // Temporary pairing code from VaultTrades (10 hex chars)
+input string InpCopierVersion      = "1.00";    // Copier EA version
+input int    InpPollSeconds        = 2;         // Poll interval in seconds
+input int    InpHeartbeatSeconds   = 30;        // Heartbeat interval in seconds
+input int    InpHttpTimeoutMs      = 5000;      // WebRequest timeout ms
+input ulong  InpMagicNumber        = 20260923;  // Dedicated Copier position magic
+input int    InpDeviationPoints    = 50;        // Default slippage deviation in points
+input bool   InpAllowTrading       = true;      // Live mode: allow executing broker trades
+input bool   InpShowStatus         = true;      // Journal status messages
 
 //==================================================================
-// JSON HELPERS
+// CONSTANTS
+//==================================================================
+#define PFX_TAG        "VTC|"                   // Position comment prefix tag
+#define MAX_COMMANDS   25
+#define TOKEN_HEX_LEN  64
+
+//==================================================================
+// STATE
+//==================================================================
+struct Command
+  {
+   string            executionId;
+   string            commandId;
+   string            eventId;
+   double            requestedVolume;
+   string            status;
+   string            masterTradeId;
+   string            eventType;
+   string            symbol;
+   string            direction;
+   double            volume;
+   double            price;
+   double            stopLoss;
+   double            takeProfit;
+   string            eventTime;
+  };
+
+struct SettingsState
+  {
+   string            lotMode;
+   double            lotValue;
+   string            symbolMapRaw;
+   int               maxSlippagePoints;
+   bool              copyExistingPositions;
+  };
+
+Command          g_commands[];
+SettingsState    g_settings;
+string           g_mapKeys[];
+string           g_mapVals[];
+
+string           g_token = "";
+bool             g_paired = false;
+ulong            g_login = 0;
+string           g_tokenFile = "";
+string           g_mapFile = "";
+int              g_tick = 0;
+bool             g_busy = false;
+
+// Durable execution mapping (survives restart; duplicate protection)
+string           g_mapExecId[];
+string           g_mapCommandId[];
+string           g_mapMasterTrade[];
+string           g_mapEventType[];
+ulong            g_mapPosition[];
+int              g_mapState[];        // 0 = processing/failed, 1 = broker executed
+double           g_mapExecVolume[];
+double           g_mapExecPrice[];
+string           g_mapErrorCode[];
+string           g_mapErrorMessage[];
+
+//==================================================================
+// STRING / JSON HELPERS
 //==================================================================
 string JsonEscape(string value)
   {
@@ -45,225 +99,280 @@ string JsonEscape(string value)
    return value;
   }
 
-string JsonStringAt(string json,string key,int fromPos=0)
+string SafeUrl()
   {
-   string needle="\"" + key + "\":\"";
-   int p=StringFind(json,needle,fromPos);
-   if(p<0)
-      return "";
-
-   int start=p+StringLen(needle);
-   string out="";
-   bool escaped=false;
-
-   for(int i=start;i<StringLen(json);i++)
-     {
-      ushort ch=StringGetCharacter(json,i);
-
-      if(escaped)
-        {
-         if(ch=='n') out+="\n";
-         else if(ch=='r') out+="\r";
-         else if(ch=='t') out+="\t";
-         else out+=(string)CharToString((uchar)ch);
-         escaped=false;
-         continue;
-        }
-
-      if(ch=='\\')
-        {
-         escaped=true;
-         continue;
-        }
-
-      if(ch=='"')
-         return out;
-
-      out+=(string)CharToString((uchar)ch);
-     }
-
-   return "";
+   string base=InpApiBaseUrl;
+   while(StringLen(base)>0 && StringGetCharacter(base,StringLen(base)-1)=='/')
+      base=StringSubstr(base,0,StringLen(base)-1);
+   return base;
   }
 
-string JsonObjectAt(string json,string key,int fromPos=0)
+string TrimStr(string s)
   {
-   string needle="\"" + key + "\":";
-   int p=StringFind(json,needle,fromPos);
-   if(p<0)
-      return "";
-
-   int start=p+StringLen(needle);
-   while(start<StringLen(json))
+   int len=StringLen(s);
+   int b=0;
+   while(b<len)
      {
-      ushort ch=StringGetCharacter(json,start);
-      if(ch==' ' || ch=='\\t' || ch=='\\r' || ch=='\\n')
-         start++;
-      else
+      int ch=StringGetCharacter(s,b);
+      if(ch!=' ' && ch!='\t' && ch!='\r' && ch!='\n')
          break;
+      b++;
      }
-
-   if(start>=StringLen(json) || StringGetCharacter(json,start)!='{')
-      return "";
-
-   int depth=0;
-   bool inString=false;
-   bool escaped=false;
-
-   for(int i=start;i<StringLen(json);i++)
+   int e=len;
+   while(e>b)
      {
-      ushort ch=StringGetCharacter(json,i);
+      int ch=StringGetCharacter(s,e-1);
+      if(ch!=' ' && ch!='\t' && ch!='\r' && ch!='\n')
+         break;
+      e--;
+     }
+   if(e<=b)
+      return "";
+   return StringSubstr(s,b,e-b);
+  }
 
-      if(inString)
+// Pairing codes are 10 hex chars; normalize a-f to uppercase deterministically.
+string ToUpperHex(string s)
+  {
+   StringReplace(s,"a","A");
+   StringReplace(s,"b","B");
+   StringReplace(s,"c","C");
+   StringReplace(s,"d","D");
+   StringReplace(s,"e","E");
+   StringReplace(s,"f","F");
+   return s;
+  }
+
+bool IsWsChar(string s,int i)
+  {
+   int ch=StringGetCharacter(s,i);
+   return (ch==' ' || ch=='\t' || ch=='\r' || ch=='\n');
+  }
+
+// Position of the character right after '"key":' (skipping whitespace)
+int JsonKeyPosition(string json,string key,int from)
+  {
+   int len=StringLen(json);
+   string needle="\""+key+"\"";
+   int f=from;
+   while(f<len)
+     {
+      int pos=StringFind(json,needle,f);
+      if(pos<0)
+         return -1;
+      int p=pos+StringLen(needle);
+      while(p<len && IsWsChar(json,p))
+         p++;
+      if(p<len && StringGetCharacter(json,p)==':')
+         return p+1;
+      f=pos+1;
+     }
+   return -1;
+  }
+
+// Balanced container extraction: returns true and sets endExclusive when the
+// container starting at 'start' (must be '{' or '[') is fully consumed.
+bool ExtractContainer(string src,int start,int &endExclusive)
+  {
+   int depth=0;
+   bool inStr=false;
+   int len=StringLen(src);
+
+   for(int i=start;i<len;i++)
+     {
+      int ch=StringGetCharacter(src,i);
+
+      if(inStr)
         {
-         if(escaped)
-           {
-            escaped=false;
-            continue;
-           }
-         if(ch=='\\')
-           {
-            escaped=true;
-            continue;
-           }
          if(ch=='"')
-            inString=false;
+           {
+            int bs=0;
+            int j=i-1;
+            while(j>=start && StringGetCharacter(src,j)=='\\')
+              {
+               bs++;
+               j--;
+              }
+            if(MathMod(bs,2)==0)
+               inStr=false;
+           }
          continue;
         }
 
       if(ch=='"')
         {
-         inString=true;
+         inStr=true;
          continue;
         }
 
-      if(ch=='{')
+      if(ch=='{' || ch=='[')
          depth++;
-      else if(ch=='}')
+      else if(ch=='}' || ch==']')
         {
          depth--;
          if(depth==0)
-            return StringSubstr(json,start,i-start+1);
+           {
+            endExclusive=i+1;
+            return true;
+           }
         }
      }
 
-   return "";
+   return false;
   }
 
-double JsonNumberAt(string json,string key,int fromPos=0)
+// Raw substring of an object or array value for 'key'
+bool JsonObjectRaw(string json,string key,int from,string &raw)
   {
-   string needle="\"" + key + "\":";
-   int p=StringFind(json,needle,fromPos);
+   int p=JsonKeyPosition(json,key,from);
    if(p<0)
-      return EMPTY_VALUE;
+      return false;
 
-   int start=p+StringLen(needle);
+   int len=StringLen(json);
+   while(p<len && IsWsChar(json,p))
+      p++;
+   if(p>=len)
+      return false;
 
-   while(start<StringLen(json))
-     {
-      ushort ch=StringGetCharacter(json,start);
-      if(ch==' ' || ch=='\t' || ch=='\r' || ch=='\n')
-         start++;
-      else
-         break;
-     }
+   int ch=StringGetCharacter(json,p);
+   if(ch!='{' && ch!='[')
+      return false;
 
-   int end=start;
-   while(end<StringLen(json))
-     {
-      ushort ch=StringGetCharacter(json,end);
-      if((ch>='0' && ch<='9') || ch=='-' || ch=='+' ||
-         ch=='.' || ch=='e' || ch=='E')
-         end++;
-      else
-         break;
-     }
+   int end;
+   if(!ExtractContainer(json,p,end))
+      return false;
 
-   if(end<=start)
-      return EMPTY_VALUE;
-
-   return StringToDouble(StringSubstr(json,start,end-start));
+   raw=StringSubstr(json,p,end-p);
+   return true;
   }
 
-string MapSymbol(string masterSymbol,string settingsJson)
+int FindUnescapedQuote(string s,int from)
   {
-   string needle="\"" + masterSymbol + "\":";
-   int p=StringFind(settingsJson,needle);
-   if(p<0)
-      return masterSymbol;
-
-   int start=p+StringLen(needle);
-   while(start<StringLen(settingsJson))
+   int len=StringLen(s);
+   for(int i=from;i<len;i++)
      {
-      ushort ch=StringGetCharacter(settingsJson,start);
-      if(ch==' ' || ch=='\t' || ch=='\r' || ch=='\n')
-         start++;
-      else
+      int ch=StringGetCharacter(s,i);
+      if(ch!='"')
+         continue;
+      int bs=0;
+      int j=i-1;
+      while(j>=from && StringGetCharacter(s,j)=='\\')
+        {
+         bs++;
+         j--;
+        }
+      if(MathMod(bs,2)==0)
+         return i;
+     }
+   return -1;
+  }
+
+string UnescapeJson(string s)
+  {
+   StringReplace(s,"\\/","/");
+   StringReplace(s,"\\\"","\"");
+   StringReplace(s,"\\\\","\\");
+   return s;
+  }
+
+// String value of 'key' ("" when missing)
+string JsonStr(string json,string key,int from)
+  {
+   int p=JsonKeyPosition(json,key,from);
+   if(p<0)
+      return "";
+
+   int len=StringLen(json);
+   while(p<len && IsWsChar(json,p))
+      p++;
+   if(p>=len || StringGetCharacter(json,p)!='"')
+      return "";
+
+   int q0=p+1;
+   int qe=FindUnescapedQuote(json,q0);
+   if(qe<0)
+      return "";
+
+   return UnescapeJson(StringSubstr(json,q0,qe-q0));
+  }
+// Number value of 'key' (0.0 when missing/not numeric)
+double JsonNum(string json,string key,int from)
+  {
+   int p=JsonKeyPosition(json,key,from);
+   if(p<0)
+      return 0.0;
+
+   int len=StringLen(json);
+   while(p<len && IsWsChar(json,p))
+      p++;
+
+   int i=p;
+   while(i<len)
+     {
+      int ch=StringGetCharacter(json,i);
+      if(ch==',' || ch=='}' || ch==']' || ch==' ' || ch=='\t' || ch=='\r' || ch=='\n')
          break;
+      i++;
      }
 
-   if(start>=StringLen(settingsJson) ||
-      StringGetCharacter(settingsJson,start)!='"')
-      return masterSymbol;
+   string num=StringSubstr(json,p,i-p);
+   return StringToDouble(num);
+  }
 
-   return JsonStringAt(settingsJson,masterSymbol);
+// Boolean value of 'key'
+bool JsonBool(string json,string key,int from)
+  {
+   int p=JsonKeyPosition(json,key,from);
+   if(p<0)
+      return false;
+
+   int len=StringLen(json);
+   while(p<len && IsWsChar(json,p))
+      p++;
+   if(p>=len)
+      return false;
+
+   int ch=StringGetCharacter(json,p);
+   return (ch=='t'); // true / false
   }
 
 //==================================================================
 // HTTP
 //==================================================================
-string CleanBaseUrl()
-  {
-   string s=InpApiBaseUrl;
-   while(StringLen(s)>0 && StringGetCharacter(s,StringLen(s)-1)=='/')
-      s=StringSubstr(s,0,StringLen(s)-1);
-   return s;
-  }
-
-bool Http(string method,string endpoint,string body,bool withToken,
-          string &response,int &httpCode)
+bool HttpJson(string method,string url,string extraHeaders,string body,string &response,int &httpCode)
   {
    response="";
    httpCode=-1;
 
-   string base=g_baseUrl;
-   if(base=="" || (withToken && g_token==""))
-      return false;
-
-   string headers=
-      "Content-Type: application/json\r\n"
-      "Accept: application/json\r\n";
-
-   if(withToken)
-      headers+="x-vaulttrades-copy-token: "+g_token+"\r\n";
-
-   string url=base+endpoint;
+   string headers="Content-Type: application/json\r\n";
+   if(extraHeaders!="")
+      headers+=extraHeaders;
 
    char data[];
-   char result[];
-   string resultHeaders;
-
    int copied=StringToCharArray(body,data,0,WHOLE_ARRAY,CP_UTF8);
    int dataSize=copied;
    if(dataSize>0 && data[dataSize-1]==0)
       dataSize--;
 
-   ResetLastError();
+   ArrayResize(data,dataSize);
 
+   char result[];
+   string resultHeaders;
+
+   ResetLastError();
    httpCode=WebRequest(
-      method,
-      url,
-      headers,
-      InpHttpTimeoutMs,
-      data,
-      dataSize,
-      result,
-      resultHeaders
-   );
+               method,
+               url,
+               headers,
+               InpHttpTimeoutMs,
+               data,
+               result,
+               resultHeaders
+            );
 
    if(httpCode<0)
      {
-      PrintFormat("VT Copier: WebRequest failed %s error=%d",
-                  endpoint,GetLastError());
+      PrintFormat("VT Copier: WebRequest failed url=%s error=%d",url,GetLastError());
       return false;
      }
 
@@ -271,141 +380,547 @@ bool Http(string method,string endpoint,string body,bool withToken,
 
    if(httpCode<200 || httpCode>=300)
      {
-      PrintFormat("VT Copier: HTTP %d %s response=%s",
-                  httpCode,endpoint,response);
+      PrintFormat("VT Copier: HTTP %d url=%s response=%s",httpCode,url,response);
       return false;
      }
 
    return true;
   }
 
+string AuthHeaders()
+  {
+   return "x-vaulttrades-copy-token: "+g_token+"\r\n";
+  }
+
 //==================================================================
-// TOKEN STORAGE
+// TOKEN PERSISTENCE (customer never enters it again after pairing)
 //==================================================================
+void LoadToken()
+  {
+   g_token="";
+   g_paired=false;
+
+   int h=FileOpen(g_tokenFile,FILE_READ|FILE_TXT|FILE_COMMON);
+   if(h==INVALID_HANDLE)
+      return;
+
+   string t=FileReadString(h);
+   FileClose(h);
+
+   t=TrimStr(t);
+   if(StringLen(t)==TOKEN_HEX_LEN)
+     {
+      g_token=t;
+      g_paired=true;
+     }
+  }
+
 void SaveToken()
   {
    if(g_token=="")
       return;
 
-   int h=FileOpen(g_tokenFile,
-                  FILE_WRITE|FILE_TXT|FILE_ANSI|FILE_COMMON);
-
+   int h=FileOpen(g_tokenFile,FILE_WRITE|FILE_TXT|FILE_COMMON);
    if(h==INVALID_HANDLE)
      {
-      PrintFormat("VT Copier: token save failed error=%d",GetLastError());
+      PrintFormat("VT Copier: cannot save token. error=%d",GetLastError());
       return;
      }
 
    FileWriteString(h,g_token);
-   FileFlush(h);
    FileClose(h);
-  }
-
-bool LoadToken()
-  {
-   int h=FileOpen(g_tokenFile,
-                  FILE_READ|FILE_TXT|FILE_ANSI|FILE_COMMON);
-
-   if(h==INVALID_HANDLE)
-      return false;
-
-   g_token=FileReadString(h);
-   FileClose(h);
-
-   return g_token!="";
   }
 
 //==================================================================
 // PAIRING
 //==================================================================
-bool PairAccount()
+bool TryPair()
   {
-   string pairing=InpPairingCode;
-   StringToUpper(pairing);
+   if(g_token!="")
+     {
+      g_paired=true;
+      return true;
+     }
 
-   if(pairing=="")
+   string code=TrimStr(InpPairingCode);
+   code=ToUpperHex(code);
+
+   if(code=="")
+     {
+      Print("VT Copier: no saved token and no pairing code. Enter the 10-char pairing code in EA inputs.");
       return false;
+     }
 
    string body=StringFormat(
-      "{\"pairingCode\":\"%s\",\"mtLogin\":\"%I64u\",\"brokerServer\":\"%s\",\"eaVersion\":\"%s\"}",
-      JsonEscape(pairing),
-      g_login,
-      JsonEscape(AccountInfoString(ACCOUNT_SERVER)),
-      JsonEscape(InpCopierVersion)
-   );
+                  "{\"pairingCode\":\"%s\",\"mtLogin\":\"%I64u\",\"brokerServer\":\"%s\",\"eaVersion\":\"%s\"}",
+                  JsonEscape(code),
+                  g_login,
+                  JsonEscape(AccountInfoString(ACCOUNT_SERVER)),
+                  JsonEscape(InpCopierVersion)
+               );
 
+   string url=SafeUrl()+"/api/copy/pair/redeem";
    string response;
-   int code;
+   int httpCode;
 
-   if(!Http("POST","/api/copy/pair/redeem",body,false,response,code))
+   bool ok=HttpJson("POST",url,"",body,response,httpCode);
+   if(!ok)
       return false;
 
-   string token=JsonStringAt(response,"token");
-   g_followerId=JsonStringAt(response,"followerId");
-
-   if(token=="")
+   string token=TrimStr(JsonStr(response,"token",0));
+   if(StringLen(token)!=TOKEN_HEX_LEN)
      {
-      PrintFormat("VT Copier: pairing response missing token: %s",response);
+      PrintFormat("VT Copier: pairing response missing token. response=%s",response);
       return false;
      }
 
    g_token=token;
+   g_paired=true;
    SaveToken();
 
-   PrintFormat("VT Copier: paired successfully. followerId=%s",g_followerId);
+   string followerId=JsonStr(response,"followerId",0);
+   PrintFormat("VT Copier: paired with VaultTrades. followerId=%s token=%.12s...",
+               followerId,g_token);
+
    return true;
   }
 
 //==================================================================
-// HEARTBEAT / ACK
+// HEARTBEAT
 //==================================================================
 void SendHeartbeat()
   {
-   if(g_token=="")
+   if(!g_paired)
       return;
 
    string body=StringFormat(
-      "{\"mtLogin\":\"%I64u\",\"brokerServer\":\"%s\",\"eaVersion\":\"%s\"}",
-      g_login,
-      JsonEscape(AccountInfoString(ACCOUNT_SERVER)),
-      JsonEscape(InpCopierVersion)
-   );
+                  "{\"mtLogin\":\"%I64u\",\"brokerServer\":\"%s\",\"eaVersion\":\"%s\"}",
+                  g_login,
+                  JsonEscape(AccountInfoString(ACCOUNT_SERVER)),
+                  JsonEscape(InpCopierVersion)
+               );
 
+   string url=SafeUrl()+"/api/copy/heartbeat";
    string response;
-   int code;
-   Http("POST","/api/copy/heartbeat",body,true,response,code);
+   int httpCode;
+
+   HttpJson("POST",url,AuthHeaders(),body,response,httpCode);
   }
 
-bool Ack(string executionId,string status,long ticket,double volume,
-         double price,string errorCode,string errorMessage)
+//==================================================================
+// ACK
+//==================================================================
+bool AckCommand(string executionId,
+                string status,
+                string followerTradeId,
+                double executedVolume,
+                double executedPrice,
+                string errorCode,
+                string errorMessage)
   {
+   if(!g_paired)
+      return false;
+
    string body=StringFormat(
-      "{\"executionId\":\"%s\",\"status\":\"%s\",\"followerTradeId\":\"%I64d\",\"executedVolume\":%s,\"executedPrice\":%s,\"errorCode\":\"%s\",\"errorMessage\":\"%s\"}",
-      JsonEscape(executionId),
-      JsonEscape(status),
-      ticket,
-      DoubleToString(volume,8),
-      DoubleToString(price,10),
-      JsonEscape(errorCode),
-      JsonEscape(errorMessage)
-   );
+                  "{\"executionId\":\"%s\",\"status\":\"%s\",\"followerTradeId\":%s,\"executedVolume\":%s,\"executedPrice\":%s,\"errorCode\":%s,\"errorMessage\":%s}",
+                  JsonEscape(executionId),
+                  JsonEscape(status),
+                  followerTradeId=="" ? "null" : "\""+JsonEscape(followerTradeId)+"\"",
+                  executedVolume>0 ? DoubleToString(executedVolume,8) : "null",
+                  executedPrice!=0 ? DoubleToString(executedPrice,8) : "null",
+                  errorCode=="" ? "null" : "\""+JsonEscape(errorCode)+"\"",
+                  errorMessage=="" ? "null" : "\""+JsonEscape(errorMessage)+"\""
+               );
 
+   string url=SafeUrl()+"/api/copy/ack";
    string response;
-   int code;
-   return Http("POST","/api/copy/ack",body,true,response,code);
+   int httpCode;
+
+   bool ok=HttpJson("POST",url,AuthHeaders(),body,response,httpCode);
+   if(ok && InpShowStatus)
+      PrintFormat("VT Copier: ACK %s executionId=%s",status,executionId);
+
+   return ok;
   }
 
 //==================================================================
-// LOCAL POSITION MAPPING
+// DURABLE EXECUTION MAPPING
 //==================================================================
-string MasterComment(string masterTradeId)
+int FindMappingExec(string executionId)
   {
-   return "VTCP|"+masterTradeId;
+   for(int i=0;i<ArraySize(g_mapExecId);i++)
+      if(g_mapExecId[i]==executionId)
+         return i;
+   return -1;
   }
 
-long FindPosition(string masterTradeId)
+int FindMappingMaster(string masterTradeId,string eventType)
   {
-   string wanted=MasterComment(masterTradeId);
+   for(int i=0;i<ArraySize(g_mapMasterTrade);i++)
+      if(g_mapMasterTrade[i]==masterTradeId && g_mapEventType[i]==eventType)
+         return i;
+   return -1;
+  }
+
+void AddMappingRow(string executionId,
+                   string commandId,
+                   string masterTradeId,
+                   string eventType,
+                   ulong position,
+                   int state,
+                   double execVolume,
+                   double execPrice,
+                   string errorCode,
+                   string errorMessage)
+  {
+   int n=ArraySize(g_mapExecId);
+
+   ArrayResize(g_mapExecId,n+1);
+   ArrayResize(g_mapCommandId,n+1);
+   ArrayResize(g_mapMasterTrade,n+1);
+   ArrayResize(g_mapEventType,n+1);
+   ArrayResize(g_mapPosition,n+1);
+   ArrayResize(g_mapState,n+1);
+   ArrayResize(g_mapExecVolume,n+1);
+   ArrayResize(g_mapExecPrice,n+1);
+   ArrayResize(g_mapErrorCode,n+1);
+   ArrayResize(g_mapErrorMessage,n+1);
+
+   g_mapExecId[n]=executionId;
+   g_mapCommandId[n]=commandId;
+   g_mapMasterTrade[n]=masterTradeId;
+   g_mapEventType[n]=eventType;
+   g_mapPosition[n]=position;
+   g_mapState[n]=state;
+   g_mapExecVolume[n]=execVolume;
+   g_mapExecPrice[n]=execPrice;   g_mapErrorCode[n]=errorCode;
+   g_mapErrorMessage[n]=errorMessage;
+
+   SaveMapping();
+  }
+
+void UpdateMappingRow(int idx,
+                      ulong position,
+                      int state,
+                      double execVolume,
+                      double execPrice,
+                      string errorCode,
+                      string errorMessage)
+  {
+   if(idx<0 || idx>=ArraySize(g_mapExecId))
+      return;
+
+   g_mapPosition[idx]=position;
+   g_mapState[idx]=state;
+   g_mapExecVolume[idx]=execVolume;
+   g_mapExecPrice[idx]=execPrice;
+   g_mapErrorCode[idx]=errorCode;
+   g_mapErrorMessage[idx]=errorMessage;
+
+   SaveMapping();
+  }
+
+void SaveMapping()
+  {
+   int h=FileOpen(g_mapFile,FILE_WRITE|FILE_CSV|FILE_ANSI|FILE_COMMON,'\t');
+   if(h==INVALID_HANDLE)
+     {
+      PrintFormat("VT Copier: cannot save mapping. error=%d",GetLastError());
+      return;
+     }
+
+   for(int i=0;i<ArraySize(g_mapExecId);i++)
+     {
+      string errCode=g_mapErrorCode[i];
+      string errMsg=g_mapErrorMessage[i];
+      StringReplace(errCode,"\t"," ");
+      StringReplace(errMsg,"\t"," ");
+
+      FileWrite(h,
+                g_mapExecId[i],
+                g_mapCommandId[i],
+                g_mapMasterTrade[i],
+                g_mapEventType[i],
+                (string)g_mapPosition[i],
+                (string)g_mapState[i],
+                DoubleToString(g_mapExecVolume[i],8),
+                DoubleToString(g_mapExecPrice[i],8),
+                errCode,
+                errMsg);
+     }
+
+   FileFlush(h);
+   FileClose(h);
+  }
+
+void LoadMapping()
+  {
+   ArrayResize(g_mapExecId,0);
+   ArrayResize(g_mapCommandId,0);
+   ArrayResize(g_mapMasterTrade,0);
+   ArrayResize(g_mapEventType,0);
+   ArrayResize(g_mapPosition,0);
+   ArrayResize(g_mapState,0);
+   ArrayResize(g_mapExecVolume,0);
+   ArrayResize(g_mapExecPrice,0);
+   ArrayResize(g_mapErrorCode,0);
+   ArrayResize(g_mapErrorMessage,0);
+
+   int h=FileOpen(g_mapFile,FILE_READ|FILE_CSV|FILE_ANSI|FILE_COMMON,'\t');
+   if(h==INVALID_HANDLE)
+      return;
+
+   while(!FileIsEnding(h))
+     {
+      string executionId=FileReadString(h);
+      if(executionId=="")
+         break;
+
+      int n=ArraySize(g_mapExecId);
+      ArrayResize(g_mapExecId,n+1);
+      ArrayResize(g_mapCommandId,n+1);
+      ArrayResize(g_mapMasterTrade,n+1);
+      ArrayResize(g_mapEventType,n+1);
+      ArrayResize(g_mapPosition,n+1);
+      ArrayResize(g_mapState,n+1);
+      ArrayResize(g_mapExecVolume,n+1);
+      ArrayResize(g_mapExecPrice,n+1);
+      ArrayResize(g_mapErrorCode,n+1);
+      ArrayResize(g_mapErrorMessage,n+1);
+
+      g_mapExecId[n]=executionId;
+      g_mapCommandId[n]=FileReadString(h);
+      g_mapMasterTrade[n]=FileReadString(h);
+      g_mapEventType[n]=FileReadString(h);
+      g_mapPosition[n]=(ulong)StringToInteger(FileReadString(h));
+      g_mapState[n]=(int)StringToInteger(FileReadString(h));
+      g_mapExecVolume[n]=StringToDouble(FileReadString(h));
+      g_mapExecPrice[n]=StringToDouble(FileReadString(h));
+      g_mapErrorCode[n]=FileReadString(h);
+      g_mapErrorMessage[n]=FileReadString(h);
+     }
+
+   FileClose(h);
+   PrintFormat("VT Copier: loaded %d mapping row(s).",ArraySize(g_mapExecId));
+  }
+
+//==================================================================
+// SYMBOL MAPPING
+//==================================================================
+void ParseSymbolMap()
+  {
+   ArrayResize(g_mapKeys,0);
+   ArrayResize(g_mapVals,0);
+
+   string raw=g_settings.symbolMapRaw;
+   int len=StringLen(raw);
+   int i=0;
+
+   while(i<len)
+     {
+      int ch=StringGetCharacter(raw,i);
+      if(ch=='"')
+        {
+         int k0=i+1;
+         int ke=FindUnescapedQuote(raw,k0);
+         if(ke<0)
+            break;
+
+         string key=UnescapeJson(StringSubstr(raw,k0,ke-k0));
+         i=ke+1;
+
+         while(i<len && IsWsChar(raw,i))
+            i++;
+         if(i>=len || StringGetCharacter(raw,i)!=':')
+            continue;
+         i++;
+         while(i<len && IsWsChar(raw,i))
+            i++;
+         if(i>=len || StringGetCharacter(raw,i)!='"')
+            continue;
+
+         int v0=i+1;
+         int ve=FindUnescapedQuote(raw,v0);
+         if(ve<0)
+            break;
+
+         string val=UnescapeJson(StringSubstr(raw,v0,ve-v0));
+         int n=ArraySize(g_mapKeys);
+         ArrayResize(g_mapKeys,n+1);
+         ArrayResize(g_mapVals,n+1);
+         g_mapKeys[n]=key;
+         g_mapVals[n]=val;
+
+         i=ve+1;
+        }
+      else
+         i++;
+     }
+  }
+
+string ResolveSymbol(string masterSymbol)
+  {
+   for(int i=0;i<ArraySize(g_mapKeys);i++)
+      if(g_mapKeys[i]==masterSymbol)
+         return g_mapVals[i];
+   return masterSymbol;
+  }
+
+bool SymbolAvailable(string symbol)
+  {
+   if(symbol=="")
+      return false;
+
+   long mode=SymbolInfoInteger(symbol,SYMBOL_TRADE_MODE);
+   if(mode==0)
+      return false;
+
+   int digits=(int)SymbolInfoInteger(symbol,SYMBOL_DIGITS);
+   if(digits==0)
+      return false;
+
+   return true;
+  }
+
+//==================================================================
+// VOLUME NORMALIZATION
+//==================================================================
+double NormalizeVolume(double requested,string symbol,bool &ok,string &err)
+  {
+   ok=true;
+   err="";
+
+   double min=SymbolInfoDouble(symbol,SYMBOL_VOLUME_MIN);
+   double max=SymbolInfoDouble(symbol,SYMBOL_VOLUME_MAX);
+   double step=SymbolInfoDouble(symbol,SYMBOL_VOLUME_STEP);
+
+   if(min<=0) min=0.01;
+   if(max<=0) max=1000.0;
+   if(step<=0) step=0.01;
+
+   if(requested<=0)
+     {
+      ok=false;
+      err="VOLUME_ZERO";
+      return 0;
+     }
+
+   if(requested+1e-9 < min)
+     {
+      ok=false;
+      err="VOLUME_BELOW_MIN";
+      return 0;
+     }
+
+   double v=MathFloor(requested/step+1e-9)*step;
+   v=NormalizeDouble(v,8);
+
+   if(v+1e-9 < min)
+      v=min;
+   if(v-1e-9 > max)
+     {
+      ok=false;
+      err="VOLUME_ABOVE_MAX";
+      return 0;
+     }
+   if(v<=0)
+     {
+      ok=false;
+      err="VOLUME_INVALID_STEP";
+      return 0;
+     }
+
+   return v;
+  }
+
+//==================================================================
+// SL / TP VALIDATION
+//==================================================================
+bool ValidateStops(string symbol,string direction,double &sl,double &tp,string &err,bool isModify)
+  {
+   int digits=(int)SymbolInfoInteger(symbol,SYMBOL_DIGITS);
+   if(digits>0)
+     {
+      sl=NormalizeDouble(sl,digits);
+      tp=NormalizeDouble(tp,digits);
+     }
+
+   if(sl<=0 && tp<=0)
+      return true; // master event provided no stops
+
+   double bid=SymbolInfoDouble(symbol,SYMBOL_BID);
+   double ask=SymbolInfoDouble(symbol,SYMBOL_ASK);
+   double point=SymbolInfoDouble(symbol,SYMBOL_POINT);
+   if(bid<=0 || ask<=0 || point<=0)
+     {
+      err="MARKET_UNAVAILABLE";
+      return false;
+     }
+
+   long stopsLevel=SymbolInfoInteger(symbol,SYMBOL_TRADE_STOPS_LEVEL);
+   long freezeLevel=SymbolInfoInteger(symbol,SYMBOL_TRADE_FREEZE_LEVEL);
+
+   double level=(double)stopsLevel;
+   if(isModify && freezeLevel>level)
+      level=(double)freezeLevel; // modification must respect the stricter freeze zone
+
+   if(level>0)
+     {
+      double minD=level*point;
+
+      if(direction=="BUY")
+        {
+         if(sl>0 && (sl>=bid || bid-sl<minD))
+           {
+            err="SL_TOO_CLOSE";
+            return false;
+           }
+         if(tp>0 && (tp<=ask || tp-ask<minD))
+           {
+            err="TP_TOO_CLOSE";
+            return false;
+           }
+        }
+      else
+        {
+         if(sl>0 && (sl<=ask || sl-ask<minD))
+           {
+            err="SL_TOO_CLOSE";
+            return false;
+           }
+         if(tp>0 && (tp>=bid || bid-tp<minD))
+           {
+            err="TP_TOO_CLOSE";
+            return false;
+           }        }
+     }
+
+   return true;
+  }
+
+//==================================================================
+// LIVE POSITION LOOKUP (comment tag + magic)
+//==================================================================
+// PositionGetTicket(i) selects the position at index i. Returning true when the
+// ticket is found leaves that position selected. This is the ticket-based select
+// for terminals whose PositionSelect(ulong) overload is unavailable.
+bool SelectPositionByTicket(ulong ticket)
+  {
+   if(ticket==0)
+      return false;
+
+   for(int i=0;i<PositionsTotal();i++)
+     {
+      ulong t=PositionGetTicket(i);
+      if(t==ticket)
+         return true;
+     }
+   return false;
+  }
+
+ulong FindLiveCopiedPosition(string masterTradeId)
+  {
+   string tag=PFX_TAG+masterTradeId;
 
    for(int i=0;i<PositionsTotal();i++)
      {
@@ -413,394 +928,518 @@ long FindPosition(string masterTradeId)
       if(ticket==0)
          continue;
 
-      if(PositionGetString(POSITION_COMMENT)==wanted)
-         return (long)ticket;
+      ulong magic=(ulong)PositionGetInteger(POSITION_MAGIC);
+      if(magic!=InpMagicNumber)
+         continue;
+
+      string comment=PositionGetString(POSITION_COMMENT);
+      if(comment==tag)
+         return ticket;
      }
 
-   return -1;
-  }
-
-bool EnsureSymbol(string symbol)
-  {
-   if(symbol=="")
-      return false;
-
-   if(SymbolInfoInteger(symbol,SYMBOL_SELECT))
-      return true;
-
-   ResetLastError();
-   if(!SymbolSelect(symbol,true))
-     {
-      PrintFormat("VT Copier: cannot select %s error=%d",
-                  symbol,GetLastError());
-      return false;
-     }
-
-   return true;
-  }
-
-double NormalizeVolume(string symbol,double volume)
-  {
-   if(volume<=0.0)
-      return 0.0;
-
-   double minLot=SymbolInfoDouble(symbol,SYMBOL_VOLUME_MIN);
-   double maxLot=SymbolInfoDouble(symbol,SYMBOL_VOLUME_MAX);
-   double step=SymbolInfoDouble(symbol,SYMBOL_VOLUME_STEP);
-
-   if(step<=0.0)
-      step=minLot;
-
-   if(step<=0.0)
-      return volume;
-
-   volume=MathMax(minLot,MathMin(maxLot,volume));
-   volume=MathFloor((volume+1e-12)/step)*step;
-
-   int digits=0;
-   double probe=step;
-   while(digits<8 && MathAbs(probe-MathRound(probe))>1e-9)
-     {
-      probe*=10.0;
-      digits++;
-     }
-
-   return NormalizeDouble(volume,digits);
+   return 0;
   }
 
 //==================================================================
-// OPEN
+// RECONCILIATION AFTER RESTART
 //==================================================================
-bool ExecuteOpen(string executionId,string masterTradeId,
-                 string masterSymbol,string direction,
-                 double requestedVolume,double stopLoss,
-                 double takeProfit,string settingsJson)
+void ReconcilePositions()
   {
-   if(!InpAllowTrading)
+   int updated=0;
+
+   for(int i=0;i<PositionsTotal();i++)
      {
-      Ack(executionId,"failed",-1,0,0,
-          "TRADING_DISABLED","Copier trading is disabled.");
-      return false;
+      ulong ticket=PositionGetTicket(i);
+      if(ticket==0)
+         continue;
+
+      ulong magic=(ulong)PositionGetInteger(POSITION_MAGIC);
+      if(magic!=InpMagicNumber)
+         continue;
+
+      string comment=PositionGetString(POSITION_COMMENT);
+      if(StringFind(comment,PFX_TAG,0)!=0)
+         continue;
+
+      string masterTradeId=StringSubstr(comment,StringLen(PFX_TAG));
+      if(masterTradeId=="")
+         continue;
+
+      int idx=FindMappingMaster(masterTradeId,"OPEN");
+      if(idx>=0 && g_mapPosition[idx]==0)
+        {
+         UpdateMappingRow(idx,ticket,1,
+                          g_mapExecVolume[idx],
+                          g_mapExecPrice[idx],
+                          g_mapErrorCode[idx],
+                          g_mapErrorMessage[idx]);
+         updated++;
+        }
      }
 
-   // Idempotency: if this master trade was already copied, ACK it
-   // instead of opening a second position.
-   long existing=FindPosition(masterTradeId);
-   if(existing>0 && PositionSelectByTicket((ulong)existing))
-     {
-      Ack(executionId,"executed",existing,
-          PositionGetDouble(POSITION_VOLUME),
-          PositionGetDouble(POSITION_PRICE_OPEN),"","");
-      return true;
-     }
-
-   string symbol=MapSymbol(masterSymbol,settingsJson);
-
-   if(!EnsureSymbol(symbol))
-     {
-      Ack(executionId,"failed",-1,0,0,
-          "SYMBOL_NOT_FOUND",symbol);
-      return false;
-     }
-
-   double volume=NormalizeVolume(symbol,requestedVolume);
-
-   if(volume<=0.0)
-     {
-      Ack(executionId,"failed",-1,0,0,
-          "INVALID_VOLUME","Requested volume is invalid.");
-      return false;
-     }
-
-   trade.SetExpertMagicNumber(InpMagicNumber);
-   trade.SetDeviationInPoints(InpDeviationPoints);
-
-   string comment=MasterComment(masterTradeId);
-   bool ok=false;
-
-   if(direction=="BUY")
-      ok=trade.Buy(volume,symbol,0.0,stopLoss,takeProfit,comment);
-   else if(direction=="SELL")
-      ok=trade.Sell(volume,symbol,0.0,stopLoss,takeProfit,comment);
-   else
-     {
-      Ack(executionId,"failed",-1,0,0,
-          "INVALID_DIRECTION",direction);
-      return false;
-     }
-
-   if(!ok)
-     {
-      string msg=trade.ResultRetcodeDescription();
-
-      Ack(executionId,"failed",-1,0,0,
-          (string)trade.ResultRetcode(),msg);
-
-      PrintFormat("VT Copier: OPEN failed %s %s %.2f retcode=%u %s",
-                  direction,symbol,volume,trade.ResultRetcode(),msg);
-      return false;
-     }
-
-   long ticket=FindPosition(masterTradeId);
-   double executedVolume=volume;
-   double executedPrice=trade.ResultPrice();
-
-   if(ticket>0 && PositionSelectByTicket((ulong)ticket))
-     {
-      executedVolume=PositionGetDouble(POSITION_VOLUME);
-      executedPrice=PositionGetDouble(POSITION_PRICE_OPEN);
-     }
-
-   Ack(executionId,"executed",ticket,
-       executedVolume,executedPrice,"","");
-
-   PrintFormat("VT Copier: OPEN executed %s %s %.2f ticket=%I64d",
-               direction,symbol,executedVolume,ticket);
-
-   return true;
-  }
-
-//==================================================================
-// MODIFY
-//==================================================================
-bool ExecuteModify(string executionId,string masterTradeId,
-                   double stopLoss,double takeProfit)
-  {
-   long ticket=FindPosition(masterTradeId);
-
-   if(ticket<0)
-     {
-      Ack(executionId,"failed",-1,0,0,
-          "POSITION_NOT_FOUND","Copied position not found.");
-      return false;
-     }
-
-   if(!PositionSelectByTicket((ulong)ticket))
-     {
-      Ack(executionId,"failed",-1,0,0,
-          "POSITION_NOT_FOUND","Copied position cannot be selected.");
-      return false;
-     }
-
-   trade.SetExpertMagicNumber(InpMagicNumber);
-   trade.SetDeviationInPoints(InpDeviationPoints);
-
-   if(!trade.PositionModify((ulong)ticket,stopLoss,takeProfit))
-     {
-      string msg=trade.ResultRetcodeDescription();
-
-      Ack(executionId,"failed",ticket,
-          PositionGetDouble(POSITION_VOLUME),
-          PositionGetDouble(POSITION_PRICE_OPEN),
-          (string)trade.ResultRetcode(),msg);
-      return false;
-     }
-
-   Ack(executionId,"executed",ticket,
-       PositionGetDouble(POSITION_VOLUME),
-       PositionGetDouble(POSITION_PRICE_OPEN),"","");
-
-   return true;
-  }
-
-//==================================================================
-// CLOSE
-//==================================================================
-bool ExecuteClose(string executionId,string masterTradeId)
-  {
-   long ticket=FindPosition(masterTradeId);
-
-   // Already closed is a successful idempotent result.
-   if(ticket<0)
-     {
-      Ack(executionId,"executed",-1,0,0,"","");
-      return true;
-     }
-
-   if(!PositionSelectByTicket((ulong)ticket))
-     {
-      Ack(executionId,"executed",-1,0,0,"","");
-      return true;
-     }
-
-   double volume=PositionGetDouble(POSITION_VOLUME);
-
-   trade.SetExpertMagicNumber(InpMagicNumber);
-   trade.SetDeviationInPoints(InpDeviationPoints);
-
-   if(!trade.PositionClose((ulong)ticket,InpDeviationPoints))
-     {
-      string msg=trade.ResultRetcodeDescription();
-
-      Ack(executionId,"failed",ticket,volume,
-          PositionGetDouble(POSITION_PRICE_OPEN),
-          (string)trade.ResultRetcode(),msg);
-      return false;
-     }
-
-   Ack(executionId,"executed",ticket,volume,
-       trade.ResultPrice(),"","");
-
-   return true;
+   if(updated>0 && InpShowStatus)
+      PrintFormat("VT Copier: reconciled %d live copied position(s).",updated);
   }
 
 //==================================================================
 // COMMAND PARSING
 //==================================================================
-bool ProcessCommand(string json,string settingsJson)
+void ParseCommand(string chunk,Command &c)
   {
-   string executionId=JsonStringAt(json,"id");
-   string masterTradeId=JsonStringAt(json,"master_trade_id");
-   string eventType=JsonStringAt(json,"event_type");
-   string symbol=JsonStringAt(json,"symbol");
-   string direction=JsonStringAt(json,"direction");
+   c.executionId=JsonStr(chunk,"id",0);
+   c.commandId=JsonStr(chunk,"command_id",0);
+   c.eventId=JsonStr(chunk,"event_id",0);
+   c.requestedVolume=JsonNum(chunk,"requested_volume",0);
+   c.status=JsonStr(chunk,"status",0);
 
-   double volume=JsonNumberAt(json,"requested_volume");
-   double stopLoss=JsonNumberAt(json,"stop_loss");
-   double takeProfit=JsonNumberAt(json,"take_profit");
-
-   if(executionId=="")
-      executionId=JsonStringAt(json,"command_id");
-
-   if(executionId=="" || masterTradeId=="" || eventType=="")
-      return false;
-
-   if(eventType=="OPEN")
-      return ExecuteOpen(executionId,masterTradeId,
-                         symbol,direction,volume,
-                         stopLoss,takeProfit,settingsJson);
-
-   if(eventType=="MODIFY")
-      return ExecuteModify(executionId,masterTradeId,
-                           stopLoss,takeProfit);
-
-   if(eventType=="CLOSE")
-      return ExecuteClose(executionId,masterTradeId);
-
-   Ack(executionId,"failed",-1,0,0,
-       "UNSUPPORTED_EVENT",eventType);
-   return false;
+   string ev;
+   if(JsonObjectRaw(chunk,"copy_trade_events",0,ev))
+     {
+      c.masterTradeId=JsonStr(ev,"master_trade_id",0);
+      c.eventType=JsonStr(ev,"event_type",0);
+      c.symbol=JsonStr(ev,"symbol",0);
+      c.direction=JsonStr(ev,"direction",0);
+      c.volume=JsonNum(ev,"volume",0);
+      c.price=JsonNum(ev,"price",0);
+      c.stopLoss=JsonNum(ev,"stop_loss",0);
+      c.takeProfit=JsonNum(ev,"take_profit",0);
+      c.eventTime=JsonStr(ev,"event_time",0);
+     }
   }
 
-void ProcessPollResponse(string response)
+void ParsePollResponse(string body)
   {
-   // Current API returns a JSON object containing:
-   // commands:[...], settings:{...}
-   // We process each command by locating command_id boundaries.
-   string settingsJson=JsonObjectAt(response,"settings");
-   if(settingsJson=="")
-      settingsJson=response;
+   ArrayResize(g_commands,0);
 
-   int search=0;
-
-   for(int count=0;count<25;count++)
+   string arr;
+   if(JsonObjectRaw(body,"commands",0,arr) && StringGetCharacter(arr,0)=='[')
      {
-      string marker="\"command_id\":\"";
-      int p=StringFind(response,marker,search);
-      if(p<0)
-         break;
+      int len=StringLen(arr);
+      int i=1;
+      while(i<len)
+        {
+         if(StringGetCharacter(arr,i)=='{')
+           {
+            int end;
+            if(ExtractContainer(arr,i,end))
+              {
+               Command c;
+               ParseCommand(StringSubstr(arr,i,end-i),c);
 
-      int next=StringFind(response,marker,p+StringLen(marker));
-      int end=(next<0 ? StringLen(response) : next);
+               if(c.executionId!="")
+                 {
+                  int n=ArraySize(g_commands);
+                  ArrayResize(g_commands,n+1);
+                  g_commands[n]=c;
+                 }
 
-      int start=p;
-      while(start>0 && StringGetCharacter(response,start)!='{')
-         start--;
+               i=end;
+               continue;
+              }
+           }
+         i++;
+        }
+     }
 
-      if(start<0 || start>=end)
-         break;
-
-      string command=StringSubstr(response,start,end-start);
-      ProcessCommand(command,settingsJson);
-
-      search=end;
+   // Settings
+   string st;
+   if(JsonObjectRaw(body,"settings",0,st))
+     {
+      g_settings.lotMode=JsonStr(st,"lotMode",0);
+      g_settings.lotValue=JsonNum(st,"lotValue",0);
+      g_settings.maxSlippagePoints=(int)JsonNum(st,"maxSlippagePoints",0);
+      g_settings.copyExistingPositions=JsonBool(st,"copyExistingPositions",0);
+      g_settings.symbolMapRaw="";
+      JsonObjectRaw(st,"symbolMap",0,g_settings.symbolMapRaw);
+      ParseSymbolMap();
+     }
+   else
+     {
+      // Defaults when settings absent
+      g_settings.lotMode="fixed";
+      g_settings.lotValue=0.01;
+      g_settings.maxSlippagePoints=50;
+      g_settings.copyExistingPositions=false;
+      g_settings.symbolMapRaw="";
+      ParseSymbolMap();
      }
   }
 
 //==================================================================
-// POLL / STATUS
+// EXECUTION
 //==================================================================
-void PollCommands()
+void AckFailed(Command &c,string errorCode,string errorMessage)
   {
-   if(g_token=="")
+   int idx=FindMappingExec(c.executionId);
+   if(idx<0)
+      AddMappingRow(c.executionId,c.commandId,c.masterTradeId,c.eventType,
+                    0,0,0,0,errorCode,errorMessage);
+   else
+      UpdateMappingRow(idx,0,0,0,0,errorCode,errorMessage);
+
+   AckCommand(c.executionId,"failed","",0,0,errorCode,errorMessage);
+  }
+
+void AckExecuted(Command &c,ulong position,double execVolume,double execPrice)
+  {
+   int idx=FindMappingExec(c.executionId);
+   if(idx<0)
+      AddMappingRow(c.executionId,c.commandId,c.masterTradeId,c.eventType,
+                    position,1,execVolume,execPrice,"","");
+   else
+      UpdateMappingRow(idx,position,1,execVolume,execPrice,"","");
+
+   AckCommand(c.executionId,"executed",
+              position!=0 ? (string)position : "",
+              execVolume,execPrice,"","");
+  }
+
+void ExecuteOpen(Command &c)
+  {
+   string tradedSymbol=ResolveSymbol(c.symbol);
+
+   if(!SymbolAvailable(tradedSymbol))
+     {
+      AckFailed(c,"SYMBOL_UNAVAILABLE","symbol "+tradedSymbol+" not tradeable on follower");
+      return;
+     }
+
+   // Duplicate protection: a copied position for this master trade already exists
+   ulong existing=FindLiveCopiedPosition(c.masterTradeId);
+   if(existing!=0)
+     {
+      if(InpShowStatus)
+         PrintFormat("VT Copier: OPEN already copied position #%I64u for masterTradeId=%s; ACKing idempotently.",
+                     existing,c.masterTradeId);
+      AckExecuted(c,existing,
+                  PositionGetDouble(POSITION_VOLUME),
+                  PositionGetDouble(POSITION_PRICE_OPEN));
+      return;
+     }
+
+   int knownIdx=FindMappingMaster(c.masterTradeId,"OPEN");
+   if(knownIdx>=0 && g_mapState[knownIdx]==1 && g_mapPosition[knownIdx]!=0)
+     {
+      AckExecuted(c,g_mapPosition[knownIdx],
+                  g_mapExecVolume[knownIdx],
+                  g_mapExecPrice[knownIdx]);
+      return;
+     }
+
+   if(c.masterTradeId=="")
+     {
+      AckFailed(c,"INVALID_EVENT","missing master_trade_id");
+      return;
+     }
+
+   if(c.direction!="BUY" && c.direction!="SELL")
+     {
+      AckFailed(c,"INVALID_DIRECTION","direction must be BUY or SELL");
+      return;
+     }
+
+   bool vok;
+   string verr;
+   double vol=NormalizeVolume(c.requestedVolume,tradedSymbol,vok,verr);
+   if(!vok)
+     {
+      AckFailed(c,verr,"requested_volume="+DoubleToString(c.requestedVolume,8));
+      return;
+     }
+
+   double sl=c.stopLoss;
+   double tp=c.takeProfit;
+   string serr;
+   if(!ValidateStops(tradedSymbol,c.direction,sl,tp,serr,false))
+     {
+      AckFailed(c,serr,"master sl/tp rejected by broker rules");
+      return;
+     }
+
+   if(InpShowStatus)
+      PrintFormat("VT Copier: OPEN %s %s vol master=%.8f requested=%.8f -> %s=%.8f sl=%.5f tp=%.5f",
+                  c.direction,c.symbol,c.volume,c.requestedVolume,
+                  tradedSymbol,vol,sl,tp);
+
+   ulong deviations=(ulong)InpDeviationPoints;
+   if(g_settings.maxSlippagePoints>0)
+      deviations=(ulong)g_settings.maxSlippagePoints;
+
+   CTrade trade;
+   trade.SetExpertMagicNumber(InpMagicNumber);
+   trade.SetDeviationInPoints(deviations);
+   trade.SetTypeFillingBySymbol(tradedSymbol);
+
+   string comment=PFX_TAG+c.masterTradeId;
+   if(StringLen(comment)>31)
+      comment=StringSubstr(comment,0,31);
+
+   bool done=false;
+   if(c.direction=="BUY")
+      done=trade.Buy(vol,tradedSymbol,0.0,sl,tp,comment);
+   else
+      done=trade.Sell(vol,tradedSymbol,0.0,sl,tp,comment);
+
+   uint retcode=trade.ResultRetcode();
+
+   if(!done || retcode!=(uint)TRADE_RETCODE_DONE)
+     {
+      AckFailed(c,(string)retcode,trade.ResultComment());
+      return;
+     }
+
+   // Obtain the actual position ticket by its durable tag
+   ulong position=FindLiveCopiedPosition(c.masterTradeId);
+
+   double execPrice=0;   if(position!=0 && SelectPositionByTicket(position))
+      execPrice=PositionGetDouble(POSITION_PRICE_OPEN);
+   else
+      execPrice=trade.ResultPrice();
+
+   if(InpShowStatus)
+      PrintFormat("VT Copier: OPEN executed position=#%I64u price=%.5f volume=%.8f",
+                  position,execPrice,vol);
+
+   AckExecuted(c,position,vol,execPrice);
+  }
+
+void ExecuteModify(Command &c)
+  {
+   string tradedSymbol=ResolveSymbol(c.symbol);
+
+   ulong position=0;
+   int idx=FindMappingMaster(c.masterTradeId,"OPEN");
+
+   if(idx>=0 && g_mapPosition[idx]!=0)
+      position=g_mapPosition[idx];
+
+   if(position==0)
+      position=FindLiveCopiedPosition(c.masterTradeId);
+
+   if(position==0 || !SelectPositionByTicket(position))
+     {
+      AckFailed(c,"POSITION_NOT_FOUND","no copied position for masterTradeId "+c.masterTradeId);
+      return;
+     }
+
+   ENUM_POSITION_TYPE ptype=(ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
+   string direction=ptype==POSITION_TYPE_BUY ? "BUY" : "SELL";
+
+   double sl=c.stopLoss;
+   double tp=c.takeProfit;
+   string serr;
+   if(!ValidateStops(tradedSymbol,direction,sl,tp,serr,true))
+     {
+      AckFailed(c,serr,"modify sl/tp rejected by broker rules");
+      return;
+     }
+
+   ulong deviations=(ulong)InpDeviationPoints;
+   if(g_settings.maxSlippagePoints>0)
+      deviations=(ulong)g_settings.maxSlippagePoints;
+
+   CTrade trade;
+   trade.SetExpertMagicNumber(InpMagicNumber);
+   trade.SetDeviationInPoints(deviations);
+   trade.SetTypeFillingBySymbol(tradedSymbol);
+
+   bool done=trade.PositionModify(position,sl,tp);
+   uint retcode=trade.ResultRetcode();
+
+   if(!done || retcode!=(uint)TRADE_RETCODE_DONE)
+     {
+      AckFailed(c,(string)retcode,trade.ResultComment());
+      return;
+     }
+
+   double execVolume=0;
+   double execPrice=0;
+   if(SelectPositionByTicket(position))
+     {
+      execVolume=PositionGetDouble(POSITION_VOLUME);
+      execPrice=PositionGetDouble(POSITION_PRICE_OPEN);
+     }
+
+   AckExecuted(c,position,execVolume,execPrice);
+  }
+
+void ExecuteClose(Command &c)
+  {
+   ulong position=0;
+   int idx=FindMappingMaster(c.masterTradeId,"OPEN");
+
+   if(idx>=0 && g_mapPosition[idx]!=0)
+      position=g_mapPosition[idx];
+
+   if(position==0)
+      position=FindLiveCopiedPosition(c.masterTradeId);
+
+   if(position==0)
+     {
+      // Stored mapping proves the position was copied and already handled
+      int mIdx=FindMappingExec(c.executionId);
+      if(mIdx>=0 && g_mapState[mIdx]==1)
+        {
+         AckExecuted(c,0,g_mapExecVolume[mIdx],g_mapExecPrice[mIdx]);
+         return;
+        }
+
+      AckFailed(c,"POSITION_NOT_FOUND","no copied position for masterTradeId "+c.masterTradeId);
+      return;
+     }
+
+   if(!SelectPositionByTicket(position))
+     {
+      int mIdx=FindMappingExec(c.executionId);
+      if(mIdx>=0 && g_mapState[mIdx]==1)
+        {
+         AckExecuted(c,0,g_mapExecVolume[mIdx],g_mapExecPrice[mIdx]);
+         return;
+        }
+
+      AckFailed(c,"POSITION_NOT_FOUND","copied position already closed");
+      return;
+     }
+
+   string tradedSymbol=PositionGetString(POSITION_SYMBOL);
+
+   ulong deviations=(ulong)InpDeviationPoints;
+   if(g_settings.maxSlippagePoints>0)
+      deviations=(ulong)g_settings.maxSlippagePoints;
+
+   CTrade trade;
+   trade.SetExpertMagicNumber(InpMagicNumber);
+   trade.SetDeviationInPoints(deviations);
+   trade.SetTypeFillingBySymbol(tradedSymbol);
+
+   bool done=trade.PositionClose(position);
+   uint retcode=trade.ResultRetcode();
+
+   if(!done || retcode!=(uint)TRADE_RETCODE_DONE || SelectPositionByTicket(position))
+     {
+      AckFailed(c,(string)retcode,trade.ResultComment());
+      return;
+     }
+
+   double execVolume=trade.ResultVolume();
+   double execPrice=trade.ResultPrice();
+
+   AckExecuted(c,0,execVolume,execPrice);
+  }
+
+void ProcessCommand(Command &c)
+  {
+   if(c.executionId=="")
       return;
 
+   // Duplicate protection: never execute the same command twice
+   int idx=FindMappingExec(c.executionId);
+   if(idx>=0)
+     {
+      if(g_mapState[idx]==1)
+        {
+         // Execution already succeeded; retry the ACK (previous ACK may have failed)
+         AckCommand(c.executionId,"executed",
+                    g_mapPosition[idx]!=0 ? (string)g_mapPosition[idx] : "",
+                    g_mapExecVolume[idx],
+                    g_mapExecPrice[idx],
+                    "","");
+        }
+      else
+        {
+         if(InpShowStatus)
+            PrintFormat("VT Copier: execution %s already processed (not executed again).",
+                        c.executionId);
+        }
+      return;
+     }
+
+   if(InpShowStatus)
+      PrintFormat("VT Copier: received %s masterTradeId=%s symbol=%s vol=%.8f",
+                  c.eventType,c.masterTradeId,c.symbol,c.requestedVolume);
+
+   if(!InpAllowTrading)
+     {
+      // Observe mode: poll/display only, never place trades, never ACK executed
+      PrintFormat("VT Copier: observe mode - skipping execution of %s",c.executionId);
+      return;
+     }
+
+   if(c.eventType=="OPEN")
+      ExecuteOpen(c);
+   else if(c.eventType=="MODIFY")
+      ExecuteModify(c);
+   else if(c.eventType=="CLOSE")
+      ExecuteClose(c);
+   else
+      AckFailed(c,"INVALID_EVENT_TYPE",c.eventType);
+  }
+
+//==================================================================
+// POLL
+//==================================================================
+void PollAndProcess()
+  {
+   if(!g_paired)
+      return;
+
+   string url=SafeUrl()+"/api/copy/poll";
    string response;
-   int code;
+   int httpCode;
 
-   if(!Http("GET","/api/copy/poll","",true,response,code))
+   bool ok=HttpJson("GET",url,AuthHeaders(),"",response,httpCode);
+   if(!ok)
+      return;
+
+   ParsePollResponse(response);
+
+   if(InpShowStatus && ArraySize(g_commands)>0)
+      PrintFormat("VT Copier: poll returned %d command(s).",ArraySize(g_commands));
+
+   for(int i=0;i<ArraySize(g_commands) && i<MAX_COMMANDS;i++)
      {
-      if(code==401)
-         Print("VT Copier: token rejected. Re-pair this MT5 account.");
-      return;
+      Command c=g_commands[i];
+      ProcessCommand(c);
      }
-
-   ProcessPollResponse(response);
-  }
-
-void ShowStatus()
-  {
-   if(!InpShowStatus)
-      return;
-
-   if(TimeCurrent()-g_lastStatus<5)
-      return;
-
-   g_lastStatus=TimeCurrent();
-
-   Comment(
-      "VaultTrades Copier\n",
-      "Status: ",(g_token!="" ? "CONNECTED" : "NOT PAIRED"),"\n",
-      "Account: ",(string)g_login,"\n",
-      "Server: ",AccountInfoString(ACCOUNT_SERVER),"\n",
-      "Version: ",InpCopierVersion,"\n",
-      "Trading: ",(InpAllowTrading ? "ENABLED" : "DISABLED")
-   );
   }
 
 //==================================================================
-// MT5 EVENTS
+// EVENTS
 //==================================================================
 int OnInit()
   {
-   g_baseUrl=CleanBaseUrl();
-   g_login=(ulong)AccountInfoInteger(ACCOUNT_LOGIN);
-   g_tokenFile="VaultTrades_Copier_"+(string)g_login+".token";
-
-   if(g_baseUrl=="")
+   if(InpApiBaseUrl=="")
      {
-      Print("VT Copier: configure InpApiBaseUrl.");
+      Print("VT Copier: configure InpApiBaseUrl before running.");
       return INIT_PARAMETERS_INCORRECT;
      }
 
-   trade.SetExpertMagicNumber(InpMagicNumber);
-   trade.SetDeviationInPoints(InpDeviationPoints);
+   g_login=(ulong)AccountInfoInteger(ACCOUNT_LOGIN);
+   g_tokenFile="VaultTrades_Copier_"+(string)g_login+".token";
+   g_mapFile="VaultTrades_Copier_"+(string)g_login+"_map.csv";
 
-   bool loaded=LoadToken();
+   LoadToken();
+   LoadMapping();
 
-   if(!loaded && InpApiToken!="")
-     {
-      g_token=InpApiToken;
-      SaveToken();
-      loaded=true;
-     }
+   if(g_token!="" && InpShowStatus)
+      PrintFormat("VT Copier: loaded saved token %.12s...",g_token);
 
-   if(!loaded && InpPairingCode!="")
-      PairAccount();
+   TryPair();
 
-   if(g_token=="")
-     {
-      Print("VT Copier: no active token. Generate a pairing code in VaultTrades Copy.");
-      ShowStatus();
-      return INIT_SUCCEEDED;
-     }
+   if(g_paired)
+      ReconcilePositions();
 
-   EventSetTimer(MathMax(1,InpPollSeconds));
+   EventSetTimer(1);
    SendHeartbeat();
-   g_lastHeartbeatTick=GetTickCount();
 
-   PrintFormat("VT Copier initialized. Account=%I64u Server=%s",
-               g_login,AccountInfoString(ACCOUNT_SERVER));
+   PrintFormat(
+      "VT Copier initialized. Account=%I64u Server=%s Magic=%I64u paired=%s live=%s",
+      g_login,
+      AccountInfoString(ACCOUNT_SERVER),
+      InpMagicNumber,
+      g_paired ? "true" : "false",
+      InpAllowTrading ? "true" : "false"
+   );
 
    return INIT_SUCCEEDED;
   }
@@ -808,26 +1447,30 @@ int OnInit()
 void OnDeinit(const int reason)
   {
    EventKillTimer();
-   Comment("");
+   SaveMapping();
   }
 
 void OnTimer()
   {
-   PollCommands();
+   if(g_busy)
+      return;
 
-   uint now=GetTickCount();
-   if(now-g_lastHeartbeatTick >=
-      (uint)MathMax(5,InpHeartbeatSeconds)*1000)
+   g_busy=true;
+   g_tick++;
+
+   if(!g_paired)
      {
-      SendHeartbeat();
-      g_lastHeartbeatTick=now;
+      TryPair();
+      g_busy=false;
+      return;
      }
 
-   ShowStatus();
-  }
+   if(MathMod(g_tick,MathMax(1,InpHeartbeatSeconds))==0)
+      SendHeartbeat();
 
-void OnTick()
-  {
-   ShowStatus();
+   if(MathMod(g_tick,MathMax(1,InpPollSeconds))==0)
+      PollAndProcess();
+
+   g_busy=false;
   }
 //+------------------------------------------------------------------+
