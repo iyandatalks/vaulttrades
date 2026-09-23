@@ -3,16 +3,29 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-type Status = { connected?: boolean; account?: { login?: string; server?: string; status?: string } | null };
+type Status = {
+  connected?: boolean;
+  subscriptionActive?: boolean;
+  accessUntil?: string | null;
+  account?: { login?: string; server?: string; status?: string } | null;
+};
 
 export default function CopyPage() {
   const [connected, setConnected] = useState(false);
+  const [statusText, setStatusText] = useState("");
 
   useEffect(() => {
     fetch("/api/copy/status", { cache: "no-store" })
-      .then(r => r.json())
-      .then(d => setConnected(Boolean(d.connected)))
-      .catch(() => {});
+      .then(async r => {
+        const d = await r.json();
+        if (!r.ok || d.subscriptionActive !== true) {
+          window.location.replace("/products?product=copy");
+          return;
+        }
+        setConnected(Boolean(d.connected));
+        setStatusText(d.accessUntil ? `Access until ${new Date(d.accessUntil).toLocaleDateString()}` : "Subscription active");
+      })
+      .catch(() => window.location.replace("/products?product=copy"));
   }, []);
 
   return (
@@ -22,9 +35,9 @@ export default function CopyPage() {
           <div className="vt-label">VAULTTRADES COPY TRADING</div>
           <h1>Connect your MT5 account and activate Copy Trading.</h1>
           <p>
-            This page is your starting point. VaultTrades Copy automatically sends eligible
-            VaultTrades master trades to your connected MT5 account. You do not configure
-            TradingView, webhooks or the underlying strategy.
+            This page is available while your Copy Trading subscription is active. VaultTrades Copy
+            automatically sends eligible master trades to your connected MT5 account. You do not
+            configure TradingView, webhooks or the underlying strategy.
           </p>
           <div className="vt-actions" style={{ justifyContent: "flex-start", marginTop: 20 }}>
             <Link className="vt-primary" href="/copy/connect">
