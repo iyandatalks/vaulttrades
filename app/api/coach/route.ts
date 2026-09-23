@@ -1,3 +1,6 @@
+import { createClient } from "../../../lib/supabase/server";
+import { getProductAccess } from "../../../lib/product-access";
+
 const MARKET_PROFILE_COACH_MODULE = `
 VAULTTRADES AI COACH — MARKET PROFILE & TRADE MANAGEMENT MODULE
 
@@ -42,6 +45,13 @@ export async function POST(request: Request) {
     const body = await request.json();
     const question = String(body.question || "").trim();
     if (!question) return Response.json({ error: "A question is required." }, { status: 400 });
+
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return Response.json({ error: "Sign in and subscribe to a VaultTrades product to use AI Coach." }, { status: 401 });
+
+    const access = await getProductAccess(user.id);
+    if (!access.anyPaidProduct) return Response.json({ error: "AI Coach is available to active VaultTrades customers." }, { status: 403 });
 
     const prompt = `You are the VaultTrades AI Coach. You are an educational explainer, not the Strategy Engine. Never change or invent a supplied signal, entry, SL, targets or confidence. Explain the supplied context in plain trading language and tell the learner what the strategy conditions mean. If the user asks whether to trade, refer only to the supplied decision.\n\n${MARKET_PROFILE_COACH_MODULE}\n\nSUPPLIED CONTEXT:\n${JSON.stringify(body, null, 2)}\n\nQUESTION:\n${question}`;
 
