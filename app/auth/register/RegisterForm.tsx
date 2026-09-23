@@ -30,7 +30,8 @@ export default function RegisterForm() {
 
     const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "");
     const siteUrl = configuredSiteUrl || window.location.origin;
-    const confirmationRedirect = `${siteUrl}/auth/callback`;
+    const safeNext = next.startsWith('/') ? next : '/profile';
+    const confirmationRedirect = siteUrl + '/auth/callback?next=' + encodeURIComponent(safeNext);
 
     const { data, error: signUpError } = await supabase.auth.signUp({
       email: email.trim(),
@@ -78,7 +79,7 @@ export default function RegisterForm() {
           {message && <p className="text-sm" role="status">{message}</p>}
           <button className="w-full rounded-md border px-4 py-3 font-medium disabled:opacity-50" disabled={loading} type="submit">{loading ? "Creating account…" : "Create account"}</button>
         </form>
-        <p className="text-sm">Already have an account? <a className="underline" href="/auth/login">Log in</a></p>
+        <p className="text-sm">Already have an account? <a className="underline" href={"/auth/login?next=" + encodeURIComponent(next)}>Log in</a></p>
       </div>
     </main>
   );
