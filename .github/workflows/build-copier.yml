@@ -35,16 +35,23 @@ jobs:
             -v "$PWD:/workspace" \
             -w /workspace \
             ghcr.io/thodinh/mt5:latest \
-            bash -lc '              set -e; \
-              editor="$(find / -type f \( -iname "MetaEditor64.exe" -o -iname "metaeditor64.exe" \) 2>/dev/null | head -n 1)"; \
-              test -n "$editor"; \
+            bash -lc '              set -u; \
+              export WINEPREFIX=/opt/wineprefix; \
+              export DISPLAY=:0; \
+              mtroot=/opt/wineprefix/drive_c/Metatrader-5; \
+              editor="$mtroot/MetaEditor64.exe"; \
+              test -f "$editor"; \
+              mkdir -p "$mtroot/MQL5/Experts"; \
+              cp -f /workspace/mt5/VaultTrades_Copier.mq5 "$mtroot/MQL5/Experts/VaultTrades_Copier.mq5"; \
+              source_win="C:\\Metatrader-5\\MQL5\\Experts\\VaultTrades_Copier.mq5"; \
+              editor_win="C:\\Metatrader-5\\MetaEditor64.exe"; \
               echo "Using MetaEditor: $editor"; \
-              include="$(find / -type f -path "*/MQL5/Include/Trade/Trade.mqh" 2>/dev/null | head -n 1)"; \
-              test -n "$include"; \
-              echo "Using standard library: $include"; \
-              source_win="$(winepath -w /workspace/mt5/VaultTrades_Copier.mq5)"; \
               echo "Compiling: $source_win"; \
-              wine "$editor" /portable "/compile:$source_win" /log \
+              wine "$editor_win" "/compile:$source_win" /log; \
+              code=$?; \
+              echo "MetaEditor exit code: $code"; \
+              find "$mtroot/MQL5/Experts" -maxdepth 1 -type f -name "VaultTrades_Copier.*" -ls || true; \
+              exit $code \
             '
 
           test -f mt5/VaultTrades_Copier.ex5
