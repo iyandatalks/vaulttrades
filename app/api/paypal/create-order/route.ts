@@ -4,7 +4,7 @@ import { createAdminClient } from "../../../../lib/supabase/admin";
 import { paypalRequest } from "../../../../lib/paypal";
 import { getPayPalProduct } from "../../../../lib/paypal-products";
 
-const BASE_URL = "https://vaulttrades.vercel.app";
+const BASE_URL = "https://vaulttradesve.com";
 
 export async function POST(request: Request) {
   try {
