@@ -75,12 +75,41 @@ export async function POST(request: Request) {
     if (!profile || !authUserId) return NextResponse.json({ received: true, ignored: true, reason: "VaultTrades customer could not be matched" }, { status: 200 });
 
     const status = SUBSCRIPTION_EVENTS[eventType];
+    const isLifetimeMentorship = product.code === "founders_mentorship_once";
     const start = providerSubscription?.start_time ? new Date(providerSubscription.start_time).toISOString() : new Date().toISOString();
     const nextBilling = providerSubscription?.billing_info?.next_billing_time
       ? new Date(providerSubscription.billing_info.next_billing_time).toISOString()
       : null;
+
+    // Founders Mentorship is a once-off purchase. Once paid, its entitlement is lifetime
+    // and later subscription-state notifications must not revoke that lifetime access.
+    if (isLifetimeMentorship && status !== "active") {
+      const { data: existingLifetime } = await admin
+        .from("product_licenses")
+        .select("id")
+        .eq("user_id", profile.id)
+        .eq("entitlement_code", "founders_mentorship")
+        .eq("status", "active")
+        .maybeSingle();
+
+      if (existingLifetime) {
+        return NextResponse.json({
+          received: true,
+          product: product.code,
+          entitlement: product.entitlement,
+          status: "active",
+          lifetime: true,
+          subscriptionId,
+        }, { status: 200 });
+      }
+    }
+
     const fallbackEnd = new Date(new Date(start).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
-    const accessEnd = status === "active" ? (nextBilling || fallbackEnd) : new Date().toISOString();
+    const accessEnd = isLifetimeMentorship && status === "active"
+      ? null
+      : status === "active"
+        ? (nextBilling || fallbackEnd)
+        : new Date().toISOString();
 
     await admin.from("product_licenses").upsert({ user_id: profile.id, email: profile.email, purchased_product_code: product.code, entitlement_code: product.entitlement, status: status === "active" ? "active" : status, payment_reference: subscriptionId, approved_at: status === "active" ? new Date().toISOString() : null, start_at: start, end_at: accessEnd, platform: product.entitlement === "automation" ? "mt5" : "web", source_payment_snapshot: { provider: "paypal", plan_id: planId, subscription_id: subscriptionId, product_code: product.code, amount: product.price, currency: "USD", event_type: eventType }, updated_at: new Date().toISOString() }, { onConflict: "payment_reference,entitlement_code" });
     await grantFeature(admin, profile.id, product.entitlement, start, accessEnd, status);
