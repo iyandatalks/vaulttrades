@@ -1,61 +1,98 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
+
+type Status = { connected?: boolean; account?: { login?: string; server?: string; status?: string } | null };
 
 export default function CopyPage() {
+  const [connected, setConnected] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/copy/status", { cache: "no-store" })
+      .then(r => r.json())
+      .then(d => setConnected(Boolean(d.connected)))
+      .catch(() => {});
+  }, []);
+
   return (
     <main className="vt-info-page">
       <div className="vt-info-wrap">
         <header className="vt-info-hero">
-          <div className="vt-label">VAULTTRADES COPY</div>
-          <h1>Copy VaultTrades trades to your MT5 account.</h1>
+          <div className="vt-label">VAULTTRADES COPY TRADING</div>
+          <h1>Connect your MT5 account and activate Copy Trading.</h1>
           <p>
-            VaultTrades Copy is the execution product for customers who want their MT5 account
-            connected to the VaultTrades trading infrastructure. You do not need TradingView,
-            webhook configuration or access to the underlying strategy.
+            This page is your starting point. VaultTrades Copy automatically sends eligible
+            VaultTrades master trades to your connected MT5 account. You do not configure
+            TradingView, webhooks or the underlying strategy.
           </p>
           <div className="vt-actions" style={{ justifyContent: "flex-start", marginTop: 20 }}>
-            <Link className="vt-primary" href="/copy/connect">Connect MT5</Link>
-            <Link className="vt-secondary" href="/how-it-works">How It Works</Link>
+            <Link className="vt-primary" href="/copy/connect">
+              {connected ? "Manage MT5 Connection" : "Start MT5 Connection"}
+            </Link>
+            <Link className="vt-secondary" href="/how-it-works">How Copy Trading Works</Link>
           </div>
         </header>
 
-        <section className="vt-info-grid">
-          <article className="vt-info-card">
-            <div className="vt-number">01</div>
-            <h2>VaultTrades Master</h2>
-            <p>The VaultTrades trading engine runs on the master MT5 account. The customer does not manage or configure the underlying strategy.</p>
-          </article>
-          <article className="vt-info-card">
-            <div className="vt-number">02</div>
-            <h2>VaultTrades Copy Engine</h2>
-            <p>Executed master trades are published to the VaultTrades copy infrastructure and routed to connected customer accounts.</p>
-          </article>
-          <article className="vt-info-card">
-            <div className="vt-number">03</div>
-            <h2>Your MT5 Account</h2>
-            <p>The VaultTrades Copier EA receives the authorized trade instructions and executes them on the MT5 account you connected.</p>
-          </article>
+        <section className="vt-info-card" style={{ marginTop: 24, border: "1px solid rgba(212,166,55,.35)" }}>
+          <div className="vt-label">START HERE</div>
+          <h2 style={{ marginTop: 10 }}>Follow these 4 steps</h2>
+          <div className="vt-info-grid" style={{ marginTop: 18 }}>
+            <article className="vt-info-card">
+              <div className="vt-number">01</div>
+              <h2>Create your VaultTrades account</h2>
+              <p>Sign in or create your VaultTrades customer account. Copy Trading is managed from your account.</p>
+            </article>
+            <article className="vt-info-card">
+              <div className="vt-number">02</div>
+              <h2>Prepare your MT5 account</h2>
+              <p>Use the MT5 trading account you want to receive copied trades. Keep your MT5 login and broker server available.</p>
+            </article>
+            <article className="vt-info-card">
+              <div className="vt-number">03</div>
+              <h2>Connect MT5</h2>
+              <p>Open the connection page, generate your one-time pairing code and enter it into the VaultTrades Copier EA in MT5.</p>
+            </article>
+            <article className="vt-info-card">
+              <div className="vt-number">04</div>
+              <h2>Activate and verify</h2>
+              <p>Leave the Copier EA running, return to this page and confirm that your MT5 account shows as connected before using Copy Trading.</p>
+            </article>
+          </div>
         </section>
 
         <section className="vt-info-card" style={{ marginTop: 24 }}>
-          <div className="vt-label">WHAT YOU SEE</div>
-          <h2 style={{ marginTop: 10 }}>Only the copy product.</h2>
+          <div className="vt-label">YOUR NEXT ACTION</div>
+          <h2 style={{ marginTop: 10 }}>
+            {connected ? "Your MT5 account is connected." : "You have not connected an MT5 account yet."}
+          </h2>
           <p>
-            Strategy logic, master-account controls and the copy infrastructure remain internal
-            VaultTrades components. Customers use the Copy connection, account status and
-            execution information relevant to their own account.
+            {connected
+              ? "Open the connection page to review the linked account and connection status."
+              : "Do not look for the connection inside the general dashboard. Start with the button below."}
           </p>
-          <div className="vt-actions" style={{ justifyContent: "flex-start", marginTop: 16 }}>
-            <Link className="vt-secondary" href="/dashboard">Open Dashboard</Link>
-          </div>
+          <Link className="vt-primary" href="/copy/connect" style={{ display: "inline-block", marginTop: 8 }}>
+            {connected ? "View Connection Status" : "Connect My MT5 Account"} →
+          </Link>
+        </section>
+
+        <section className="vt-info-grid" style={{ marginTop: 24 }}>
+          <article className="vt-info-card">
+            <div className="vt-label">WHAT VAULTTRADES DOES</div>
+            <h2>Master trades → Your MT5</h2>
+            <p>VaultTrades publishes eligible master-account executions. Your Copier EA receives the instructions and places the corresponding trades on your connected MT5 account.</p>
+          </article>
+          <article className="vt-info-card">
+            <div className="vt-label">WHAT YOU CONTROL</div>
+            <h2>Your MT5 connection</h2>
+            <p>You control the MT5 account, broker, Copier EA connection and whether trading is enabled. Strategy logic and the master account remain internal to VaultTrades.</p>
+          </article>
         </section>
 
         <section className="vt-info-card" style={{ marginTop: 24, border: "1px solid rgba(212,166,55,.28)" }}>
           <div className="vt-label">IMPORTANT</div>
           <p style={{ marginBottom: 0 }}>
-            VaultTrades Copy is separate from Analyzer. Analyzer is for discretionary market
-            analysis and trade planning. Copy is for connecting an MT5 account to the VaultTrades
-            execution infrastructure. Trading involves substantial risk and copying trades does
-            not guarantee profits.
+            Copy Trading involves financial risk. Past trading results do not guarantee future results.
           </p>
         </section>
       </div>
