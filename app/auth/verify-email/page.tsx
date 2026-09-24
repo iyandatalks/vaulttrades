@@ -37,7 +37,7 @@ function VerifyEmailContent() {
     const safeNext = next.startsWith("/") ? next : "/profile";
     const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "");
     const siteUrl = configuredSiteUrl || window.location.origin;
-    document.cookie = "vaulttrades_auth_next=" + encodeURIComponent(safeNext) + "; Max-Age=600; Path=/; SameSite=Lax" ;
+    document.cookie = "vaulttrades_auth_next=" + encodeURIComponent(safeNext) + "; Max-Age=600; Path=/; SameSite=Lax" + (window.location.protocol === "https:" ? "; Secure" : "");
     const emailRedirectTo = siteUrl + "/auth/callback";
 
     const { error: resendError } = await sb.auth.resend({
