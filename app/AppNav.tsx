@@ -11,10 +11,33 @@ const tabs = [
   { href: "/profile", label: "Profile" },
 ];
 
+const promoItems = [
+  "VAULTTRADES MEMBER TOOLS",
+  "ANALYZE YOUR MARKET",
+  "JOURNAL YOUR TRADES",
+  "USE AI COACH",
+  "BUILD YOUR BUFFER",
+  "PREPARE FOR PROP-FIRM EVALUATIONS",
+  "SCALE WITH DISCIPLINE",
+  "PARTNER REFERRAL BONUSES WHERE AVAILABLE",
+  "OPEN A RECOMMENDED BROKER OR PROP-FIRM ACCOUNT",
+];
+
 export default function AppNav() {
   const pathname = usePathname();
   return (
     <nav className="vt-nav" aria-label="VaultTrades navigation">
+      <div className="vt-promo-bar" aria-label="VaultTrades promotions">
+        <div className="vt-promo-track">
+          {[...promoItems, ...promoItems].map((item, index) => (
+            <span className="vt-promo-item" key={item + index}>
+              {item}
+              <span className="vt-promo-separator">✦</span>
+            </span>
+          ))}
+        </div>
+      </div>
+
       <div className="vt-nav-inner">
         <Link href="/" className="vt-nav-brand">VAULTTRADES</Link>
         <div className="vt-nav-links">
