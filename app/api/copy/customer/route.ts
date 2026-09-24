@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { getCopyAccess } from "@/lib/copy-access";
 
 export const runtime = "nodejs";
 
@@ -28,12 +29,21 @@ export async function POST(req: Request) {
   }
 
   const db = createServiceClient();
+
+  const access = await getCopyAccess(user.id, mt5Login);
+  if (access.active && access.mtLogin && access.mtLogin !== mt5Login) {
+    return NextResponse.json({
+      error: "MT5_SUBSCRIPTION_MISMATCH",
+      message: "This MT5 account does not match the active Copy Trading subscription.",
+    }, { status: 409 });
+  }
+
   const { error } = await db.from("copy_customer_registrations").upsert({
     auth_user_id: user.id,
     email,
     mt5_login: mt5Login,
     updated_at: new Date().toISOString(),
-  }, { onConflict: "auth_user_id" });
+  }, { onConflict: "auth_user_id,mt5_login" });
 
   if (error) {
     return NextResponse.json({
