@@ -3,6 +3,7 @@ import { createAdminClient } from "./supabase/admin";
 export type CopyAccess = {
   active: boolean;
   endAt: string | null;
+  startAt: string | null;
   userId: string | null;
   reason?: string;
 };
@@ -17,11 +18,11 @@ export async function getCopyAccess(authUserId: string): Promise<CopyAccess> {
     .maybeSingle();
 
   if (!profile) {
-    return { active: false, endAt: null, userId: null, reason: "PROFILE_NOT_FOUND" };
+    return { active: false, endAt: null, startAt: null, userId: null, reason: "PROFILE_NOT_FOUND" };
   }
 
   if (profile.role === "admin") {
-    return { active: true, endAt: null, userId: profile.id, reason: "ADMIN" };
+    return { active: true, endAt: null, startAt: null, userId: profile.id, reason: "ADMIN" };
   }
 
   const now = new Date();
@@ -39,11 +40,11 @@ export async function getCopyAccess(authUserId: string): Promise<CopyAccess> {
     const start = new Date(feature.start_at).getTime();
     const end = feature.end_at ? new Date(feature.end_at).getTime() : NaN;
     if (Number.isFinite(start) && start <= now.getTime() && Number.isFinite(end) && end > now.getTime()) {
-      return { active: true, endAt: new Date(end).toISOString(), userId: profile.id, reason: "FEATURE_ACCESS" };
+      return { active: true, endAt: new Date(end).toISOString(), startAt: new Date(start).toISOString(), userId: profile.id, reason: "FEATURE_ACCESS" };
     }
   }
 
-  return { active: false, endAt: feature?.end_at ? new Date(feature.end_at).toISOString() : null, userId: profile.id, reason: "SUBSCRIPTION_INACTIVE" };
+  return { active: false, endAt: feature?.end_at ? new Date(feature.end_at).toISOString() : null, startAt: feature?.start_at ? new Date(feature.start_at).toISOString() : null, userId: profile.id, reason: "SUBSCRIPTION_INACTIVE" };
 }
 
 export async function revokeExpiredFollower(followerId: string) {
