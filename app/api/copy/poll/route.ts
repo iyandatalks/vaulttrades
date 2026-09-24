@@ -53,7 +53,7 @@ export async function GET(req: Request) {
     }, { status: accessHttpStatus(access.reason) });
   }
 
-  if (follower.status === "disabled" || follower.license_status !== "active") {
+  if (access.reason !== "ADMIN" && (follower.status === "disabled" || follower.license_status !== "active")) {
     const reason = follower.license_status === "suspended" ? "suspended" : follower.license_status === "disabled" ? "disabled" : "revoked";
     return NextResponse.json({
       allowed: false,
