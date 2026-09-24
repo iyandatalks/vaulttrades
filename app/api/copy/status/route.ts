@@ -14,6 +14,12 @@ export async function GET() {
   const db = createServiceClient();
   const access = await getCopyAccess(user.id);
 
+  const { data: registrations } = await db
+    .from("copy_customer_registrations")
+    .select("mt5_login,email,created_at,updated_at")
+    .eq("auth_user_id", user.id)
+    .order("updated_at", { ascending: false });
+
   const { data: followers } = await db
     .from("copy_followers")
     .select("id,mt_login,broker_server,status,copy_enabled,last_heartbeat_at,ea_version,license_status,license_expires_at,license_generation,updated_at")
@@ -43,6 +49,7 @@ export async function GET() {
     accessReason: access.reason,
     account: current,
     accounts,
+    registeredMt5Accounts: registrations || [],
     pairing: {
       available: access.active,
       reason: access.active ? null : access.reason,
