@@ -12,10 +12,14 @@ export default function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [verificationRequired, setVerificationRequired] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setSuccess(false);
+    setVerificationRequired(false);
     setLoading(true);
 
     const supabase = createBrowserClient(
@@ -29,13 +33,29 @@ export default function LoginForm() {
     });
 
     if (signInError) {
-      setError(signInError.message);
+      const needsVerification = /email.*not.*confirmed|email.*not.*verified/i.test(signInError.message);
+      setVerificationRequired(needsVerification);
+      setError(needsVerification
+        ? "Please verify your VaultTrades account from the verification email before signing in."
+        : signInError.message
+      );
       setLoading(false);
       return;
     }
 
-    router.replace(next.startsWith("/") ? next : "/profile");
-    router.refresh();
+    if (!data.user?.email_confirmed_at) {
+      await supabase.auth.signOut();
+      setVerificationRequired(true);
+      setError("Please verify your VaultTrades account from the verification email before signing in.");
+      setLoading(false);
+      return;
+    }
+
+    window.localStorage.removeItem("vaulttrades_pending_signup_email");
+    setSuccess(true);
+    window.setTimeout(() => {
+      window.location.assign(next.startsWith("/") ? next : "/profile");
+    }, 350);
   }
 
   return (
@@ -49,6 +69,10 @@ export default function LoginForm() {
           <input className="w-full rounded-md border p-3" type="email" required autoComplete="email" placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} />
           <input className="w-full rounded-md border p-3" type="password" required autoComplete="current-password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
           {error && <p className="text-sm text-red-600" role="alert">{error}</p>}
+          {verificationRequired && (
+            <a className="text-sm underline" href="/auth/verify-email">Resend verification email</a>
+          )}
+          {success && <p className="text-sm" role="status">Login successful. Opening your profile…</p>}
           <button className="w-full rounded-md border px-4 py-3 font-medium disabled:opacity-50" disabled={loading} type="submit">{loading ? "Signing in…" : "Log in"}</button>
         </form>
         <a className="text-sm underline" href="/auth/forgot-password">Forgot your password?</a>
