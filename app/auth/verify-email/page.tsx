@@ -38,7 +38,7 @@ function VerifyEmailContent() {
     const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "");
     const siteUrl = configuredSiteUrl || window.location.origin;
     document.cookie = "vaulttrades_auth_next=" + encodeURIComponent(safeNext) + "; Max-Age=600; Path=/; SameSite=Lax" + (window.location.protocol === "https:" ? "; Secure" : "");
-    const emailRedirectTo = siteUrl + "/auth/callback";
+    const emailRedirectTo = siteUrl + "/auth/callback?next=" + encodeURIComponent(safeNext);
 
     const { error: resendError } = await sb.auth.resend({
       type: "signup",
