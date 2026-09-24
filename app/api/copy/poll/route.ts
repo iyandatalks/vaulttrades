@@ -33,6 +33,7 @@ export async function GET(req: Request) {
       error: "COPY_SUBSCRIPTION_EXPIRED",
       accessUntil: access.endAt,
       commands: [],
+      licenseStatus: "expired",
     }, { status: 403 });
   }
 
@@ -49,7 +50,7 @@ export async function GET(req: Request) {
     .eq("id", follower.id);
 
   if (!follower.copy_enabled) {
-    return NextResponse.json({ commands: [] });
+    return NextResponse.json({ commands: [], accessUntil: access.endAt, licenseStatus: follower.license_status || "active", licenseGeneration: follower.license_generation ?? 0 });
   }
 
   const { data: commands, error } = await db
@@ -79,6 +80,8 @@ export async function GET(req: Request) {
   return NextResponse.json({
     commands: commands || [],
     accessUntil: access.endAt,
+    licenseStatus: follower.license_status || "active",
+    licenseGeneration: follower.license_generation ?? 0,
     settings: {
       lotMode: link?.lot_mode ?? "fixed",
       lotValue: link?.lot_value ?? 0.01,
