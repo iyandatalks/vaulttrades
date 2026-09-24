@@ -76,7 +76,7 @@ export default function CopyConnectPage() {
           <a className="vt-primary" href="/downloads/VaultTrades_Copier.ex5" download="VaultTrades_Copier.ex5" style={{ display:"inline-block", marginTop: 8 }}>
             Download VaultTrades Copier (.ex5)
           </a>
-          <p className="muted" style={{ marginTop: 10 }}>Copier v1.10</p>
+          <p className="muted" style={{ marginTop: 10 }}>Copier v1.11</p>
         </section>
 
         <section className="vt-info-card" style={{ marginTop: 20 }}>
