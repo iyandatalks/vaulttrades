@@ -17,6 +17,19 @@ export async function POST() {
     const { data: profile } = await admin.from("users").select("id,email").eq("auth_user_id", user.id).maybeSingle();
     if (!profile) return NextResponse.json({ error: "VaultTrades profile was not found." }, { status: 400 });
 
+    const { data: registration } = await admin
+      .from("copy_customer_registrations")
+      .select("mt5_login,email")
+      .eq("auth_user_id", user.id)
+      .maybeSingle();
+
+    if (!registration?.mt5_login) {
+      return NextResponse.json({
+        error: "MT5_ID_REQUIRED",
+        message: "Enter and save your MT5 account ID before purchasing Copy Trading.",
+      }, { status: 400 });
+    }
+
     const result = await paypalRequest("/v1/billing/subscriptions", {
       method: "POST",
       headers: { "PayPal-Request-Id": `vaulttrades-auto-${user.id}-${Date.now()}` },
@@ -36,8 +49,7 @@ export async function POST() {
     if (!approvalUrl) return NextResponse.json({ error: "Unable to start secure checkout. Please contact VaultTrades support." }, { status: 502 });
 
     const now = new Date();
-    const end = new Date(now);
-    end.setMonth(end.getMonth() + 1);
+    const end = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
     await admin.from("automated_trader_subscriptions").upsert({
       auth_user_id: user.id,
       product_code: PRODUCT.code,
@@ -60,7 +72,7 @@ export async function POST() {
       start_at: now.toISOString(),
       end_at: end.toISOString(),
       platform: "mt5",
-      source_payment_snapshot: { provider: "paypal", plan_id: PRODUCT.planId, subscription_id: String(result.id), product_code: PRODUCT.code, amount: PRODUCT.price, currency: "USD" },
+      source_payment_snapshot: { provider: "paypal", plan_id: PRODUCT.planId, subscription_id: String(result.id), product_code: PRODUCT.code, amount: PRODUCT.price, currency: "USD", mt5_login: registration.mt5_login },
       updated_at: now.toISOString(),
     }, { onConflict: "payment_reference,entitlement_code" });
 
