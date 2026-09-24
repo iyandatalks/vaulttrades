@@ -28,7 +28,8 @@ export async function POST() {
       .select("id", { count: "exact", head: true })
       .eq("auth_user_id", user.id)
       .gte("created_at", access.startAt)
-      .lt("created_at", access.endAt || new Date().toISOString());
+      .lt("created_at", access.endAt || new Date().toISOString())
+      .is("revoked_at", null);
 
     if ((count || 0) > 0) {
       const { data: existing } = await db
