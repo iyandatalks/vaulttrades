@@ -12,6 +12,7 @@ export default function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState("");
   const [verificationRequired, setVerificationRequired] = useState(false);
   const [success, setSuccess] = useState(false);
 
