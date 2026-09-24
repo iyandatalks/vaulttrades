@@ -16,9 +16,54 @@ export async function POST(request: Request) {
     const productCode = String(body?.productCode || "");
     const product = getPayPalProduct(productCode);
     if (!product) return NextResponse.json({ error: "Invalid VaultTrades product." }, { status: 400 });
+
     const admin = createAdminClient();
-    const { data: profile, error: profileError } = await admin.from("users").select("id,email").eq("auth_user_id", user.id).maybeSingle();
-    if (profileError || !profile) return NextResponse.json({ error: "VaultTrades profile was not found." }, { status: 400 });
+    const { data: profile, error: profileError } = await admin
+      .from("users")
+      .select("id,email")
+      .eq("auth_user_id", user.id)
+      .maybeSingle();
+
+    if (profileError || !profile) {
+      return NextResponse.json({ error: "VaultTrades profile was not found." }, { status: 400 });
+    }
+
+    const email = String(user.email || profile.email || "").trim().toLowerCase();
+    let mt5Login = "";
+
+    if (product.code === "automated_trader_monthly") {
+      mt5Login = String(body?.mt5Login || "").trim();
+
+      if (!/^\d{4,12}$/.test(mt5Login)) {
+        return NextResponse.json({
+          error: "MT5_ID_REQUIRED",
+          message: "Enter your MT5 account ID before purchasing Copy Trading.",
+        }, { status: 400 });
+      }
+
+      if (!email) {
+        return NextResponse.json({
+          error: "EMAIL_REQUIRED",
+          message: "Your VaultTrades account must have an email address before purchasing Copy Trading.",
+        }, { status: 400 });
+      }
+
+      const { error: registrationError } = await admin
+        .from("copy_customer_registrations")
+        .upsert({
+          auth_user_id: user.id,
+          email,
+          mt5_login: mt5Login,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "auth_user_id" });
+
+      if (registrationError) {
+        return NextResponse.json({
+          error: "MT5_REGISTRATION_FAILED",
+          message: "Unable to save your MT5 account details. Please try again.",
+        }, { status: 500 });
+      }
+    }
 
     const result = await paypalRequest("/v1/billing/subscriptions", {
       method: "POST",
@@ -36,14 +81,16 @@ export async function POST(request: Request) {
     });
 
     const approvalUrl = result.links?.find((link: any) => link.rel === "approve")?.href;
-    if (!approvalUrl) return NextResponse.json({ error: "Unable to start secure checkout. Please contact VaultTrades support." }, { status: 502 });
+    if (!approvalUrl) {
+      return NextResponse.json({ error: "Unable to start secure checkout. Please contact VaultTrades support." }, { status: 502 });
+    }
 
     const now = new Date();
-    const end = new Date(now);
-    end.setMonth(end.getMonth() + 1);
+    const end = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
     await admin.from("product_licenses").upsert({
       user_id: profile.id,
-      email: profile.email,
+      email,
       purchased_product_code: product.code,
       entitlement_code: product.entitlement,
       status: "pending",
@@ -51,11 +98,24 @@ export async function POST(request: Request) {
       start_at: now.toISOString(),
       end_at: end.toISOString(),
       platform: product.code === "automated_trader_monthly" ? "mt5" : "web",
-      source_payment_snapshot: { provider: "paypal", plan_id: product.planId, subscription_id: String(result.id), product_code: product.code, amount: product.price, currency: "USD" },
+      source_payment_snapshot: {
+        provider: "paypal",
+        plan_id: product.planId,
+        subscription_id: String(result.id),
+        product_code: product.code,
+        amount: product.price,
+        currency: "USD",
+        mt5_login: product.code === "automated_trader_monthly" ? mt5Login : undefined,
+      },
       updated_at: now.toISOString(),
     }, { onConflict: "payment_reference" });
 
-    return NextResponse.json({ subscriptionId: result.id, approveUrl: approvalUrl, product: { code: product.code, name: product.name, price: product.price } });
+    return NextResponse.json({
+      subscriptionId: result.id,
+      approveUrl: approvalUrl,
+      product: { code: product.code, name: product.name, price: product.price },
+      mt5Login: product.code === "automated_trader_monthly" ? mt5Login : null,
+    });
   } catch (error) {
     console.error("VaultTrades PayPal subscription error", error);
     return NextResponse.json({ error: "Unable to start secure checkout. Please contact VaultTrades support." }, { status: 500 });
