@@ -433,7 +433,7 @@ void DrawStatus()
   {
    if(!InpShowStatus)
       return;
-   string until=(g_accessUntil=="" ? "—" : g_accessUntil);
+   string until=(g_accessUntil=="" ? "-" : g_accessUntil);
    string last=g_lastResponse;
    if(g_lastResponseTime>0)
       last+=" @ "+TimeToString(g_lastResponseTime,TIME_DATE|TIME_SECONDS);
@@ -555,7 +555,35 @@ void SendHeartbeat()
    string response;
    int httpCode;
 
-   HttpJson("POST",url,AuthHeaders(),body,response,httpCode);
+   bool ok=HttpJson("POST",url,AuthHeaders(),body,response,httpCode);
+   if(ok)
+     {
+      g_licenseStatus=JsonStr(response,"licenseStatus",0);
+      if(g_licenseStatus=="") g_licenseStatus="ACTIVE";
+      g_accessUntil=JsonStr(response,"accessUntil",0);
+      g_lastResponse="HEARTBEAT 200";
+      g_lastResponseTime=TimeCurrent();
+     }
+   else if(httpCode==401)
+     {
+      g_licenseStatus="REVOKED";
+      g_lastResponse="401 UNAUTHORIZED - CONNECTION REVOKED/REPLACED";
+      g_lastResponseTime=TimeCurrent();
+      ClearSavedToken();
+      g_pairingBlocked=true;
+     }
+   else if(httpCode==403)
+     {
+      g_licenseStatus="EXPIRED";
+      g_lastResponse="403 SUBSCRIPTION EXPIRED";
+      g_lastResponseTime=TimeCurrent();
+     }
+   else
+     {
+      g_lastResponse="HEARTBEAT HTTP "+(string)httpCode;
+      g_lastResponseTime=TimeCurrent();
+     }
+   DrawStatus();
   }
 
 //==================================================================
