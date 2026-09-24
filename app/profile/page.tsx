@@ -135,7 +135,7 @@ export default function ProfilePage() {
           <section className="vt-info-card" style={{ marginTop: 24, textAlign: "left" }}>
             <div className="vt-label">YOUR ACCESS</div>
             <h2 style={{ margin: "10px 0 8px", fontSize: 27 }}>
-              {admin ? "All VaultTrades tools are available" : availableTools.length + (availableTools.length === 1 ? " tool available" : " tools available")}
+              {availableTools.length + (availableTools.length === 1 ? " tool available" : " tools available")}
             </h2>
             <p style={{ maxWidth: 760 }}>
               This list is generated from your current active product entitlement. Only access that is currently available to your account is shown.
