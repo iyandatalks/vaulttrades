@@ -87,7 +87,9 @@ export async function POST(request: Request) {
     const eventIssueTime = eventType === "PAYMENT.SALE.COMPLETED"
       ? (resource.create_time || event.create_time)
       : null;
-    const start = existingLicense.data?.start_at && status === "active" && eventType !== "PAYMENT.SALE.COMPLETED"
+    const start = existingLicense.data?.start_at && status === "active" &&
+      eventType !== "PAYMENT.SALE.COMPLETED" &&
+      eventType !== "BILLING.SUBSCRIPTION.ACTIVATED"
       ? new Date(existingLicense.data.start_at).toISOString()
       : (eventIssueTime
           ? new Date(eventIssueTime).toISOString()
