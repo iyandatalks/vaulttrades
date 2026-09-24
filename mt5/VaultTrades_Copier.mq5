@@ -4,7 +4,7 @@
 //| customer broker account.                                          |
 //+------------------------------------------------------------------+
 #property strict
-#property version   "1.00"
+#property version   "1.11"
 #property description "VaultTrades Customer Copier"
 #property description "Polls pending copy commands and executes OPEN/MODIFY/CLOSE"
 #property description "trades in the follower broker account."
@@ -16,7 +16,7 @@
 //==================================================================
 input string InpApiBaseUrl         = "https://vaulttradesve.com"; // VaultTrades stable production domain
 input string InpPairingCode        = "";        // Temporary pairing code from VaultTrades (10 hex chars)
-input string InpCopierVersion      = "1.00";    // Copier EA version
+input string InpCopierVersion      = "1.11";    // Copier EA version
 input int    InpPollSeconds        = 2;         // Poll interval in seconds
 input int    InpHeartbeatSeconds   = 30;        // Heartbeat interval in seconds
 input int    InpHttpTimeoutMs      = 5000;      // WebRequest timeout ms
