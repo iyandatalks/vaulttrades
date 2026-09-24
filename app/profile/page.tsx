@@ -70,11 +70,11 @@ const recommendedBrokers = [
     name: "XM Broker",
     bestFor: [
       "Beginners to experienced traders",
-      "Forex, Gold (XAUUSD) and multi-asset trading",
+      "Forex and Gold (XAUUSD)",
       "MT4 and MT5 users",
     ],
-    why: "XM offers access to multiple markets through MT4 and MT5 and publishes trading conditions that can suit both newer and experienced traders. XM operates through different regulated entities depending on jurisdiction, so confirm the entity and protections that apply to your account.",
-    bonus: "Referral offer: 50% OFF all VaultTrades trading products when available through my partner link.",
+    why: "XM provides access to multiple markets through MT4 and MT5. XM also publishes execution information and trading conditions for its services. The exact entity, account type, leverage and protections available to you depend on your jurisdiction.",
+    bonus: "Partner offer: 50% OFF VaultTrades trading products when available through my partner link.",
     href: "https://www.xmza.com/referral?token=9TMOAfWroLZu69ys2-IUqg",
     cta: "Open XM Account",
   },
@@ -83,24 +83,12 @@ const recommendedBrokers = [
     bestFor: [
       "Flexible trading styles",
       "Scalpers and strategy-based traders",
-      "Forex, crypto and index traders",
+      "Forex, crypto and indices",
     ],
-    why: "Headway supports MT4 and MT5 and offers a range of instruments and account types. Current spreads, leverage, execution conditions and regulatory coverage depend on the specific entity and account selected.",
-    bonus: "Referral offer: 50% OFF all VaultTrades trading products when available through my partner link.",
+    why: "Headway currently advertises 500+ instruments, MT4/MT5 support and spreads from 0.0 pips on selected account types. Its South African operation is presented as FSCA-regulated under JAROCEL PTY LTD, license 52108. Account conditions and regulatory coverage vary by entity and account type.",
+    bonus: "Partner offer: 50% OFF VaultTrades trading products when available through my partner link.",
     href: "https://headway.partners/user/signup?hwp=d93922",
     cta: "Open Headway Account",
-  },
-  {
-    name: "JustMarkets",
-    bestFor: [
-      "MT4 and MT5 traders",
-      "Gold, Forex, indices and multi-asset trading",
-      "Traders comparing tight-spread account options",
-    ],
-    why: "JustMarkets currently publishes MT4/MT5 access, multi-asset trading and Raw Spread conditions starting from 0.0 pips. Its South African operation is listed by the FSCA, while other JustMarkets entities are regulated in other jurisdictions. Account conditions vary by entity and account type.",
-    bonus: "Partner referral link — current promotional benefits are subject to the offer and partner terms.",
-    href: "https://one.justmarkets.link/a/trea9c04a1",
-    cta: "Open JustMarkets Account",
   },
 ] as const;
 
@@ -108,36 +96,36 @@ const recommendedPropFirms = [
   {
     name: "Top One Trader",
     bestFor: [
-      "Simple challenge structures",
-      "Fast-track funding options",
-      "Traders comparing multiple evaluation models",
+      "Traders comparing simple evaluation models",
+      "Challenge accounts with clear rule sets",
+      "MT5 users on supported models",
     ],
-    why: "Top One Trader provides funding evaluations with different account models. The exact profit targets, drawdown rules, payout conditions and trading restrictions depend on the model selected.",
-    bonus: "Referral offer: 50% OFF all VaultTrades trading products when available through my partner link.",
+    why: "Top One Trader currently offers multiple evaluation and funding models. Its published rules vary by program, including drawdown, news, EA and payout conditions, so the exact model should be checked before purchase.",
+    bonus: "Partner offer: 50% OFF VaultTrades trading products when available through my partner link.",
     href: "https://toponetrader.com/?linkId=lp_148658&sourceId=sibongilesz2017gmailcom&tenantId=toponetrader",
     cta: "Start Top One Trader",
   },
   {
-    name: "Goat Funded Trader",
+    name: "The5ers",
     bestFor: [
-      "Traders comparing one-step and multi-step evaluations",
-      "Traders looking at evaluation and instant-funding models",
-      "MT5 and strategy-based traders",
+      "Long-term traders",
+      "Low-risk, consistency-focused strategies",
+      "Traders looking for structured scaling programs",
     ],
-    why: "Goat Funded Trader currently publishes 1-Step, 2-Step and 3-Step evaluation models plus instant-funding options. Rules differ by model; its current 2-Step Standard, for example, publishes 10% and 5% evaluation targets, 5% daily drawdown and 10% maximum overall loss, with payout and funded-stage conditions that should be checked before purchase.",
-    bonus: "Partner referral link — promotional benefits depend on the current offer.",
-    href: "https://app.goatfundedtrader.com/",
-    cta: "Explore Goat Funded Trader",
+    why: "The5ers currently offers programs with defined risk limits, unlimited evaluation time on several models, MT5 access for non-US clients, and scaling paths. Its High Stakes program currently lists 5% maximum daily loss, 10% maximum loss, and scaling at each 10% target; exact rules depend on the program selected.",
+    bonus: "Official platform link — current program terms and pricing apply.",
+    href: "https://the5ers.com/",
+    cta: "Explore The5ers",
   },
   {
     name: "Blue Guardian",
     bestFor: [
-      "Traders comparing evaluation and instant funding",
-      "MT5 and algorithmic-trading users",
-      "Traders interested in scaling and different payout structures",
+      "Traders comparing evaluation and instant-funding models",
+      "MT5 and strategy-based traders",
+      "Traders looking for defined payout and scaling structures",
     ],
-    why: "Blue Guardian currently offers multiple evaluation and instant-funding models and supports MT5. Its published rules include model-specific drawdown, payout and trading conditions, while its scaling system provides a path to larger funded allocations. Review the exact model rules before purchasing.",
-    bonus: "Partner referral link — current promotional benefits are subject to the offer and partner terms.",
+    why: "Blue Guardian currently supports MT5 and publishes several funding models. Its current 2-Step Standard model lists an 8% Phase 1 target, 4% Phase 2 target, 4% maximum daily drawdown, 8% static maximum overall drawdown, 85% base profit split and payouts every 14 days, with model-specific rules and optional add-ons. Blue Guardian also publishes a scaling plan for growing allocations.",
+    bonus: "Partner link — promotional benefits are subject to the current offer and partner terms.",
     href: "https://blueguardian.com/?afmc=2dw1",
     cta: "Explore Blue Guardian",
   },
@@ -275,7 +263,7 @@ export default function ProfilePage() {
             </section>
 
             <section className="vt-info-card" style={{ marginTop: 24, textAlign: "left" }}>
-              <div className="vt-label">PARTNER ACCESS</div>
+              <div className="vt-label">BROKERS & PROP FIRMS I PERSONALLY RECOMMEND</div>
               <h2 style={{ margin: "10px 0 8px", fontSize: 29 }}>
                 Trade With the Right Partners — Brokers & Prop Firms I Personally Recommend
               </h2>
@@ -283,10 +271,10 @@ export default function ProfilePage() {
                 Tested. Trusted. Built for serious traders.
               </p>
               <p className="muted" style={{ maxWidth: 820, marginTop: 8 }}>
-                Need a broker or prop firm account? These are the partner platforms I currently recommend for an execution-focused workflow. Use the CTA that matches your needs. Partner offers, fees, leverage, regulations and rules can change, so always review the current terms before opening an account.
+                Need a broker or prop firm account? These are the partner platforms I personally recommend for an execution-focused workflow. If you already have a suitable account, continue using it. If you do not, use the CTA below to open an account. Partner offers, fees, leverage, regulations and rules can change, so always review the current terms before registering.
               </p>
               <p style={{ maxWidth: 820, marginTop: 10 }}>
-                Your VaultTrades workflow can then bring the pieces together: analyze the market, journal decisions, use AI Coach, prepare for prop-firm evaluations, build and protect a trading buffer, and review your progress. Use of these tools does not guarantee that an evaluation or funded account will be passed.
+                These partners are intended to support the workflow around VaultTrades: market analysis, execution, funded-account preparation, journaling and review. Partner links may provide a referral benefit to VaultTrades or the account holder, depending on the current offer. Trading and funding outcomes are not guaranteed.
               </p>
 
               <div className="vt-label" style={{ marginTop: 24 }}>RECOMMENDED BROKERS</div>
