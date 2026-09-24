@@ -90,6 +90,18 @@ const recommendedBrokers = [
     href: "https://headway.partners/user/signup?hwp=d93922",
     cta: "Open Headway Account",
   },
+  {
+    name: "JustMarkets",
+    bestFor: [
+      "Forex and Gold (XAUUSD) traders",
+      "MT4 and MT5 users",
+      "Traders looking for flexible account options",
+    ],
+    why: "JustMarkets offers MT4 and MT5 access across forex, metals, indices, stocks and digital assets. Its published account information currently lists Standard and Standard Cent accounts with spreads from 0.3 pips, Raw Spread accounts with spreads from 0 pips, and leverage up to 1:3000. JustMarkets also lists a South African entity, Just Global Markets (PTY) Ltd, as an FSCA-authorized Financial Service Provider (FSP 51114). Your available account conditions, leverage and regulatory protections depend on your jurisdiction and the entity serving your account.",
+    bonus: "Partner link — current promotional terms may vary.",
+    href: "https://one.justmarkets.link/a/trea9c04a1",
+    cta: "Open JustMarkets Account",
+  },
 ] as const;
 
 const recommendedPropFirms = [
