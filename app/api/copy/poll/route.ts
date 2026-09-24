@@ -18,7 +18,7 @@ export async function GET(req: Request) {
 
   const { data: follower } = await db
     .from("copy_followers")
-    .select("id,auth_user_id,status,copy_enabled")
+    .select("id,auth_user_id,status,copy_enabled,license_status,license_expires_at,license_generation")
     .eq("api_token_hash", sha256(token))
     .maybeSingle();
 
