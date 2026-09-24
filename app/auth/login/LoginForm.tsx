@@ -11,6 +11,7 @@ export default function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [verificationRequired, setVerificationRequired] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -69,6 +70,7 @@ export default function LoginForm() {
           <input className="w-full rounded-md border p-3" type="email" required autoComplete="email" placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} />
           <input className="w-full rounded-md border p-3" type="password" required autoComplete="current-password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
           {error && <p className="text-sm text-red-600" role="alert">{error}</p>}
+          {message && <p className="text-sm" role="status">{message}</p>}
           {verificationRequired && (
             <a className="text-sm underline" href={"/auth/verify-email?next=" + encodeURIComponent(next)}>Resend verification email</a>
           )}
