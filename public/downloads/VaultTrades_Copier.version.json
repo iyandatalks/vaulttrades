@@ -1,9 +1,9 @@
 {
   "product": "VaultTrades Customer Copier",
   "file": "VaultTrades_Copier.ex5",
-  "version": "1.10",
-  "sizeBytes": 80856,
-  "sha256": "7a2b8d3beceb8848999e8383f8463dbb76012a024ac90a64e42bae9539c2bd41",
+  "version": "1.11",
+  "sizeBytes": 82098,
+  "sha256": "aaf50129c2fce5b9d150ce80ef6fe88d31e0e8ef1a2366e11e1b3c522bc14559",
   "source": "mt5/VaultTrades_Copier.mq5",
-  "sourceSha256": "a8849df74d0883531a9b63ed784ff9dd2e91971767f709010c5e5d006d101081"
+  "sourceSha256": "db2e521de6733a8fa82527d19367b5779884a8247a2622560321f74476f97f20"
 }
