@@ -143,41 +143,7 @@ const recommendedPropFirms = [
   },
 ] as const;
 
-const recommendedPropFirms = [
-  {
-    name: "Top One Trader",
-    bestFor: [
-      "Simple challenge structures",
-      "Fast-track funding options",
-      "Traders who want multiple account models",
-    ],
-    why: "Top One Trader currently offers several funding models, including one-step, two-step and instant-style options. Account rules vary by model, including payout timing, drawdown and news-trading conditions, so select the model that matches your strategy.",
-    href: "https://toponetrader.com/?linkId=lp_148658&sourceId=sibongilesz2017gmailcom&tenantId=toponetrader",
-    cta: "Start Top One Trader",
-  },
-  {
-    name: "The 5%ers",
-    bestFor: [
-      "Long-term traders",
-      "Low-risk, consistency-focused strategies",
-      "Traders interested in account scaling",
-    ],
-    why: "The 5%ers currently offers structured funding programs with defined drawdown rules, scaling paths and scheduled payout cycles. Its High Stakes program allows overnight and weekend holding and supports MT5, while program rules differ by account type.",
-    href: "https://the5ers.com/",
-    cta: "Explore The 5%ers",
-  },
-  {
-    name: "Blue Guardian",
-    bestFor: [
-      "Traders who want flexible funding models",
-      "MT5 and algorithmic trading users",
-      "Traders comparing scheduled and instant payout structures",
-    ],
-    why: "Blue Guardian currently offers multiple funding models, including instant and evaluation-based accounts. Its published rules include MT5 availability, EA support on eligible models, different drawdown structures and payout options. Specific rules vary by account type, so review the model before purchasing.",
-    href: "https://blueguardian.com/?afmc=2dw1",
-    cta: "Explore Blue Guardian",
-  },
-] as const;
+
 
 export default function ProfilePage() {
   const router = useRouter();
