@@ -89,7 +89,7 @@ function SubscriptionContent() {
                 <div style={{ color: "#d4a637", fontSize: 11, fontWeight: 800, letterSpacing: ".14em" }}>{product.code === requested ? "SELECTED" : "VAULTTRADES SERVICE"}</div>
                 <h2 style={{ fontSize: 24, margin: "12px 0 8px" }}>{product.name}</h2>
                 <div style={{ color: "#d4a637", fontSize: 32, fontWeight: 900 }}>
-                  \$\{product.price}
+                  {"$"}{product.price}
                   <span style={{ color: "#aeb5c6", fontSize: 13, fontWeight: 500 }}>{product.suffix}</span>
                 </div>
                 <p style={{ color: "#aeb5c6", lineHeight: 1.6, minHeight: 52 }}>{product.description}</p>
