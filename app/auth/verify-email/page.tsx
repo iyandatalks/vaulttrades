@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const next = searchParams.get("next") || "/profile";
   const [email, setEmail] = useState("");
@@ -98,5 +99,22 @@ export default function VerifyEmailPage() {
         </div>
       </section>
     </main>
+  );
+}
+
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen flex items-center justify-center p-6">
+        <section className="w-full max-w-lg">
+          <div className="text-xs font-bold tracking-[0.18em]">VAULTTRADES</div>
+          <h1 className="text-3xl font-semibold mt-3">Verify your VaultTrades account</h1>
+          <p className="mt-2 text-sm text-muted-foreground">Preparing your verification instructions…</p>
+        </section>
+      </main>
+    }>
+      <VerifyEmailContent />
+    </Suspense>
   );
 }
