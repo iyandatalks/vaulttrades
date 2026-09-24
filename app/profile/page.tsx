@@ -70,23 +70,76 @@ const recommendedBrokers = [
     name: "XM Broker",
     bestFor: [
       "Beginners to experienced traders",
-      "Flexible account options",
       "Forex, Gold (XAUUSD) and multi-asset trading",
+      "MT4 and MT5 users",
     ],
-    why: "XM offers access to multiple financial markets and supports MT4 and MT5. XM also advertises negative balance protection on applicable accounts and different regulated entities depending on the client's jurisdiction. Always confirm the entity and current terms that apply to your account.",
+    why: "XM offers access to multiple markets through MT4 and MT5 and publishes trading conditions that can suit both newer and experienced traders. XM operates through different regulated entities depending on jurisdiction, so confirm the entity and protections that apply to your account.",
+    bonus: "Referral offer: 50% OFF all VaultTrades trading products when available through my partner link.",
     href: "https://www.xmza.com/referral?token=9TMOAfWroLZu69ys2-IUqg",
     cta: "Open XM Account",
   },
   {
     name: "Headway",
     bestFor: [
-      "Traders who want flexibility",
+      "Flexible trading styles",
       "Scalpers and strategy-based traders",
-      "Multi-asset traders",
+      "Forex, crypto and index traders",
     ],
-    why: "Headway provides access to MT4 and MT5 and offers a range of trading instruments and account options. Current conditions, leverage and regulatory coverage depend on the entity and account type available to you.",
+    why: "Headway supports MT4 and MT5 and offers a range of instruments and account types. Current spreads, leverage, execution conditions and regulatory coverage depend on the specific entity and account selected.",
+    bonus: "Referral offer: 50% OFF all VaultTrades trading products when available through my partner link.",
     href: "https://headway.partners/user/signup?hwp=d93922",
     cta: "Open Headway Account",
+  },
+  {
+    name: "JustMarkets",
+    bestFor: [
+      "MT4 and MT5 traders",
+      "Gold, Forex, indices and multi-asset trading",
+      "Traders comparing tight-spread account options",
+    ],
+    why: "JustMarkets currently publishes MT4/MT5 access, multi-asset trading and Raw Spread conditions starting from 0.0 pips. Its South African operation is listed by the FSCA, while other JustMarkets entities are regulated in other jurisdictions. Account conditions vary by entity and account type.",
+    bonus: "Partner referral link — current promotional benefits are subject to the offer and partner terms.",
+    href: "https://one.justmarkets.link/a/trea9c04a1",
+    cta: "Open JustMarkets Account",
+  },
+] as const;
+
+const recommendedPropFirms = [
+  {
+    name: "Top One Trader",
+    bestFor: [
+      "Simple challenge structures",
+      "Fast-track funding options",
+      "Traders comparing multiple evaluation models",
+    ],
+    why: "Top One Trader provides funding evaluations with different account models. The exact profit targets, drawdown rules, payout conditions and trading restrictions depend on the model selected.",
+    bonus: "Referral offer: 50% OFF all VaultTrades trading products when available through my partner link.",
+    href: "https://toponetrader.com/?linkId=lp_148658&sourceId=sibongilesz2017gmailcom&tenantId=toponetrader",
+    cta: "Start Top One Trader",
+  },
+  {
+    name: "Goat Funded Trader",
+    bestFor: [
+      "Traders comparing one-step and multi-step evaluations",
+      "Traders looking at evaluation and instant-funding models",
+      "MT5 and strategy-based traders",
+    ],
+    why: "Goat Funded Trader currently publishes 1-Step, 2-Step and 3-Step evaluation models plus instant-funding options. Rules differ by model; its current 2-Step Standard, for example, publishes 10% and 5% evaluation targets, 5% daily drawdown and 10% maximum overall loss, with payout and funded-stage conditions that should be checked before purchase.",
+    bonus: "Partner referral link — promotional benefits depend on the current offer.",
+    href: "https://app.goatfundedtrader.com/",
+    cta: "Explore Goat Funded Trader",
+  },
+  {
+    name: "Blue Guardian",
+    bestFor: [
+      "Traders comparing evaluation and instant funding",
+      "MT5 and algorithmic-trading users",
+      "Traders interested in scaling and different payout structures",
+    ],
+    why: "Blue Guardian currently offers multiple evaluation and instant-funding models and supports MT5. Its published rules include model-specific drawdown, payout and trading conditions, while its scaling system provides a path to larger funded allocations. Review the exact model rules before purchasing.",
+    bonus: "Partner referral link — current promotional benefits are subject to the offer and partner terms.",
+    href: "https://blueguardian.com/?afmc=2dw1",
+    cta: "Explore Blue Guardian",
   },
 ] as const;
 
@@ -264,7 +317,10 @@ export default function ProfilePage() {
                 Tested. Trusted. Built for serious traders.
               </p>
               <p className="muted" style={{ maxWidth: 820, marginTop: 8 }}>
-                Need a broker or prop firm account? These are the platforms I currently recommend for traders who want an execution-focused workflow. Partner rules, leverage, fees, regulations and offers can change, so always review the current terms before opening an account.
+                Need a broker or prop firm account? These are the partner platforms I currently recommend for an execution-focused workflow. Use the CTA that matches your needs. Partner offers, fees, leverage, regulations and rules can change, so always review the current terms before opening an account.
+              </p>
+              <p style={{ maxWidth: 820, marginTop: 10 }}>
+                Your VaultTrades workflow can then bring the pieces together: analyze the market, journal decisions, use AI Coach, prepare for prop-firm evaluations, build and protect a trading buffer, and review your progress. Use of these tools does not guarantee that an evaluation or funded account will be passed.
               </p>
 
               <div className="vt-label" style={{ marginTop: 24 }}>RECOMMENDED BROKERS</div>
@@ -277,6 +333,7 @@ export default function ProfilePage() {
                       {partner.bestFor.map((item) => <li key={item}>{item}</li>)}
                     </ul>
                     <p style={{ marginTop: 14 }}>{partner.why}</p>
+                    <p style={{ marginTop: 10, color: "#d4a637", fontWeight: 800 }}>{partner.bonus}</p>
                     <a
                       className="vt-primary"
                       style={{ display: "inline-block", marginTop: 12 }}
