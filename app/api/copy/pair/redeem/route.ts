@@ -16,7 +16,7 @@ export async function POST(req:Request) {
   if (!code) return NextResponse.json({error:"PAIRING_CODE_REQUIRED"},{status:400});
 
   const db=createServiceClient();
-  const {data:pair,error}=await db.from("copy_pairing_codes").select("id,auth_user_id,expires_at,redeemed_at,revoked_at").eq("code_hash",sha(code)).maybeSingle();
+  const {data:pair,error}=await db.from("copy_pairing_codes").select("id,auth_user_id,expires_at,redeemed_at,revoked_at,created_at").eq("code_hash",sha(code)).maybeSingle();
   if(error || !pair) return NextResponse.json({error:"INVALID_PAIRING_CODE"},{status:401});
   if(pair.redeemed_at || pair.revoked_at || new Date(pair.expires_at).getTime() < Date.now()) return NextResponse.json({error:"PAIRING_CODE_EXPIRED"},{status:401});
 
@@ -28,15 +28,41 @@ export async function POST(req:Request) {
     }, { status: 403 });
   }
 
+  if (access.reason !== "ADMIN" && access.startAt && new Date(pair.created_at).getTime() < new Date(access.startAt).getTime()) {
+    return NextResponse.json({ error: "PAIRING_CODE_NOT_CURRENT_SUBSCRIPTION" }, { status: 401 });
+  }
+
   const token=randomBytes(32).toString("hex");
+  const { data: previous } = await db
+    .from("copy_followers")
+    .select("id,license_generation")
+    .eq("auth_user_id", pair.auth_user_id)
+    .maybeSingle();
+  const nextGeneration = Number(previous?.license_generation || 0) + 1;
+  const now = new Date().toISOString();
+
+  if (previous?.id) {
+    await db.from("copy_followers").update({
+      status: "disabled",
+      copy_enabled: false,
+      license_status: "revoked",
+      updated_at: now,
+    }).eq("id", previous.id);
+    await db.from("copy_links").update({
+      status: "revoked",
+      updated_at: now,
+    }).eq("follower_id", previous.id).eq("status", "active");
+  }
   const {data:follower,error:fErr}=await db.from("copy_followers").upsert({
     auth_user_id:pair.auth_user_id, mt_login:mtLogin, broker_server:brokerServer, ea_version:eaVersion,
-    status:"online", copy_enabled:true, api_token_hash:sha(token), last_heartbeat_at:new Date().toISOString()
+    status:"online", copy_enabled:true, api_token_hash:sha(token), last_heartbeat_at:now,
+    pairing_code_id:pair.id, license_activated_at:now, license_expires_at:access.endAt,
+    license_status:"active", license_generation:nextGeneration
   },{onConflict:"auth_user_id"}).select("id,auth_user_id,mt_login,broker_server,status,copy_enabled").single();
   if(fErr) return NextResponse.json({error:"FOLLOWER_CREATE_FAILED",detail:fErr.message},{status:500});
 
   await db.from("copy_pairing_codes").update({redeemed_at:new Date().toISOString()}).eq("id",pair.id);
   const {data:master}=await db.from("copy_masters").select("id").eq("name","VaultTrades Master").maybeSingle();
   if(master) await db.from("copy_links").upsert({master_id:master.id,follower_id:follower.id,status:"active",lot_mode:"fixed",lot_value:0.01},{onConflict:"master_id,follower_id"});
-  return NextResponse.json({ok:true,token,followerId:follower.id});
+  return NextResponse.json({ok:true,token,followerId:follower.id,accessUntil:access.endAt,licenseGeneration:nextGeneration});
 }
