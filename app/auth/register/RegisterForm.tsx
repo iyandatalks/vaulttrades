@@ -16,38 +16,6 @@ export default function RegisterForm() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const [resending, setResending] = useState(false);
-
-  async function handleResendVerification() {
-    if (!email.trim() || resending) return;
-    setError("");
-    setMessage("");
-    setResending(true);
-
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-
-    const safeNext = next.startsWith("/") ? next : "/profile";
-    const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "");
-    const siteUrl = configuredSiteUrl || window.location.origin;
-    const confirmationRedirect = siteUrl + "/auth/callback?next=" + encodeURIComponent(safeNext);
-
-    const { error: resendError } = await supabase.auth.resend({
-      type: "signup",
-      email: email.trim(),
-      options: { emailRedirectTo: confirmationRedirect },
-    });
-
-    if (resendError) {
-      setError(resendError.message);
-    } else {
-      setMessage("A new VaultTrades verification email has been sent. Check your inbox and spam folder.");
-    }
-
-    setResending(false);
-  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -62,8 +30,8 @@ export default function RegisterForm() {
 
     const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "");
     const siteUrl = configuredSiteUrl || window.location.origin;
-    const safeNext = next.startsWith('/') ? next : '/profile';
-    const confirmationRedirect = siteUrl + '/auth/callback?next=' + encodeURIComponent(safeNext);
+    const safeNext = next.startsWith("/") ? next : "/profile";
+    const confirmationRedirect = siteUrl + "/auth/callback?next=" + encodeURIComponent(safeNext);
 
     const { data, error: signUpError } = await supabase.auth.signUp({
       email: email.trim(),
@@ -109,16 +77,6 @@ export default function RegisterForm() {
           <input className="w-full rounded-md border p-3" type="password" required minLength={8} placeholder="Password (8+ characters)" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
           {error && <p className="text-sm text-red-600" role="alert">{error}</p>}
           {message && <p className="text-sm" role="status">{message}</p>}
-          {message.includes("verification email") && (
-            <button
-              type="button"
-              className="text-sm underline"
-              onClick={() => void handleResendVerification()}
-              disabled={resending}
-            >
-              {resending ? "Sending verification email…" : "Resend verification email"}
-            </button>
-          )}
           <button className="w-full rounded-md border px-4 py-3 font-medium disabled:opacity-50" disabled={loading} type="submit">{loading ? "Creating account…" : "Create account"}</button>
         </form>
         <p className="text-sm">Already have an account? <a className="underline" href={"/auth/login?next=" + encodeURIComponent(next)}>Log in</a></p>
