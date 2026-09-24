@@ -2,9 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 
 export default function VerifyEmailPage() {
+  const searchParams = useSearchParams();
+  const next = searchParams.get("next") || "/profile";
   const [email, setEmail] = useState("");
   const [resending, setResending] = useState(false);
   const [message, setMessage] = useState("");
@@ -31,9 +34,15 @@ export default function VerifyEmailPage() {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
 
+    const safeNext = next.startsWith("/") ? next : "/profile";
+    const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "");
+    const siteUrl = configuredSiteUrl || window.location.origin;
+    const emailRedirectTo = siteUrl + "/auth/callback?next=" + encodeURIComponent(safeNext);
+
     const { error: resendError } = await sb.auth.resend({
       type: "signup",
       email: value,
+      options: { emailRedirectTo },
     });
 
     if (resendError) setError(resendError.message);
