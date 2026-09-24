@@ -54,6 +54,7 @@ export async function revokeExpiredFollower(followerId: string) {
     .update({
       status: "disabled",
       copy_enabled: false,
+      license_status: "expired",
       updated_at: new Date().toISOString(),
     })
     .eq("id", followerId);
