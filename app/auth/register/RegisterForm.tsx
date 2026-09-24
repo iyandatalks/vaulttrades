@@ -53,8 +53,8 @@ export default function RegisterForm() {
     }
 
     if (!data.session) {
-      setMessage("Account created. Check your email to confirm your account, then log in.");
-      setLoading(false);
+      window.localStorage.setItem("vaulttrades_pending_signup_email", email.trim());
+      router.replace("/auth/verify-email?next=" + encodeURIComponent(next));
       return;
     }
 
