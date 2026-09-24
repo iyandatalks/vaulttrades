@@ -74,6 +74,11 @@ string           g_tokenFile = "";
 string           g_mapFile = "";
 int              g_tick = 0;
 bool             g_busy = false;
+string           g_licenseStatus = "INACTIVE";
+string           g_accessUntil = "";
+string           g_lastResponse = "NOT CONNECTED";
+datetime         g_lastResponseTime = 0;
+bool             g_pairingBlocked = false;
 
 // Durable execution mapping (survives restart; duplicate protection)
 string           g_mapExecId[];
@@ -416,6 +421,32 @@ void LoadToken()
      }
   }
 
+void ClearSavedToken()
+  {
+   if(g_tokenFile!="")
+      FileDelete(g_tokenFile,FILE_COMMON);
+   g_token="";
+   g_paired=false;
+  }
+
+void DrawStatus()
+  {
+   if(!InpShowStatus)
+      return;
+   string until=(g_accessUntil=="" ? "—" : g_accessUntil);
+   string last=g_lastResponse;
+   if(g_lastResponseTime>0)
+      last+=" @ "+TimeToString(g_lastResponseTime,TIME_DATE|TIME_SECONDS);
+   Comment(
+      "VaultTrades Copier\n",
+      "MT5 Account: ",(string)g_login,"\n",
+      "Broker Server: ",AccountInfoString(ACCOUNT_SERVER),"\n",
+      "License: ",g_licenseStatus,"\n",
+      "Access Until: ",until,"\n",
+      "Latest Response: ",last
+   );
+  }
+
 void SaveToken()
   {
    if(g_token=="")
@@ -449,8 +480,14 @@ bool TryPair()
    if(code=="")
      {
       Print("VT Copier: no saved token and no pairing code. Enter the 10-char pairing code in EA inputs.");
+      g_licenseStatus="INACTIVE";
+      g_lastResponse="PAIRING CODE REQUIRED";
+      DrawStatus();
       return false;
      }
+
+   if(g_pairingBlocked)
+      return false;
 
    string body=StringFormat(
                   "{\"pairingCode\":\"%s\",\"mtLogin\":\"%I64u\",\"brokerServer\":\"%s\",\"eaVersion\":\"%s\"}",
@@ -466,7 +503,14 @@ bool TryPair()
 
    bool ok=HttpJson("POST",url,"",body,response,httpCode);
    if(!ok)
+     {
+      g_lastResponse="PAIRING HTTP "+(string)httpCode;
+      g_lastResponseTime=TimeCurrent();
+      if(httpCode==409 || httpCode==401)
+         g_pairingBlocked=true;
+      DrawStatus();
       return false;
+     }
 
    string token=TrimStr(JsonStr(response,"token",0));
    if(StringLen(token)!=TOKEN_HEX_LEN)
@@ -477,12 +521,18 @@ bool TryPair()
 
    g_token=token;
    g_paired=true;
+   g_pairingBlocked=false;
+   g_licenseStatus="ACTIVE";
+   g_accessUntil=JsonStr(response,"accessUntil",0);
+   g_lastResponse="PAIRED";
+   g_lastResponseTime=TimeCurrent();
    SaveToken();
 
    string followerId=JsonStr(response,"followerId",0);
    PrintFormat("VT Copier: paired with VaultTrades. followerId=%s token=%.12s...",
                followerId,g_token);
 
+   DrawStatus();
    return true;
   }
 
@@ -1393,7 +1443,31 @@ void PollAndProcess()
 
    bool ok=HttpJson("GET",url,AuthHeaders(),"",response,httpCode);
    if(!ok)
+     {
+      if(httpCode==401)
+        {
+         g_licenseStatus="REVOKED";
+         g_lastResponse="401 UNAUTHORIZED — CONNECTION REVOKED/REPLACED";
+         ClearSavedToken();
+         g_pairingBlocked=true;
+        }
+      else if(httpCode==403)
+        {
+         g_licenseStatus="EXPIRED";
+         g_lastResponse="403 SUBSCRIPTION EXPIRED";
+        }
+      else
+         g_lastResponse="POLL HTTP "+(string)httpCode;
+      g_lastResponseTime=TimeCurrent();
+      DrawStatus();
       return;
+     }
+
+   g_accessUntil=JsonStr(response,"accessUntil",0);
+   string pollLicense=JsonStr(response,"licenseStatus",0);
+   if(pollLicense!="") g_licenseStatus=pollLicense;
+   g_lastResponse="POLL 200";
+   g_lastResponseTime=TimeCurrent();
 
    ParsePollResponse(response);
 
@@ -1433,6 +1507,8 @@ int OnInit()
    if(g_paired)
       ReconcilePositions();
 
+   DrawStatus();
+
    EventSetTimer(1);
    SendHeartbeat();
 
@@ -1464,7 +1540,9 @@ void OnTimer()
 
    if(!g_paired)
      {
-      TryPair();
+      if(!g_pairingBlocked)
+         TryPair();
+      DrawStatus();
       g_busy=false;
       return;
      }
@@ -1475,6 +1553,7 @@ void OnTimer()
    if(MathMod(g_tick,MathMax(1,InpPollSeconds))==0)
       PollAndProcess();
 
+   DrawStatus();
    g_busy=false;
   }
 //+------------------------------------------------------------------+
