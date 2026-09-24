@@ -135,7 +135,7 @@ export default function CopyConnectPage() {
             Download VaultTrades Copier EA (.ex5) ↓
           </a>
           <p className="muted" style={{ marginTop: 12, marginBottom: 0 }}>
-            Version 1.00 · Windows MT5 desktop/VPS
+            Version 1.10 · Windows MT5 desktop/VPS
           </p>
         </section>
 
