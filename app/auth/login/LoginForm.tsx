@@ -70,7 +70,7 @@ export default function LoginForm() {
           <input className="w-full rounded-md border p-3" type="password" required autoComplete="current-password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
           {error && <p className="text-sm text-red-600" role="alert">{error}</p>}
           {verificationRequired && (
-            <a className="text-sm underline" href="/auth/verify-email">Resend verification email</a>
+            <a className="text-sm underline" href={"/auth/verify-email?next=" + encodeURIComponent(next)}>Resend verification email</a>
           )}
           {success && <p className="text-sm" role="status">Login successful. Opening your profile…</p>}
           <button className="w-full rounded-md border px-4 py-3 font-medium disabled:opacity-50" disabled={loading} type="submit">{loading ? "Signing in…" : "Log in"}</button>
