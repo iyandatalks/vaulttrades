@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createBrowserClient } from "@supabase/ssr";
+import RecommendedTradingPartners from "./RecommendedTradingPartners";
 
 type AccessState = {
   analyzer?: boolean;
@@ -193,6 +194,8 @@ export default function ProfilePage() {
             )}
           </section>
         )}
+
+        {!loading && email && <RecommendedTradingPartners />}
       </section>
     </main>
   );
