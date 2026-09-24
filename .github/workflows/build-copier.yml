@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   build-copier:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
       - name: Checkout
@@ -22,50 +22,53 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Fetch and verify compiled Copier binary
-        shell: bash
+      - name: Compile VaultTrades Copier
+        uses: fx31337/mql-compile-action@v2
+        with:
+          path: mt5/VaultTrades_Copier.mq5
+          include: .
+          init-platform: true
+          mt-version: 5.0.0.2515
+          verbose: true
+          log-file: copier-compile.log
+
+      - name: Verify compiled binary
+        shell: powershell
         run: |
-          set -euo pipefail
-          mkdir -p public/downloads
+          $compiled = Get-ChildItem -Path . -Recurse -Filter "VaultTrades_Copier.ex5" | Select-Object -First 1
+          if (-not $compiled) { throw "VaultTrades_Copier.ex5 was not produced." }
+          Copy-Item $compiled.FullName "mt5/VaultTrades_Copier.ex5" -Force
+          Copy-Item $compiled.FullName "public/downloads/VaultTrades_Copier.ex5" -Force
 
-          curl -fL --retry 3 --retry-all-errors             "https://vaulttradesve.com/downloads/VaultTrades_Copier.ex5"             -o mt5/VaultTrades_Copier.ex5
+          $hash = (Get-FileHash "mt5/VaultTrades_Copier.ex5" -Algorithm SHA256).Hash.ToLower()
+          $size = (Get-Item "mt5/VaultTrades_Copier.ex5").Length
+          Write-Host "Copier SHA256=$hash"
+          Write-Host "Copier size=$size"
 
-          expected_sha256="7a2b8d3beceb8848999e8383f8463dbb76012a024ac90a64e42bae9539c2bd41"
-          expected_size="80856"
+          if ($size -le 0) { throw "Compiled binary is empty." }
 
-          actual_sha256="$(sha256sum mt5/VaultTrades_Copier.ex5 | awk '{print $1}')"
-          actual_size="$(stat -c '%s' mt5/VaultTrades_Copier.ex5)"
-
-          test "$actual_size" = "$expected_size"
-          test "$actual_sha256" = "$expected_sha256"
-
-          cp -f mt5/VaultTrades_Copier.ex5 public/downloads/VaultTrades_Copier.ex5
-          source_sha256="$(sha256sum mt5/VaultTrades_Copier.mq5 | awk '{print $1}')"
-
-          cat > public/downloads/VaultTrades_Copier.version.json <<EOF
+          $sourceHash = (Get-FileHash "mt5/VaultTrades_Copier.mq5" -Algorithm SHA256).Hash.ToLower()
+          @"
           {
             "product": "VaultTrades Customer Copier",
             "file": "VaultTrades_Copier.ex5",
-            "version": "1.10",
-            "sizeBytes": $actual_size,
-            "sha256": "$actual_sha256",
+            "version": "1.11",
+            "sizeBytes": $size,
+            "sha256": "$hash",
             "source": "mt5/VaultTrades_Copier.mq5",
-            "sourceSha256": "$source_sha256"
+            "sourceSha256": "$sourceHash"
           }
-          EOF
+          "@ | Set-Content "public/downloads/VaultTrades_Copier.version.json"
 
-      - name: Publish compiled Copier to main
-        shell: bash
+      - name: Publish compiled Copier
+        shell: powershell
         run: |
-          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add mt5/VaultTrades_Copier.ex5 public/downloads/VaultTrades_Copier.ex5 public/downloads/VaultTrades_Copier.version.json
-
-          if git diff --cached --quiet; then
-            echo "Compiled Copier is already current; nothing to commit."
+          if (git diff --cached --quiet) {
+            Write-Host "No binary changes to publish."
             exit 0
-          fi
-
-          git commit -m "Publish VaultTrades Copier v1.10"
+          }
+          git commit -m "Publish VaultTrades Copier v1.11"
           git push origin HEAD:main
