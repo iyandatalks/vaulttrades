@@ -14,7 +14,7 @@ export async function POST(req:Request){
  const access = await getCopyAccess(String(f.auth_user_id));
  if(!access.active) {
    await revokeExpiredFollower(f.id);
-   return NextResponse.json({error:"COPY_SUBSCRIPTION_EXPIRED",accessUntil:access.endAt},{status:403});
+   return NextResponse.json({error:"COPY_SUBSCRIPTION_EXPIRED",accessUntil:access.endAt,licenseStatus:"expired"},{status:403});
  }
 
  const b=await req.json().catch(()=>({}));
