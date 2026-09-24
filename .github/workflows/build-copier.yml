@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   build-copier:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
@@ -22,53 +22,101 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Compile VaultTrades Copier
-        uses: fx31337/mql-compile-action@v2
-        with:
-          path: mt5/VaultTrades_Copier.mq5
-          include: .
-          init-platform: true
-          mt-version: 5.0.0.2515
-          verbose: true
-          log-file: copier-compile.log
-
-      - name: Verify compiled binary
-        shell: powershell
+      - name: Compile Copier with the known-working MT5 toolchain
+        shell: bash
         run: |
-          $compiled = Get-ChildItem -Path . -Recurse -Filter "VaultTrades_Copier.ex5" | Select-Object -First 1
-          if (-not $compiled) { throw "VaultTrades_Copier.ex5 was not produced." }
-          Copy-Item $compiled.FullName "mt5/VaultTrades_Copier.ex5" -Force
-          Copy-Item $compiled.FullName "public/downloads/VaultTrades_Copier.ex5" -Force
+          set -euo pipefail
 
-          $hash = (Get-FileHash "mt5/VaultTrades_Copier.ex5" -Algorithm SHA256).Hash.ToLower()
-          $size = (Get-Item "mt5/VaultTrades_Copier.ex5").Length
-          Write-Host "Copier SHA256=$hash"
-          Write-Host "Copier size=$size"
+          mkdir -p public/downloads
 
-          if ($size -le 0) { throw "Compiled binary is empty." }
+          docker pull ghcr.io/thodinh/mt5:latest
 
-          $sourceHash = (Get-FileHash "mt5/VaultTrades_Copier.mq5" -Algorithm SHA256).Hash.ToLower()
-          @"
+          docker run --rm             -v "$PWD:/workspace"             -w /workspace             ghcr.io/thodinh/mt5:latest             bash -lc '
+              set -u
+              export WINEPREFIX=/opt/wineprefix
+              export DISPLAY=:0
+
+              mtroot=/opt/wineprefix/drive_c/Metatrader-5
+              editor="$mtroot/MetaEditor64.exe"
+
+              test -f "$editor"
+
+              mkdir -p "$mtroot/MQL5/Experts"
+              cp -f /workspace/mt5/VaultTrades_Copier.mq5 "$mtroot/MQL5/Experts/VaultTrades_Copier.mq5"
+
+              source_win="C:\Metatrader-5\MQL5\Experts\VaultTrades_Copier.mq5"
+              editor_win="C:\Metatrader-5\MetaEditor64.exe"
+
+              echo "Using MetaEditor: $editor"
+              echo "Compiling: $source_win"
+
+              rm -f "$mtroot/MQL5/Experts/VaultTrades_Copier.ex5" "$mtroot/MQL5/Experts/VaultTrades_Copier.log"
+
+              wine "$editor_win" "/compile:$source_win" /log
+              code=$?
+
+              echo "MetaEditor exit code: $code"
+
+              find "$mtroot/MQL5/Experts" -maxdepth 1 -type f -name "VaultTrades_Copier.*" -ls || true
+
+              if [ -f "$mtroot/MQL5/Experts/VaultTrades_Copier.log" ]; then
+                cat "$mtroot/MQL5/Experts/VaultTrades_Copier.log"
+              fi
+
+              test -f "$mtroot/MQL5/Experts/VaultTrades_Copier.ex5"
+
+              cp -f "$mtroot/MQL5/Experts/VaultTrades_Copier.ex5" /workspace/mt5/VaultTrades_Copier.ex5
+
+              if [ -f "$mtroot/MQL5/Experts/VaultTrades_Copier.log" ]; then
+                cp -f "$mtroot/MQL5/Experts/VaultTrades_Copier.log" /workspace/mt5/VaultTrades_Copier.log
+              fi
+
+              exit 0
+            '
+
+          test -f mt5/VaultTrades_Copier.ex5
+
+          if find mt5 -maxdepth 1 -type f -name 'VaultTrades_Copier.log' -print -quit | grep -q .; then
+            cat mt5/VaultTrades_Copier.log
+          fi
+
+          if find mt5 -maxdepth 1 -type f -name 'VaultTrades_Copier.log' -print -quit | xargs -r grep -Eq '(^|[^0-9])([1-9][0-9]*) error'; then
+            echo "Copier compilation reported errors."
+            exit 1
+          fi
+
+          cp -f mt5/VaultTrades_Copier.ex5 public/downloads/VaultTrades_Copier.ex5
+
+          sha256="$(sha256sum public/downloads/VaultTrades_Copier.ex5 | awk '{print $1}')"
+          size="$(stat -c '%s' public/downloads/VaultTrades_Copier.ex5)"
+          source_sha256="$(sha256sum mt5/VaultTrades_Copier.mq5 | awk '{print $1}')"
+
+          cat > public/downloads/VaultTrades_Copier.version.json <<EOF
           {
             "product": "VaultTrades Customer Copier",
             "file": "VaultTrades_Copier.ex5",
             "version": "1.11",
             "sizeBytes": $size,
-            "sha256": "$hash",
+            "sha256": "$sha256",
             "source": "mt5/VaultTrades_Copier.mq5",
-            "sourceSha256": "$sourceHash"
+            "sourceSha256": "$source_sha256"
           }
-          "@ | Set-Content "public/downloads/VaultTrades_Copier.version.json"
+          EOF
 
-      - name: Publish compiled Copier
-        shell: powershell
+      - name: Publish compiled Copier to main
+        shell: bash
         run: |
+          set -euo pipefail
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add mt5/VaultTrades_Copier.ex5 public/downloads/VaultTrades_Copier.ex5 public/downloads/VaultTrades_Copier.version.json
-          if (git diff --cached --quiet) {
-            Write-Host "No binary changes to publish."
+
+          git add mt5/VaultTrades_Copier.ex5 public/downloads/VaultTrades_Copier.ex5 public/downloads/VaultTrades_Copier.version.json mt5/VaultTrades_Copier.log
+
+          if git diff --cached --quiet; then
+            echo "Compiled Copier is already current; nothing to commit."
             exit 0
-          }
-          git commit -m "Publish VaultTrades Copier v1.11"
+          fi
+
+          git commit -m "Publish compiled VaultTrades Copier v1.11"
           git push origin HEAD:main
