@@ -31,7 +31,8 @@ export default function RegisterForm() {
     const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "");
     const siteUrl = configuredSiteUrl || window.location.origin;
     const safeNext = next.startsWith("/") ? next : "/profile";
-    const confirmationRedirect = siteUrl + "/auth/callback?next=" + encodeURIComponent(safeNext);
+    document.cookie = "vaulttrades_auth_next=" + encodeURIComponent(safeNext) + "; Max-Age=600; Path=/; SameSite=Lax";
+    const confirmationRedirect = siteUrl + "/auth/callback";
 
     const { data, error: signUpError } = await supabase.auth.signUp({
       email: email.trim(),
