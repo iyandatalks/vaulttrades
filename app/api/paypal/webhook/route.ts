@@ -76,10 +76,26 @@ export async function POST(request: Request) {
 
     const status = SUBSCRIPTION_EVENTS[eventType];
     const isLifetimeMentorship = product.code === "founders_mentorship_once";
-    const start = providerSubscription?.start_time ? new Date(providerSubscription.start_time).toISOString() : new Date().toISOString();
-    const nextBilling = providerSubscription?.billing_info?.next_billing_time
-      ? new Date(providerSubscription.billing_info.next_billing_time).toISOString()
+    const existingLicense = await admin
+      .from("product_licenses")
+      .select("start_at,end_at,status")
+      .eq("user_id", profile.id)
+      .eq("entitlement_code", product.entitlement)
+      .eq("payment_reference", subscriptionId)
+      .maybeSingle();
+
+    const eventIssueTime = eventType === "PAYMENT.SALE.COMPLETED"
+      ? (resource.create_time || event.create_time)
       : null;
+    const start = existingLicense.data?.start_at && status === "active" && eventType !== "PAYMENT.SALE.COMPLETED"
+      ? new Date(existingLicense.data.start_at).toISOString()
+      : (eventIssueTime
+          ? new Date(eventIssueTime).toISOString()
+          : (providerSubscription?.start_time
+              ? new Date(providerSubscription.start_time).toISOString()
+              : new Date().toISOString()));
+
+    const exactThirtyDayEnd = new Date(new Date(start).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
     // Founders Mentorship is a once-off purchase. Once paid, its entitlement is lifetime
     // and later subscription-state notifications must not revoke that lifetime access.
@@ -104,11 +120,10 @@ export async function POST(request: Request) {
       }
     }
 
-    const fallbackEnd = new Date(new Date(start).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
     const accessEnd = isLifetimeMentorship && status === "active"
       ? null
       : status === "active"
-        ? (nextBilling || fallbackEnd)
+        ? exactThirtyDayEnd
         : new Date().toISOString();
 
     await admin.from("product_licenses").upsert({ user_id: profile.id, email: profile.email, purchased_product_code: product.code, entitlement_code: product.entitlement, status: status === "active" ? "active" : status, payment_reference: subscriptionId, approved_at: status === "active" ? new Date().toISOString() : null, start_at: start, end_at: accessEnd, platform: product.entitlement === "automation" ? "mt5" : "web", source_payment_snapshot: { provider: "paypal", plan_id: planId, subscription_id: subscriptionId, product_code: product.code, amount: product.price, currency: "USD", event_type: eventType }, updated_at: new Date().toISOString() }, { onConflict: "payment_reference,entitlement_code" });
@@ -116,7 +131,7 @@ export async function POST(request: Request) {
 
     if (product.entitlement === "automation") {
       const { data: existingAuto } = await admin.from("automated_trader_subscriptions").select("id").eq("provider", "paypal").eq("provider_subscription_id", subscriptionId).maybeSingle();
-      const autoRow = { auth_user_id: authUserId, product_code: product.code, status, provider: "paypal", provider_subscription_id: subscriptionId, current_period_start: start, current_period_end: nextBilling, cancel_at_period_end: eventType === "BILLING.SUBSCRIPTION.CANCELLED", last_provider_event: eventType, updated_at: new Date().toISOString() };
+      const autoRow = { auth_user_id: authUserId, product_code: product.code, status, provider: "paypal", provider_subscription_id: subscriptionId, current_period_start: start, current_period_end: accessEnd, cancel_at_period_end: eventType === "BILLING.SUBSCRIPTION.CANCELLED", last_provider_event: eventType, updated_at: new Date().toISOString() };
       if (existingAuto) await admin.from("automated_trader_subscriptions").update(autoRow).eq("id", existingAuto.id);
       else await admin.from("automated_trader_subscriptions").insert(autoRow);
       await admin.from("automated_trader_events").insert({ auth_user_id: authUserId, event_type: eventType, provider: "paypal", provider_event_id: event.id ? String(event.id) : null, payload: event });
