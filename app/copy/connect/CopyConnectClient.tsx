@@ -9,6 +9,7 @@ type Status = {
   accessUntil?: string | null;
   account?: { login?: string; server?: string; status?: string; license_status?: string; license_expires_at?: string | null; license_generation?: number } | null;
   pairing?: { available?: boolean; reason?: string; expiresAt?: string | null; redeemed?: boolean };
+  registeredMt5Accounts?: { mt5_login: string; email?: string; created_at?: string; updated_at?: string }[];
   error?: string;
 };
 
@@ -18,6 +19,7 @@ export default function CopyConnectPage() {
   const [pairingExpires, setPairingExpires] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [selectedMt5, setSelectedMt5] = useState("");
 
   const load = async () => {
     const r = await fetch("/api/copy/status", { cache: "no-store" });
@@ -27,6 +29,9 @@ export default function CopyConnectPage() {
       return;
     }
     setStatus(d);
+    if (!selectedMt5 && d.registeredMt5Accounts?.[0]?.mt5_login) {
+      setSelectedMt5(d.registeredMt5Accounts[0].mt5_login);
+    }
   };
 
   useEffect(() => { void load().catch(() => window.location.replace("/products?product=copy")); }, []);
@@ -35,7 +40,11 @@ export default function CopyConnectPage() {
     setBusy(true);
     setMessage("");
     try {
-      const r = await fetch("/api/copy/pair", { method: "POST" });
+      const r = await fetch("/api/copy/pair", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mt5Login: selectedMt5 }),
+      });
       const d = await r.json();
       if (!r.ok) {
         setMessage(d.message || d.error || "Unable to generate a pairing code.");
@@ -80,10 +89,20 @@ export default function CopyConnectPage() {
         </section>
 
         <section className="vt-info-card" style={{ marginTop: 20 }}>
+          <div className="vt-label">MT5 ACCOUNT</div>
+          <h2 style={{ marginTop: 10 }}>Select the MT5 account covered by this subscription.</h2>
+          <select value={selectedMt5} onChange={(e) => setSelectedMt5(e.target.value)} style={{ width: "100%", maxWidth: 420, padding: "12px 13px", borderRadius: 8, border: "1px solid rgba(212,166,55,.35)", background: "#050812", color: "#f4f6fb" }}>
+            <option value="">Select registered MT5 account</option>
+            {(status?.registeredMt5Accounts || []).map(account => <option key={account.mt5_login} value={account.mt5_login}>{account.mt5_login}</option>)}
+          </select>
+          <p className="muted">Each Copy Trading subscription is bound to one registered MT5 account. A second MT5 account requires a separate subscription.</p>
+        </section>
+
+        <section className="vt-info-card" style={{ marginTop: 20 }}>
           <div className="vt-label">CONNECT</div>
           <h2 style={{ marginTop: 10 }}>Generate your one-time subscription pairing code.</h2>
           <p>The code is valid for up to <strong>24 hours</strong>, but never beyond your subscription expiry. Once activated, the Copier license remains valid only until your subscription expires.</p>
-          <button className="vt-primary" onClick={() => void generate()} disabled={busy || status?.pairing?.available === false} style={{ marginTop: 8 }}>
+          <button className="vt-primary" onClick={() => void generate()} disabled={busy || !selectedMt5 || status?.pairing?.available === false} style={{ marginTop: 8 }}>
             {busy ? "Generating…" : "Generate Pairing Code"}
           </button>
           {pairingCode && (
