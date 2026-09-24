@@ -119,4 +119,6 @@ jobs:
           fi
 
           git commit -m "Publish compiled VaultTrades Copier v1.11"
+          git fetch origin main
+          git rebase origin/main
           git push origin HEAD:main
