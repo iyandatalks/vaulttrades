@@ -48,20 +48,22 @@ export async function POST(request: Request) {
         }, { status: 400 });
       }
 
-      const { error: registrationError } = await admin
-        .from("copy_customer_registrations")
-        .upsert({
-          auth_user_id: user.id,
-          email,
-          mt5_login: mt5Login,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: "auth_user_id" });
+      const { data: existingActiveLicense } = await admin
+        .from("product_licenses")
+        .select("id,start_at,end_at,status,mt_login")
+        .eq("user_id", profile.id)
+        .eq("entitlement_code", "automation")
+        .eq("mt_login", mt5Login)
+        .eq("status", "active")
+        .order("end_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      if (registrationError) {
+      if (existingActiveLicense?.end_at && new Date(existingActiveLicense.end_at).getTime() > Date.now()) {
         return NextResponse.json({
-          error: "MT5_REGISTRATION_FAILED",
-          message: "Unable to save your MT5 account details. Please try again.",
-        }, { status: 500 });
+          error: "COPY_SUBSCRIPTION_ALREADY_ACTIVE",
+          message: "This MT5 account already has an active VaultTrades Copy Trading subscription. Use that subscription or purchase a separate subscription for another MT5 account.",
+        }, { status: 409 });
       }
     }
 
@@ -83,6 +85,24 @@ export async function POST(request: Request) {
     const approvalUrl = result.links?.find((link: any) => link.rel === "approve")?.href;
     if (!approvalUrl) {
       return NextResponse.json({ error: "Unable to start secure checkout. Please contact VaultTrades support." }, { status: 502 });
+    }
+
+    if (product.code === "automated_trader_monthly") {
+      const { error: registrationError } = await admin
+        .from("copy_customer_registrations")
+        .upsert({
+          auth_user_id: user.id,
+          email,
+          mt5_login: mt5Login,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "auth_user_id,mt5_login" });
+
+      if (registrationError) {
+        return NextResponse.json({
+          error: "MT5_REGISTRATION_FAILED",
+          message: "Unable to save your MT5 account details. Please try again.",
+        }, { status: 500 });
+      }
     }
 
     const now = new Date();
