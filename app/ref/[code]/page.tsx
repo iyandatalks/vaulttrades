@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export default async function ReferralRedirectPage({ params }: { params: { code: string } }) {
-  const code = decodeURIComponent(params.code || "").trim().toUpperCase();
+export default async function ReferralRedirectPage({ params }: { params: Promise<{ code: string }> }) {
+  const { code: rawCode } = await params;
+  const code = decodeURIComponent(rawCode || "").trim().toUpperCase();
   if (!code) redirect("/auth/register");
 
   const admin = createAdminClient();
