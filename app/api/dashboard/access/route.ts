@@ -30,10 +30,37 @@ export async function GET() {
     const productAccess = await getProductAccess(user.id);
 
     if (productAccess.admin) {
+      let referral: { enabled: boolean; code: string | null; url: string | null } = {
+        enabled: productAccess.anyPaidProduct,
+        code: null,
+        url: null,
+      };
+
+      if (productAccess.anyPaidProduct && productAccess.userId) {
+        const { data: referralProfile } = await admin
+          .from("users")
+          .select("referral_code")
+          .eq("id", productAccess.userId)
+          .maybeSingle();
+
+        let code = referralProfile?.referral_code ?? null;
+        if (!code) {
+          code = `VT-${crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase()}`;
+          await admin.from("users").update({ referral_code: code }).eq("id", productAccess.userId);
+        }
+
+        referral = {
+          enabled: true,
+          code,
+          url: `https://vaulttradesve.com/ref/${code}`,
+        };
+      }
+
       return NextResponse.json({
         authenticated: true,
         admin: true,
         access: Object.fromEntries(FEATURES.map(feature => [feature, true])),
+        referral,
       });
     }
 
