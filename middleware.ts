@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { getProductAccess } from "@/lib/product-access";
 
 const paidProtectedPaths = [
   "/ai-coach",
@@ -64,11 +65,13 @@ export async function middleware(request: NextRequest) {
   if (isFeatureProtected && matchedFeaturePath) {
     if (isAdmin) return response;
     const featureCode = featureProtectedPaths[matchedFeaturePath];
-    const { data: hasFeature, error: featureError } = await supabase.rpc("has_feature_access", {
-      p_auth_user_id: user.id,
-      p_feature_code: featureCode,
-    });
-    if (featureError || hasFeature !== true) {
+    const eligibleForFeature = featureCode === "referral"
+      ? (await getProductAccess(user.id)).anyPaidProduct
+      : (await supabase.rpc("has_feature_access", {
+          p_auth_user_id: user.id,
+          p_feature_code: featureCode,
+        })).data === true;
+    if (!eligibleForFeature) {
       const subscriptionUrl = request.nextUrl.clone();
       subscriptionUrl.pathname = "/subscription";
       subscriptionUrl.search = "";
