@@ -46,7 +46,33 @@ export async function GET() {
       funded_account_wealth_builder: productAccess.anyPaidProduct,
     };
 
-    return NextResponse.json({ authenticated: true, admin: false, access });
+    let referral: { enabled: boolean; code: string | null; url: string | null } = {
+      enabled: productAccess.anyPaidProduct,
+      code: null,
+      url: null,
+    };
+
+    if (productAccess.anyPaidProduct && productAccess.userId) {
+      const { data: referralProfile } = await admin
+        .from("users")
+        .select("referral_code")
+        .eq("id", productAccess.userId)
+        .maybeSingle();
+
+      let code = referralProfile?.referral_code ?? null;
+      if (!code) {
+        code = `VT-${crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase()}`;
+        await admin.from("users").update({ referral_code: code }).eq("id", productAccess.userId);
+      }
+
+      referral = {
+        enabled: true,
+        code,
+        url: `https://vaulttradesve.com/ref/${code}`,
+      };
+    }
+
+    return NextResponse.json({ authenticated: true, admin: false, access, referral });
   } catch (error) {
     console.error("Dashboard access error", error);
     return NextResponse.json({ error: "Unable to load dashboard access." }, { status: 500 });
