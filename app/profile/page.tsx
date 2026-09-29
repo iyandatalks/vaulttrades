@@ -227,8 +227,15 @@ export default function ProfilePage() {
                 <>
                   <p style={{ maxWidth: 760 }}>
                     Your personal referral link is active because your account has an active VaultTrades product.
-                    Share it with people you refer to VaultTrades.
+                    Share the full link below with people you refer to VaultTrades.
                   </p>
+                  <div style={{ marginTop: 14, padding: "14px 16px", borderRadius: 10, background: "#050812", border: "1px solid rgba(212,166,55,.18)" }}>
+                    <strong style={{ color: "#d4a637" }}>20% Commission</strong>
+                    <p className="muted" style={{ margin: "6px 0 0" }}>
+                      Earn 20% commission when a person you refer subscribes to an eligible VaultTrades product.
+                      Commission is payable to your PayPal account once your available balance reaches the $50 minimum payment threshold.
+                    </p>
+                  </div>
                   <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 14 }}>
                     <input
                       readOnly
@@ -259,8 +266,8 @@ export default function ProfilePage() {
                   <p style={{ maxWidth: 760 }}>
                     Your personal referral link becomes active after you have signed up for at least one VaultTrades product.
                   </p>
-                  <Link className="vt-primary" href="/products" style={{ display: "inline-block", marginTop: 12 }}>
-                    View VaultTrades Products →
+                  <Link className="vt-primary" href="/referral-process" style={{ display: "inline-block", marginTop: 12 }}>
+                    View VaultTrades Process →
                   </Link>
                 </>
               )}
