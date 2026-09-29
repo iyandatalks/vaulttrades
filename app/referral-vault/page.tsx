@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "../../lib/supabase/server";
 import { createAdminClient } from "../../lib/supabase/admin";
+import { getProductAccess } from "../../lib/product-access";
 import ReferralVaultClient from "./ReferralVaultClient";
 
 function makeCode() {
@@ -17,11 +18,8 @@ export default async function ReferralVaultPage() {
   if (!profile) return <main style={{ padding: 40, color: "white", background: "#050812", minHeight: "100vh" }}>VaultTrades profile not found.</main>;
 
   const isAdmin = profile.role === "admin";
-  const { data: hasFeature, error: featureError } = await supabase.rpc("has_feature_access", {
-    p_auth_user_id: user.id,
-    p_feature_code: "referral",
-  });
-  const eligible = isAdmin || (!featureError && hasFeature === true);
+  const productAccess = await getProductAccess(user.id);
+  const eligible = isAdmin || productAccess.anyPaidProduct;
 
   if (!eligible) {
     return <ReferralVaultClient locked />;
@@ -53,7 +51,7 @@ export default async function ReferralVaultPage() {
     adminReferrals = data ?? [];
   }
 
-  const base = process.env.NEXT_PUBLIC_APP_URL || "";
+  const referralUrl = `https://vaulttradesve.com/ref/${code}`;
   const referralUrl = base ? `${base.replace(/\/$/, "")}/ref/${code}` : `/ref/${code}`;
 
   return <ReferralVaultClient
