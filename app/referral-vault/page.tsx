@@ -52,7 +52,6 @@ export default async function ReferralVaultPage() {
   }
 
   const referralUrl = `https://vaulttradesve.com/ref/${code}`;
-  const referralUrl = base ? `${base.replace(/\/$/, "")}/ref/${code}` : `/ref/${code}`;
 
   return <ReferralVaultClient
     code={code}
