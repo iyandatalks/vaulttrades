@@ -125,6 +125,8 @@ export function runEma20Engine(candles: MarketDataCandle[], input: Ema20EngineCo
   let utStop: number | null = null;
   let previousLongSignal = false, previousShortSignal = false;
   let bias0600: -1 | 0 | 1 = 0;
+  let structureState: -1 | 0 | 1 = 0;
+  let structureStateBar: number | null = null;
   const result: Ema20EngineBar[] = [];
 
   for (let i = 0; i < candles.length; i++) {
@@ -138,10 +140,37 @@ export function runEma20Engine(candles: MarketDataCandle[], input: Ema20EngineCo
     const higherLow = finite(lastSwingLow) && finite(previousSwingLow) && lastSwingLow! > previousSwingLow!;
     const lowerHigh = finite(lastSwingHigh) && finite(previousSwingHigh) && lastSwingHigh! < previousSwingHigh!;
     const lowerLow = finite(lastSwingLow) && finite(previousSwingLow) && lastSwingLow! < previousSwingLow!;
+
+    //====================================================
+    // M15 STRUCTURE-STATE FIX
+    //====================================================
+    // A confirmed HH/HL or LH/LL becomes persistent context.
+    // The EMA20 pullback/rejection may occur on a later candle.
+    // This mirrors EMA20_Pullback_Morning_Engine_M15_StructureState_Fix_v3.
+    const newBullStructure =
+      (ph !== null && higherHigh) ||
+      (pl !== null && higherLow);
+
+    const newBearStructure =
+      (ph !== null && lowerHigh) ||
+      (pl !== null && lowerLow);
+
+    if (newBullStructure) {
+      structureState = 1;
+      structureStateBar = i;
+    } else if (newBearStructure) {
+      structureState = -1;
+      structureStateBar = i;
+    }
+
     const rising = i > 0 && ema20[i] !== null && ema20[i - 1] !== null && ema20[i]! > ema20[i - 1]!;
     const falling = i > 0 && ema20[i] !== null && ema20[i - 1] !== null && ema20[i]! < ema20[i - 1]!;
-    const bullStructure = (higherHigh || higherLow) && rising && ema20[i] !== null && candle.close > ema20[i]!;
-    const bearStructure = (lowerHigh || lowerLow) && falling && ema20[i] !== null && candle.close < ema20[i]!;
+
+    // Structure is persistent context. The original EMA20 direction
+    // requirement remains intact, but structure and pullback no longer
+    // have to occur on the same candle.
+    const bullStructure = structureState === 1 && rising;
+    const bearStructure = structureState === -1 && falling;
     const tolerance = atr[i] === null ? null : atr[i]! * c.atrTouch;
     const bullTouch = tolerance !== null && ema20[i] !== null && candle.low <= ema20[i]! + tolerance && candle.low >= ema20[i]! - tolerance;
     const bearTouch = tolerance !== null && ema20[i] !== null && candle.high >= ema20[i]! - tolerance && candle.high <= ema20[i]! + tolerance;
@@ -205,7 +234,7 @@ export function runEma20Engine(candles: MarketDataCandle[], input: Ema20EngineCo
       if (h === 6 && m === 0) bias0600 = bullStructure ? 1 : bearStructure ? -1 : 0;
     }
 
-    result.push({ index: i, datetime: candle.datetime, close: candle.close, ema20: ema20[i], slowEMA: slowEMA[i], atr: atr[i], pivotHigh: ph, pivotLow: pl, lastSwingHigh, previousSwingHigh, lastSwingLow, previousSwingLow, higherHigh, higherLow, lowerHigh, lowerLow, bullStructure, bearStructure, bullTouch, bearTouch, bullReject, bearReject, bullRejectHigh, bullRejectLow, bullRejectBar, bearRejectHigh, bearRejectLow, bearRejectBar, bullActive, bearActive, bullMABreak, bearMABreak, utStop, utBull, utBear, smiMain, smiSignal, smiBull, smiBear, longConfirmationScore, shortConfirmationScore, longSignal, shortSignal, newLong, newShort, longEntry, longSL, longTP, shortEntry, shortSL, shortTP, bias0600 });
+    result.push({ index: i, datetime: candle.datetime, close: candle.close, ema20: ema20[i], slowEMA: slowEMA[i], atr: atr[i], pivotHigh: ph, pivotLow: pl, lastSwingHigh, previousSwingHigh, lastSwingLow, previousSwingLow, higherHigh, higherLow, lowerHigh, lowerLow, bullStructure, bearStructure, newBullStructure, newBearStructure, structureState, structureStateBar, bullTouch, bearTouch, bullReject, bearReject, bullRejectHigh, bullRejectLow, bullRejectBar, bearRejectHigh, bearRejectLow, bearRejectBar, bullActive, bearActive, bullMABreak, bearMABreak, utStop, utBull, utBear, smiMain, smiSignal, smiBull, smiBear, longConfirmationScore, shortConfirmationScore, longSignal, shortSignal, newLong, newShort, longEntry, longSL, longTP, shortEntry, shortSL, shortTP, bias0600 });
     previousLongSignal = longSignal;
     previousShortSignal = shortSignal;
   }
