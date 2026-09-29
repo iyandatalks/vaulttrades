@@ -14,6 +14,12 @@ type AccessState = {
   funded_account_wealth_builder?: boolean;
 };
 
+type ReferralState = {
+  enabled: boolean;
+  code: string | null;
+  url: string | null;
+};
+
 const accessTools = [
   {
     key: "analyzer",
@@ -151,6 +157,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [admin, setAdmin] = useState(false);
   const [access, setAccess] = useState<AccessState>({});
+  const [referral, setReferral] = useState<ReferralState>({ enabled: false, code: null, url: null });
 
   useEffect(() => {
     const sb = createBrowserClient(
@@ -168,6 +175,7 @@ export default function ProfilePage() {
         if (response.ok) {
           setAdmin(result?.admin === true);
           setAccess(result?.access ?? {});
+          setReferral(result?.referral ?? { enabled: false, code: null, url: null });
         }
       }
 
@@ -212,6 +220,52 @@ export default function ProfilePage() {
 
         {!loading && email && (
           <>
+            <section className="vt-info-card" style={{ marginTop: 24, textAlign: "left" }}>
+              <div className="vt-label">REFERRAL</div>
+              <h2 style={{ margin: "10px 0 8px", fontSize: 27 }}>VaultTrades Referral</h2>
+              {referral.enabled && referral.url ? (
+                <>
+                  <p style={{ maxWidth: 760 }}>
+                    Your personal referral link is active because your account has an active VaultTrades product.
+                    Share it with people you refer to VaultTrades.
+                  </p>
+                  <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 14 }}>
+                    <input
+                      readOnly
+                      value={referral.url}
+                      aria-label="Your VaultTrades referral link"
+                      style={{
+                        flex: 1,
+                        minWidth: 280,
+                        padding: "12px 14px",
+                        borderRadius: 9,
+                        border: "1px solid rgba(255,255,255,.12)",
+                        background: "#050812",
+                        color: "#f4f6fb",
+                      }}
+                    />
+                    <Link className="vt-primary" href="/referral-vault">
+                      Open Referral Vault →
+                    </Link>
+                  </div>
+                  {referral.code && (
+                    <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>
+                      Referral code: {referral.code}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p style={{ maxWidth: 760 }}>
+                    Your personal referral link becomes active after you have signed up for at least one VaultTrades product.
+                  </p>
+                  <Link className="vt-primary" href="/products" style={{ display: "inline-block", marginTop: 12 }}>
+                    View VaultTrades Products →
+                  </Link>
+                </>
+              )}
+            </section>
+
             <section className="vt-info-card" style={{ marginTop: 24, textAlign: "left" }}>
               <div className="vt-label">YOUR ACCESS</div>
               <h2 style={{ margin: "10px 0 8px", fontSize: 27 }}>
