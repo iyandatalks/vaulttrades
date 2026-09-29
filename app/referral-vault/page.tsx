@@ -34,7 +34,7 @@ export default async function ReferralVaultPage() {
   await admin.from("referral_profiles").upsert({
     user_id: user.id,
     referral_code: code,
-    commission_rate: isAdmin ? 0 : 8,
+    commission_rate: isAdmin ? 0 : 20,
     vault_level: isAdmin ? "Admin" : "Vault Core",
   }, { onConflict: "user_id" });
 
@@ -58,7 +58,7 @@ export default async function ReferralVaultPage() {
     referralUrl={referralUrl}
     isAdmin={isAdmin}
     qualifiedCount={qualifiedCount ?? 0}
-    currentRate={isAdmin ? 0 : 8}
+    currentRate={isAdmin ? 0 : 20}
     totalEarned={totalEarned}
     available={available}
     pending={pending}
