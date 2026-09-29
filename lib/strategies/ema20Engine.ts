@@ -234,7 +234,7 @@ export function runEma20Engine(candles: MarketDataCandle[], input: Ema20EngineCo
       if (h === 6 && m === 0) bias0600 = bullStructure ? 1 : bearStructure ? -1 : 0;
     }
 
-    result.push({ index: i, datetime: candle.datetime, close: candle.close, ema20: ema20[i], slowEMA: slowEMA[i], atr: atr[i], pivotHigh: ph, pivotLow: pl, lastSwingHigh, previousSwingHigh, lastSwingLow, previousSwingLow, higherHigh, higherLow, lowerHigh, lowerLow, bullStructure, bearStructure, newBullStructure, newBearStructure, structureState, structureStateBar, bullTouch, bearTouch, bullReject, bearReject, bullRejectHigh, bullRejectLow, bullRejectBar, bearRejectHigh, bearRejectLow, bearRejectBar, bullActive, bearActive, bullMABreak, bearMABreak, utStop, utBull, utBear, smiMain, smiSignal, smiBull, smiBear, longConfirmationScore, shortConfirmationScore, longSignal, shortSignal, newLong, newShort, longEntry, longSL, longTP, shortEntry, shortSL, shortTP, bias0600 });
+    result.push({ index: i, datetime: candle.datetime, close: candle.close, ema20: ema20[i], slowEMA: slowEMA[i], atr: atr[i], pivotHigh: ph, pivotLow: pl, lastSwingHigh, previousSwingHigh, lastSwingLow, previousSwingLow, higherHigh, higherLow, lowerHigh, lowerLow, bullStructure, bearStructure, bullTouch, bearTouch, bullReject, bearReject, bullRejectHigh, bullRejectLow, bullRejectBar, bearRejectHigh, bearRejectLow, bearRejectBar, bullActive, bearActive, bullMABreak, bearMABreak, utStop, utBull, utBear, smiMain, smiSignal, smiBull, smiBear, longConfirmationScore, shortConfirmationScore, longSignal, shortSignal, newLong, newShort, longEntry, longSL, longTP, shortEntry, shortSL, shortTP, bias0600 });
     previousLongSignal = longSignal;
     previousShortSignal = shortSignal;
   }
