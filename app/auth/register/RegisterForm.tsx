@@ -8,6 +8,7 @@ export default function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") || "/profile";
+  const referralCode = (searchParams.get("ref") || "").trim().toUpperCase();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [cellphone, setCellphone] = useState("");
@@ -29,6 +30,9 @@ export default function RegisterForm() {
     );
 
     const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "");
+    if (referralCode) {
+      document.cookie = "vaulttrades_referral_code=" + encodeURIComponent(referralCode) + "; Max-Age=2592000; Path=/; SameSite=Lax" + (window.location.protocol === "https:" ? "; Secure" : "");
+    }
     const siteUrl = configuredSiteUrl || window.location.origin;
     const safeNext = next.startsWith("/") ? next : "/profile";
     document.cookie = "vaulttrades_auth_next=" + encodeURIComponent(safeNext) + "; Max-Age=600; Path=/; SameSite=Lax" + (window.location.protocol === "https:" ? "; Secure" : "");
@@ -43,6 +47,7 @@ export default function RegisterForm() {
           first_name: firstName.trim(),
           last_name: lastName.trim(),
           cellphone: cellphone.trim() || null,
+          referred_by: referralCode || null,
         },
       },
     });
