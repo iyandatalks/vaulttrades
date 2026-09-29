@@ -125,8 +125,7 @@ export function runEma20Engine(candles: MarketDataCandle[], input: Ema20EngineCo
   let utStop: number | null = null;
   let previousLongSignal = false, previousShortSignal = false;
   let bias0600: -1 | 0 | 1 = 0;
-  let structureState: -1 | 0 | 1 = 0;
-  let structureStateBar: number | null = null;
+  let structureState = 0;
   const result: Ema20EngineBar[] = [];
 
   for (let i = 0; i < candles.length; i++) {
@@ -147,20 +146,10 @@ export function runEma20Engine(candles: MarketDataCandle[], input: Ema20EngineCo
     // A confirmed HH/HL or LH/LL becomes persistent context.
     // The EMA20 pullback/rejection may occur on a later candle.
     // This mirrors EMA20_Pullback_Morning_Engine_M15_StructureState_Fix_v3.
-    const newBullStructure =
-      (ph !== null && higherHigh) ||
-      (pl !== null && higherLow);
-
-    const newBearStructure =
-      (ph !== null && lowerHigh) ||
-      (pl !== null && lowerLow);
-
-    if (newBullStructure) {
+    if ((ph !== null && higherHigh) || (pl !== null && higherLow)) {
       structureState = 1;
-      structureStateBar = i;
-    } else if (newBearStructure) {
+    } else if ((ph !== null && lowerHigh) || (pl !== null && lowerLow)) {
       structureState = -1;
-      structureStateBar = i;
     }
 
     const rising = i > 0 && ema20[i] !== null && ema20[i - 1] !== null && ema20[i]! > ema20[i - 1]!;
