@@ -72,6 +72,7 @@ export async function POST(request: Request) {
   const product = String(body.product || "") as ProductCode;
   const action = String(body.action || "");
   const mt5Login = String(body.mt5Login || "").trim();
+  const durationDays = Number(body.durationDays);
 
   if (!email || !(product in PRODUCTS) || !["grant", "deactivate"].includes(action)) {
     return NextResponse.json({ error: "INVALID_REQUEST" }, { status: 400 });
@@ -121,9 +122,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "MT5_LOGIN_REQUIRED" }, { status: 400 });
   }
 
-  const end = product === "founders_mentorship"
-    ? null
-    : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  const end = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000).toISOString();
 
   const { error: licenseError } = await db.from("product_licenses").insert({
     user_id: target.id,
@@ -138,17 +137,11 @@ export async function POST(request: Request) {
     end_at: end,
     mt_login: product === "copy_trading" ? mt5Login : null,
     platform: catalog.platform,
-    source_payment_snapshot: { source: "admin_manual_grant", granted_by: user.id, product: product },
+    source_payment_snapshot: { source: "admin_manual_grant", granted_by: user.id, product: product, duration_days: durationDays },
     updated_at: nowIso,
   });
 
   if (licenseError) return NextResponse.json({ error: "LICENSE_GRANT_FAILED", details: licenseError.message }, { status: 500 });
-
-  await db.from("user_feature_access").update({
-    status: "disabled",
-    end_at: nowIso,
-    updated_at: nowIso,
-  }).eq("user_id", target.id).eq("feature_code", product).eq("status", "active");
 
   const { error: featureError } = await db.from("user_feature_access").insert({
     user_id: target.id,
@@ -157,11 +150,11 @@ export async function POST(request: Request) {
     start_at: nowIso,
     end_at: end,
     granted_by: user.id,
-    grant_reason: "Manual admin grant",
+    grant_reason: `Manual admin grant (${durationDays} days)`,
     updated_at: nowIso,
   });
 
   if (featureError) return NextResponse.json({ error: "FEATURE_ACCESS_GRANT_FAILED", details: featureError.message }, { status: 500 });
 
-  return NextResponse.json({ ok: true, message: `${catalog.name} granted to ${email}.`, accessUntil: end });
+  return NextResponse.json({ ok: true, message: `${catalog.name} granted to ${email} for ${durationDays} days.`, accessUntil: end, durationDays });
 }
