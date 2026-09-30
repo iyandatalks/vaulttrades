@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ANALYZER_STRATEGIES, ANALYZER_STRATEGY_MAP } from "../../lib/strategies/analyzerProfiles";
+import { ANALYZER_STRATEGY_MAP } from "../../lib/strategies/analyzerProfiles";
 import { LiveMarketChart } from "./LiveMarketChart";
 
 type Timeframe = "1m" | "5m" | "15m" | "30m" | "1H" | "4H" | "1D" | "1W" | "1M";
@@ -162,8 +162,6 @@ export default function AnalyzerPage() {
   const projectedSL = s?.projectedStopLoss ?? result?.stopLoss;
   const projectedTp1 = s?.projectedTp1 ?? result?.tp1;
   const projectedTp2 = s?.projectedTp2 ?? result?.tp2;
-  const projectedFinalTp = s?.projectedFinalTp ?? result?.finalTp;
-  const projectedRR = s?.rr ?? result?.rr;
   const scannerStatus = s?.statusMessage || s?.analysisState?.replaceAll("_", " ") || (displayDirection === "BUY" ? "WATCH — BUY" : displayDirection === "SELL" ? "WATCH — SELL" : "WATCH");
 
   return <main className="shell">
