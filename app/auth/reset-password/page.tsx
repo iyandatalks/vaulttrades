@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState as useStateAlias } from "react";
+import { useEffect } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 
 export default function ResetPasswordPage() {
@@ -19,7 +19,33 @@ export default function ResetPasswordPage() {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
-    supabase.auth.getSession().then(({ data }) => setReady(Boolean(data.session)));
+
+    let mounted = true;
+
+    // Supabase's password-reset flow emits PASSWORD_RECOVERY when the
+    // recovery link has established the recovery session in the browser.
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return;
+
+      if (event === "PASSWORD_RECOVERY" && session) {
+        setReady(true);
+      } else if (session) {
+        setReady(true);
+      }
+    });
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (mounted && data.session) {
+        setReady(true);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
