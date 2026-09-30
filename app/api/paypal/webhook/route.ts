@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
 import { paypalRequest } from "../../../../lib/paypal";
 import { getPayPalProductByPlanId } from "../../../../lib/paypal-products";
+import { sendCopyActivationEmail } from "../../../../lib/copy-email";
 
 const SUBSCRIPTION_EVENTS: Record<string, string> = {
   "BILLING.SUBSCRIPTION.ACTIVATED": "active",
@@ -75,6 +76,7 @@ export async function POST(request: Request) {
     if (!profile || !authUserId) return NextResponse.json({ received: true, ignored: true, reason: "VaultTrades customer could not be matched" }, { status: 200 });
 
     const status = SUBSCRIPTION_EVENTS[eventType];
+    const copyWasActive = existingLicense.data?.status === "active" && !!existingLicense.data?.end_at && new Date(existingLicense.data.end_at).getTime() > Date.now();
     const isLifetimeMentorship = product.code === "founders_mentorship_once";
     const existingLicense = await admin
       .from("product_licenses")
@@ -180,6 +182,13 @@ export async function POST(request: Request) {
       };
       if (existingAuto) await admin.from("automated_trader_subscriptions").update(autoRow).eq("id", existingAuto.id);
       else await admin.from("automated_trader_subscriptions").insert(autoRow);
+      if (status === "active" && !copyWasActive && profile.email) {
+        await sendCopyActivationEmail({
+          to: String(profile.email),
+          mt5Login: registeredMtLogin,
+          accessUntil: accessEnd,
+        });
+      }
       await admin.from("automated_trader_events").insert({
         auth_user_id: authUserId,
         event_type: eventType,
