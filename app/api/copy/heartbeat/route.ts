@@ -62,6 +62,10 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const now = new Date().toISOString();
 
+  const adminActivationRepair =
+    access.reason === "ADMIN" &&
+    follower.license_status !== "active";
+
   await db.from("copy_followers").update({
     status: "online",
     mt_login: body.mtLogin ? String(body.mtLogin) : follower.mt_login,
@@ -69,6 +73,13 @@ export async function POST(req: Request) {
     ea_version: body.eaVersion ? String(body.eaVersion) : follower.ea_version,
     last_heartbeat_at: now,
     license_expires_at: access.endAt,
+    ...(adminActivationRepair
+      ? {
+          copy_enabled: true,
+          license_status: "active",
+          license_activated_at: now,
+        }
+      : {}),
   }).eq("id", follower.id);
 
   return NextResponse.json({
