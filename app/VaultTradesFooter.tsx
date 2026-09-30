@@ -1,5 +1,3 @@
-import type { ReactNode } from "react";
-
 export default function VaultTradesFooter() {
   return (
     <footer className="vt-global-footer">
