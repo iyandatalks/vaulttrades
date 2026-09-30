@@ -1,5 +1,7 @@
 import { createAdminClient } from "./supabase/admin";
 
+export const COPY_TRADING_ENTITLEMENT = "copy_trading";
+
 export type CopyAccess = {
   active: boolean;
   endAt: string | null;
@@ -54,14 +56,13 @@ export async function getCopyAccess(authUserId: string, mtLogin?: string | null)
 
   const now = Date.now();
 
-  // The Copy Trading license is the authoritative subscription record.
-  // Each purchase creates its own product_licenses row, allowing one user
-  // to hold separate subscriptions for separate registered MT5 accounts.
+  // Canonical Copy Trading entitlement. This product_licenses row is the
+  // authoritative subscription/license record for customer MT5 access.
   let licenseQuery = db
     .from("product_licenses")
     .select("id,user_id,status,start_at,end_at,mt_login,payment_reference,updated_at")
     .eq("user_id", profile.id)
-    .eq("entitlement_code", "automation");
+    .eq("entitlement_code", COPY_TRADING_ENTITLEMENT);
 
   if (mtLogin) {
     licenseQuery = licenseQuery.eq("mt_login", String(mtLogin));
@@ -98,14 +99,13 @@ export async function getCopyAccess(authUserId: string, mtLogin?: string | null)
     };
   }
 
-  // Legacy fallback for existing automation grants that predate the
-  // per-subscription product license record. This does not override a
-  // matching subscription record above.
+  // Legacy feature fallback is retained only for migrated records that may
+  // still be present during deployment. New grants use copy_trading.
   const { data: feature } = await db
     .from("user_feature_access")
     .select("status,start_at,end_at,updated_at")
     .eq("user_id", profile.id)
-    .eq("feature_code", "automation")
+    .eq("feature_code", COPY_TRADING_ENTITLEMENT)
     .order("updated_at", { ascending: false })
     .limit(20);
 
