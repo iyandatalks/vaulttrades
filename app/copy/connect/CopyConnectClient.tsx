@@ -138,7 +138,13 @@ export default function CopyConnectPage() {
           <p>EA Version: <strong>{account?.ea_version || "—"}</strong></p>
           <p>License: <strong>{account?.license_status || "—"}</strong></p>
           <p>Copy Status: <strong>{account?.copy_enabled === true ? "ENABLED" : "DISABLED"}</strong></p>
-          <p>Access Until: <strong>{account?.license_expires_at ? new Date(account.license_expires_at).toLocaleString() : (status?.accessUntil ? new Date(status.accessUntil).toLocaleString() : "—")}</strong></p>
+          <p>Access Until: <strong>{account?.license_expires_at
+            ? new Date(account.license_expires_at).toLocaleString()
+            : status?.accessUntil
+              ? new Date(status.accessUntil).toLocaleString()
+              : account?.license_status === "active"
+                ? "No expiry (admin access)"
+                : "—"}</strong></p>
           <p>Last Heartbeat: <strong>{account?.last_heartbeat_at ? new Date(account.last_heartbeat_at).toLocaleString() : "—"}</strong></p>
           <p>Latest response: <strong>{status?.connected ? "CONNECTED / HEARTBEAT ONLINE" : "WAITING FOR MT5 COPIER"}</strong></p>
         </section>
