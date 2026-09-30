@@ -2,10 +2,16 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
 import AppNav from "./AppNav";
+import VaultTradesFooter from "./VaultTradesFooter";
 
 export const metadata: Metadata = {
   title: "VaultTrades",
   description: "Strategy-driven market chart analysis by VaultTrades.",
+  icons: {
+    icon: "/vaulttrades-logo.png",
+    shortcut: "/vaulttrades-logo.png",
+    apple: "/vaulttrades-logo.png",
+  },
 };
 
 const priceFormattingScript = `(() => {
@@ -25,6 +31,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
         <script dangerouslySetInnerHTML={{ __html: priceFormattingScript }} />
         <AppNav />
         {children}
+        <VaultTradesFooter />
       </body>
     </html>
   );
