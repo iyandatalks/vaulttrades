@@ -75,7 +75,7 @@ function executionGeometry(direction: Direction, entry: number | null, stop: num
     reason: valid
       ? "Entry/stop/target geometry is directionally valid."
       : direction === "BUY"
-        ? "BUY requires STOP LOSS below ENTRY and target below? no, target must be above ENTRY."
+        ? "BUY requires STOP LOSS below ENTRY and target above ENTRY."
         : "SELL requires STOP LOSS above ENTRY and target below ENTRY.",
   };
 }
@@ -187,6 +187,7 @@ Return JSON only. Preserve strategy-defined levels and distinguish strategy setu
     // strategy event can only become an active trade if its actual entry has a coherent
     // stop/target geometry. This prevents stale/AI-generated prices from creating an
     // impossible lifecycle without changing the strategy's entry conditions.
+    const hasExplicitAiEntry = finite(ai.confirmationPrice) || finite(ai.entry);
     const aiEntryCandidate = finite(ai.confirmationPrice)
       ? ai.confirmationPrice
       : finite(ai.entry)
@@ -197,15 +198,16 @@ Return JSON only. Preserve strategy-defined levels and distinguish strategy setu
     const candidateTarget = projectedTp2 ?? projectedTp1;
     const candidateGeometry = executionGeometry(direction, candidateEntry, projectedStopLoss, candidateTarget);
 
-    // If a persisted actual entry is no longer geometrically valid for the current
-    // direction/levels, do not carry it forward. For a fresh confirmation, fall back
-    // to the confirmation price/current price only when that price is valid.
+    // Never repair an explicit confirmed entry by silently moving it to current price.
+    // If the source event supplied an entry/confirmation price and that price is
+    // geometrically invalid, the trade remains unconfirmed until a new valid entry
+    // confirmation is produced. Only a missing price may fall back to current price.
     let actualEntry: number | null = null;
     if (candidateGeometry.valid && candidateEntry !== null) {
       actualEntry = candidateEntry;
-    } else if (baseConfirmedSignal) {
-      const freshGeometry = executionGeometry(direction, aiEntryCandidate, projectedStopLoss, candidateTarget);
-      if (freshGeometry.valid) actualEntry = aiEntryCandidate;
+    } else if (baseConfirmedSignal && !hasExplicitAiEntry) {
+      const freshGeometry = executionGeometry(direction, currentPrice, projectedStopLoss, candidateTarget);
+      if (freshGeometry.valid) actualEntry = currentPrice;
     }
 
     const confirmedSignal = baseConfirmedSignal && actualEntry !== null;
