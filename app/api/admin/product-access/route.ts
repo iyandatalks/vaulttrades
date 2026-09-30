@@ -101,7 +101,7 @@ export async function POST(request: Request) {
     }
 
     await db.from("user_feature_access").update({
-      status: "disabled",
+      status: "revoked",
       end_at: nowIso,
       granted_by: user.id,
       grant_reason: "Manual admin deactivation",
