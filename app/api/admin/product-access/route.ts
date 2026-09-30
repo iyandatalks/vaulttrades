@@ -44,7 +44,7 @@ export async function GET(request: Request) {
   const ids = (users || []).map(u => u.id);
   const { data: licenses } = ids.length
     ? await db.from("product_licenses")
-        .select("id,user_id,purchased_product_code,entitlement_code,status,start_at,end_at,mt_login,approved_by,updated_at")
+        .select("id,user_id,purchased_product_code,entitlement_code,status,start_at,end_at,mt_login,approved_by,updated_at,source_payment_snapshot")
         .in("user_id", ids)
         .order("updated_at", { ascending: false })
     : { data: [] };
@@ -55,7 +55,9 @@ export async function GET(request: Request) {
       products: Object.fromEntries(
         Object.keys(PRODUCTS).map(code => {
           const rows = (licenses || []).filter(l => l.user_id === user.id && l.entitlement_code === code);
-          return [code, rows[0] || null];
+          const manual = rows.find(l => l.source_payment_snapshot?.source === "admin_manual_grant") || null;
+          const automatic = rows.find(l => l.source_payment_snapshot?.source !== "admin_manual_grant") || null;
+          return [code, { manual, automatic }];
         })
       ),
     })),
