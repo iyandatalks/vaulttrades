@@ -47,6 +47,17 @@ type Scanner = {
   universalValidationPassed?: boolean;
   volumeProfile?: { currentVolume: number | null; averageVolume: number | null; ratio: number | null; expansion: boolean; candleDirection: string; displacementATR: number | null };
 };
+type LockedTrade = {
+  direction: "BUY" | "SELL";
+  actualEntry: number;
+  stopLoss: number;
+  tp1: number | null;
+  tp2: number | null;
+  finalTp: number | null;
+  symbol: string;
+  strategy: string;
+};
+
 type Result = {
   market?: { type?: MarketType; asset?: string; timeframe?: string; currentPrice?: number | null; directionalBias?: string; session?: string };
   strategy?: { id?: string; name?: string; category?: string };
@@ -128,12 +139,33 @@ export default function AnalyzerPage() {
   const [loading, setLoading] = useState(false);
   const [scannerLoading, setScannerLoading] = useState(false);
   const [error, setError] = useState("");
+  const [lockedTrade, setLockedTrade] = useState<LockedTrade | null>(null);
 
   const strategyDisplayName = (id?: string, fallback?: string) => id && PUBLIC_STRATEGY_LABELS[id] ? PUBLIC_STRATEGY_LABELS[id] : fallback || "Strategy";
   const runAnalysis = async () => {
     if (!symbol.trim()) { setError("Select a market symbol first."); return; }
     if (marketType === "SYNTHETIC") { setError("Synthetic indices need the separate Synthetic/Broker data connection."); return; }
-    setLoading(true); setError(""); setResult(null);
+    setLoading(true); setError("");
+    const priorScanner = result?.scanner;
+    const lifecycleLock = lockedTrade ?? (
+      priorScanner?.cycleStatus === "ACTIVE" &&
+      (priorScanner?.actualEntry != null) &&
+      (priorScanner?.projectedStopLoss != null) &&
+      (priorScanner?.projectedDirection === "BUY" || priorScanner?.projectedDirection === "SELL")
+        ? {
+            status: "ACTIVE",
+            actualEntry: priorScanner.actualEntry,
+            stopLoss: priorScanner.projectedStopLoss,
+            tp1: priorScanner.projectedTp1 ?? null,
+            tp2: priorScanner.projectedTp2 ?? null,
+            finalTp: priorScanner.projectedFinalTp ?? null,
+            direction: priorScanner.projectedDirection,
+            symbol,
+            strategy,
+          }
+        : null
+    );
+    if (!lifecycleLock) setResult(null);
     try {
       const res = await fetch("/api/analyze-market", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ marketType, symbol, timeframe, strategy }) });
       const data = await res.json();
@@ -143,16 +175,62 @@ export default function AnalyzerPage() {
       if (candles.length >= 30) {
         setScannerLoading(true);
         try {
-          const scannerRes = await fetch("/api/ai-scanner", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ strategy, currentPrice: data.market?.currentPrice, candles, analysis: data }) });
+          const scannerRes = await fetch("/api/ai-scanner", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+            strategy,
+            currentPrice: data.market?.currentPrice,
+            candles,
+            analysis: data,
+            lifecycle: lifecycleLock && lifecycleLock.symbol === symbol && lifecycleLock.strategy === strategy ? lifecycleLock : {}
+          }) });
           const scanner = await scannerRes.json();
-          if (scannerRes.ok) setResult({ ...data, scanner });
+          if (scannerRes.ok) {
+            const sameTrade = lifecycleLock &&
+              lifecycleLock.symbol === symbol &&
+              lifecycleLock.strategy === strategy &&
+              scanner.cycleStatus === "ACTIVE" &&
+              scanner.projectedDirection === lifecycleLock.direction;
+
+            if (sameTrade) {
+              scanner.actualEntry = lifecycleLock.actualEntry;
+              scanner.projectedStopLoss = lifecycleLock.stopLoss;
+              scanner.stopLoss = lifecycleLock.stopLoss;
+              scanner.projectedTp1 = lifecycleLock.tp1;
+              scanner.tp1 = lifecycleLock.tp1;
+              scanner.projectedTp2 = lifecycleLock.tp2;
+              scanner.tp2 = lifecycleLock.tp2;
+              scanner.projectedFinalTp = lifecycleLock.finalTp;
+              scanner.finalTp = lifecycleLock.finalTp;
+              scanner.projectedEntry = scanner.projectedEntry ?? lifecycleLock.actualEntry;
+              scanner.entry = lifecycleLock.actualEntry;
+              scanner.lockedExecutionLevels = true;
+            }
+
+            if (scanner.cycleStatus === "ACTIVE" && scanner.actualEntry != null &&
+                scanner.projectedStopLoss != null &&
+                (scanner.projectedDirection === "BUY" || scanner.projectedDirection === "SELL")) {
+              setLockedTrade({
+                direction: scanner.projectedDirection,
+                actualEntry: scanner.actualEntry,
+                stopLoss: scanner.projectedStopLoss,
+                tp1: scanner.projectedTp1 ?? null,
+                tp2: scanner.projectedTp2 ?? null,
+                finalTp: scanner.projectedFinalTp ?? null,
+                symbol,
+                strategy,
+              });
+            } else if (lifecycleLock && ["INVALIDATED", "SL_HIT", "CYCLE_COMPLETE", "COMPLETED"].includes(String(scanner.cycleStatus))) {
+              setLockedTrade(null);
+            }
+
+            setResult({ ...data, scanner });
+          }
         } finally { setScannerLoading(false); }
       }
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to analyze live market data."); setScannerLoading(false); }
     finally { setLoading(false); }
   };
 
-  const changeMarket = (value: MarketType) => { setMarketType(value); setSymbol(DEFAULT_SYMBOLS[value][0]); setResult(null); setError(""); };
+  const changeMarket = (value: MarketType) => { setMarketType(value); setSymbol(DEFAULT_SYMBOLS[value][0]); setResult(null); setLockedTrade(null); setError(""); };
   const s = result?.scanner;
   const displayDirection = s?.projectedDirection && s.projectedDirection !== "NO TRADE" ? s.projectedDirection : result?.direction;
   const projectedEntry = s?.projectedEntry ?? result?.entry;
@@ -178,14 +256,14 @@ export default function AnalyzerPage() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12, marginTop: 18 }}>
         <label className="muted">Market<select value={marketType} disabled={loading} onChange={e => changeMarket(e.target.value as MarketType)} style={{ width: "100%", marginTop: 7, padding: 13, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}>{MARKET_TYPES.map(m => <option key={m} value={m}>{m === "SYNTHETIC" ? "Synthetic indices" : m.charAt(0) + m.slice(1).toLowerCase()}</option>)}</select></label>
         <label className="muted">Symbol<input value={symbol} disabled={loading || marketType === "SYNTHETIC"} onChange={e => setSymbol(e.target.value)} list="symbols" placeholder="e.g. XAU/USD" style={{ width: "100%", marginTop: 7, padding: 13, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}/><datalist id="symbols">{DEFAULT_SYMBOLS[marketType].map(s => <option key={s} value={s}/>)}</datalist></label>
-        <label className="muted">Timeframe<select value={timeframe} disabled={loading} onChange={e => { setTimeframe(e.target.value as Timeframe); setResult(null); }} style={{ width: "100%", marginTop: 7, padding: 13, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}>{TIMEFRAMES.map(tf => <option key={tf} value={tf}>{tf}</option>)}</select></label>
+        <label className="muted">Timeframe<select value={timeframe} disabled={loading} onChange={e => { setTimeframe(e.target.value as Timeframe); setResult(null); setLockedTrade(null); }} style={{ width: "100%", marginTop: 7, padding: 13, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}>{TIMEFRAMES.map(tf => <option key={tf} value={tf}>{tf}</option>)}</select></label>
       </div>
     </section>
 
     <section className="card">
       <div className="section-label">STRATEGY</div>
       <h2 className="title">Choose the strategy first</h2>
-      <select value={strategy} disabled={loading} onChange={e => { setStrategy(e.target.value); setResult(null); }} style={{ width: "100%", marginTop: 14, padding: 14, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}>{PUBLIC_STRATEGY_IDS.map(id => <option key={id} value={id}>{PUBLIC_STRATEGY_LABELS[id]}</option>)}</select>
+      <select value={strategy} disabled={loading} onChange={e => { setStrategy(e.target.value); setResult(null); setLockedTrade(null); }} style={{ width: "100%", marginTop: 14, padding: 14, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}>{PUBLIC_STRATEGY_IDS.map(id => <option key={id} value={id}>{PUBLIC_STRATEGY_LABELS[id]}</option>)}</select>
       <div className="condition-box" style={{ marginTop: 14 }}><strong>Selected strategy</strong><p className="muted">Strategy-specific validation is applied internally. Only actionable market state and trade levels are shown.</p></div>
     </section>
 
