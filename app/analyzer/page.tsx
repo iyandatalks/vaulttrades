@@ -199,41 +199,16 @@ export default function AnalyzerPage() {
         <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", alignItems: "center" }}><div><h2 className="title" style={{ marginBottom: 4 }}>{scannerStatus}</h2><div className="muted">{s?.trend || result.marketCondition || "Market state"} · {s?.institutionalActivity ? `Institutional activity: ${s.institutionalActivity}` : result.market?.directionalBias}</div></div><div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}><div style={{ minWidth: 135, textAlign: "center", padding: 12, borderRadius: 12, background: "rgba(212,166,55,.10)", border: "1px solid rgba(212,166,55,.35)" }}><span className="muted">QUALITY</span><div style={{ fontSize: 28, fontWeight: 900 }}>{Math.round(result.confidence ?? 0)}<span style={{ fontSize: 15 }}>/100</span></div></div><div style={{ minWidth: 135, textAlign: "center", padding: 12, borderRadius: 12, background: "rgba(45,125,255,.10)", border: "1px solid rgba(45,125,255,.35)" }}><span className="muted">PROJECTED PROBABILITY</span><div style={{ fontSize: 28, fontWeight: 900 }}>{s?.projectedProbability ?? "—"}<span style={{ fontSize: 15 }}>{s?.projectedProbability != null ? "%" : ""}</span></div></div></div></div>
         <div style={{ marginTop: 15 }}><strong>Trend</strong><p>{s?.trendReason || result.marketStructure}</p><strong>{s?.cycleStatus === "ACTIVE" ? "Trade status" : "Why we are waiting"}</strong><p>{s?.statusMessage || s?.waitReason || result.nextAction}</p></div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7,minmax(0,1fr))", gap: 10, marginTop: 16, alignItems: "start" }}>
-          <PriceLevel label="PROJECTED ENTRY" value={projectedEntry} kind="entry" />
-          <PriceLevel label="ACTUAL ENTRY" value={actualEntry} kind="orange" />
-          <PriceLevel label="S LOSS" value={projectedSL} kind="sl" />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 10, marginTop: 16, alignItems: "start" }}>
+          <PriceLevel label="ENTRY" value={actualEntry ?? projectedEntry} kind="entry" />
+          <PriceLevel label="STOP LOSS" value={projectedSL} kind="sl" />
           <PriceLevel label="TP1" value={projectedTp1} kind="tp" />
           <PriceLevel label="TP2" value={projectedTp2} kind="tp" />
-          <PriceLevel label="TP3" value={projectedTp3} kind="tp" />
-          <PriceLevel label="FINAL TP" value={projectedTp4} kind="tp" />
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 10, marginTop: 12, alignItems: "start", maxWidth: "calc(50% - 5px)" }}>
-          <PriceLevel label="CONFIRM" value={s?.confirmationPrice} kind="orange" />
-          <PriceLevel label="REVERSE" value={s?.reversalPrice} kind="orange" />
-          <PriceLevel label={liquidityLabel} value={liquidityTarget} kind="orange" />
         </div>
 
         <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginTop: 12 }}>
-          <div className="execution-item" style={{ minWidth: 180 }}><span>R:R TO LIQUIDITY</span><strong>{projectedRR == null ? "—" : `1:${projectedRR.toFixed(2)}`}</strong></div>
-          <div className="execution-item" style={{ minWidth: 180 }}><span>CYCLE</span><strong>{s?.cycleStatus || "WATCH"}</strong></div>
-          <p className="muted" style={{ margin: 0, flex: 1, minWidth: 280 }}>Projected Entry, Stop Loss and TP levels are fixed strategy projections. Actual Entry is recorded only after Entry Confirmation and is not moved with current price.</p>
+          <div className="execution-item" style={{ minWidth: 180 }}><span>TRADE STATUS</span><strong>{s?.cycleStatus === "ACTIVE" ? "RUNNING" : s?.cycleStatus === "COMPLETED" ? "COMPLETED" : "WAITING"}</strong></div>
         </div>
-      </section>
-
-      <section className="card" style={{ border: "1px solid rgba(255,165,45,.35)", background: "linear-gradient(145deg, rgba(28,20,8,.55), rgba(5,8,18,.98))" }}>
-        <div className="section-label">ENTRY CONFIRMATION</div>
-        <div className="condition-box" style={{ border: `1px solid ${s?.entryConfirmation ? "rgba(40,200,110,.65)" : "rgba(255,165,45,.65)"}`, background: s?.entryConfirmation ? "rgba(40,200,110,.10)" : "rgba(255,165,45,.10)" }}>
-          <strong style={{ fontSize: 18 }}>{s?.entryConfirmation ? `ENTRY CONFIRMATION: YES — ${s.confirmationTimeframe || "CONFIRMATION TIMEFRAME"}` : "NO ENTRY — WAIT FOR ENTRY CONFIRMATION"}</strong>
-          <p>{s?.entryConfirmationReason || "The strategy-specific entry trigger has not yet been confirmed on the selected confirmation timeframe."}</p>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10, marginTop: 10 }}>
-          <div className="condition-box"><strong>Confirmation timeframe</strong><p>{s?.confirmationTimeframe || "Not yet established"}</p></div>
-          <div className="condition-box"><strong>Entry trigger</strong><p>{s?.entryConfirmationReason || "Waiting for the strategy-defined entry trigger."}</p></div>
-          <div className="condition-box"><strong>Strategy setup</strong><p>{s?.strategyConditionsMet ? "SETUP CONDITIONS CONFIRMED" : "STRATEGY CONDITIONS NOT YET CONFIRMED"}</p></div>
-        </div>
-        <p className="muted" style={{ marginTop: 10, marginBottom: 0 }}>Entry Confirmation is the entry trigger only. Validation remains separate. Lifecycle states are never entry confirmation.</p>
       </section>
 
       <section className="card"><div className="section-label">VALIDATION</div><div className="condition-box"><strong>{s?.entryConfirmation ? "ENTRY CONFIRMED" : "ENTRY NOT CONFIRMED"}</strong><p className="muted">{s?.entryConfirmation ? "The selected strategy has completed its required entry confirmation." : "No trade is confirmed until the strategy's required entry conditions are satisfied."}</p></div></section>
