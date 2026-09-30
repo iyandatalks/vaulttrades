@@ -1,6 +1,7 @@
 import { createAdminClient } from "./supabase/admin";
+import { COPY_TRADING_ENTITLEMENT } from "./copy-access";
 
-const PAID_PRODUCT_FEATURES = ["analyzer", "automation", "founders_mentorship"] as const;
+const PAID_PRODUCT_FEATURES = ["analyzer", COPY_TRADING_ENTITLEMENT, "founders_mentorship"] as const;
 
 export type ProductAccess = {
   admin: boolean;
@@ -70,7 +71,7 @@ export async function getProductAccess(authUserId: string): Promise<ProductAcces
   });
 
   const analyzer = activeFeature("analyzer") || activeLicense("analyzer");
-  const copy = activeFeature("automation") || activeLicense("automation");
+  const copy = activeFeature(COPY_TRADING_ENTITLEMENT) || activeLicense(COPY_TRADING_ENTITLEMENT);
   const foundersMentorship = activeFeature("founders_mentorship") || activeLicense("founders_mentorship");
   const anyPaidProduct = analyzer || copy || foundersMentorship;
 
