@@ -3,7 +3,7 @@ export type VaultTradesPayPalProduct = {
   name: string;
   price: number;
   planId: string;
-  entitlement: "analyzer" | "automation" | "founders_mentorship";
+  entitlement: "analyzer" | "copy_trading" | "founders_mentorship";
   billingMode: "monthly" | "once_off";
   returnPath: string;
 };
@@ -23,7 +23,7 @@ export const PAYPAL_PRODUCTS: Record<string, VaultTradesPayPalProduct> = {
     name: "Copy Trading",
     price: 99.99,
     planId: "P-0YR675118F424491GNJ7LAEQ",
-    entitlement: "automation",
+    entitlement: "copy_trading",
     billingMode: "monthly",
     returnPath: "/subscription/paypal/success?product=automated_trader_monthly",
   },
