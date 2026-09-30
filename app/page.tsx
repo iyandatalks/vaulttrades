@@ -58,12 +58,7 @@ export default function HomePage() {
         <div className="vt-actions"><Link className="vt-primary" href="/products">View Products</Link><Link className="vt-secondary" href="/how-it-works">How It Works</Link></div>
       </section>
 
-      <footer className="vt-footer">
-        <div className="vt-footer-brand">VAULTTRADES</div>
-        <div>Built by Traders. Focus, discipline, consistency.</div>
-        <p><strong>Disclaimer:</strong> VaultTrades is an analytical and trading-support platform. It does not provide financial advice, investment advice or a guarantee of trading results. Trading involves substantial risk and users remain solely responsible for their own trading decisions.</p>
-        <div>© 2026 VaultTrades. All rights reserved.</div>
-      </footer>
+
     </main>
   );
 }
