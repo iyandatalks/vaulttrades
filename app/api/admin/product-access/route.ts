@@ -13,6 +13,35 @@ const PRODUCTS = {
 
 type ProductCode = keyof typeof PRODUCTS;
 
+async function ensureAppUser(db: any, authAdmin: any, email: string) {
+  const { data: existing } = await db.from("users").select("id,auth_user_id,email,role").eq("email", email).maybeSingle();
+  if (existing) return existing;
+
+  const { data: listed, error: authError } = await authAdmin.listUsers({ page: 1, perPage: 1000 });
+  if (authError) throw new Error("AUTH_USER_LOOKUP_FAILED");
+  const authUser = (listed?.users || []).find((u: any) => String(u.email || "").trim().toLowerCase() === email);
+  if (!authUser) return null;
+
+  const { data: created, error: createError } = await db
+    .from("users")
+    .insert({
+      email,
+      auth_user_id: authUser.id,
+      role: "user",
+      payment_method: "manual",
+      is_active: true,
+      created_at: new Date().toISOString(),
+    })
+    .select("id,auth_user_id,email,role")
+    .single();
+
+  if (!createError && created) return created;
+
+  const { data: recovered } = await db.from("users").select("id,auth_user_id,email,role").eq("auth_user_id", authUser.id).maybeSingle();
+  if (recovered) return recovered;
+  throw new Error("APP_USER_PROFILE_CREATE_FAILED");
+}
+
 async function requireAdmin() {
   const auth = await createClient();
   const { data: { user } } = await auth.auth.getUser();
@@ -26,13 +55,14 @@ async function requireAdmin() {
 export async function GET(request: Request) {
   const auth = await requireAdmin();
   if ("error" in auth) return auth.error;
-  const { db } = auth;
+  const { db, user } = auth;
+  const authAdmin = db.auth.admin;
   const url = new URL(request.url);
   const email = String(url.searchParams.get("email") || "").trim().toLowerCase();
 
   if (!email) return NextResponse.json({ users: [] });
 
-  const { data: users, error } = await db
+  let { data: users, error } = await db
     .from("users")
     .select("id,auth_user_id,email,role")
     .ilike("email", `%${email}%`)
@@ -40,6 +70,20 @@ export async function GET(request: Request) {
     .limit(20);
 
   if (error) return NextResponse.json({ error: "USER_SEARCH_FAILED" }, { status: 500 });
+
+  // Some legacy/auth-only customers predate creation of public.users.
+  // Resolve the Auth user and backfill the application profile so admin
+  // product access can be granted without manual database intervention.
+  if (!(users || []).length) {
+    const exactEmail = email;
+    try {
+      const recovered = await ensureAppUser(db, authAdmin, exactEmail);
+      if (recovered) users = [recovered];
+    } catch (e) {
+      console.error("Unable to backfill missing VaultTrades user profile", e);
+      return NextResponse.json({ error: "USER_PROFILE_SYNC_FAILED" }, { status: 500 });
+    }
+  }
 
   const ids = (users || []).map(u => u.id);
   const { data: licenses } = ids.length
@@ -80,7 +124,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "INVALID_REQUEST" }, { status: 400 });
   }
 
-  const { data: target } = await db.from("users").select("id,auth_user_id,email").eq("email", email).maybeSingle();
+  let { data: target } = await db.from("users").select("id,auth_user_id,email").eq("email", email).maybeSingle();
+  if (!target) {
+    try {
+      target = await ensureAppUser(db, authAdmin, email);
+    } catch (e) {
+      console.error("Unable to backfill missing VaultTrades user profile", e);
+      return NextResponse.json({ error: "USER_PROFILE_SYNC_FAILED" }, { status: 500 });
+    }
+  }
   if (!target) return NextResponse.json({ error: "USER_NOT_FOUND" }, { status: 404 });
 
   const catalog = PRODUCTS[product];
