@@ -76,7 +76,6 @@ export async function POST(request: Request) {
     if (!profile || !authUserId) return NextResponse.json({ received: true, ignored: true, reason: "VaultTrades customer could not be matched" }, { status: 200 });
 
     const status = SUBSCRIPTION_EVENTS[eventType];
-    const copyWasActive = existingLicense.data?.status === "active" && !!existingLicense.data?.end_at && new Date(existingLicense.data.end_at).getTime() > Date.now();
     const isLifetimeMentorship = product.code === "founders_mentorship_once";
     const existingLicense = await admin
       .from("product_licenses")
@@ -85,6 +84,8 @@ export async function POST(request: Request) {
       .eq("entitlement_code", product.entitlement)
       .eq("payment_reference", subscriptionId)
       .maybeSingle();
+
+    const copyWasActive = existingLicense.data?.status === "active" && !!existingLicense.data?.end_at && new Date(existingLicense.data.end_at).getTime() > Date.now();
 
     let registeredMtLogin: string | null = existingLicense.data?.mt_login || null;
     if (product.entitlement === "copy_trading" && !registeredMtLogin) {
