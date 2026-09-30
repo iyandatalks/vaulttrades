@@ -72,9 +72,18 @@ export async function getCopyAccess(authUserId: string, mtLogin?: string | null)
     .order("start_at", { ascending: false })
     .limit(20);
 
+  // Manual/admin grants and automatic paid subscriptions may coexist.
+  // Select a currently valid active license rather than letting an expired
+  // manual grant mask a later/ongoing paid entitlement.
   const matching = (licenses || []).find((license: any) => {
     const start = license.start_at ? new Date(license.start_at).getTime() : NaN;
-    return Number.isFinite(start) && start <= now;
+    const end = license.end_at ? new Date(license.end_at).getTime() : Number.POSITIVE_INFINITY;
+    return (
+      String(license.status || "").toLowerCase() === "active" &&
+      Number.isFinite(start) &&
+      start <= now &&
+      end > now
+    );
   });
 
   if (matching) {
