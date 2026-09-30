@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ANALYZER_CATEGORIES, ANALYZER_STRATEGIES, ANALYZER_STRATEGY_MAP } from "../../lib/strategies/analyzerProfiles";
+import { ANALYZER_STRATEGIES, ANALYZER_STRATEGY_MAP } from "../../lib/strategies/analyzerProfiles";
 import { LiveMarketChart } from "./LiveMarketChart";
 
 type Timeframe = "1m" | "5m" | "15m" | "30m" | "1H" | "4H" | "1D" | "1W" | "1M";
@@ -117,13 +117,21 @@ export default function AnalyzerPage() {
   const [marketType, setMarketType] = useState<MarketType>("FOREX");
   const [symbol, setSymbol] = useState("XAU/USD");
   const [timeframe, setTimeframe] = useState<Timeframe>("15m");
-  const [strategy, setStrategy] = useState(ANALYZER_STRATEGIES[0].id);
+  const PUBLIC_STRATEGY_IDS = ["fibRetracement", "ema20", "supplyDemand"] as const;
+  const PUBLIC_STRATEGY_LABELS: Record<string, string> = {
+    fibRetracement: "1. SMC - Retracement",
+    ema20: "2. Morning Breakout",
+    supplyDemand: "3. Supply & Demand",
+  };
+  const PUBLIC_STRATEGIES = PUBLIC_STRATEGY_IDS.map((id) => ANALYZER_STRATEGY_MAP[id]);
+  const [strategy, setStrategy] = useState(PUBLIC_STRATEGY_IDS[0]);
   const [result, setResult] = useState<Result | null>(null);
   const [loading, setLoading] = useState(false);
   const [scannerLoading, setScannerLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const selected = ANALYZER_STRATEGY_MAP[strategy];
+  const strategyDisplayName = (id?: string, fallback?: string) =>
+    id && PUBLIC_STRATEGY_LABELS[id] ? PUBLIC_STRATEGY_LABELS[id] : fallback || "Strategy";
   const runAnalysis = async () => {
     if (!symbol.trim()) { setError("Select a market symbol first."); return; }
     if (marketType === "SYNTHETIC") { setError("Synthetic indices need the separate Synthetic/Broker data connection."); return; }
@@ -155,11 +163,7 @@ export default function AnalyzerPage() {
   const projectedTp1 = s?.projectedTp1 ?? result?.tp1;
   const projectedTp2 = s?.projectedTp2 ?? result?.tp2;
   const projectedFinalTp = s?.projectedFinalTp ?? result?.finalTp;
-  const projectedTp3 = projectedTp2 != null && projectedFinalTp != null ? projectedTp2 + (projectedFinalTp - projectedTp2) / 2 : projectedFinalTp;
-  const projectedTp4 = projectedFinalTp;
   const projectedRR = s?.rr ?? result?.rr;
-  const liquidityLabel = displayDirection === "SELL" ? "LIQ SELL" : "LIQ BUY";
-  const liquidityTarget = s?.opposingLiquidityTarget ?? projectedFinalTp;
   const scannerStatus = s?.statusMessage || s?.analysisState?.replaceAll("_", " ") || (displayDirection === "BUY" ? "WATCH — BUY" : displayDirection === "SELL" ? "WATCH — SELL" : "WATCH");
 
   return <main className="shell">
@@ -179,48 +183,38 @@ export default function AnalyzerPage() {
     <section className="card">
       <div className="section-label">STRATEGY</div>
       <h2 className="title">Choose the strategy first</h2>
-      <select value={strategy} disabled={loading} onChange={e => { setStrategy(e.target.value); setResult(null); }} style={{ width: "100%", marginTop: 14, padding: 14, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}>{ANALYZER_CATEGORIES.map(category => <optgroup key={category} label={category}>{ANALYZER_STRATEGIES.filter(s => s.category === category).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</optgroup>)}</select>
-      <div className="condition-box" style={{ marginTop: 14 }}><strong>Strategy evidence</strong><p className="muted">{selected.focus.join(" · ")}</p><div style={{ marginTop: 8 }}><strong>Source-required indicators</strong><p>{selected.indicatorSpecs.length ? selected.indicatorSpecs.map(i => `${i.name} (${i.parameters})${i.required ? " · required" : " · optional"}`).join(" · ") : "None — this strategy is price/structure based."}</p></div></div>
+      <select value={strategy} disabled={loading} onChange={e => { setStrategy(e.target.value); setResult(null); }} style={{ width: "100%", marginTop: 14, padding: 14, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}>{PUBLIC_STRATEGIES.map(s => <option key={s.id} value={s.id}>{PUBLIC_STRATEGY_LABELS[s.id]}</option>)}</select>
+      <div className="condition-box" style={{ marginTop: 14 }}><strong>Selected strategy</strong><p className="muted">Strategy-specific validation is applied internally. Only the actionable market state and trade levels are shown here.</p></div>
     </section>
 
     <section className="card"><div className="actions"><button className="primary" type="button" disabled={loading || marketType === "SYNTHETIC"} onClick={() => void runAnalysis()}>{loading ? "Analyzing live market..." : "Analyze Live Market"}</button></div>{marketType === "SYNTHETIC" && <div className="condition-box" style={{ marginTop: 12 }}><strong>Synthetic market connection</strong><p className="muted">This route deliberately does not substitute another provider. Connect the Synthetic/Broker provider before enabling synthetic analysis.</p></div>}{error && <div className="error-box" style={{ marginTop: 12 }}><strong>Analysis Error</strong><p className="muted">{error}</p></div>}</section>
 
     {result && <>
-      <section className="card"><div className="section-label">LIVE CHART</div><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}><div><h2 className="title" style={{ marginBottom: 3 }}>{result.market?.asset}</h2><div className="muted">{result.market?.timeframe} · Current price {fmt(result.market?.currentPrice)}</div></div><div className="condition-box" style={{ padding: "10px 14px" }}><strong>Strategy: {result.strategy?.name}</strong></div></div><LiveMarketChart candles={result.chart?.candles || []} channel={result.chart?.channel20} /></section>
+      <section className="card"><div className="section-label">LIVE CHART</div><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}><div><h2 className="title" style={{ marginBottom: 3 }}>{result.market?.asset}</h2><div className="muted">{result.market?.timeframe} · Current price {fmt(result.market?.currentPrice)}</div></div><div className="condition-box" style={{ padding: "10px 14px" }}><strong>Strategy: {strategyDisplayName(result.strategy?.id, result.strategy?.name)}</strong></div></div><LiveMarketChart candles={result.chart?.candles || []} channel={result.chart?.channel20} /></section>
 
       <section className="card execution-card" style={{ border: "1px solid rgba(212,166,55,.28)", background: "linear-gradient(145deg, rgba(10,16,30,.98), rgba(5,8,18,.98))" }}>
         <div className="section-label">AI SCANNER</div>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", alignItems: "center" }}><div><h2 className="title" style={{ marginBottom: 4 }}>{scannerStatus}</h2><div className="muted">{s?.trend || result.marketCondition || "Market state"} · {s?.institutionalActivity ? `Institutional activity: ${s.institutionalActivity}` : result.market?.directionalBias}</div></div><div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}><div style={{ minWidth: 135, textAlign: "center", padding: 12, borderRadius: 12, background: "rgba(212,166,55,.10)", border: "1px solid rgba(212,166,55,.35)" }}><span className="muted">QUALITY</span><div style={{ fontSize: 28, fontWeight: 900 }}>{Math.round(result.confidence ?? 0)}<span style={{ fontSize: 15 }}>/100</span></div></div><div style={{ minWidth: 135, textAlign: "center", padding: 12, borderRadius: 12, background: "rgba(45,125,255,.10)", border: "1px solid rgba(45,125,255,.35)" }}><span className="muted">PROJECTED PROBABILITY</span><div style={{ fontSize: 28, fontWeight: 900 }}>{s?.projectedProbability ?? "—"}<span style={{ fontSize: 15 }}>{s?.projectedProbability != null ? "%" : ""}</span></div></div></div></div>
         <div style={{ marginTop: 15 }}><strong>Trend</strong><p>{s?.trendReason || result.marketStructure}</p><strong>{s?.cycleStatus === "ACTIVE" ? "Trade status" : "Why we are waiting"}</strong><p>{s?.statusMessage || s?.waitReason || result.nextAction}</p></div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7,minmax(0,1fr))", gap: 10, marginTop: 16, alignItems: "start" }}>
-          <PriceLevel label="PROJECTED ENTRY" value={projectedEntry} kind="entry" />
-          <PriceLevel label="ACTUAL ENTRY" value={actualEntry} kind="orange" />
-          <PriceLevel label="S LOSS" value={projectedSL} kind="sl" />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 10, marginTop: 16, alignItems: "start" }}>
+          <PriceLevel label="ENTRY" value={actualEntry ?? projectedEntry} kind="entry" />
+          <PriceLevel label="STOP LOSS" value={projectedSL} kind="sl" />
           <PriceLevel label="TP1" value={projectedTp1} kind="tp" />
           <PriceLevel label="TP2" value={projectedTp2} kind="tp" />
-          <PriceLevel label="TP3" value={projectedTp3} kind="tp" />
-          <PriceLevel label="FINAL TP" value={projectedTp4} kind="tp" />
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 10, marginTop: 12, alignItems: "start", maxWidth: "calc(50% - 5px)" }}>
-          <PriceLevel label="CONFIRM" value={s?.confirmationPrice} kind="orange" />
-          <PriceLevel label="REVERSE" value={s?.reversalPrice} kind="orange" />
-          <PriceLevel label={liquidityLabel} value={liquidityTarget} kind="orange" />
         </div>
 
         <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginTop: 12 }}>
-          <div className="execution-item" style={{ minWidth: 180 }}><span>R:R TO LIQUIDITY</span><strong>{projectedRR == null ? "—" : `1:${projectedRR.toFixed(2)}`}</strong></div>
-          <div className="execution-item" style={{ minWidth: 180 }}><span>CYCLE</span><strong>{s?.cycleStatus || "WATCH"}</strong></div>
-          <p className="muted" style={{ margin: 0, flex: 1, minWidth: 280 }}>Projected Entry, Stop Loss and TP levels are fixed strategy projections. Actual Entry is recorded only after Entry Confirmation and is not moved with current price.</p>
+          <div className="execution-item" style={{ minWidth: 180 }}>
+            <span>TRADE STATUS</span>
+            <strong>{s?.cycleStatus === "ACTIVE" ? "RUNNING" : s?.cycleStatus === "COMPLETED" ? "COMPLETED" : "WAITING"}</strong>
+          </div>
         </div>
       </section>
 
-      <section className="card"><div className="section-label">INSTITUTIONAL PROFILE</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 9 }}><div className="condition-box"><strong>Activity</strong><p>{s?.institutionalActivity || "—"}</p></div><div className="condition-box"><strong>Volume ratio</strong><p>{s?.volumeProfile?.ratio == null ? "—" : `${s.volumeProfile.ratio.toFixed(2)}× average`}</p></div><div className="condition-box"><strong>Volume expansion</strong><p>{s?.volumeProfile?.expansion ? "CONFIRMED" : "Not confirmed"}</p></div><div className="condition-box"><strong>Displacement</strong><p>{s?.volumeProfile?.displacementATR == null ? "—" : `${s.volumeProfile.displacementATR.toFixed(2)} ATR`}</p></div></div><ul>{(s?.institutionalEvidence || []).map((x, i) => <li key={i}>{x}</li>)}</ul></section>
-
       <section className="card"><div className="section-label">CONFIRMATIONS</div><div style={{ display: "grid", gap: 8 }}>{(s?.confirmations || result.confirmedConditions || []).map((x, i) => <div key={i} style={{ ...levelColors.orange, borderRadius: 10, padding: "13px 14px", border: `1px solid ${levelColors.orange.border}`, background: levelColors.orange.background }}><strong>{i + 1}. </strong>{x}</div>)}</div><div className="condition-box" style={{ marginTop: 10 }}><strong>Why trade?</strong><p>{s?.tradeReason || result.setup}</p></div></section>
 
-      <section className="card"><div className="section-label">PIPELINE</div><h2 className="title">{result.strategy?.name} — current state</h2><div style={{ display: "grid", gap: 9, marginTop: 14 }}>{(s?.pipeline || result.pipeline || []).map((line, i) => <div key={i} className="condition-box" style={{ margin: 0 }}><strong>{line}</strong></div>)}</div><div className="condition-box" style={{ marginTop: 12 }}><strong>What happens next</strong><p>{s?.nextZone || result.nextAction}</p></div></section>
+      <section className="card"><div className="section-label">PIPELINE</div><h2 className="title">{strategyDisplayName(result.strategy?.id, result.strategy?.name)} — current state</h2><div style={{ display: "grid", gap: 9, marginTop: 14 }}>{(s?.pipeline || result.pipeline || []).map((line, i) => <div key={i} className="condition-box" style={{ margin: 0 }}><strong>{line}</strong></div>)}</div><div className="condition-box" style={{ marginTop: 12 }}><strong>What happens next</strong><p>{s?.nextZone || result.nextAction}</p></div></section>
 
       <section className="card"><div className="section-label">MARKET STRUCTURE</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 10 }}><div className="condition-box"><strong>Structure</strong><p>{result.marketStructure}</p></div><div className="condition-box"><strong>Support</strong><p>{fmt(result.structure?.support)}</p></div><div className="condition-box"><strong>Resistance</strong><p>{fmt(result.structure?.resistance)}</p></div><div className="condition-box"><strong>Next zone</strong><p>{s?.nextZone || result.nextZone}</p></div></div><div className="condition-box" style={{ marginTop: 10 }}><strong>Recent price action</strong><p>{result.recentPriceAction}</p></div></section>
 
@@ -237,10 +231,6 @@ export default function AnalyzerPage() {
         </div>
         <p className="muted" style={{ marginTop: 10, marginBottom: 0 }}>Entry Confirmation is the entry trigger only. Validation remains separate. Lifecycle states are never entry confirmation.</p>
       </section>
-
-      <section className="card"><div className="section-label">SMC CONFLUENCE</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 8 }}>{Object.entries(result.smcScores || {}).map(([name, score]) => <div className="condition-box" key={name}><strong>{name}</strong><div style={{ fontSize: 22, fontWeight: 800 }}>{score}/10</div></div>)}</div><p className="muted" style={{ marginTop: 12 }}>SMC scores remain visible as validation/context. They do not replace the selected strategy's Entry Confirmation.</p></section>
-
-      <section className="card"><div className="section-label">STRATEGY INDICATORS</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 9 }}>{(result.indicatorReadings || []).map(i => <div className="condition-box" key={i.name}><strong>{i.name}</strong><div className="muted">{i.signal} · {fmt(i.value)}</div><p style={{ fontSize: 13 }}>{i.reason}</p></div>)}</div></section>
 
       <section className="card"><div className="section-label">VALIDATION</div><div className="condition-box"><strong>STRATEGY / UNIVERSAL VALIDATION</strong><p>Validation results remain visible independently from Entry Confirmation. They explain the strategy state and market evidence; they do not replace a valid strategy-specific entry trigger.</p></div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 10, marginTop: 10 }}><div className="condition-box"><strong>Confirmed</strong><ul>{(result.confirmedConditions || []).map((x, i) => <li key={i}>{x}</li>)}</ul></div><div className="condition-box"><strong>Still required</strong><ul>{(result.missingConditions || []).map((x, i) => <li key={i}>{x}</li>)}</ul></div></div><div className="condition-box" style={{ marginTop: 10 }}><strong>Invalidation</strong><p>{s?.invalidation || result.invalidation}</p></div><div className="condition-box" style={{ marginTop: 10 }}><strong>Educational note</strong><p>{result.educationalNote}</p></div></section>
     </>}
