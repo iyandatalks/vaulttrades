@@ -123,7 +123,7 @@ export default function AnalyzerPage() {
   const [marketType, setMarketType] = useState<MarketType>("FOREX");
   const [symbol, setSymbol] = useState("XAU/USD");
   const [timeframe, setTimeframe] = useState<Timeframe>("15m");
-  const [strategy, setStrategy] = useState(PUBLIC_STRATEGY_IDS[0]);
+  const [strategy, setStrategy] = useState<string>(PUBLIC_STRATEGY_IDS[0]);
   const [result, setResult] = useState<Result | null>(null);
   const [loading, setLoading] = useState(false);
   const [scannerLoading, setScannerLoading] = useState(false);
