@@ -61,6 +61,62 @@ function math(direction: Direction, entry: number | null, stop: number | null, t
   return { rr, risk, reward, entryDistancePct, slDistancePct, valid: risk > 0 && reward > 0 && rr !== null && rr >= 2 && (slDistancePct === null || slDistancePct >= 0.1) };
 }
 
+function rebaseExecutionLevels(
+  direction: Direction,
+  projectedEntry: number | null,
+  projectedStopLoss: number | null,
+  projectedTp1: number | null,
+  projectedTp2: number | null,
+  projectedFinalTp: number | null,
+  confirmedEntry: number | null,
+) {
+  if (
+    direction === "NO TRADE" ||
+    !finite(projectedEntry) ||
+    !finite(projectedStopLoss) ||
+    !finite(confirmedEntry)
+  ) return null;
+
+  const riskDistance = direction === "BUY"
+    ? projectedEntry - projectedStopLoss
+    : projectedStopLoss - projectedEntry;
+
+  if (!(riskDistance > 0)) return null;
+
+  const tpDistance = (level: number | null) => {
+    if (!finite(level)) return null;
+    const distance = direction === "BUY"
+      ? level - projectedEntry
+      : projectedEntry - level;
+    return distance > 0 ? distance : null;
+  };
+
+  const tp1Distance = tpDistance(projectedTp1);
+  const tp2Distance = tpDistance(projectedTp2);
+  const finalDistance = tpDistance(projectedFinalTp);
+
+  return {
+    stopLoss: direction === "BUY"
+      ? confirmedEntry - riskDistance
+      : confirmedEntry + riskDistance,
+    tp1: tp1Distance === null
+      ? null
+      : direction === "BUY"
+        ? confirmedEntry + tp1Distance
+        : confirmedEntry - tp1Distance,
+    tp2: tp2Distance === null
+      ? null
+      : direction === "BUY"
+        ? confirmedEntry + tp2Distance
+        : confirmedEntry - tp2Distance,
+    finalTp: finalDistance === null
+      ? null
+      : direction === "BUY"
+        ? confirmedEntry + finalDistance
+        : confirmedEntry - finalDistance,
+  };
+}
+
 function executionGeometry(direction: Direction, entry: number | null, stop: number | null, target: number | null) {
   if (direction === "NO TRADE" || !finite(entry) || !finite(stop) || !finite(target)) {
     return { valid: false, risk: null, reward: null, reason: "Entry, stop loss and target must all be finite." };
@@ -211,24 +267,51 @@ Return JSON only. Preserve strategy-defined levels and distinguish strategy setu
         : currentPrice;
     const storedEntryCandidate = lockedEntry ?? lifeActual ?? priorActual;
     const candidateEntry = storedEntryCandidate ?? (baseConfirmedSignal ? aiEntryCandidate : null);
-    const executionStopLoss = lockedStopLoss ?? projectedStopLoss;
-    const executionTp1 = lockedTp1 ?? projectedTp1;
-    const executionTp2 = lockedTp2 ?? projectedTp2;
-    const executionFinalTp = lockedFinalTp ?? projectedTp4;
-    const candidateTarget = executionTp2 ?? executionTp1;
-    const candidateGeometry = executionGeometry(direction, candidateEntry, executionStopLoss, candidateTarget);
+    const candidateTarget = projectedTp2 ?? projectedTp1;
 
-    // Never repair an explicit confirmed entry by silently moving it to current price.
-    // If the source event supplied an entry/confirmation price and that price is
-    // geometrically invalid, the trade remains unconfirmed until a new valid entry
-    // confirmation is produced. Only a missing price may fall back to current price.
+    // Before confirmation, the single visible ENTRY is the strategy projection.
+    // Once confirmation produces an actual entry, SL/TP are rebased from the
+    // projected-entry geometry onto that confirmed entry. This prevents a
+    // confirmed entry from inheriting SL/TP distances from a different price.
+    const projectedGeometry = executionGeometry(
+      direction,
+      projectedEntry,
+      projectedStopLoss,
+      candidateTarget,
+    );
+
     let actualEntry: number | null = null;
-    if (candidateGeometry.valid && candidateEntry !== null) {
+    if (lifecycleLocked && lockedEntry !== null) {
+      actualEntry = lockedEntry;
+    } else if (baseConfirmedSignal && candidateEntry !== null && projectedGeometry.valid) {
       actualEntry = candidateEntry;
     } else if (baseConfirmedSignal && !hasExplicitAiEntry) {
-      const freshGeometry = executionGeometry(direction, currentPrice, executionStopLoss, candidateTarget);
-      if (freshGeometry.valid) actualEntry = currentPrice;
+      actualEntry = currentPrice;
     }
+
+    const confirmedExecution = !lifecycleLocked && actualEntry !== null
+      ? rebaseExecutionLevels(
+          direction,
+          projectedEntry,
+          projectedStopLoss,
+          projectedTp1,
+          projectedTp2,
+          projectedTp4,
+          actualEntry,
+        )
+      : null;
+
+    const executionStopLoss = lockedStopLoss ?? confirmedExecution?.stopLoss ?? projectedStopLoss;
+    const executionTp1 = lockedTp1 ?? confirmedExecution?.tp1 ?? projectedTp1;
+    const executionTp2 = lockedTp2 ?? confirmedExecution?.tp2 ?? projectedTp2;
+    const executionFinalTp = lockedFinalTp ?? confirmedExecution?.finalTp ?? projectedTp4;
+
+    const executionGeometryCheck = executionGeometry(
+      direction,
+      actualEntry ?? projectedEntry,
+      executionStopLoss,
+      executionTp2 ?? executionTp1,
+    );
 
     const confirmedSignal = baseConfirmedSignal && actualEntry !== null;
     const lifecycle = evaluateTradeLifecycle({
@@ -283,7 +366,7 @@ Return JSON only. Preserve strategy-defined levels and distinguish strategy setu
       buyProbability,
       sellProbability,
       probabilityDirection,
-      entry: projectedEntry,
+      entry: actualEntry ?? projectedEntry,
       projectedEntry,
       actualEntry,
       stopLoss: displayedStopLoss,
@@ -294,8 +377,8 @@ Return JSON only. Preserve strategy-defined levels and distinguish strategy setu
       projectedTp2: displayedTp2,
       tp3: projectedTp3,
       projectedTp3,
-      tp4: projectedTp4,
-      projectedTp4,
+      tp4: displayedFinalTp,
+      projectedTp4: displayedFinalTp,
       finalTp: displayedFinalTp,
       projectedFinalTp: displayedFinalTp,
       confirmationPrice: entryConfirmation && finite(ai.confirmationPrice) ? ai.confirmationPrice : null,
