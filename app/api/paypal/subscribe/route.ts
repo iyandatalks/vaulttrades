@@ -3,6 +3,7 @@ import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
 import { paypalRequest } from "../../../../lib/paypal";
 import { getPayPalProduct } from "../../../../lib/paypal-products";
+import { COPY_TRADING_ENTITLEMENT } from "../../../../lib/copy-access";
 
 const BASE_URL = "https://vaulttradesve.com";
 
@@ -52,7 +53,7 @@ export async function POST(request: Request) {
         .from("product_licenses")
         .select("id,start_at,end_at,status,mt_login")
         .eq("user_id", profile.id)
-        .eq("entitlement_code", "automation")
+        .eq("entitlement_code", COPY_TRADING_ENTITLEMENT)
         .eq("mt_login", mt5Login)
         .eq("status", "active")
         .order("end_at", { ascending: false })
@@ -117,6 +118,7 @@ export async function POST(request: Request) {
       payment_reference: String(result.id),
       start_at: now.toISOString(),
       end_at: end.toISOString(),
+      mt_login: product.code === "automated_trader_monthly" ? mt5Login : null,
       platform: product.code === "automated_trader_monthly" ? "mt5" : "web",
       source_payment_snapshot: {
         provider: "paypal",
@@ -126,6 +128,7 @@ export async function POST(request: Request) {
         amount: product.price,
         currency: "USD",
         mt5_login: product.code === "automated_trader_monthly" ? mt5Login : undefined,
+        entitlement_code: product.entitlement,
       },
       updated_at: now.toISOString(),
     }, { onConflict: "payment_reference" });
