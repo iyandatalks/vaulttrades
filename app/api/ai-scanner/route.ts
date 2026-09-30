@@ -183,6 +183,22 @@ Return JSON only. Preserve strategy-defined levels and distinguish strategy setu
     const lifeActual = finite(lifecycleInput.actualEntry) ? lifecycleInput.actualEntry : null;
     const baseConfirmedSignal = direction !== "NO TRADE" && strategyConditionsMet && entryConfirmation;
 
+    // Once a trade is ACTIVE, its execution geometry is immutable until the lifecycle
+    // completes. Strategy projections may continue to move for a future setup, but they
+    // must never rewrite the running trade's entry, SL or targets.
+    const lifecycleLocked =
+      lifecycleInput?.status === "ACTIVE" &&
+      (direction === "BUY" || direction === "SELL") &&
+      (lifecycleInput?.direction === direction || lifecycleInput?.priorDirection === direction) &&
+      finite(lifecycleInput?.actualEntry) &&
+      finite(lifecycleInput?.stopLoss);
+
+    const lockedEntry = lifecycleLocked ? Number(lifecycleInput.actualEntry) : null;
+    const lockedStopLoss = lifecycleLocked ? Number(lifecycleInput.stopLoss) : null;
+    const lockedTp1 = lifecycleLocked && finite(lifecycleInput?.tp1) ? Number(lifecycleInput.tp1) : null;
+    const lockedTp2 = lifecycleLocked && finite(lifecycleInput?.tp2) ? Number(lifecycleInput.tp2) : null;
+    const lockedFinalTp = lifecycleLocked && finite(lifecycleInput?.finalTp) ? Number(lifecycleInput.finalTp) : null;
+
     // Execution integrity is separate from the strategy's confirmation rules. A confirmed
     // strategy event can only become an active trade if its actual entry has a coherent
     // stop/target geometry. This prevents stale/AI-generated prices from creating an
@@ -193,10 +209,14 @@ Return JSON only. Preserve strategy-defined levels and distinguish strategy setu
       : finite(ai.entry)
         ? ai.entry
         : currentPrice;
-    const storedEntryCandidate = lifeActual ?? priorActual;
+    const storedEntryCandidate = lockedEntry ?? lifeActual ?? priorActual;
     const candidateEntry = storedEntryCandidate ?? (baseConfirmedSignal ? aiEntryCandidate : null);
-    const candidateTarget = projectedTp2 ?? projectedTp1;
-    const candidateGeometry = executionGeometry(direction, candidateEntry, projectedStopLoss, candidateTarget);
+    const executionStopLoss = lockedStopLoss ?? projectedStopLoss;
+    const executionTp1 = lockedTp1 ?? projectedTp1;
+    const executionTp2 = lockedTp2 ?? projectedTp2;
+    const executionFinalTp = lockedFinalTp ?? projectedTp4;
+    const candidateTarget = executionTp2 ?? executionTp1;
+    const candidateGeometry = executionGeometry(direction, candidateEntry, executionStopLoss, candidateTarget);
 
     // Never repair an explicit confirmed entry by silently moving it to current price.
     // If the source event supplied an entry/confirmation price and that price is
@@ -206,7 +226,7 @@ Return JSON only. Preserve strategy-defined levels and distinguish strategy setu
     if (candidateGeometry.valid && candidateEntry !== null) {
       actualEntry = candidateEntry;
     } else if (baseConfirmedSignal && !hasExplicitAiEntry) {
-      const freshGeometry = executionGeometry(direction, currentPrice, projectedStopLoss, candidateTarget);
+      const freshGeometry = executionGeometry(direction, currentPrice, executionStopLoss, candidateTarget);
       if (freshGeometry.valid) actualEntry = currentPrice;
     }
 
@@ -216,10 +236,10 @@ Return JSON only. Preserve strategy-defined levels and distinguish strategy setu
       currentPrice,
       projectedEntry,
       actualEntry,
-      projectedStopLoss,
-      projectedTp1,
-      projectedTp2,
-      projectedFinalTp: projectedTp4,
+      projectedStopLoss: executionStopLoss,
+      projectedTp1: executionTp1,
+      projectedTp2: executionTp2,
+      projectedFinalTp: executionFinalTp,
       priorStatus: lifecycleInput.status ?? prior?.status ?? null,
       priorDirection: lifecycleInput.priorDirection ?? prior?.priorDirection ?? null,
       oppositeConfirmed: lifecycleInput.oppositeConfirmed === true,
@@ -239,8 +259,12 @@ Return JSON only. Preserve strategy-defined levels and distinguish strategy setu
           : strategyConditionsMet
             ? "CONFIRMATION_PENDING"
             : ai.analysisState;
-    const projectionMath = math(direction, actualEntry ?? projectedEntry, projectedStopLoss, projectedTp2 ?? projectedTp1, currentPrice);
-    const executionValidation = executionGeometry(direction, actualEntry ?? projectedEntry, projectedStopLoss, projectedTp2 ?? projectedTp1);
+    const displayedStopLoss = active ? executionStopLoss : projectedStopLoss;
+    const displayedTp1 = active ? executionTp1 : projectedTp1;
+    const displayedTp2 = active ? executionTp2 : projectedTp2;
+    const displayedFinalTp = active ? executionFinalTp : projectedTp4;
+    const projectionMath = math(direction, actualEntry ?? projectedEntry, displayedStopLoss, displayedTp2 ?? displayedTp1, currentPrice);
+    const executionValidation = executionGeometry(direction, actualEntry ?? projectedEntry, displayedStopLoss, displayedTp2 ?? displayedTp1);
     const statusMessage = active
       ? `${direction} ACTIVE — confirmed entry ${actualEntry}. Lifecycle is separate from entry confirmation.`
       : cycleComplete
@@ -255,24 +279,25 @@ Return JSON only. Preserve strategy-defined levels and distinguish strategy setu
       projectedDirection: direction,
       analysisState: state,
       statusMessage,
+      lockedExecutionLevels: active || lifecycleLocked,
       buyProbability,
       sellProbability,
       probabilityDirection,
       entry: projectedEntry,
       projectedEntry,
       actualEntry,
-      stopLoss: projectedStopLoss,
-      projectedStopLoss,
-      tp1: projectedTp1,
-      projectedTp1,
-      tp2: projectedTp2,
-      projectedTp2,
+      stopLoss: displayedStopLoss,
+      projectedStopLoss: displayedStopLoss,
+      tp1: displayedTp1,
+      projectedTp1: displayedTp1,
+      tp2: displayedTp2,
+      projectedTp2: displayedTp2,
       tp3: projectedTp3,
       projectedTp3,
       tp4: projectedTp4,
       projectedTp4,
-      finalTp: projectedTp4,
-      projectedFinalTp: projectedTp4,
+      finalTp: displayedFinalTp,
+      projectedFinalTp: displayedFinalTp,
       confirmationPrice: entryConfirmation && finite(ai.confirmationPrice) ? ai.confirmationPrice : null,
       tp1Hit: false,
       tp2Hit: false,
