@@ -11,6 +11,7 @@ const products = [
 export default function AdminProductAccessPage() {
   const [email, setEmail] = useState("");
   const [mt5Login, setMt5Login] = useState("");
+  const [durationDays, setDurationDays] = useState("30");
   const [user, setUser] = useState<any>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -32,7 +33,7 @@ export default function AdminProductAccessPage() {
       const r = await fetch("/api/admin/product-access", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: user.email, product, action, mt5Login }),
+        body: JSON.stringify({ email: user.email, product, action, mt5Login, durationDays: Number(durationDays) }),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Operation failed.");
@@ -49,7 +50,7 @@ export default function AdminProductAccessPage() {
         <header className="vt-info-hero">
           <div className="vt-label">ADMIN · PRODUCT ACCESS</div>
           <h1>Grant or deactivate customer products.</h1>
-          <p>Use this control for support, complimentary access, corrections and emergency deactivation. PayPal remains the normal customer purchase path.</p>
+          <p>Use this control for legacy founders, complimentary access and support corrections. Manual access is time-limited and does not change or cancel a customer&apos;s automatic paid entitlement.</p>
         </header>
 
         <section className="vt-info-card">
@@ -61,7 +62,7 @@ export default function AdminProductAccessPage() {
           {user && <div style={{marginTop:18}}><strong>{user.email}</strong><div className="muted">Role: {user.role}</div></div>}
         </section>
 
-        {user && <section className="vt-info-card" style={{marginTop:18}}>
+        {user && <section className="vt-info-card" style={{marginTop:18}}>\n          <div style={{padding:12,background:"rgba(212,166,55,.08)",border:"1px solid rgba(212,166,55,.18)",borderRadius:10,marginBottom:14}}><strong>Manual access only:</strong> grants below create a separate time-limited entitlement. Existing automatic/paid access is left untouched and can continue normally.</div>
           <div className="vt-label">PRODUCT ACCESS</div>
           <div style={{display:"grid",gap:12,marginTop:14}}>
             {products.map(p => {
@@ -72,12 +73,12 @@ export default function AdminProductAccessPage() {
                   <div><strong>{p.name}</strong><div className="muted">{p.description}</div></div>
                   <strong style={{color:active?"#d4a637":"#7f8a99"}}>{active?"ACTIVE":"INACTIVE"}</strong>
                 </div>
-                {p.code === "copy_trading" && <input value={mt5Login} onChange={e=>setMt5Login(e.target.value)} placeholder="MT5 account number (required for Copy Trading grant)" style={{width:"100%",padding:10,borderRadius:8,marginTop:12}} />}
+                {p.code === "copy_trading" && <input value={mt5Login} onChange={e=>setMt5Login(e.target.value)} placeholder="MT5 account number (required for Copy Trading grant)" style={{width:"100%",padding:10,borderRadius:8,marginTop:12}} />}\n                <input type="number" min="1" max="3650" value={durationDays} onChange={e=>setDurationDays(e.target.value)} placeholder="Manual access days" style={{width:"100%",padding:10,borderRadius:8,marginTop:12}} />
                 <div style={{display:"flex",gap:8,marginTop:12,flexWrap:"wrap"}}>
                   <button className="vt-primary" disabled={busy} onClick={()=>void change(p.code,"grant")}>Grant Access</button>
-                  <button className="vt-secondary" disabled={busy || !license} onClick={()=>void change(p.code,"deactivate")}>Deactivate</button>
+                  <button className="vt-secondary" disabled={busy || !license?.manual} onClick={()=>void change(p.code,"deactivate")}>Deactivate</button>
                 </div>
-                {license && <div className="muted" style={{marginTop:10}}>Status: {license.status} · Until: {license.end_at ? new Date(license.end_at).toLocaleString() : "No expiry"}{license.mt_login ? ` · MT5: ${license.mt_login}` : ""}</div>}
+                {license?.manual && <div className="muted" style={{marginTop:10}}>Manual grant: {license.manual.status} · Until: {license.manual.end_at ? new Date(license.manual.end_at).toLocaleString() : "No expiry"}{license.manual.mt_login ? ` · MT5: ${license.manual.mt_login}` : ""}</div>}\n                {license?.automatic && <div className="muted" style={{marginTop:6}}>Automatic access: {license.automatic.status} · Until: {license.automatic.end_at ? new Date(license.automatic.end_at).toLocaleString() : "No expiry"}{license.automatic.mt_login ? ` · MT5: ${license.automatic.mt_login}` : ""}</div>}
               </div>;
             })}
           </div>
