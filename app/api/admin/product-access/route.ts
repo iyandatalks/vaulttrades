@@ -86,28 +86,31 @@ export async function POST(request: Request) {
   const nowIso = now.toISOString();
 
   if (action === "deactivate") {
-    const { data: activeLicenses } = await db.from("product_licenses")
-      .select("id")
+    const { data: manualLicenses } = await db.from("product_licenses")
+      .select("id,start_at")
       .eq("user_id", target.id)
       .eq("entitlement_code", product)
-      .in("status", ["active", "pending", "past_due", "suspended"]);
+      .eq("status", "active")
+      .contains("source_payment_snapshot", { source: "admin_manual_grant" });
 
-    if (activeLicenses?.length) {
+    if (manualLicenses?.length) {
       await db.from("product_licenses").update({
-        status: "disabled",
+        status: "revoked",
         end_at: nowIso,
         approved_by: user.id,
         updated_at: nowIso,
-      }).in("id", activeLicenses.map(x => x.id));
-    }
+      }).in("id", manualLicenses.map(x => x.id));
 
-    await db.from("user_feature_access").update({
-      status: "revoked",
-      end_at: nowIso,
-      granted_by: user.id,
-      grant_reason: "Manual admin deactivation",
-      updated_at: nowIso,
-    }).eq("user_id", target.id).eq("feature_code", product);
+      for (const license of manualLicenses) {
+        await db.from("user_feature_access").update({
+          status: "revoked",
+          end_at: nowIso,
+          granted_by: user.id,
+          grant_reason: "Manual admin deactivation",
+          updated_at: nowIso,
+        }).eq("user_id", target.id).eq("feature_code", product).eq("start_at", license.start_at);
+      }
+    }
 
     if (product === "copy_trading" && target.auth_user_id) {
       const { data: followers } = await db.from("copy_followers").select("id").eq("auth_user_id", target.auth_user_id);
@@ -116,6 +119,10 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ ok: true, message: `${catalog.name} deactivated for ${email}.` });
+  }
+
+  if (!Number.isInteger(durationDays) || durationDays < 1 || durationDays > 3650) {
+    return NextResponse.json({ error: "INVALID_DURATION_DAYS", message: "Manual access must be granted for 1 to 3650 days." }, { status: 400 });
   }
 
   if (product === "copy_trading" && !/^\d{4,12}$/.test(mt5Login)) {
