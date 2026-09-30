@@ -70,7 +70,10 @@ export async function POST(req: Request) {
   const access = await getCopyAccess(String(pair.auth_user_id), mtLogin);
   if (!access.active) return denial(access.reason);
 
-  if (!access.startAt || pair.subscription_start_at !== access.startAt || (access.endAt && pair.subscription_end_at !== access.endAt)) {
+  if (
+    access.reason !== "ADMIN" &&
+    (!access.startAt || pair.subscription_start_at !== access.startAt || (access.endAt && pair.subscription_end_at !== access.endAt))
+  ) {
     return NextResponse.json({
       allowed: false,
       reason: "revoked",
