@@ -78,11 +78,23 @@ export async function POST(request: Request) {
     const isLifetimeMentorship = product.code === "founders_mentorship_once";
     const existingLicense = await admin
       .from("product_licenses")
-      .select("start_at,end_at,status")
+      .select("start_at,end_at,status,mt_login")
       .eq("user_id", profile.id)
       .eq("entitlement_code", product.entitlement)
       .eq("payment_reference", subscriptionId)
       .maybeSingle();
+
+    let registeredMtLogin: string | null = existingLicense.data?.mt_login || null;
+    if (product.entitlement === "copy_trading" && !registeredMtLogin) {
+      const { data: registration } = await admin
+        .from("copy_customer_registrations")
+        .select("mt5_login")
+        .eq("auth_user_id", authUserId)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      registeredMtLogin = registration?.mt5_login ? String(registration.mt5_login) : null;
+    }
 
     const eventIssueTime = eventType === "PAYMENT.SALE.COMPLETED"
       ? (resource.create_time || event.create_time)
@@ -136,6 +148,7 @@ export async function POST(request: Request) {
       approved_at: status === "active" ? new Date().toISOString() : null,
       start_at: start,
       end_at: accessEnd,
+      mt_login: product.entitlement === "copy_trading" ? registeredMtLogin : null,
       platform: product.entitlement === "copy_trading" ? "mt5" : "web",
       source_payment_snapshot: {
         provider: "paypal",
