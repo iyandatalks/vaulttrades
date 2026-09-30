@@ -62,18 +62,21 @@ export default function AdminProductAccessPage() {
           {user && <div style={{marginTop:18}}><strong>{user.email}</strong><div className="muted">Role: {user.role}</div></div>}
         </section>
 
-        {user && <section className="vt-info-card" style={{marginTop:18}}>\n          <div style={{padding:12,background:"rgba(212,166,55,.08)",border:"1px solid rgba(212,166,55,.18)",borderRadius:10,marginBottom:14}}><strong>Manual access only:</strong> grants below create a separate time-limited entitlement. Existing automatic/paid access is left untouched and can continue normally.</div>
+        {user && <section className="vt-info-card" style={{marginTop:18}}>
+          <div style={{padding:12,background:"rgba(212,166,55,.08)",border:"1px solid rgba(212,166,55,.18)",borderRadius:10,marginBottom:14}}><strong>Manual access only:</strong> grants below create a separate time-limited entitlement. Existing automatic/paid access is left untouched and can continue normally.</div>
           <div className="vt-label">PRODUCT ACCESS</div>
           <div style={{display:"grid",gap:12,marginTop:14}}>
             {products.map(p => {
               const license = user.products?.[p.code];
-              const active = license?.status === "active" && (!license.end_at || new Date(license.end_at).getTime() > Date.now());
+              const manualActive = license?.manual?.status === "active" && (!license.manual.end_at || new Date(license.manual.end_at).getTime() > Date.now());
+              const automaticActive = license?.automatic?.status === "active" && (!license.automatic.end_at || new Date(license.automatic.end_at).getTime() > Date.now());
+              const active = manualActive || automaticActive;
               return <div key={p.code} style={{padding:16,border:"1px solid rgba(255,255,255,.09)",borderRadius:12}}>
                 <div style={{display:"flex",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
                   <div><strong>{p.name}</strong><div className="muted">{p.description}</div></div>
                   <strong style={{color:active?"#d4a637":"#7f8a99"}}>{active?"ACTIVE":"INACTIVE"}</strong>
                 </div>
-                {p.code === "copy_trading" && <input value={mt5Login} onChange={e=>setMt5Login(e.target.value)} placeholder="MT5 account number (required for Copy Trading grant)" style={{width:"100%",padding:10,borderRadius:8,marginTop:12}} />}\n                <input type="number" min="1" max="3650" value={durationDays} onChange={e=>setDurationDays(e.target.value)} placeholder="Manual access days" style={{width:"100%",padding:10,borderRadius:8,marginTop:12}} />
+                {p.code === "copy_trading" && <input value={mt5Login} onChange={e=>setMt5Login(e.target.value)} placeholder="MT5 account number (required for Copy Trading grant)" style={{width:"100%",padding:10,borderRadius:8,marginTop:12}} />}\n                <input type="number" min="1" max="3650" value={durationDays} onChange={e=>setDurationDays(e.target.value)} placeholder="Manual access days (1–3650)" style={{width:"100%",padding:10,borderRadius:8,marginTop:12}} />
                 <div style={{display:"flex",gap:8,marginTop:12,flexWrap:"wrap"}}>
                   <button className="vt-primary" disabled={busy} onClick={()=>void change(p.code,"grant")}>Grant Access</button>
                   <button className="vt-secondary" disabled={busy || !license?.manual} onClick={()=>void change(p.code,"deactivate")}>Deactivate</button>
