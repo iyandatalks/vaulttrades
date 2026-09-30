@@ -54,7 +54,7 @@ export async function POST(request: Request) {
       payment_reference: String(result.id),
       start_at: now.toISOString(),
       end_at: end.toISOString(),
-      platform: product.entitlement === "automation" ? "mt5" : "web",
+      platform: product.entitlement === "copy_trading" ? "mt5" : "web",
       source_payment_snapshot: { provider: "paypal", plan_id: product.planId, subscription_id: String(result.id), product_code: product.code, amount: product.price, currency: "USD" },
       updated_at: now.toISOString(),
     }, { onConflict: "payment_reference,entitlement_code" });
