@@ -306,13 +306,6 @@ Return JSON only. Preserve strategy-defined levels and distinguish strategy setu
     const executionTp2 = lockedTp2 ?? confirmedExecution?.tp2 ?? projectedTp2;
     const executionFinalTp = lockedFinalTp ?? confirmedExecution?.finalTp ?? projectedTp4;
 
-    const executionGeometryCheck = executionGeometry(
-      direction,
-      actualEntry ?? projectedEntry,
-      executionStopLoss,
-      executionTp2 ?? executionTp1,
-    );
-
     const confirmedSignal = baseConfirmedSignal && actualEntry !== null;
     const lifecycle = evaluateTradeLifecycle({
       direction: direction === "BUY" || direction === "SELL" ? direction : "NONE",
