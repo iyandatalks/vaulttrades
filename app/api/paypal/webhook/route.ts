@@ -99,8 +99,6 @@ export async function POST(request: Request) {
 
     const exactThirtyDayEnd = new Date(new Date(start).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
-    // Founders Mentorship is a once-off purchase. Once paid, its entitlement is lifetime
-    // and later subscription-state notifications must not revoke that lifetime access.
     if (isLifetimeMentorship && status !== "active") {
       const { data: existingLifetime } = await admin
         .from("product_licenses")
@@ -128,15 +126,54 @@ export async function POST(request: Request) {
         ? exactThirtyDayEnd
         : new Date().toISOString();
 
-    await admin.from("product_licenses").upsert({ user_id: profile.id, email: profile.email, purchased_product_code: product.code, entitlement_code: product.entitlement, status: status === "active" ? "active" : status, payment_reference: subscriptionId, approved_at: status === "active" ? new Date().toISOString() : null, start_at: start, end_at: accessEnd, platform: product.entitlement === "automation" ? "mt5" : "web", source_payment_snapshot: { provider: "paypal", plan_id: planId, subscription_id: subscriptionId, product_code: product.code, amount: product.price, currency: "USD", event_type: eventType }, updated_at: new Date().toISOString() }, { onConflict: "payment_reference,entitlement_code" });
+    await admin.from("product_licenses").upsert({
+      user_id: profile.id,
+      email: profile.email,
+      purchased_product_code: product.code,
+      entitlement_code: product.entitlement,
+      status: status === "active" ? "active" : status,
+      payment_reference: subscriptionId,
+      approved_at: status === "active" ? new Date().toISOString() : null,
+      start_at: start,
+      end_at: accessEnd,
+      platform: product.entitlement === "copy_trading" ? "mt5" : "web",
+      source_payment_snapshot: {
+        provider: "paypal",
+        plan_id: planId,
+        subscription_id: subscriptionId,
+        product_code: product.code,
+        amount: product.price,
+        currency: "USD",
+        event_type: eventType,
+      },
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "payment_reference,entitlement_code" });
+
     await grantFeature(admin, profile.id, product.entitlement, start, accessEnd, status);
 
-    if (product.entitlement === "automation") {
+    if (product.entitlement === "copy_trading") {
       const { data: existingAuto } = await admin.from("automated_trader_subscriptions").select("id").eq("provider", "paypal").eq("provider_subscription_id", subscriptionId).maybeSingle();
-      const autoRow = { auth_user_id: authUserId, product_code: product.code, status, provider: "paypal", provider_subscription_id: subscriptionId, current_period_start: start, current_period_end: accessEnd, cancel_at_period_end: eventType === "BILLING.SUBSCRIPTION.CANCELLED", last_provider_event: eventType, updated_at: new Date().toISOString() };
+      const autoRow = {
+        auth_user_id: authUserId,
+        product_code: product.code,
+        status,
+        provider: "paypal",
+        provider_subscription_id: subscriptionId,
+        current_period_start: start,
+        current_period_end: accessEnd,
+        cancel_at_period_end: eventType === "BILLING.SUBSCRIPTION.CANCELLED",
+        last_provider_event: eventType,
+        updated_at: new Date().toISOString(),
+      };
       if (existingAuto) await admin.from("automated_trader_subscriptions").update(autoRow).eq("id", existingAuto.id);
       else await admin.from("automated_trader_subscriptions").insert(autoRow);
-      await admin.from("automated_trader_events").insert({ auth_user_id: authUserId, event_type: eventType, provider: "paypal", provider_event_id: event.id ? String(event.id) : null, payload: event });
+      await admin.from("automated_trader_events").insert({
+        auth_user_id: authUserId,
+        event_type: eventType,
+        provider: "paypal",
+        provider_event_id: event.id ? String(event.id) : null,
+        payload: event,
+      });
     }
 
     return NextResponse.json({ received: true, product: product.code, entitlement: product.entitlement, status, subscriptionId }, { status: 200 });
