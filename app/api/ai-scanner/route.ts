@@ -61,6 +61,25 @@ function math(direction: Direction, entry: number | null, stop: number | null, t
   return { rr, risk, reward, entryDistancePct, slDistancePct, valid: risk > 0 && reward > 0 && rr !== null && rr >= 2 && (slDistancePct === null || slDistancePct >= 0.1) };
 }
 
+function executionGeometry(direction: Direction, entry: number | null, stop: number | null, target: number | null) {
+  if (direction === "NO TRADE" || !finite(entry) || !finite(stop) || !finite(target)) {
+    return { valid: false, risk: null, reward: null, reason: "Entry, stop loss and target must all be finite." };
+  }
+  const risk = direction === "BUY" ? entry - stop : stop - entry;
+  const reward = direction === "BUY" ? target - entry : entry - target;
+  const valid = risk > 0 && reward > 0;
+  return {
+    valid,
+    risk,
+    reward,
+    reason: valid
+      ? "Entry/stop/target geometry is directionally valid."
+      : direction === "BUY"
+        ? "BUY requires STOP LOSS below ENTRY and target below? no, target must be above ENTRY."
+        : "SELL requires STOP LOSS above ENTRY and target below ENTRY.",
+  };
+}
+
 function jsonText(raw: any): string { return raw.output?.flatMap((x: any) => x.content ?? []).filter((x: any) => x.type === "output_text").map((x: any) => x.text).join("").trim() || ""; }
 
 function structuralProjection(direction: Direction, current: number, support: number | null, resistance: number | null, volatility: number | null) {
@@ -143,7 +162,15 @@ Return JSON only. Preserve strategy-defined levels and distinguish strategy setu
     const response = await fetch("https://api.openai.com/v1/responses", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` }, body: JSON.stringify({ model: "gpt-4.1-mini", input: [{ role: "user", content: [{ type: "input_text", text: prompt }] }], max_output_tokens: 4500, text: { format: { type: "json_schema", name: "vaulttrades_ai_scanner", strict: true, schema } } }) });
     if (!response.ok) return Response.json({ error: `AI Scanner request failed: ${(await response.text()).slice(0, 300)}` }, { status: 502 }); const raw = await response.json(); const text = jsonText(raw); if (!text) return Response.json({ error: "AI Scanner returned no structured result." }, { status: 502 }); const ai = JSON.parse(text);
     let buyProbability = finite(ai.buyProbability) ? Math.max(0, Math.min(100, ai.buyProbability)) : 50; let sellProbability = finite(ai.sellProbability) ? Math.max(0, Math.min(100, ai.sellProbability)) : 50; const totalProbability = buyProbability + sellProbability || 1; buyProbability = buyProbability / totalProbability * 100; sellProbability = sellProbability / totalProbability * 100;
-    const probabilityDirection: Direction = buyProbability > sellProbability ? "BUY" : sellProbability > buyProbability ? "SELL" : "NO TRADE"; const direction: Direction = probabilityDirection !== "NO TRADE" ? probabilityDirection : (ai.projectedDirection === "BUY" || ai.projectedDirection === "SELL" ? ai.projectedDirection : prior.direction === "BUY" || prior.direction === "SELL" ? prior.direction : "NO TRADE");
+    const probabilityDirection: Direction = buyProbability > sellProbability ? "BUY" : sellProbability > buyProbability ? "SELL" : "NO TRADE";
+    const direction: Direction =
+      prior.direction === "BUY" || prior.direction === "SELL"
+        ? prior.direction
+        : prior.projectedDirection === "BUY" || prior.projectedDirection === "SELL"
+          ? prior.projectedDirection
+          : ai.projectedDirection === "BUY" || ai.projectedDirection === "SELL"
+            ? ai.projectedDirection
+            : "NO TRADE";
     const sourceProjectedEntry = finite(prior.projectedEntry) ? prior.projectedEntry : finite(prior.entry) ? prior.entry : null; const sourceProjectedStop = finite(prior.projectedStopLoss) ? prior.projectedStopLoss : finite(prior.stopLoss) ? prior.stopLoss : null; const sourceProjectedTp1 = finite(prior.projectedTp1) ? prior.projectedTp1 : finite(prior.tp1) ? prior.tp1 : null; const sourceProjectedTp2 = finite(prior.projectedTp2) ? prior.projectedTp2 : finite(prior.tp2) ? prior.tp2 : null; const sourceProjectedTp3 = finite(prior.projectedTp3) ? prior.projectedTp3 : null; const sourceProjectedTp4 = finite(prior.projectedTp4) ? prior.projectedTp4 : finite(prior.finalTp) ? prior.finalTp : null;
     const support = finite(prior?.structure?.support) ? prior.structure.support : mtfEvidence.m15?.support ?? null; const resistance = finite(prior?.structure?.resistance) ? prior.structure.resistance : mtfEvidence.m15?.resistance ?? null; const volatility = finite(prior?.volatility?.atr) ? prior.volatility.atr : atr(candles); const fallback = structuralProjection(direction, currentPrice, support, resistance, volatility);
     const projectedEntry = strategyId === "fibRetracement" ? (direction === "BUY" ? fibBuyLevel?.price ?? sourceProjectedEntry : direction === "SELL" ? fibSellLevel?.price ?? sourceProjectedEntry : sourceProjectedEntry) : sourceProjectedEntry ?? fallback?.entry ?? null; const projectedStopLoss = sourceProjectedStop ?? fallback?.stop ?? (finite(ai.stopLoss) ? ai.stopLoss : null); const projectedTp1 = sourceProjectedTp1 ?? fallback?.tp1 ?? (finite(ai.tp1) ? ai.tp1 : null); const projectedTp2 = sourceProjectedTp2 ?? fallback?.tp2 ?? (finite(ai.tp2) ? ai.tp2 : null); const projectedTp3 = sourceProjectedTp3 ?? fallback?.tp3 ?? (finite(ai.tp3) ? ai.tp3 : null); const projectedTp4 = sourceProjectedTp4 ?? fallback?.tp4 ?? (finite(ai.tp4) ? ai.tp4 : finite(ai.finalTp) ? ai.finalTp : null);
@@ -152,12 +179,135 @@ Return JSON only. Preserve strategy-defined levels and distinguish strategy setu
     const reportedConfirmationTimeframe = clean(ai.confirmationTimeframe).toUpperCase();
     const selectedConfirmationTimeframe = allowedConfirmationTimeframes.includes(reportedConfirmationTimeframe) ? reportedConfirmationTimeframe : allowedConfirmationTimeframes[0];
     const universalValidationPassed = ai.universalValidationPassed === true;
-    const priorActual = finite(prior.actualEntry) ? prior.actualEntry : null; const lifeActual = finite(lifecycleInput.actualEntry) ? lifecycleInput.actualEntry : null;
-    const confirmedSignal = direction !== "NO TRADE" && strategyConditionsMet && entryConfirmation;
-    const actualEntry = lifeActual ?? priorActual ?? (confirmedSignal ? (finite(ai.entry) ? ai.entry : currentPrice) : null);
-    const lifecycle = evaluateTradeLifecycle({ direction: direction === "BUY" || direction === "SELL" ? direction : "NONE", currentPrice, projectedEntry, actualEntry, projectedStopLoss, projectedTp1, projectedTp2, projectedFinalTp: projectedTp4, priorStatus: lifecycleInput.status ?? prior?.status ?? null, priorDirection: lifecycleInput.priorDirection ?? prior?.priorDirection ?? null, oppositeConfirmed: lifecycleInput.oppositeConfirmed === true, tp1AlreadyHit: false, tp2AlreadyHit: false, stopAlreadyHit: lifecycleInput.stopHit === true || prior?.stopHit === true, cycleComplete: lifecycleInput.cycleComplete === true });
-    const cycleComplete = lifecycle.status === "SL_HIT" || lifecycle.status === "CYCLE_COMPLETE"; const active = actualEntry !== null && lifecycle.status === "ACTIVE"; const state = cycleComplete ? lifecycle.status : active ? "ACTIVE" : confirmedSignal ? "CONFIRMED" : strategyConditionsMet && entryConfirmation ? "CONFIRMED" : strategyConditionsMet ? "CONFIRMATION_PENDING" : ai.analysisState;
-    const projectionMath = math(direction, actualEntry ?? projectedEntry, projectedStopLoss, projectedTp2 ?? projectedTp1, currentPrice); const statusMessage = active ? `${direction} ACTIVE — confirmed entry ${actualEntry}. Lifecycle is separate from entry confirmation.` : cycleComplete ? lifecycle.message : confirmedSignal ? `${direction} CONFIRMED — Entry Confirmation: YES (${selectedConfirmationTimeframe}). Secondary validation remains visible but cannot gate this confirmed entry.` : strategyConditionsMet ? `${direction} SETUP CONFIRMED — waiting for entry confirmation.` : `${direction} DEVELOPING — strategy conditions pending.`;
-    return Response.json({ ...ai, projectedDirection: direction, analysisState: state, statusMessage, buyProbability, sellProbability, probabilityDirection: direction, entry: projectedEntry, projectedEntry, actualEntry, stopLoss: projectedStopLoss, projectedStopLoss, tp1: projectedTp1, projectedTp1, tp2: projectedTp2, projectedTp2, tp3: projectedTp3, projectedTp3, tp4: projectedTp4, projectedTp4, finalTp: projectedTp4, projectedFinalTp: projectedTp4, confirmationPrice: entryConfirmation && finite(ai.confirmationPrice) ? ai.confirmationPrice : null, tp1Hit: false, tp2Hit: false, stopHit: lifecycle.stopHit, cycleStatus: lifecycle.status, projectionReason: fallback?.reason ?? "Selected strategy projection preserved.", sourceFib: sourceFib ? { state: sourceFib.state, confidence: sourceFib.confidence } : null, fibEntryLevel: strategyId === "fibRetracement" ? (direction === "BUY" ? fibBuyLevel : fibSellLevel) : null, allowedFibEntryPercentages: strategyId === "fibRetracement" ? [82, 78.6, 68.1, 61.8] : [], volumeProfile: volume, rr: projectionMath.rr, priceValidation: projectionMath, isExecutable: confirmedSignal && actualEntry !== null && !cycleComplete, waitReason: statusMessage, tradeReason: statusMessage, invalidation: String(ai.invalidation || ""), mtf: mtfEvidence, confirmation: { strategyConditionsMet, entryConfirmation, entryConfirmationReason: String(ai.entryConfirmationReason || ""), confirmationTimeframe: selectedConfirmationTimeframe, universalValidationPassed }, mtfHierarchy: { enabled: mtfEvidence.enabled, htfTimeframe: mtfEvidence.htfTimeframe, htfSourceOfTruth: true, m15Role: "STRONGER_CONFIRMATION", m5Role: "INITIAL_EXECUTION_CONFIRMATION", lowerTimeframesRewriteHtfLevels: false, projectedEntrySource: "HTF_STRATEGY", actualEntryRule: "STRATEGY_ENTRY_CONFIRMATION", independentLowerTimeframeCycles: true, lifecycleTarget: "OPPOSITE_CONFIRMED_SETUP_OR_SL" } });
+    const priorActual = finite(prior.actualEntry) ? prior.actualEntry : null;
+    const lifeActual = finite(lifecycleInput.actualEntry) ? lifecycleInput.actualEntry : null;
+    const baseConfirmedSignal = direction !== "NO TRADE" && strategyConditionsMet && entryConfirmation;
+
+    // Execution integrity is separate from the strategy's confirmation rules. A confirmed
+    // strategy event can only become an active trade if its actual entry has a coherent
+    // stop/target geometry. This prevents stale/AI-generated prices from creating an
+    // impossible lifecycle without changing the strategy's entry conditions.
+    const aiEntryCandidate = finite(ai.confirmationPrice)
+      ? ai.confirmationPrice
+      : finite(ai.entry)
+        ? ai.entry
+        : currentPrice;
+    const storedEntryCandidate = lifeActual ?? priorActual;
+    const candidateEntry = storedEntryCandidate ?? (baseConfirmedSignal ? aiEntryCandidate : null);
+    const candidateTarget = projectedTp2 ?? projectedTp1;
+    const candidateGeometry = executionGeometry(direction, candidateEntry, projectedStopLoss, candidateTarget);
+
+    // If a persisted actual entry is no longer geometrically valid for the current
+    // direction/levels, do not carry it forward. For a fresh confirmation, fall back
+    // to the confirmation price/current price only when that price is valid.
+    let actualEntry: number | null = null;
+    if (candidateGeometry.valid && candidateEntry !== null) {
+      actualEntry = candidateEntry;
+    } else if (baseConfirmedSignal) {
+      const freshGeometry = executionGeometry(direction, aiEntryCandidate, projectedStopLoss, candidateTarget);
+      if (freshGeometry.valid) actualEntry = aiEntryCandidate;
+    }
+
+    const confirmedSignal = baseConfirmedSignal && actualEntry !== null;
+    const lifecycle = evaluateTradeLifecycle({
+      direction: direction === "BUY" || direction === "SELL" ? direction : "NONE",
+      currentPrice,
+      projectedEntry,
+      actualEntry,
+      projectedStopLoss,
+      projectedTp1,
+      projectedTp2,
+      projectedFinalTp: projectedTp4,
+      priorStatus: lifecycleInput.status ?? prior?.status ?? null,
+      priorDirection: lifecycleInput.priorDirection ?? prior?.priorDirection ?? null,
+      oppositeConfirmed: lifecycleInput.oppositeConfirmed === true,
+      tp1AlreadyHit: false,
+      tp2AlreadyHit: false,
+      stopAlreadyHit: lifecycleInput.stopHit === true || prior?.stopHit === true,
+      cycleComplete: lifecycleInput.cycleComplete === true
+    });
+    const cycleComplete = lifecycle.status === "SL_HIT" || lifecycle.status === "CYCLE_COMPLETE";
+    const active = actualEntry !== null && lifecycle.status === "ACTIVE";
+    const state = cycleComplete
+      ? lifecycle.status
+      : active
+        ? "ACTIVE"
+        : confirmedSignal
+          ? "CONFIRMED"
+          : strategyConditionsMet
+            ? "CONFIRMATION_PENDING"
+            : ai.analysisState;
+    const projectionMath = math(direction, actualEntry ?? projectedEntry, projectedStopLoss, projectedTp2 ?? projectedTp1, currentPrice);
+    const executionValidation = executionGeometry(direction, actualEntry ?? projectedEntry, projectedStopLoss, projectedTp2 ?? projectedTp1);
+    const statusMessage = active
+      ? `${direction} ACTIVE — confirmed entry ${actualEntry}. Lifecycle is separate from entry confirmation.`
+      : cycleComplete
+        ? lifecycle.message
+        : confirmedSignal
+          ? `${direction} CONFIRMED — Entry Confirmation: YES (${selectedConfirmationTimeframe}).`
+          : strategyConditionsMet
+            ? `${direction} SETUP CONFIRMED — waiting for a valid entry price.`
+            : `${direction} DEVELOPING — strategy conditions pending.`;
+    return Response.json({
+      ...ai,
+      projectedDirection: direction,
+      analysisState: state,
+      statusMessage,
+      buyProbability,
+      sellProbability,
+      probabilityDirection,
+      entry: projectedEntry,
+      projectedEntry,
+      actualEntry,
+      stopLoss: projectedStopLoss,
+      projectedStopLoss,
+      tp1: projectedTp1,
+      projectedTp1,
+      tp2: projectedTp2,
+      projectedTp2,
+      tp3: projectedTp3,
+      projectedTp3,
+      tp4: projectedTp4,
+      projectedTp4,
+      finalTp: projectedTp4,
+      projectedFinalTp: projectedTp4,
+      confirmationPrice: entryConfirmation && finite(ai.confirmationPrice) ? ai.confirmationPrice : null,
+      tp1Hit: false,
+      tp2Hit: false,
+      stopHit: lifecycle.stopHit,
+      cycleStatus: lifecycle.status,
+      projectionReason: fallback?.reason ?? "Selected strategy projection preserved.",
+      sourceFib: sourceFib ? { state: sourceFib.state, confidence: sourceFib.confidence } : null,
+      fibEntryLevel: strategyId === "fibRetracement" ? (direction === "BUY" ? fibBuyLevel : fibSellLevel) : null,
+      allowedFibEntryPercentages: strategyId === "fibRetracement" ? [82, 78.6, 68.1, 61.8] : [],
+      volumeProfile: volume,
+      rr: projectionMath.rr,
+      priceValidation: projectionMath,
+      executionValidation,
+      isExecutable: confirmedSignal && actualEntry !== null && !cycleComplete,
+      waitReason: statusMessage,
+      tradeReason: statusMessage,
+      invalidation: String(ai.invalidation || ""),
+      mtf: mtfEvidence,
+      confirmation: {
+        strategyConditionsMet,
+        entryConfirmation,
+        entryConfirmationReason: String(ai.entryConfirmationReason || ""),
+        confirmationTimeframe: selectedConfirmationTimeframe,
+        universalValidationPassed
+      },
+      mtfHierarchy: {
+        enabled: mtfEvidence.enabled,
+        htfTimeframe: mtfEvidence.htfTimeframe,
+        htfSourceOfTruth: true,
+        m15Role: "STRONGER_CONFIRMATION",
+        m5Role: "INITIAL_EXECUTION_CONFIRMATION",
+        lowerTimeframesRewriteHtfLevels: false,
+        projectedEntrySource: "HTF_STRATEGY",
+        actualEntryRule: "STRATEGY_ENTRY_CONFIRMATION",
+        independentLowerTimeframeCycles: true,
+        lifecycleTarget: "OPPOSITE_CONFIRMED_SETUP_OR_SL"
+      }
+    });
   } catch (error) { return Response.json({ error: error instanceof Error ? error.message : "AI Scanner failed." }, { status: 500 }); }
 }
