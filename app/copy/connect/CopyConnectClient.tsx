@@ -7,7 +7,17 @@ type Status = {
   connected?: boolean;
   subscriptionActive?: boolean;
   accessUntil?: string | null;
-  account?: { login?: string; server?: string; status?: string; license_status?: string; license_expires_at?: string | null; license_generation?: number } | null;
+  account?: {
+    mt_login?: string;
+    broker_server?: string;
+    status?: string;
+    copy_enabled?: boolean;
+    ea_version?: string | null;
+    last_heartbeat_at?: string | null;
+    license_status?: string;
+    license_expires_at?: string | null;
+    license_generation?: number;
+  } | null;
   pairing?: { available?: boolean; reason?: string; expiresAt?: string | null; redeemed?: boolean };
   registeredMt5Accounts?: { mt5_login: string; email?: string; created_at?: string; updated_at?: string }[];
   error?: string;
@@ -85,7 +95,7 @@ export default function CopyConnectPage() {
           <a className="vt-primary" href="/downloads/VaultTrades_Copier.ex5" download="VaultTrades_Copier.ex5" style={{ display:"inline-block", marginTop: 8 }}>
             Download VaultTrades Copier (.ex5)
           </a>
-          <p className="muted" style={{ marginTop: 10 }}>Copier v1.11</p>
+          <p className="muted" style={{ marginTop: 10 }}>Copier v1.22</p>
         </section>
 
         <section className="vt-info-card" style={{ marginTop: 20 }}>
@@ -123,10 +133,13 @@ export default function CopyConnectPage() {
         <section className="vt-info-card" style={{ marginTop: 20 }}>
           <div className="vt-label">CONNECTION STATUS</div>
           <h2 style={{ marginTop: 10 }}>{status?.connected ? "CONNECTED" : "NOT CONNECTED"}</h2>
-          <p>MT5 Account: <strong>{account?.login || "—"}</strong></p>
-          <p>Broker Server: <strong>{account?.server || "—"}</strong></p>
+          <p>MT5 Account: <strong>{account?.mt_login || "—"}</strong></p>
+          <p>Broker Server: <strong>{account?.broker_server || "—"}</strong></p>
+          <p>EA Version: <strong>{account?.ea_version || "—"}</strong></p>
           <p>License: <strong>{account?.license_status || "—"}</strong></p>
+          <p>Copy Status: <strong>{account?.copy_enabled === true ? "ENABLED" : "DISABLED"}</strong></p>
           <p>Access Until: <strong>{account?.license_expires_at ? new Date(account.license_expires_at).toLocaleString() : (status?.accessUntil ? new Date(status.accessUntil).toLocaleString() : "—")}</strong></p>
+          <p>Last Heartbeat: <strong>{account?.last_heartbeat_at ? new Date(account.last_heartbeat_at).toLocaleString() : "—"}</strong></p>
           <p>Latest response: <strong>{status?.connected ? "CONNECTED / HEARTBEAT ONLINE" : "WAITING FOR MT5 COPIER"}</strong></p>
         </section>
 
