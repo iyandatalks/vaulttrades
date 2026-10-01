@@ -166,8 +166,10 @@ export default function VaultTradesCommunitySales() {
           <div className="vt-label">COMMUNITY TESTIMONIES</div>
           <h2>Hear from people who have actually purchased and used VaultTrades products.</h2>
           <p className="vt-testimonials-intro">
-            Testimonials are restricted to customers with a verified active purchased VaultTrades product.
-            New submissions are reviewed before they are published.
+            Have you purchased a VaultTrades product or joined one of our programmes?
+            We would love to hear from you. Share how your experience with our service or programme
+            has influenced your trading habits, decision-making and financial journey.
+            Your submission will be reviewed before it is published.
           </p>
 
           {testimonials.length > 0 ? (
@@ -185,8 +187,8 @@ export default function VaultTradesCommunitySales() {
             </div>
           ) : (
             <div className="vt-testimonials-empty">
-              <strong>The first community testimonies will appear here.</strong>
-              <span>Customers with active purchased products can submit theirs below.</span>
+              <strong>Could you be the first to share your VaultTrades experience?</strong>
+              <span>If you have purchased an active VaultTrades product, we would love to hear from you below.</span>
             </div>
           )}
 
@@ -195,8 +197,8 @@ export default function VaultTradesCommunitySales() {
               <div className="vt-label">ADD YOUR EXPERIENCE</div>
               <h3>Share your VaultTrades experience.</h3>
               <p>
-                Signing up for an account alone does not qualify. You must have an active purchased
-                VaultTrades product to submit a testimonial.
+                We would love to hear from you. How has our service or programme changed your trading
+                habits and financial journey? Submit your testimonial and share your experience with the community.
               </p>
             </div>
 
@@ -226,7 +228,7 @@ export default function VaultTradesCommunitySales() {
                 <strong>{signedIn ? "Active product required" : "Customer access required"}</strong>
                 <p>
                   {signedIn
-                    ? "Your account does not currently have an active purchased product. Purchase a VaultTrades product to unlock testimonial submission."
+                    ? "If you have purchased a VaultTrades product, make sure your active product is linked to this account to unlock testimonial submission."
                     : "Sign in to your VaultTrades account after purchasing a product to unlock testimonial submission."}
                 </p>
                 <div className="vt-community-actions">
