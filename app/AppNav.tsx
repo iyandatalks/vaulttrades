@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 const tabs = [
   { href: "/", label: "Home" },
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/products", label: "Products" },
+  { href: "/subscription?promo=1", label: "Products" },
   { href: "/partners", label: "Partners" },
   { href: "/how-it-works", label: "How It Works" },
   { href: "/profile", label: "Profile" },
@@ -45,7 +45,8 @@ export default function AppNav() {
         <Link href="/" className="vt-nav-brand">VAULTTRADES</Link>
         <div className="vt-nav-links">
           {tabs.map((tab) => {
-            const active = pathname === tab.href || (tab.href !== "/" && pathname.startsWith(tab.href));
+            const tabPath = tab.href.split("?")[0];
+            const active = pathname === tabPath || (tabPath !== "/" && pathname.startsWith(tabPath));
             return <Link key={tab.href} href={tab.href} className={"vt-nav-link" + (active ? " active" : "")}>{tab.label}</Link>;
           })}
         </div>
