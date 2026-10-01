@@ -29,6 +29,7 @@ export default function AppNav() {
   const pathname = usePathname();
   return (
     <nav className="vt-nav" aria-label="VaultTrades navigation">
+      <Link href="/subscription?product=analyzer_monthly" style={{ position:"fixed", top:8, left:"50%", transform:"translateX(-50%)", zIndex:1000, background:"#dc2626", color:"#fff", padding:"7px 16px", borderRadius:999, fontSize:12, fontWeight:950, letterSpacing:".06em", textDecoration:"none", boxShadow:"0 8px 24px rgba(0,0,0,.35)", whiteSpace:"nowrap" }}>50% DISCOUNT · CODE VAULT50</Link>
       <div className="vt-promo-bar" aria-label="VaultTrades promotions">
         <div className="vt-promo-track">
           {[...promoItems, ...promoItems].map((item, index) => (
