@@ -5,7 +5,7 @@ import { createBrowserClient } from "@supabase/ssr";
 
 const PRODUCTS = [
   { code: "analyzer_monthly", name: "Analyzer", price: "73.99", suffix: "/month", description: "Structured chart analysis, strategy conditions and trade planning." },
-  { code: "founders_mentorship_once", name: "Founders Mentorship", price: "53", suffix: " once off", description: "A focused mentorship program with a 1-hour one-on-one session." },
+  { code: "founders_mentorship_once", name: "Founders Mentorship", price: "88.88", suffix: " once off", description: "A focused mentorship program with a 1-hour one-on-one session." },
   { code: "automated_trader_monthly", name: "Copy Trading", price: "99.99", suffix: "/month", description: "VaultTrades copy trading with connected MT5 execution." },
 ] as const;
 
@@ -49,19 +49,6 @@ function SubscriptionContent() {
     setLoading(productCode);
     setError("");
     try {
-      if (referralCode.trim() && discount && discount.productCode === productCode) {
-        const response = await fetch("/api/referrals/prepare-payment", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ productCode, code: referralCode.trim().toUpperCase() }),
-        });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok || !data.valid || !data.paymentUrl) {
-          throw new Error(data.error || "Unable to prepare the discounted PayPal payment.");
-        }
-        window.location.href = data.paymentUrl;
-        return;
-      }
       const sb = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
       const { data: authData } = await sb.auth.getUser();
 
@@ -84,13 +71,26 @@ function SubscriptionContent() {
         if (!registration.ok) throw new Error(registrationData.message || registrationData.error || "Unable to save your MT5 account.");
       }
 
+      if (referralCode.trim() && discount && discount.productCode === productCode) {
+        const response = await fetch("/api/referrals/prepare-payment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ productCode, code: referralCode.trim().toUpperCase() }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.valid || !data.paymentUrl) {
+          throw new Error(data.error || "Unable to prepare the discounted PayPal payment.");
+        }
+        window.location.href = data.paymentUrl;
+        return;
+      }
+
       const response = await fetch("/api/paypal/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           productCode,
           mt5Login: productCode === "automated_trader_monthly" ? mt5Login.trim() : undefined,
-          referralCode: referralCode.trim().toUpperCase() || undefined,
         }),
       });
       const data = await response.json();
@@ -167,7 +167,7 @@ function SubscriptionContent() {
 
                 {discount && discount.productCode === product.code ? (
                   <button onClick={() => void startPayPal(product.code)} disabled={Boolean(loading)} style={{ width: "100%", marginTop: 16, padding: "13px 16px", border: 0, borderRadius: 8, background: "#dc2626", color: "#fff", fontWeight: 900, cursor: loading ? "wait" : "pointer" }}>
-                    {loading === product.code ? "Opening discounted PayPal..." : `Pay $\{discount.discountedPrice.toFixed(2)}/month with VAULT50`}
+                    {loading === product.code ? "Opening discounted PayPal..." : `Pay ${discount.discountedPrice.toFixed(2)}/month with VAULT50`}
                   </button>
                 ) : (
                   <button onClick={() => void startPayPal(product.code)} disabled={Boolean(loading)} style={{ width: "100%", marginTop: 16, padding: "13px 16px", border: 0, borderRadius: 8, background: "#d4a637", color: "#050812", fontWeight: 900, cursor: loading ? "wait" : "pointer" }}>
