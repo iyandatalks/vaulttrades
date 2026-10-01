@@ -49,6 +49,19 @@ function SubscriptionContent() {
     setLoading(productCode);
     setError("");
     try {
+      if (referralCode.trim() && discount && discount.productCode === productCode) {
+        const response = await fetch("/api/referrals/prepare-payment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ productCode, code: referralCode.trim().toUpperCase() }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.valid || !data.paymentUrl) {
+          throw new Error(data.error || "Unable to prepare the discounted PayPal payment.");
+        }
+        window.location.href = data.paymentUrl;
+        return;
+      }
       const sb = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
       const { data: authData } = await sb.auth.getUser();
 
@@ -152,9 +165,15 @@ function SubscriptionContent() {
                   </div>}
                 </div>
 
-                <button onClick={() => void startPayPal(product.code)} disabled={Boolean(loading)} style={{ width: "100%", marginTop: 16, padding: "13px 16px", border: 0, borderRadius: 8, background: "#d4a637", color: "#050812", fontWeight: 900, cursor: loading ? "wait" : "pointer" }}>
-                  {loading === product.code ? "Opening PayPal..." : "Continue to PayPal"}
-                </button>
+                {discount && discount.productCode === product.code ? (
+                  <button onClick={() => void startPayPal(product.code)} disabled={Boolean(loading)} style={{ width: "100%", marginTop: 16, padding: "13px 16px", border: 0, borderRadius: 8, background: "#dc2626", color: "#fff", fontWeight: 900, cursor: loading ? "wait" : "pointer" }}>
+                    {loading === product.code ? "Opening discounted PayPal..." : `Pay $\{discount.discountedPrice.toFixed(2)}/month with VAULT50`}
+                  </button>
+                ) : (
+                  <button onClick={() => void startPayPal(product.code)} disabled={Boolean(loading)} style={{ width: "100%", marginTop: 16, padding: "13px 16px", border: 0, borderRadius: 8, background: "#d4a637", color: "#050812", fontWeight: 900, cursor: loading ? "wait" : "pointer" }}>
+                    {loading === product.code ? "Opening PayPal..." : "Continue to PayPal"}
+                  </button>
+                )}
               </article>
             );
           })}
