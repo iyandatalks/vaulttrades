@@ -6,6 +6,7 @@ export type VaultTradesPayPalProduct = {
   entitlement: "analyzer" | "copy_trading" | "founders_mentorship";
   billingMode: "monthly" | "once_off";
   returnPath: string;
+  referralPaymentUrl?: string;
 };
 
 export const PAYPAL_PRODUCTS: Record<string, VaultTradesPayPalProduct> = {
@@ -17,6 +18,7 @@ export const PAYPAL_PRODUCTS: Record<string, VaultTradesPayPalProduct> = {
     entitlement: "analyzer",
     billingMode: "monthly",
     returnPath: "/subscription/paypal/success?product=analyzer_monthly",
+    referralPaymentUrl: "https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-4JF96214DB050533SNK7ABPY",
   },
   automated_trader_monthly: {
     code: "automated_trader_monthly",
@@ -26,11 +28,12 @@ export const PAYPAL_PRODUCTS: Record<string, VaultTradesPayPalProduct> = {
     entitlement: "copy_trading",
     billingMode: "monthly",
     returnPath: "/subscription/paypal/success?product=automated_trader_monthly",
+    referralPaymentUrl: "https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-7C725257BX598445LNK7AETA",
   },
   founders_mentorship_once: {
     code: "founders_mentorship_once",
     name: "Founders Mentorship",
-    price: 53.00,
+    price: 88.88,
     planId: "P-7PG440523L908841RNJ2GXQQ",
     entitlement: "founders_mentorship",
     billingMode: "once_off",
