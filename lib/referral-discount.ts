@@ -63,6 +63,7 @@ export async function validateReferralDiscount(params: {
   const discountedPrice = Number((originalPrice * (1 - Number(campaign.discount_percent) / 100)).toFixed(2));
 
   return {
+    campaignId: campaign.id,
     code: campaign.code,
     productCode: product.code,
     productName: product.name,
