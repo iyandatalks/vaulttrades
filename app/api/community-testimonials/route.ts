@@ -18,7 +18,16 @@ export async function GET() {
     return NextResponse.json({ error: "TESTIMONIALS_LOAD_FAILED" }, { status: 500 });
   }
 
-  return NextResponse.json({ testimonials: data ?? [] });
+  let signedIn = false;
+  let canSubmit = false;
+  try {
+    const auth = await createClient();
+    const { data: { user } } = await auth.auth.getUser();
+    signedIn = Boolean(user);
+    if (user) canSubmit = (await getProductAccess(user.id)).anyPaidProduct;
+  } catch {}
+
+  return NextResponse.json({ testimonials: data ?? [], signedIn, canSubmit });
 }
 
 export async function POST(request: Request) {
@@ -80,8 +89,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "TESTIMONIAL_SUBMIT_FAILED" }, { status: 500 });
   }
 
-  return NextResponse.json({
-    ok: true,
-    message: "Thank you. Your testimonial has been submitted for review.",
-  });
+  return NextResponse.json({ ok: true, message: "Thank you. Your testimonial has been submitted for review." });
 }
