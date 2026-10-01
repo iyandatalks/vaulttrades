@@ -149,30 +149,22 @@ function SubscriptionContent() {
                   </div>
                 )}
 
-                <div style={{ marginTop: 16, padding: 14, borderRadius: 10, background: "rgba(220,38,38,.08)", border: "1px solid rgba(220,38,38,.35)" }}>
-                  <div style={{ color: "#ff4d4d", fontWeight: 950, fontSize: 14 }}>50% DISCOUNT — CODE VAULT50</div>
-                  <div style={{ color: "#aeb5c6", fontSize: 12, marginTop: 5 }}>Valid for the first 6 monthly billing cycles when you qualify through a VaultTrades referral.</div>
-                  <div style={{ display:"flex", gap:8, marginTop:10 }}>
-                    <input value={referralCode} onChange={e=>setReferralCode(e.target.value.toUpperCase())} placeholder="Enter VAULT50" style={{ flex:1, padding:"11px 12px", borderRadius:8, border:"1px solid rgba(220,38,38,.4)", background:"#050812", color:"#f4f6fb", outline:"none" }} />
-                    <button onClick={()=>void applyReferralCode(product.code)} disabled={applyingDiscount || !referralCode.trim()} style={{ padding:"11px 14px", border:0, borderRadius:8, background:"#dc2626", color:"white", fontWeight:900, cursor:applyingDiscount?"wait":"pointer" }}>{applyingDiscount?"Checking…":"Apply"}</button>
+                {product.code !== "founders_mentorship_once" && (
+                  <div style={{ marginTop: 16, padding: 14, borderRadius: 10, background: "rgba(220,38,38,.08)", border: "1px solid rgba(220,38,38,.35)" }}>
+                    <div style={{ color: "#ff4d4d", fontWeight: 950, fontSize: 14 }}>50% DISCOUNT — CODE VAULT50</div>
+                    <div style={{ color: "#aeb5c6", fontSize: 12, marginTop: 5 }}>Valid for the first 6 monthly billing cycles when you qualify through a VaultTrades referral.</div>
+                    <div style={{ display:"flex", gap:8, marginTop:10 }}>
+                      <input value={referralCode} onChange={e=>setReferralCode(e.target.value.toUpperCase())} placeholder="Enter VAULT50" style={{ flex:1, padding:"11px 12px", borderRadius:8, border:"1px solid rgba(220,38,38,.4)", background:"#050812", color:"#f4f6fb", outline:"none" }} />
+                      <button onClick={()=>void applyReferralCode(product.code)} disabled={applyingDiscount || !referralCode.trim()} style={{ padding:"11px 14px", border:0, borderRadius:8, background:"#dc2626", color:"white", fontWeight:900, cursor:applyingDiscount?"wait":"pointer" }}>{applyingDiscount?"Checking…":"Apply"}</button>
+                    </div>
+                    {discountError && <div style={{ color:"#ffb5b5", fontSize:12, marginTop:8 }}>{discountError}</div>}
+                    {discount && discount.productCode === product.code && <div style={{ marginTop:10, color:"#e7eaf0", fontSize:13, lineHeight:1.7 }}>
+                      <div>Original: <s>${discount.originalPrice.toFixed(2)}/month</s></div>
+                      <div style={{ color:"#ff6b6b", fontWeight:800 }}>VAULT50 discount: -${discount.discountAmount.toFixed(2)} ({discount.discountPercent}%)</div>
+                      <div style={{ fontSize:18, fontWeight:950 }}>You pay: ${discount.discountedPrice.toFixed(2)}/month for {discount.discountCycles} months</div>
+                      <div style={{ color:"#aeb5c6", fontSize:12 }}>After month {discount.discountCycles}: ${discount.originalPrice.toFixed(2)}/month.</div>
+                    </div>}
                   </div>
-                  {discountError && <div style={{ color:"#ffb5b5", fontSize:12, marginTop:8 }}>{discountError}</div>}
-                  {discount && discount.productCode === product.code && <div style={{ marginTop:10, color:"#e7eaf0", fontSize:13, lineHeight:1.7 }}>
-                    <div>Original: <s>${discount.originalPrice.toFixed(2)}/month</s></div>
-                    <div style={{ color:"#ff6b6b", fontWeight:800 }}>VAULT50 discount: -${discount.discountAmount.toFixed(2)} ({discount.discountPercent}%)</div>
-                    <div style={{ fontSize:18, fontWeight:950 }}>You pay: ${discount.discountedPrice.toFixed(2)}/month for {discount.discountCycles} months</div>
-                    <div style={{ color:"#aeb5c6", fontSize:12 }}>After month {discount.discountCycles}: ${discount.originalPrice.toFixed(2)}/month.</div>
-                  </div>}
-                </div>
-
-                {discount && discount.productCode === product.code ? (
-                  <button onClick={() => void startPayPal(product.code)} disabled={Boolean(loading)} style={{ width: "100%", marginTop: 16, padding: "13px 16px", border: 0, borderRadius: 8, background: "#dc2626", color: "#fff", fontWeight: 900, cursor: loading ? "wait" : "pointer" }}>
-                    {loading === product.code ? "Opening discounted PayPal..." : `Pay ${discount.discountedPrice.toFixed(2)}/month with VAULT50`}
-                  </button>
-                ) : (
-                  <button onClick={() => void startPayPal(product.code)} disabled={Boolean(loading)} style={{ width: "100%", marginTop: 16, padding: "13px 16px", border: 0, borderRadius: 8, background: "#d4a637", color: "#050812", fontWeight: 900, cursor: loading ? "wait" : "pointer" }}>
-                    {loading === product.code ? "Opening PayPal..." : "Continue to PayPal"}
-                  </button>
                 )}
               </article>
             );
