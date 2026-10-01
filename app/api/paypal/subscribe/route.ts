@@ -15,7 +15,6 @@ export async function POST(request: Request) {
 
     const body = await request.json().catch(() => ({}));
     const productCode = String(body?.productCode || "");
-    const referralCode = String(body?.referralCode || "").trim().toUpperCase();
     const product = getPayPalProduct(productCode);
     if (!product) return NextResponse.json({ error: "Invalid VaultTrades product." }, { status: 400 });
 
@@ -32,13 +31,6 @@ export async function POST(request: Request) {
 
     const email = String(user.email || profile.email || "").trim().toLowerCase();
     let mt5Login = "";
-    if (referralCode) {
-      return NextResponse.json({
-        error: "VAULT50_USE_PAYMENT_LINK",
-        message: "VAULT50 is paid through its fixed PayPal discount link. Apply VAULT50 first, then use the discounted payment button.",
-      }, { status: 400 });
-    }
-
     const paypalPlanId = product.planId;
 
     if (product.code === "automated_trader_monthly") {
