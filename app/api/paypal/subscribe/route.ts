@@ -4,7 +4,6 @@ import { createAdminClient } from "../../../../lib/supabase/admin";
 import { paypalRequest } from "../../../../lib/paypal";
 import { getPayPalProduct } from "../../../../lib/paypal-products";
 import { COPY_TRADING_ENTITLEMENT } from "../../../../lib/copy-access";
-import { validateReferralDiscount, getOrCreateReferralPayPalPlan } from "../../../../lib/referral-discount";
 
 const BASE_URL = "https://vaulttradesve.com";
 
@@ -33,19 +32,14 @@ export async function POST(request: Request) {
 
     const email = String(user.email || profile.email || "").trim().toLowerCase();
     let mt5Login = "";
-    let referralDiscount: Awaited<ReturnType<typeof validateReferralDiscount>> | null = null;
-    let paypalPlanId = product.planId;
-
     if (referralCode) {
-      referralDiscount = await validateReferralDiscount({ userId: user.id, productCode: product.code, code: referralCode });
-      paypalPlanId = await getOrCreateReferralPayPalPlan({
-        campaignId: referralDiscount.campaignId,
-        productCode: product.code,
-        basePlanId: product.planId,
-        originalPrice: referralDiscount.originalPrice,
-        discountedPrice: referralDiscount.discountedPrice,
-      });
+      return NextResponse.json({
+        error: "VAULT50_USE_PAYMENT_LINK",
+        message: "VAULT50 is paid through its fixed PayPal discount link. Apply VAULT50 first, then use the discounted payment button.",
+      }, { status: 400 });
     }
+
+    const paypalPlanId = product.planId;
 
     if (product.code === "automated_trader_monthly") {
       mt5Login = String(body?.mt5Login || "").trim();
@@ -124,22 +118,6 @@ export async function POST(request: Request) {
     const now = new Date();
     const end = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-    if (referralDiscount) {
-      await admin.from("referral_discount_redemptions").insert({
-        discount_code_id: referralDiscount.campaignId,
-        customer_user_id: profile.id,
-        referrer_user_id: (await admin.from("users").select("id").eq("referral_code", referralDiscount.referrerCode).maybeSingle()).data?.id ?? null,
-        product_code: product.code,
-        paypal_subscription_id: String(result.id),
-        original_price: referralDiscount.originalPrice,
-        discount_percent: referralDiscount.discountPercent,
-        discounted_price: referralDiscount.discountedPrice,
-        discount_cycles: referralDiscount.discountCycles,
-        status: "pending",
-        updated_at: new Date().toISOString()
-      });
-    }
-
     await admin.from("product_licenses").upsert({
       user_id: profile.id,
       email,
@@ -154,15 +132,14 @@ export async function POST(request: Request) {
       source_payment_snapshot: {
         provider: "paypal",
         plan_id: paypalPlanId,
-        base_plan_id: product.planId,
         subscription_id: String(result.id),
         product_code: product.code,
-        amount: referralDiscount?.discountedPrice ?? product.price,
+        amount: product.price,
         original_amount: product.price,
-        discount_code: referralDiscount?.code ?? null,
-        discount_percent: referralDiscount?.discountPercent ?? 0,
-        discount_cycles: referralDiscount?.discountCycles ?? 0,
-        referrer_code: referralDiscount?.referrerCode ?? null,
+        discount_code: null,
+        discount_percent: 0,
+        discount_cycles: 0,
+        referrer_code: null,
         currency: "USD",
         mt5_login: product.code === "automated_trader_monthly" ? mt5Login : undefined,
         entitlement_code: product.entitlement,
@@ -174,7 +151,7 @@ export async function POST(request: Request) {
       subscriptionId: result.id,
       approveUrl: approvalUrl,
       product: { code: product.code, name: product.name, price: product.price },
-      discount: referralDiscount ? { code: referralDiscount.code, originalPrice: referralDiscount.originalPrice, discountPercent: referralDiscount.discountPercent, discountedPrice: referralDiscount.discountedPrice, discountCycles: referralDiscount.discountCycles } : null,
+      discount: null,
       mt5Login: product.code === "automated_trader_monthly" ? mt5Login : null,
     });
   } catch (error) {
