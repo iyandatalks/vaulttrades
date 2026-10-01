@@ -46,7 +46,9 @@ export function getPayPalProduct(code: string) {
 }
 
 export function getPayPalProductByPlanId(planId: string) {
-  return Object.values(PAYPAL_PRODUCTS).find((product) => product.planId === planId) ?? null;
+  const standard = Object.values(PAYPAL_PRODUCTS).find((product) => product.planId === planId);
+  if (standard) return standard;
+  return getPayPalReferralProductByPlanId(planId);
 }
 
 const REFERRAL_PAYPAL_PLAN_TO_PRODUCT: Record<string, string> = {
