@@ -151,3 +151,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unable to start secure checkout. Please contact VaultTrades support." }, { status: 500 });
   }
 }
+
+// VAULT50 is handled by the fixed-link referral flow; this route remains standard-price checkout only.
