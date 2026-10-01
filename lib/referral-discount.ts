@@ -1,6 +1,5 @@
 import { createAdminClient } from "./supabase/admin";
 import { getPayPalProduct } from "./paypal-products";
-import { paypalRequest } from "./paypal";
 
 export const VAULT50_CODE = "VAULT50";
 export const VAULT50_DISCOUNT_PERCENT = 50;
@@ -77,69 +76,3 @@ export async function validateReferralDiscount(params: {
   };
 }
 
-export async function getOrCreateReferralPayPalPlan(params: {
-  campaignId: string;
-  productCode: string;
-  basePlanId: string;
-  originalPrice: number;
-  discountedPrice: number;
-}) {
-  const admin = createAdminClient();
-  const existing = await admin
-    .from("referral_discount_plans")
-    .select("paypal_plan_id")
-    .eq("discount_code_id", params.campaignId)
-    .eq("product_code", params.productCode)
-    .maybeSingle();
-
-  if (existing.data?.paypal_plan_id) return existing.data.paypal_plan_id;
-
-  const basePlan = await paypalRequest(`/v1/billing/plans/${encodeURIComponent(params.basePlanId)}`, { method: "GET" });
-  const productId = String(basePlan.product_id || "");
-  if (!productId) throw new Error("The existing PayPal plan does not expose a product ID.");
-
-  const created = await paypalRequest("/v1/billing/plans", {
-    method: "POST",
-    headers: { "PayPal-Request-Id": `vaulttrades-vault50-${params.productCode}` },
-    body: JSON.stringify({
-      product_id: productId,
-      name: `VaultTrades VAULT50 - ${params.productCode}`,
-      description: "VaultTrades referral subscription: 50% off for the first 6 monthly billing cycles, then regular pricing.",
-      billing_cycles: [
-        {
-          frequency: { interval_unit: "MONTH", interval_count: 1 },
-          tenure_type: "TRIAL",
-          sequence: 1,
-          total_cycles: 6,
-          pricing_scheme: { fixed_price: { value: params.discountedPrice.toFixed(2), currency_code: "USD" } }
-        },
-        {
-          frequency: { interval_unit: "MONTH", interval_count: 1 },
-          tenure_type: "REGULAR",
-          sequence: 2,
-          total_cycles: 0,
-          pricing_scheme: { fixed_price: { value: params.originalPrice.toFixed(2), currency_code: "USD" } }
-        }
-      ],
-      payment_preferences: {
-        auto_bill_outstanding: true,
-        payment_failure_threshold: 1
-      }
-    })
-  });
-
-  const planId = String(created.id || "");
-  if (!planId) throw new Error("PayPal did not return the referral plan ID.");
-
-  await admin.from("referral_discount_plans").upsert({
-    discount_code_id: params.campaignId,
-    product_code: params.productCode,
-    paypal_plan_id: planId,
-    original_price: params.originalPrice,
-    discounted_price: params.discountedPrice,
-    currency: "USD",
-    updated_at: new Date().toISOString()
-  }, { onConflict: "discount_code_id,product_code" });
-
-  return planId;
-}
