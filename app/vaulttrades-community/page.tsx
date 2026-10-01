@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import TestimonialStyles from "./TestimonialStyles";
 
 const outcomes = [
   ["01", "A repeatable trading routine", "Know what to check before, during and after a trade instead of improvising under pressure."],
@@ -85,6 +86,7 @@ export default function VaultTradesCommunitySales() {
 
   return (
     <main className="vt-community-sales">
+      <TestimonialStyles />
       <section className="vt-community-hero">
         <div className="vt-community-nav">
           <div className="vt-brand">Vault<span>Trades</span></div>
