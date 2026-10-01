@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
 import { paypalRequest } from "../../../../lib/paypal";
-import { getPayPalProductByPlanId } from "../../../../lib/paypal-products";
+import { getPayPalProductByPlanId, getPayPalReferralProductByPlanId } from "../../../../lib/paypal-products";
 import { sendCopyActivationEmail } from "../../../../lib/copy-email";
 
 const SUBSCRIPTION_EVENTS: Record<string, string> = {
@@ -59,6 +59,7 @@ export async function POST(request: Request) {
 
     const planId = String(resource.plan_id || providerSubscription?.plan_id || "");
     const product = getPayPalProductByPlanId(planId);
+    const referralProduct = getPayPalReferralProductByPlanId(planId);
     if (!product) return NextResponse.json({ received: true, ignored: true, reason: "Unknown VaultTrades PayPal plan" }, { status: 200 });
 
     let authUserId = String(resource.custom_id || providerSubscription?.custom_id || "");
@@ -75,7 +76,51 @@ export async function POST(request: Request) {
     }
     if (!profile || !authUserId) return NextResponse.json({ received: true, ignored: true, reason: "VaultTrades customer could not be matched" }, { status: 200 });
 
+    if (referralProduct) {
+      const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+      const { data: pendingRedemption } = await admin
+        .from("referral_discount_redemptions")
+        .select("id,discounted_price,discount_percent,discount_cycles,original_price")
+        .eq("customer_user_id", profile.id)
+        .eq("product_code", referralProduct.code)
+        .eq("status", "pending")
+        .gte("created_at", cutoff)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!pendingRedemption) {
+        return NextResponse.json({
+          received: true,
+          ignored: true,
+          reason: "Discounted PayPal subscription has no recent authorized VAULT50 application"
+        }, { status: 200 });
+      }
+    }
+
     const status = SUBSCRIPTION_EVENTS[eventType];
+
+    if (referralProduct && status === "active") {
+      const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+      const { data: pendingRedemption } = await admin
+        .from("referral_discount_redemptions")
+        .select("id")
+        .eq("customer_user_id", profile.id)
+        .eq("product_code", referralProduct.code)
+        .eq("status", "pending")
+        .gte("created_at", cutoff)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (pendingRedemption?.id) {
+        await admin.from("referral_discount_redemptions").update({
+          paypal_subscription_id: subscriptionId,
+          status: "active",
+          updated_at: new Date().toISOString(),
+        }).eq("id", pendingRedemption.id);
+      }
+    }
     const isLifetimeMentorship = product.code === "founders_mentorship_once";
     const existingLicense = await admin
       .from("product_licenses")
