@@ -208,3 +208,5 @@ export default function SubscriptionPage() {
     </Suspense>
   );
 }
+
+// VAULT50 uses fixed PayPal discount links; standard checkout remains server-created.
