@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "../../../../lib/supabase/server";
 import { validateReferralDiscount } from "../../../../lib/referral-discount";
-import { getPayPalProduct } from "../../../../lib/paypal-products";
 
 export async function POST(request: Request) {
   try {
