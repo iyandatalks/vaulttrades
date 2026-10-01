@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { useEffect, useState } from "react";
 
 const outcomes = [
   ["01", "A repeatable trading routine", "Know what to check before, during and after a trade instead of improvising under pressure."],
@@ -25,8 +25,63 @@ const packageItems = [
   "Online community accountability and development",
 ];
 
+type Testimonial = {
+  id: string;
+  display_name: string;
+  product_code: string | null;
+  testimonial: string;
+  created_at: string;
+};
+
 export default function VaultTradesCommunitySales() {
   const checkout = "/subscription?product=founders_mentorship_once&start=1";
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+  const [canSubmit, setCanSubmit] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
+  const [testimonial, setTestimonial] = useState("");
+  const [testimonialStatus, setTestimonialStatus] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/community-testimonials", { cache: "no-store" })
+      .then(async (res) => {
+        if (!res.ok) throw new Error("load_failed");
+        return res.json();
+      })
+      .then((data) => {
+        setTestimonials(data.testimonials ?? []);
+        setCanSubmit(Boolean(data.canSubmit));
+        setSignedIn(Boolean(data.signedIn));
+      })
+      .catch(() => {});
+  }, []);
+
+  async function submitTestimonial() {
+    setSubmitting(true);
+    setTestimonialStatus("");
+
+    try {
+      const res = await fetch("/api/community-testimonials", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ testimonial }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setTestimonialStatus(data.message || "Your testimonial could not be submitted.");
+        return;
+      }
+
+      setTestimonial("");
+      setCanSubmit(false);
+      setTestimonialStatus(data.message || "Submitted for review.");
+    } catch {
+      setTestimonialStatus("Something went wrong. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <main className="vt-community-sales">
@@ -37,14 +92,14 @@ export default function VaultTradesCommunitySales() {
         </div>
 
         <div className="vt-community-hero-inner">
-          <div className="vt-label">VAULTTRADES COMMUNITY</div>
-          <h1>Stop reacting to the market.<br /><span>Start operating with a process.</span></h1>
+          <div className="vt-label">VAULTTRADES COMMUNITY · NEXT PROGRAM</div>
+          <h1>Sign up for the next<br /><span>program online.</span></h1>
           <p>
-            VaultTrades Community is an online trading-development environment built around
-            structure, risk management, disciplined execution, psychology and technology.
+            Join the next VaultTrades Community programme and build a more structured approach
+            to trading around risk management, disciplined execution, psychology and technology.
           </p>
           <div className="vt-community-actions">
-            <a className="vt-community-cta" href={checkout}>VIEW FOUNDING PACKAGE <b>→</b></a>
+            <a className="vt-community-cta" href={checkout}>SIGN UP FOR THE NEXT PROGRAM <b>→</b></a>
             <a className="vt-community-link" href="#package">See what is included</a>
           </div>
           <div className="vt-community-motto">CAPITAL FIRST · RISK DEFINED · PROCESS FOLLOWED · EXECUTION DISCIPLINED</div>
@@ -100,6 +155,84 @@ export default function VaultTradesCommunitySales() {
             {packageItems.map((item, i) => (
               <div key={item}><span>{String(i + 1).padStart(2, "0")}</span><b>{item}</b></div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="vt-community-dark vt-testimonials-section" id="testimonials">
+        <div className="vt-community-container">
+          <div className="vt-label">COMMUNITY TESTIMONIES</div>
+          <h2>Hear from people who have actually purchased and used VaultTrades products.</h2>
+          <p className="vt-testimonials-intro">
+            Testimonials are restricted to customers with a verified active purchased VaultTrades product.
+            New submissions are reviewed before they are published.
+          </p>
+
+          {testimonials.length > 0 ? (
+            <div className="vt-testimonials-grid">
+              {testimonials.map((item) => (
+                <article className="vt-testimonial" key={item.id}>
+                  <div className="vt-testimonial-mark">“</div>
+                  <p>{item.testimonial}</p>
+                  <div className="vt-testimonial-author">
+                    <strong>{item.display_name}</strong>
+                    <span>Verified VaultTrades customer</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="vt-testimonials-empty">
+              <strong>The first community testimonies will appear here.</strong>
+              <span>Customers with active purchased products can submit theirs below.</span>
+            </div>
+          )}
+
+          <div className="vt-testimonial-submit">
+            <div>
+              <div className="vt-label">ADD YOUR EXPERIENCE</div>
+              <h3>Share your VaultTrades experience.</h3>
+              <p>
+                Signing up for an account alone does not qualify. You must have an active purchased
+                VaultTrades product to submit a testimonial.
+              </p>
+            </div>
+
+            {canSubmit ? (
+              <div className="vt-testimonial-form">
+                <textarea
+                  value={testimonial}
+                  onChange={(e) => setTestimonial(e.target.value)}
+                  maxLength={1000}
+                  placeholder="Tell the community what changed in your trading process, education or experience with VaultTrades..."
+                  rows={6}
+                />
+                <div className="vt-testimonial-form-footer">
+                  <span>{testimonial.length}/1000</span>
+                  <button
+                    className="vt-community-cta vt-testimonial-button"
+                    onClick={submitTestimonial}
+                    disabled={submitting || testimonial.trim().length < 20}
+                  >
+                    {submitting ? "SUBMITTING..." : "SUBMIT TESTIMONY"}
+                  </button>
+                </div>
+                {testimonialStatus && <div className="vt-testimonial-status">{testimonialStatus}</div>}
+              </div>
+            ) : (
+              <div className="vt-testimonial-gate">
+                <strong>{signedIn ? "Active product required" : "Customer access required"}</strong>
+                <p>
+                  {signedIn
+                    ? "Your account does not currently have an active purchased product. Purchase a VaultTrades product to unlock testimonial submission."
+                    : "Sign in to your VaultTrades account after purchasing a product to unlock testimonial submission."}
+                </p>
+                <div className="vt-community-actions">
+                  {!signedIn && <a className="vt-community-link" href="/auth/login?next=%2Fcommunity">SIGN IN</a>}
+                  <a className="vt-community-cta" href={checkout}>VIEW PRODUCTS <b>→</b></a>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -162,7 +295,7 @@ export default function VaultTradesCommunitySales() {
       <footer className="vt-community-footer">
         <div className="vt-brand">Vault<span>Trades</span></div>
         <h2>Protect the capital.<br />Follow the plan.<br /><span>Execute the process.</span></h2>
-        <a className="vt-community-cta" href={checkout}>VIEW THE VAULTTRADES COMMUNITY PRODUCT <b>→</b></a>
+        <a className="vt-community-cta" href={checkout}>SIGN UP FOR THE NEXT PROGRAM <b>→</b></a>
         <small>The market decides the outcome. You control the process.</small>
       </footer>
     </main>
