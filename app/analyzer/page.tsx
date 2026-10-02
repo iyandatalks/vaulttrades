@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ANALYZER_STRATEGIES, ANALYZER_STRATEGY_MAP } from "../../lib/strategies/analyzerProfiles";
 import { LiveMarketChart } from "./LiveMarketChart";
+import RiskManager from "../components/RiskManager";
 
 type Timeframe = "1m" | "5m" | "15m" | "30m" | "1H" | "4H" | "1D" | "1W" | "1M";
 type MarketType = "FOREX" | "INDICES" | "CRYPTO" | "STOCKS" | "SYNTHETIC";
@@ -288,6 +289,8 @@ export default function AnalyzerPage() {
           <div className="execution-item" style={{ minWidth: 180 }}><span>TRADE STATUS</span><strong>{s?.cycleStatus === "ACTIVE" ? "RUNNING" : s?.cycleStatus === "COMPLETED" ? "COMPLETED" : "WAITING"}</strong></div>
         </div>
       </section>
+
+      <RiskManager initialEntry={actualEntry ?? projectedEntry} initialStop={projectedSL} initialTp1={projectedTp1} initialTp2={projectedTp2} symbol={result.market?.asset || symbol} />
 
       <section className="card"><div className="section-label">VALIDATION</div><div className="condition-box"><strong>{s?.entryConfirmation ? "ENTRY CONFIRMED" : "ENTRY NOT CONFIRMED"}</strong><p className="muted">{s?.entryConfirmation ? "The selected strategy has completed its required entry confirmation." : "No trade is confirmed until the strategy's required entry conditions are satisfied."}</p></div></section>
     </>}
