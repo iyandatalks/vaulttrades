@@ -136,6 +136,92 @@ function executionGeometry(direction: Direction, entry: number | null, stop: num
   };
 }
 
+type ExecutionLevels = {
+  stopLoss: number | null;
+  tp1: number | null;
+  tp2: number | null;
+  finalTp: number | null;
+  valid: boolean;
+  repaired: boolean;
+  reason: string;
+};
+
+/**
+ * Final execution-geometry gate.
+ *
+ * This runs after strategy projection, confirmation rebasing and lifecycle
+ * restoration. A previously locked trade is never allowed to reintroduce
+ * directionally invalid SL/TP levels.
+ *
+ * BUY:  SL < Entry < TP1 < TP2 < Final TP
+ * SELL: SL > Entry > TP1 > TP2 > Final TP
+ *
+ * If the target ladder is invalid, targets are rebuilt from the same risk
+ * distance using 1R / 2R / 3R. This guarantees TP2 is at least 2R and keeps
+ * the execution layer directionally coherent without changing strategy
+ * confirmation logic.
+ */
+function enforceExecutionGeometry(
+  direction: Direction,
+  entry: number | null,
+  stop: number | null,
+  tp1: number | null,
+  tp2: number | null,
+  finalTp: number | null,
+  fallbackRisk?: number | null,
+): ExecutionLevels {
+  if (direction === "NO TRADE" || !finite(entry)) {
+    return { stopLoss: null, tp1: null, tp2: null, finalTp: null, valid: false, repaired: false, reason: "No executable direction/entry." };
+  }
+
+  const stopValid = finite(stop) && (
+    direction === "BUY" ? stop < entry : stop > entry
+  );
+  const risk = stopValid
+    ? Math.abs(entry - Number(stop))
+    : finite(fallbackRisk) && fallbackRisk > 0
+      ? fallbackRisk
+      : null;
+
+  if (!(risk && risk > 0)) {
+    return { stopLoss: null, tp1: null, tp2: null, finalTp: null, valid: false, repaired: false, reason: direction === "BUY" ? "BUY requires STOP LOSS below ENTRY." : "SELL requires STOP LOSS above ENTRY." };
+  }
+
+  const normalizedStop = direction === "BUY" ? entry - risk : entry + risk;
+  const ladderValid = [tp1, tp2, finalTp].every(finite) &&
+    (direction === "BUY"
+      ? Number(tp1) > entry && Number(tp2) > Number(tp1) && Number(finalTp) > Number(tp2)
+      : Number(tp1) < entry && Number(tp2) < Number(tp1) && Number(finalTp) < Number(tp2));
+
+  if (ladderValid) {
+    return {
+      stopLoss: normalizedStop,
+      tp1: Number(tp1),
+      tp2: Number(tp2),
+      finalTp: Number(finalTp),
+      valid: true,
+      repaired: !stopValid || Math.abs(Number(stop) - normalizedStop) > Number.EPSILON,
+      reason: stopValid ? "Execution geometry validated." : "STOP LOSS repaired from the available risk distance.",
+    };
+  }
+
+  const repaired = direction === "BUY"
+    ? { tp1: entry + risk, tp2: entry + risk * 2, finalTp: entry + risk * 3 }
+    : { tp1: entry - risk, tp2: entry - risk * 2, finalTp: entry - risk * 3 };
+
+  return {
+    stopLoss: normalizedStop,
+    tp1: repaired.tp1,
+    tp2: repaired.tp2,
+    finalTp: repaired.finalTp,
+    valid: true,
+    repaired: true,
+    reason: direction === "BUY"
+      ? "Invalid BUY target ladder repaired to 1R / 2R / 3R."
+      : "Invalid SELL target ladder repaired to 1R / 2R / 3R.",
+  };
+}
+
 function jsonText(raw: any): string { return raw.output?.flatMap((x: any) => x.content ?? []).filter((x: any) => x.type === "output_text").map((x: any) => x.text).join("").trim() || ""; }
 
 function structuralProjection(direction: Direction, current: number, support: number | null, resistance: number | null, volatility: number | null) {
