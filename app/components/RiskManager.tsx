@@ -7,6 +7,31 @@ const num=(v:string)=>{const n=Number(v);return Number.isFinite(n)?n:0};
 const money=(v:number)=>v.toLocaleString(undefined,{style:"currency",currency:"USD",maximumFractionDigits:2});
 const fmt=(v:number,d=2)=>v.toLocaleString(undefined,{maximumFractionDigits:d});
 
+type FieldProps = {label:string;value:number;set:(v:number)=>void;step?:string};
+
+function Field({label,value,set,step="any"}:FieldProps){
+ const [text,setText]=useState(String(value));
+ return <label style={{display:"block"}}>
+  <span style={{color:"#aeb5c6",fontSize:10,fontWeight:800,letterSpacing:".08em"}}>{label}</span>
+  <input
+   type="text"
+   inputMode="decimal"
+   value={text}
+   onChange={e=>{
+    const next=e.target.value;
+    setText(next);
+    if(next==="" || next==="-" || next==="." || next==="-.") return;
+    const n=Number(next);
+    if(Number.isFinite(n)) set(n);
+   }}
+   onBlur={()=>{
+    if(text==="" || text==="-" || text==="." || text==="-.") setText(String(value));
+   }}
+   style={{width:"100%",marginTop:6,padding:"10px 11px",borderRadius:8,border:"1px solid rgba(212,166,55,.28)",background:"#050812",color:"#f4f6fb"}}
+  />
+ </label>;
+}
+
 export default function RiskManager({initialEntry=null,initialStop=null,initialTp1=null,initialTp2=null,symbol="XAU/USD"}:Props){
  const [type,setType]=useState<"PERSONAL"|"PROP">("PERSONAL");
  const [account,setAccount]=useState(10000),[margin,setMargin]=useState(10000),[dailyUsed,setDailyUsed]=useState(0),[dailyLimit,setDailyLimit]=useState(1),[riskPct,setRiskPct]=useState(.5),[maxCapital,setMaxCapital]=useState(10);
@@ -14,7 +39,6 @@ export default function RiskManager({initialEntry=null,initialStop=null,initialT
  const [valuePerMove,setValuePerMove]=useState(100),[marginPerLot,setMarginPerLot]=useState(1000),[lotStep,setLotStep]=useState(.01);
  const calc=useMemo(()=>{const dailyAllowance=account*Math.max(0,dailyLimit)/100,dailyRemaining=Math.max(0,dailyAllowance-Math.max(0,dailyUsed)),tradeCap=account*Math.min(Math.max(0,riskPct),Math.max(0,maxCapital))/100,budget=Math.min(tradeCap,dailyRemaining),distance=Math.abs(entry-sl),riskLot=distance*Math.max(0,valuePerMove),riskLots=riskLot>0?budget/riskLot:0,marginLots=marginPerLot>0?Math.max(0,margin)/marginPerLot:0,raw=Math.min(riskLots,marginLots),lots=lotStep>0?Math.max(0,Math.floor(raw/lotStep+1e-9)*lotStep):raw,loss=lots*riskLot,used=lots*marginPerLot,r1=distance>0?Math.abs(tp1-entry)/distance:0,r2=distance>0?Math.abs(tp2-entry)/distance:0;return{dailyAllowance,dailyRemaining,budget,distance,riskLot,riskLots,marginLots,lots,loss,used,marginAfter:Math.max(0,margin-used),riskAccount:account?loss/account*100:0,r1,r2,limited:riskLots<=marginLots?"risk budget":"margin available",valid:account>0&&margin>=0&&entry>0&&distance>0&&budget>0&&lots>0}},[account,margin,dailyUsed,dailyLimit,riskPct,maxCapital,entry,sl,tp1,tp2,valuePerMove,marginPerLot,lotStep]);
  const setTypeAndDefaults=(t:"PERSONAL"|"PROP")=>{setType(t);setDailyLimit(t==="PROP"?5:1);setRiskPct(.5)};
- const Field=({label,value,set,step="any"}:{label:string;value:number;set:(v:number)=>void;step?:string})=><label style={{display:"block"}}><span style={{color:"#aeb5c6",fontSize:10,fontWeight:800,letterSpacing:".08em"}}>{label}</span><input type="number" step={step} value={value} onChange={e=>set(num(e.target.value))} style={{width:"100%",marginTop:6,padding:"10px 11px",borderRadius:8,border:"1px solid rgba(212,166,55,.28)",background:"#050812",color:"#f4f6fb"}}/></label>;
  return <section className="card" style={{border:"1px solid rgba(212,166,55,.32)",background:"linear-gradient(145deg,rgba(10,16,30,.98),rgba(5,8,18,.98))"}}>
   <div className="section-label">VAULTTRADES RISK MANAGER</div>
   <div style={{display:"flex",justifyContent:"space-between",gap:16,flexWrap:"wrap",alignItems:"center"}}><div><h2 className="title" style={{marginBottom:4}}>Position Size + Margin Risk Calculator</h2><p className="muted" style={{margin:0}}>Calculate lot size from account risk, stop distance and available margin before placing a trade.</p></div><div style={{display:"flex",gap:5}}>{(["PERSONAL","PROP"] as const).map(t=><button key={t} onClick={()=>setTypeAndDefaults(t)} style={{padding:"9px 13px",border:0,borderRadius:8,background:type===t?"#2d7dff":"#111827",color:"#fff",fontWeight:900}}>{t}</button>)}</div></div>
