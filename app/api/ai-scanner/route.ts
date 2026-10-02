@@ -379,6 +379,20 @@ Return JSON only. Preserve strategy-defined levels and distinguish strategy setu
     const candidateEntry = storedEntryCandidate ?? (baseConfirmedSignal ? aiEntryCandidate : null);
     const candidateTarget = projectedTp2 ?? projectedTp1;
 
+    // First repair/validate the strategy projection. This is deliberately a
+    // post-strategy execution gate: valid strategy levels are preserved, while
+    // impossible direction/target geometry is repaired without changing the
+    // strategy's confirmation conditions.
+    const projectedExecution = enforceExecutionGeometry(
+      direction,
+      projectedEntry,
+      projectedStopLoss,
+      projectedTp1,
+      projectedTp2,
+      projectedTp4,
+      projectedRisk,
+    );
+
     // Before confirmation, the single visible ENTRY is the strategy projection.
     // Once confirmation produces an actual entry, SL/TP are rebased from the
     // projected-entry geometry onto that confirmed entry. This prevents a
@@ -386,12 +400,12 @@ Return JSON only. Preserve strategy-defined levels and distinguish strategy setu
     const projectedGeometry = executionGeometry(
       direction,
       projectedEntry,
-      projectedStopLoss,
-      candidateTarget,
+      projectedExecution.stopLoss,
+      projectedExecution.tp2 ?? projectedExecution.tp1 ?? candidateTarget,
     );
 
     let actualEntry: number | null = null;
-    if (lifecycleLocked && lockedEntry !== null) {
+    if (lifecycleLocked && lockedEntry !== null && lockedGeometry?.valid) {
       actualEntry = lockedEntry;
     } else if (baseConfirmedSignal && candidateEntry !== null && projectedGeometry.valid) {
       actualEntry = candidateEntry;
@@ -403,18 +417,37 @@ Return JSON only. Preserve strategy-defined levels and distinguish strategy setu
       ? rebaseExecutionLevels(
           direction,
           projectedEntry,
-          projectedStopLoss,
-          projectedTp1,
-          projectedTp2,
-          projectedTp4,
+          projectedExecution.stopLoss,
+          projectedExecution.tp1,
+          projectedExecution.tp2,
+          projectedExecution.finalTp,
           actualEntry,
         )
       : null;
 
-    const executionStopLoss = lockedStopLoss ?? confirmedExecution?.stopLoss ?? projectedStopLoss;
-    const executionTp1 = lockedTp1 ?? confirmedExecution?.tp1 ?? projectedTp1;
-    const executionTp2 = lockedTp2 ?? confirmedExecution?.tp2 ?? projectedTp2;
-    const executionFinalTp = lockedFinalTp ?? confirmedExecution?.finalTp ?? projectedTp4;
+    const rawExecutionStopLoss = lockedGeometry?.stopLoss ?? confirmedExecution?.stopLoss ?? projectedExecution.stopLoss;
+    const rawExecutionTp1 = lockedGeometry?.tp1 ?? confirmedExecution?.tp1 ?? projectedExecution.tp1;
+    const rawExecutionTp2 = lockedGeometry?.tp2 ?? confirmedExecution?.tp2 ?? projectedExecution.tp2;
+    const rawExecutionFinalTp = lockedGeometry?.finalTp ?? confirmedExecution?.finalTp ?? projectedExecution.finalTp;
+
+    // Final gate: even after lifecycle restoration/rebasing, never expose an
+    // impossible SL/TP relationship to the UI or execution lifecycle.
+    const executionLevels = actualEntry !== null
+      ? enforceExecutionGeometry(
+          direction,
+          actualEntry,
+          rawExecutionStopLoss,
+          rawExecutionTp1,
+          rawExecutionTp2,
+          rawExecutionFinalTp,
+          geometryRisk,
+        )
+      : projectedExecution;
+
+    const executionStopLoss = executionLevels.stopLoss;
+    const executionTp1 = executionLevels.tp1;
+    const executionTp2 = executionLevels.tp2;
+    const executionFinalTp = executionLevels.finalTp;
 
     const confirmedSignal = baseConfirmedSignal && actualEntry !== null;
     const lifecycle = evaluateTradeLifecycle({
