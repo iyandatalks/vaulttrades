@@ -9,7 +9,7 @@ const tools = [
   ["COPY TRADING", "Connect → Copy → Monitor", "Connect an MT5 account to the VaultTrades copy infrastructure and monitor its connection.", "/copy", "Open Copy Trading", "copy"],
   ["AI COACH", "Ask → Understand → Improve", "Question the analysis, strategy conditions and trading decisions.", "/ai-coach", "Open AI Coach", "ai_coach"],
   ["JOURNAL", "Record → Review → Improve", "Keep your trading decisions and outcomes in one place.", "/journal", "Open Journal", "journal"],
-  ["FUNDED ACCOUNT WEALTH BUILDER", "Plan → Model → Review", "Model funded-account capital, income goals, buffers and monthly return assumptions.", "/funded-account-wealth-builder", "Open Wealth Builder", "funded_account_wealth_builder"],
+  ["FUNDED ACCOUNT WEALTH BUILDER", "Plan → Model → Review", "Model funded-account capital, income goals, buffers and monthly return assumptions.", "/funded-account-wealth-builder", "Open Wealth Builder", "funded_account_wealth_builder"],\n  ["RISK MANAGER", "Risk → Size → Protect", "Calculate position size from account risk, stop distance and available margin.", "/risk-manager", "Open Risk Manager", "risk_manager"],
 ] as const;
 
 type AccessResponse = { access?: Record<string, boolean>; admin?: boolean };
