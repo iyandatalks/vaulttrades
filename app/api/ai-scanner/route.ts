@@ -478,10 +478,13 @@ Return JSON only. Preserve strategy-defined levels and distinguish strategy setu
           : strategyConditionsMet
             ? "CONFIRMATION_PENDING"
             : ai.analysisState;
-    const displayedStopLoss = active ? executionStopLoss : projectedStopLoss;
-    const displayedTp1 = active ? executionTp1 : projectedTp1;
-    const displayedTp2 = active ? executionTp2 : projectedTp2;
-    const displayedFinalTp = active ? executionFinalTp : projectedTp4;
+    // The UI must use the same validated execution levels as the lifecycle,
+    // including the CONFIRMED-but-not-yet-ACTIVE state. Never fall back to raw
+    // projected TP/SL values after the execution gate has repaired them.
+    const displayedStopLoss = executionStopLoss;
+    const displayedTp1 = executionTp1;
+    const displayedTp2 = executionTp2;
+    const displayedFinalTp = executionFinalTp;
     const projectionMath = math(direction, actualEntry ?? projectedEntry, displayedStopLoss, displayedTp2 ?? displayedTp1, currentPrice);
     const executionValidation = executionGeometry(direction, actualEntry ?? projectedEntry, displayedStopLoss, displayedTp2 ?? displayedTp1);
     const statusMessage = active
