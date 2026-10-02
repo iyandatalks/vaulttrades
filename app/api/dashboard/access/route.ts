@@ -10,6 +10,7 @@ const FEATURES = [
   "journal",
   "funded_account_wealth_builder",
   "founders_mentorship",
+  "risk_manager",
 ] as const;
 
 export async function GET() {
