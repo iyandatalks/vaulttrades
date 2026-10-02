@@ -72,6 +72,7 @@ export async function GET() {
       ai_coach: productAccess.anyPaidProduct,
       journal: productAccess.anyPaidProduct,
       funded_account_wealth_builder: productAccess.anyPaidProduct,
+      risk_manager: productAccess.anyPaidProduct,
     };
 
     let referral: { enabled: boolean; code: string | null; url: string | null } = {
