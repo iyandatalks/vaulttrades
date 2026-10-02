@@ -340,6 +340,30 @@ Return JSON only. Preserve strategy-defined levels and distinguish strategy setu
     const lockedTp1 = lifecycleLocked && finite(lifecycleInput?.tp1) ? Number(lifecycleInput.tp1) : null;
     const lockedTp2 = lifecycleLocked && finite(lifecycleInput?.tp2) ? Number(lifecycleInput.tp2) : null;
     const lockedFinalTp = lifecycleLocked && finite(lifecycleInput?.finalTp) ? Number(lifecycleInput.finalTp) : null;
+    const projectedRisk = finite(projectedEntry) && finite(projectedStopLoss)
+      ? Math.abs(projectedEntry - projectedStopLoss)
+      : null;
+    const lifecycleRisk = lifecycleLocked && finite(lockedEntry) && finite(lockedStopLoss)
+      ? Math.abs(lockedEntry - lockedStopLoss)
+      : null;
+    const geometryRisk = lifecycleRisk ?? projectedRisk ?? (fallback && finite(fallback.entry) && finite(fallback.stop)
+      ? Math.abs(fallback.entry - fallback.stop)
+      : null);
+
+    // Persisted lifecycle levels are untrusted execution state. Validate them
+    // before they are allowed to overwrite the current strategy geometry.
+    const lockedGeometry = lifecycleLocked
+      ? enforceExecutionGeometry(
+          direction,
+          lockedEntry,
+          lockedStopLoss,
+          lockedTp1,
+          lockedTp2,
+          lockedFinalTp,
+          geometryRisk,
+        )
+      : null;
+
 
     // Execution integrity is separate from the strategy's confirmation rules. A confirmed
     // strategy event can only become an active trade if its actual entry has a coherent
