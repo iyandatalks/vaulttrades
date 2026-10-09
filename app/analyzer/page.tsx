@@ -105,8 +105,8 @@ const DEFAULT_SYMBOLS: Record<MarketType, string[]> = {
 };
 const PUBLIC_STRATEGY_IDS = ["fibRetracement", "ema20", "supplyDemand"] as const;
 const PUBLIC_STRATEGY_LABELS: Record<string, string> = {
-  fibRetracement: "1. SMC - Retracement",
-  ema20: "2. Morning Breakout",
+  fibRetracement: "1. SMC - FIB Retracement + OB",
+  ema20: "2. EMA20 Pullback Morning Engine",
   supplyDemand: "3. Supply & Demand",
 };
 const fmt = (v: number | null | undefined) => v == null || !Number.isFinite(v) ? "—" : v.toLocaleString(undefined, { maximumFractionDigits: 5 });
@@ -265,7 +265,7 @@ export default function AnalyzerPage() {
       <div className="section-label">STRATEGY</div>
       <h2 className="title">Choose the strategy first</h2>
       <select value={strategy} disabled={loading} onChange={e => { setStrategy(e.target.value); setResult(null); setLockedTrade(null); }} style={{ width: "100%", marginTop: 14, padding: 14, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}>{PUBLIC_STRATEGY_IDS.map(id => <option key={id} value={id}>{PUBLIC_STRATEGY_LABELS[id]}</option>)}</select>
-      <div className="condition-box" style={{ marginTop: 14 }}><strong>Selected strategy</strong><p className="muted">Strategy-specific validation is applied internally. Only actionable market state and trade levels are shown.</p></div>
+      <div className="condition-box" style={{ marginTop: 14 }}><strong>{strategyDisplayName(strategy)}</strong><p className="muted">{strategy === "fibRetracement" ? "Institutional liquidity and structure, prior order blocks, CHOCH-based projection, and timeframe-adjusted Fibonacci retracement levels (61.8%, 68.1%, 78.6%, 88%). The Fib level alone never confirms an entry." : strategy === "ema20" ? "Independent EMA20 pullback strategy using EMA20 and EMA105 context, persistent swing structure, EMA touch/rejection, rejection break, and UT Bot OR SMI confirmation. Uses its own source-defined stop and target rules." : "Independent supply and demand zone strategy. Zone reach, reaction, hold and flip are validated separately."}</p><p className="muted">Analyzer Rules 1–6 remain the universal validation layer. Only the selected strategy supplies the primary setup logic and trade levels.</p></div>
     </section>
 
     <section className="card"><div className="actions"><button className="primary" type="button" disabled={loading || marketType === "SYNTHETIC"} onClick={() => void runAnalysis()}>{loading ? "Analyzing live market..." : "Analyze Live Market"}</button></div>{marketType === "SYNTHETIC" && <div className="condition-box" style={{ marginTop: 12 }}><strong>Synthetic market connection</strong><p className="muted">This route deliberately does not substitute another provider. Connect the Synthetic/Broker provider before enabling synthetic analysis.</p></div>}{error && <div className="error-box" style={{ marginTop: 12 }}><strong>Analysis Error</strong><p className="muted">{error}</p></div>}</section>
