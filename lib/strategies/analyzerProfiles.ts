@@ -55,7 +55,7 @@ export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
   profile("proprietaryFlow", "Proprietary Flow", "MY CUSTOM STRATEGIES", ["714Observing"], ["observation window", "locked bias", "support/resistance", "liquidity event", "rejection", "displacement", "EMA20 confirmation"], ["Use the 714 observation source as authority.", "Source indicators are ATR-based observation/displacement geometry and EMA20 confirmation.", "Observation, bias lock, execution level and final qualification remain separate. Bullish market bias maps to SELL and bearish bias maps to BUY."]),
   profile(
     "ema20",
-    "EMA20 Pullback Morning Engine | M15 Structure-State Fix v3",
+    "EMA20 Pullback Morning Engine",
     "MY CUSTOM STRATEGIES",
     ["ema20"],
     ["persistent market structure state", "EMA20 touch", "rejection", "break", "UT Bot OR SMI confirmation", "locked entry"],
