@@ -35,6 +35,7 @@ type Scanner = {
   confirmationPrice?: number | null;
   reversalPrice?: number | null;
   opposingLiquidityTarget?: number | null;
+  liquidityTargets?: { referencePrice: number; buySide: { price: number; source: string; touches: number } | null; sellSide: { price: number; source: string; touches: number } | null; definition: string };
   waitReason?: string;
   tradeReason?: string;
   invalidation?: string;
@@ -57,6 +58,7 @@ type LockedTrade = {
   finalTp: number | null;
   symbol: string;
   strategy: string;
+  liquidityTarget: number | null;
 };
 
 type Result = {
@@ -65,6 +67,7 @@ type Result = {
   sourceIndicators?: { name: string; purpose: string; parameters: string; required: boolean }[];
   indicatorReadings?: { name: string; value: number | null; signal: string; reason: string; values?: Record<string, number | null> }[];
   chart?: { candles: Candle[]; channel20?: { upper: number | null; lower: number | null; middle: number | null } };
+  liquidityTargets?: { referencePrice: number; buySide: { price: number; source: string; touches: number; pivotTime?: string | null } | null; sellSide: { price: number; source: string; touches: number; pivotTime?: string | null } | null; definition: string; pivotLength: number; lookback: number };
   structure?: { trend?: string; support?: number | null; resistance?: number | null; latestHigh?: number | null; latestLow?: number | null };
   volatility?: { atr?: number | null; atrPct?: number | null; breakout?: string };
   decision?: "TRADE" | "NO TRADE";
@@ -271,7 +274,7 @@ export default function AnalyzerPage() {
     <section className="card"><div className="actions"><button className="primary" type="button" disabled={loading || marketType === "SYNTHETIC"} onClick={() => void runAnalysis()}>{loading ? "Analyzing live market..." : "Analyze Live Market"}</button></div>{marketType === "SYNTHETIC" && <div className="condition-box" style={{ marginTop: 12 }}><strong>Synthetic market connection</strong><p className="muted">This route deliberately does not substitute another provider. Connect the Synthetic/Broker provider before enabling synthetic analysis.</p></div>}{error && <div className="error-box" style={{ marginTop: 12 }}><strong>Analysis Error</strong><p className="muted">{error}</p></div>}</section>
 
     {result && <>
-      <section className="card"><div className="section-label">LIVE CHART</div><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}><div><h2 className="title" style={{ marginBottom: 3 }}>{result.market?.asset}</h2><div className="muted">{result.market?.timeframe} · Current price {fmt(result.market?.currentPrice)}</div></div><div className="condition-box" style={{ padding: "10px 14px" }}><strong>Strategy: {strategyDisplayName(result.strategy?.id, result.strategy?.name)}</strong></div></div><LiveMarketChart candles={result.chart?.candles || []} channel={result.chart?.channel20} /></section>
+      <section className="card"><div className="section-label">LIVE CHART</div><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}><div><h2 className="title" style={{ marginBottom: 3 }}>{result.market?.asset}</h2><div className="muted">{result.market?.timeframe} · Current price {fmt(result.market?.currentPrice)}</div></div><div className="condition-box" style={{ padding: "10px 14px" }}><strong>Strategy: {strategyDisplayName(result.strategy?.id, result.strategy?.name)}</strong></div></div><LiveMarketChart candles={result.chart?.candles || []} channel={result.chart?.channel20} liquidityTargets={s?.liquidityTargets ?? result.liquidityTargets} /></section>
 
       <section className="card execution-card" style={{ border: "1px solid rgba(212,166,55,.28)", background: "linear-gradient(145deg, rgba(10,16,30,.98), rgba(5,8,18,.98))" }}>
         <div className="section-label">AI SCANNER</div>
@@ -290,7 +293,7 @@ export default function AnalyzerPage() {
         </div>
       </section>
 
-      <RiskManager initialEntry={actualEntry ?? projectedEntry} initialStop={projectedSL} initialTp1={projectedTp1} initialTp2={projectedTp2} symbol={result.market?.asset || symbol} />
+      <section className="card"><div className="section-label">SHARED LIQUIDITY TARGETS</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 12 }}><div className="condition-box"><strong>BUY-SIDE LIQUIDITY</strong><div style={{ fontSize: 22, fontWeight: 900, marginTop: 6 }}>{fmt((s?.liquidityTargets ?? result.liquidityTargets)?.buySide?.price)}</div><p className="muted">{(s?.liquidityTargets ?? result.liquidityTargets)?.buySide?.source?.replaceAll("_", " ") || "No confirmed target above current price"}</p></div><div className="condition-box"><strong>SELL-SIDE LIQUIDITY</strong><div style={{ fontSize: 22, fontWeight: 900, marginTop: 6 }}>{fmt((s?.liquidityTargets ?? result.liquidityTargets)?.sellSide?.price)}</div><p className="muted">{(s?.liquidityTargets ?? result.liquidityTargets)?.sellSide?.source?.replaceAll("_", " ") || "No confirmed target below current price"}</p></div><div className="condition-box"><strong>ACTIVE TRADE TARGET</strong><div style={{ fontSize: 22, fontWeight: 900, marginTop: 6 }}>{fmt(s?.opposingLiquidityTarget)}</div><p className="muted">Shared confirmed-swing liquidity reference. Entry confirmation remains strategy-specific.</p></div></div></section>\n\n      <RiskManager initialEntry={actualEntry ?? projectedEntry} initialStop={projectedSL} initialTp1={projectedTp1} initialTp2={projectedTp2} symbol={result.market?.asset || symbol} />
 
       <section className="card"><div className="section-label">VALIDATION</div><div className="condition-box"><strong>{s?.entryConfirmation ? "ENTRY CONFIRMED" : "ENTRY NOT CONFIRMED"}</strong><p className="muted">{s?.entryConfirmation ? "The selected strategy has completed its required entry confirmation." : "No trade is confirmed until the strategy's required entry conditions are satisfied."}</p></div></section>
     </>}
