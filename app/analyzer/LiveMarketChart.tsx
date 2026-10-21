@@ -7,11 +7,12 @@ type Candle = { datetime: string; open: number; high: number; low: number; close
 type Props = {
   candles: Candle[];
   channel?: { upper: number | null; lower: number | null; middle?: number | null };
+  liquidityTargets?: { buySide: { price: number; source: string; touches: number } | null; sellSide: { price: number; source: string; touches: number } | null };
 };
 
 const fmtPrice = (value: number) => value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 5 });
 
-export function LiveMarketChart({ candles, channel }: Props) {
+export function LiveMarketChart({ candles, channel, liquidityTargets }: Props) {
   const data = useMemo(() => candles.slice(-80), [candles]);
 
   if (!data.length) return <div className="condition-box">No live candles available.</div>;
@@ -26,8 +27,8 @@ export function LiveMarketChart({ candles, channel }: Props) {
   const volumeBottom = 490;
   const chartWidth = width - left - right;
   const priceHeight = priceBottom - top;
-  const priceMin = Math.min(...data.map(c => c.low), channel?.lower ?? Infinity);
-  const priceMax = Math.max(...data.map(c => c.high), channel?.upper ?? -Infinity);
+  const priceMin = Math.min(...data.map(c => c.low), channel?.lower ?? Infinity, liquidityTargets?.sellSide?.price ?? Infinity);
+  const priceMax = Math.max(...data.map(c => c.high), channel?.upper ?? -Infinity, liquidityTargets?.buySide?.price ?? -Infinity);
   const priceRange = Math.max(priceMax - priceMin, Math.abs(priceMax) * 0.00001, 1e-9);
   const maxVolume = Math.max(...data.map(c => c.volume ?? 0), 1);
   const bodyWidth = Math.max(3, Math.min(11, chartWidth / data.length * 0.62));
@@ -70,6 +71,18 @@ export function LiveMarketChart({ candles, channel }: Props) {
         )}
         {channel?.middle != null && (
           <line x1={left} x2={width - right} y1={y(channel.middle)} y2={y(channel.middle)} stroke="rgba(212,166,55,.38)" strokeDasharray="3 5" />
+        )}
+        {liquidityTargets?.buySide && (
+          <g>
+            <line x1={left} x2={width - right} y1={y(liquidityTargets.buySide.price)} y2={y(liquidityTargets.buySide.price)} stroke="#22c55e" strokeDasharray="3 5" strokeWidth="2" />
+            <text x={left + 8} y={y(liquidityTargets.buySide.price) - 7} fill="#4ade80" fontSize="11" fontWeight="700">BUY-SIDE LIQUIDITY · {fmtPrice(liquidityTargets.buySide.price)}</text>
+          </g>
+        )}
+        {liquidityTargets?.sellSide && (
+          <g>
+            <line x1={left} x2={width - right} y1={y(liquidityTargets.sellSide.price)} y2={y(liquidityTargets.sellSide.price)} stroke="#f97316" strokeDasharray="3 5" strokeWidth="2" />
+            <text x={left + 8} y={y(liquidityTargets.sellSide.price) + 15} fill="#fb923c" fontSize="11" fontWeight="700">SELL-SIDE LIQUIDITY · {fmtPrice(liquidityTargets.sellSide.price)}</text>
+          </g>
         )}
         {channel?.lower != null && (
           <>
