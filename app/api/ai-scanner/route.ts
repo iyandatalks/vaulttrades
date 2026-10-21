@@ -3,6 +3,7 @@ import { getStrategyRules, type StrategyId } from "../../../lib/strategies";
 import { analyzeAutoFibRetrace } from "../../../lib/strategies/autoFibRetrace";
 import { evaluateTradeLifecycle, selectAllowedAbFibLevel } from "../../../lib/strategies/tradeLifecycle";
 import { getTwelveDataTimeSeries } from "../../../lib/market-data/twelvedata";
+import { resolveLiquidityTargets } from "../../../lib/market-data/liquidityTargets";
 
 export const runtime = "nodejs";
 type Direction = "BUY" | "SELL" | "NO TRADE";
@@ -244,6 +245,7 @@ export async function POST(request: Request) {
     const body = await request.json(); const strategyId = clean(body.strategy); const profile = ANALYZER_STRATEGY_MAP[strategyId];
     const candles = Array.isArray(body.candles) ? body.candles.filter((c: any) => finite(c?.open) && finite(c?.high) && finite(c?.low) && finite(c?.close)) : [];
     const currentPrice = finite(body.currentPrice) ? body.currentPrice : candles.at(-1)?.close ?? null;
+    const liquidityTargets = resolveLiquidityTargets(candles, currentPrice, 3, 150);
     if (!profile) return Response.json({ error: "Invalid strategy selected." }, { status: 400 });
     if (candles.length < 30 || !finite(currentPrice)) return Response.json({ error: "Not enough chart data for AI Scanner." }, { status: 422 });
     const apiKey = process.env.OPENAI_API_KEY; if (!apiKey) return Response.json({ error: "OpenAI API key is not configured." }, { status: 500 });
@@ -298,6 +300,9 @@ MTF EVIDENCE
 ${JSON.stringify(mtfEvidence)}
 CURRENT PRICE
 ${currentPrice}
+SHARED LIQUIDITY TARGETS (COMMON DEFINITION)
+${JSON.stringify(liquidityTargets)}
+Use these confirmed-swing targets consistently across strategies. Preserve strategy-specific entry-confirmation rules. Do not replace the liquidity reference with a generic RR target.
 
 Return JSON only. Preserve strategy-defined levels and distinguish strategy setup, entry confirmation, universal validation and lifecycle. Never use ACTIVE/LIVE/TP1/TP2/SL/COMPLETED as entry confirmation.`;
     const schema = { type: "object", additionalProperties: false, properties: { projectedDirection: { type: "string", enum: ["BUY", "SELL", "NO TRADE"] }, analysisState: { type: "string", enum: ["WATCH", "ENTRY_ZONE", "CONFIRMATION_PENDING", "VALIDATION_PENDING", "CONFIRMED", "ACTIVE", "TP2_HIT", "INVALIDATED", "TARGET_COMPLETE", "CYCLE_COMPLETE"] }, strategyConditionsMet: { type: "boolean" }, entryConfirmation: { type: "boolean" }, entryConfirmationReason: { type: "string" }, confirmationTimeframe: { type: "string" }, universalValidationPassed: { type: "boolean" }, trend: { type: "string" }, trendReason: { type: "string" }, institutionalActivity: { type: "string", enum: ["BULLISH", "BEARISH", "NEUTRAL", "INSUFFICIENT"] }, institutionalEvidence: { type: "array", items: { type: "string" } }, confirmations: { type: "array", items: { type: "string" } }, buyProbability: { type: "number", minimum: 0, maximum: 100 }, sellProbability: { type: "number", minimum: 0, maximum: 100 }, projectedProbability: { type: "number", minimum: 0, maximum: 100 }, entry: { type: ["number", "null"] }, stopLoss: { type: ["number", "null"] }, tp1: { type: ["number", "null"] }, tp2: { type: ["number", "null"] }, tp3: { type: ["number", "null"] }, tp4: { type: ["number", "null"] }, finalTp: { type: ["number", "null"] }, confirmationPrice: { type: ["number", "null"] }, reversalPrice: { type: ["number", "null"] }, opposingLiquidityTarget: { type: ["number", "null"] }, waitReason: { type: "string" }, tradeReason: { type: "string" }, invalidation: { type: "string" }, pipeline: { type: "array", items: { type: "string" } }, nextZone: { type: "string" } }, required: ["projectedDirection","analysisState","strategyConditionsMet","entryConfirmation","entryConfirmationReason","confirmationTimeframe","universalValidationPassed","trend","trendReason","institutionalActivity","institutionalEvidence","confirmations","buyProbability","sellProbability","projectedProbability","entry","stopLoss","tp1","tp2","tp3","tp4","finalTp","confirmationPrice","reversalPrice","opposingLiquidityTarget","waitReason","tradeReason","invalidation","pipeline","nextZone"] };
@@ -520,6 +525,14 @@ Return JSON only. Preserve strategy-defined levels and distinguish strategy setu
       projectedTp4: displayedFinalTp,
       finalTp: displayedFinalTp,
       projectedFinalTp: displayedFinalTp,
+      liquidityTargets,
+      opposingLiquidityTarget: lifecycleLocked && finite(lifecycleInput.liquidityTarget)
+        ? Number(lifecycleInput.liquidityTarget)
+        : direction === "BUY"
+          ? (liquidityTargets.buySide?.price ?? null)
+          : direction === "SELL"
+            ? (liquidityTargets.sellSide?.price ?? null)
+            : null,
       confirmationPrice: entryConfirmation && finite(ai.confirmationPrice) ? ai.confirmationPrice : null,
       tp1Hit: false,
       tp2Hit: false,
