@@ -5,6 +5,7 @@ import { buildAnalyzerMarketContext } from "../../../lib/market-data/indicators"
 import { getTwelveDataTimeSeries } from "../../../lib/market-data/twelvedata";
 import { getMarketProviderRoute, type MarketType } from "../../../lib/market-data/provider";
 import { evaluateEma20 } from "../../../lib/strategies/ema20Engine";
+import { resolveLiquidityTargets } from "../../../lib/market-data/liquidityTargets";
 
 export const runtime = "nodejs";
 
@@ -119,6 +120,7 @@ export async function POST(request: Request) {
     const previous = market.candles.at(-2)!;
     const channel = calculateChannel(market.candles);
     const priceLevels = derivePriceLevels(market.candles, liveCurrentPrice, 3);
+    const liquidityTargets = resolveLiquidityTargets(market.candles, liveCurrentPrice, 3, 150);
     const lockedStructure = { ...context.structure, support: priceLevels.support, resistance: priceLevels.resistance };
     const sourceRules = profileStrategy.sourceIds.map((id: StrategyId) => getStrategyRules(id));
     const indicatorEvidence = context.selectedIndicators.map(i => ({ name: i.name, value: i.value, signal: i.signal, parameters: profileStrategy.indicatorSpecs.find(s => s.name === i.name)?.parameters ?? "source-defined" }));
@@ -177,7 +179,7 @@ STRATEGY PROFILE
 ${JSON.stringify({ focus: profileStrategy.focus, rules: profileStrategy.rules, indicatorSpecs: profileStrategy.indicatorSpecs })}
 
 LIVE CALCULATED MARKET CONTEXT
-${JSON.stringify({ currentPrice: liveCurrentPrice, structure: lockedStructure, volatility: context.volatility, selectedIndicators: indicatorEvidence, channel20High: channel.upper, channel20Low: channel.lower, latestCandle: latest, previousCandle: previous, recentCandles: market.candles.slice(-60) })}
+${JSON.stringify({ currentPrice: liveCurrentPrice, structure: lockedStructure, volatility: context.volatility, selectedIndicators: indicatorEvidence, channel20High: channel.upper, channel20Low: channel.lower, latestCandle: latest, previousCandle: previous, recentCandles: market.candles.slice(-60), sharedLiquidityTargets: liquidityTargets })}
 
 DETERMINISTIC STRATEGY ENGINE STATE
 ${JSON.stringify(ema20EngineEvidence)}
@@ -268,6 +270,7 @@ Return JSON only.`;
       sourceIndicators: profileStrategy.indicatorSpecs,
       indicatorReadings: context.selectedIndicators,
       chart: { candles: market.candles, channel20: channel },
+      liquidityTargets,
       structure: { ...lockedStructure }, volatility: context.volatility,
       strategyEngine: nativeEngineOutput,
       decision: finalDirection === "NO TRADE" ? "NO TRADE" : "TRADE", direction: finalDirection,
