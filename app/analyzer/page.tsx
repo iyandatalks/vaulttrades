@@ -166,6 +166,7 @@ export default function AnalyzerPage() {
             direction: priorScanner.projectedDirection,
             symbol,
             strategy,
+            liquidityTarget: priorScanner?.opposingLiquidityTarget ?? null,
           }
         : null
     );
@@ -175,7 +176,7 @@ export default function AnalyzerPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Unable to analyze live market data.");
       setResult(data);
-      const candles = Array.isArray(data.chart?.candles) ? data.chart.candles.slice(-80) : [];
+      const candles = Array.isArray(data.chart?.candles) ? data.chart.candles : [];
       if (candles.length >= 30) {
         setScannerLoading(true);
         try {
@@ -206,6 +207,7 @@ export default function AnalyzerPage() {
               scanner.finalTp = lifecycleLock.finalTp;
               scanner.projectedEntry = scanner.projectedEntry ?? lifecycleLock.actualEntry;
               scanner.entry = lifecycleLock.actualEntry;
+              scanner.opposingLiquidityTarget = lifecycleLock.liquidityTarget ?? scanner.opposingLiquidityTarget ?? null;
               scanner.lockedExecutionLevels = true;
             }
 
@@ -221,6 +223,7 @@ export default function AnalyzerPage() {
                 finalTp: scanner.projectedFinalTp ?? null,
                 symbol,
                 strategy,
+                liquidityTarget: scanner.opposingLiquidityTarget ?? null,
               });
             } else if (lifecycleLock && ["INVALIDATED", "SL_HIT", "CYCLE_COMPLETE", "COMPLETED"].includes(String(scanner.cycleStatus))) {
               setLockedTrade(null);
