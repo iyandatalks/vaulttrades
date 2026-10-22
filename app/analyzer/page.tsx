@@ -370,6 +370,7 @@ export default function AnalyzerPage() {
 
   const changeMarket = (value: MarketType) => { setMarketType(value); setSymbol(DEFAULT_SYMBOLS[value][0]); setResult(null); setLockedTrade(null); setError(""); };
   const srbPerformance = closedSrbPerformance(result?.chart?.candles ?? []);
+  const srbDisplayScore = result?.strategyEngine ? (result.strategyEngine.breakoutDirection ? (result.strategyEngine.score ?? 0) : Math.max(result.strategyEngine.confluence?.longScore ?? 0, result.strategyEngine.confluence?.shortScore ?? 0)) : 0;
   const s = result?.scanner;
   const displayDirection = s?.projectedDirection && s.projectedDirection !== "NO TRADE" ? s.projectedDirection : result?.direction;
   const projectedEntry = s?.projectedEntry ?? result?.entry;
@@ -478,8 +479,8 @@ export default function AnalyzerPage() {
             <p>Planned R:R · <b>{fmt(result.strategyEngine.riskReward)}</b></p><p>Trade state · <b>{result.strategyEngine.state || "WAITING"}</b></p>
           </div>
           <div className="condition-box"><strong>03 · ALGO METRICS</strong>
-            <p>Confluence score · <b>{result.strategyEngine.score ?? 0}/100</b></p>
-            <div style={{height:9,background:"#253044",borderRadius:99,overflow:"hidden",margin:"8px 0 12px"}}><div style={{height:"100%",width:Math.max(0,Math.min(100,result.strategyEngine.score??0))+"%",background:(result.strategyEngine.score??0)>=65?"#22c55e":(result.strategyEngine.score??0)>=50?"#eab308":"#ef4444",borderRadius:99}}/></div>
+            <p>Confluence score · <b>{srbDisplayScore}/100</b></p>
+            <div style={{height:9,background:"#253044",borderRadius:99,overflow:"hidden",margin:"8px 0 12px"}}><div style={{height:"100%",width:Math.max(0,Math.min(100,srbDisplayScore))+"%",background:srbDisplayScore>=65?"#22c55e":srbDisplayScore>=50?"#eab308":"#ef4444",borderRadius:99}}/></div>
             <p>Minimum gate · <b>50/100</b></p><p>Fib pullback · <b>{((result.strategyEngine.fibLevel ?? 0.681)*100).toFixed(1)}%</b></p>
             <p>Closed trades · <b>{srbPerformance.overall.trades}</b> · Wins <b style={{color:"#4ade80"}}>{srbPerformance.overall.wins}</b> · Losses <b style={{color:"#fb7185"}}>{srbPerformance.overall.losses}</b></p>
             <p style={{display:"flex",justifyContent:"space-between",gap:8,marginTop:8}}><span>Overall win rate</span><b style={{color:srbPerformance.overall.winRate==null?"#94a3b8":srbPerformance.overall.winRate>=50?"#4ade80":"#fb7185"}}>{srbPerformance.overall.winRate==null?"—":srbPerformance.overall.winRate.toFixed(1)+"%"}</b></p><RateBar winRate={srbPerformance.overall.winRate} lossRate={srbPerformance.overall.lossRate}/>
