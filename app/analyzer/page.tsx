@@ -324,9 +324,19 @@ export default function AnalyzerPage() {
         <div className="condition-box" style={{ marginTop: 12 }}>
           <strong>Confluence {result.strategyEngine.score ?? 0}/100 · Fib {(100 * (result.strategyEngine.fibLevel ?? 0.681)).toFixed(1)}% · R:R {fmt(result.strategyEngine.riskReward)}</strong>
           <p className="muted">{result.strategyEngine.evidence?.join(" · ") || "No confirmed SRB evidence yet."}</p>
-          {result.strategyEngine.missingConditions?.length ? <p className="muted">Waiting / rejected: {result.strategyEngine.missingConditions.join(" · ")}</p> : null}
+          {result.strategyEngine.missingConditions?.length ? <p className="muted">Setup conditions: {result.strategyEngine.missingConditions.join(" · ")}</p> : null}
           {result.strategyEngine.orderBlock ? <p className="muted">Opposing OB reference: {result.strategyEngine.orderBlock.direction} · {fmt(result.strategyEngine.orderBlock.bottom)}–{fmt(result.strategyEngine.orderBlock.top)}</p> : null}
           <p className="muted">Invalidation: {result.strategyEngine.invalidation || "No active setup invalidation."}</p>
+        </div>
+      </section>}
+      {strategy === "srbOb" && result.strategyEngine && <section className="card" style={{ border: "1px solid rgba(212,166,55,.32)" }}>
+        <div className="section-label">AURELIA SRB · STRATEGY DASHBOARD</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10, marginTop: 12 }}>
+          <div className="condition-box"><strong>RANGE SETUP</strong><p className="muted">Session · {result.strategyEngine.window || "—"}</p><p>State · {result.strategyEngine.state || "WAITING"}</p><p>High · {fmt(result.strategyEngine.rangeHigh)} / Low · {fmt(result.strategyEngine.rangeLow)}</p><p>Range size · {result.strategyEngine.rangeHigh != null && result.strategyEngine.rangeLow != null ? fmt(result.strategyEngine.rangeHigh - result.strategyEngine.rangeLow) : "—"}</p></div>
+          <div className="condition-box"><strong>TRADE EXECUTION</strong><p>Direction · {result.strategyEngine.direction || "NO TRADE"}</p><p>Entry · {fmt(result.strategyEngine.entry)}</p><p>Stop · {fmt(result.strategyEngine.stopLoss)}</p><p>Target · {fmt(result.strategyEngine.finalTp)}</p><p>Planned R:R · {fmt(result.strategyEngine.riskReward)}</p></div>
+          <div className="condition-box"><strong>ALGO METRICS</strong><p>Latest confluence · {result.strategyEngine.score ?? 0}/100</p><p>Minimum score gate · 50/100</p><p>Fib pullback · {((result.strategyEngine.fibLevel ?? 0.681) * 100).toFixed(1)}%</p><p className="muted">W/L, profit factor and expectancy must use filled and closed trades only.</p></div>
+          <div className="condition-box"><strong>LIVE CONFLUENCE</strong><p>Liquidity target · {fmt(result.strategyEngine.liquidityTarget)}</p><p>Opposing OB · {result.strategyEngine.orderBlock ? result.strategyEngine.orderBlock.direction + " " + fmt(result.strategyEngine.orderBlock.bottom) + "–" + fmt(result.strategyEngine.orderBlock.top) : "No valid reference returned"}</p><p className="muted">{result.strategyEngine.evidence?.join(" · ") || "Waiting for confirmed range and breakout evidence."}</p></div>
+          <div className="condition-box"><strong>SESSION & BAND EDGE</strong><p>Active window · {result.strategyEngine.window || "—"}</p><p>Order expiry · 12 bars</p><p>Ticket clearance · 0.55 ATR</p><p className="muted">Per-session and grade win rates are tracked in the Pine dashboard from filled and closed trades.</p></div>
         </div>
       </section>}
       <section className="card execution-card" style={{ border: "1px solid rgba(212,166,55,.28)", background: "linear-gradient(145deg, rgba(10,16,30,.98), rgba(5,8,18,.98))" }}>
