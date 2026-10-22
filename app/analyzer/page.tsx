@@ -136,12 +136,13 @@ function sastCandleParts(value: string) {
 function closedSrbPerformance(input: Candle[]) {
   const sessions = SRB_WINDOWS.map(w => ({ name:w.name, ...emptyClosedStat() }));
   const grades = (["A","B","C","F"] as const).map(g => ({ grade:g, ...emptyClosedStat() }));
+  const overall = emptyClosedStat(), long = emptyClosedStat(), short = emptyClosedStat();
   const add = (stat: ClosedSRBStat, win:boolean, r:number) => {
     stat.trades++; if(win) stat.wins++; else stat.losses++;
     stat.totalR += r; stat.winRate = stat.trades ? stat.wins/stat.trades*100 : null;
     stat.lossRate = stat.trades ? stat.losses/stat.trades*100 : null;
   };
-  if (input.length < 25) return { sessions, grades };
+  if (input.length < 25) return { sessions, grades, overall, long, short };
   const candles = [...input].sort((a,b)=>new Date(a.datetime).getTime()-new Date(b.datetime).getTime());
   const parts = candles.map(c=>sastCandleParts(c.datetime));
   const dates = [...new Set(parts.filter((p):p is NonNullable<typeof p>=>!!p && ["Mon","Tue","Wed","Thu","Fri"].includes(p.weekday)).map(p=>p.date))];
@@ -185,10 +186,10 @@ function closedSrbPerformance(input: Candle[]) {
     }
     if(!closed)continue;
     const risk=Math.abs(entry-stop), reward=Math.abs(target-entry), rr= risk>0?reward/risk:0;
-    add(sessions[wi],won,won?rr:-1);
+    add(sessions[wi],won,won?rr:-1); add(overall,won,won?rr:-1); add(dir==="BUY"?long:short,won,won?rr:-1);
     const gi=grades.findIndex(g=>g.grade===grade); if(gi>=0)add(grades[gi],won,won?rr:-1);
   }
-  return { sessions, grades };
+  return { sessions, grades, overall, long, short };
 }
 function RateBar({ winRate, lossRate }: { winRate:number|null; lossRate:number|null }) {
   const w=Math.max(0,Math.min(100,winRate??0)), l=Math.max(0,Math.min(100,lossRate??0));
@@ -459,7 +460,11 @@ export default function AnalyzerPage() {
             <p>Confluence score · <b>{result.strategyEngine.score ?? 0}/100</b></p>
             <div style={{height:9,background:"#253044",borderRadius:99,overflow:"hidden",margin:"8px 0 12px"}}><div style={{height:"100%",width:Math.max(0,Math.min(100,result.strategyEngine.score??0))+"%",background:(result.strategyEngine.score??0)>=65?"#22c55e":(result.strategyEngine.score??0)>=50?"#eab308":"#ef4444",borderRadius:99}}/></div>
             <p>Minimum gate · <b>50/100</b></p><p>Fib pullback · <b>{((result.strategyEngine.fibLevel ?? 0.681)*100).toFixed(1)}%</b></p>
-            <p>Closed-trade stats · <b>Shown only when closed outcomes are available</b></p>
+            <p>Closed trades · <b>{srbPerformance.overall.trades}</b> · Wins <b style={{color:"#4ade80"}}>{srbPerformance.overall.wins}</b> · Losses <b style={{color:"#fb7185"}}>{srbPerformance.overall.losses}</b></p>
+            <p style={{display:"flex",justifyContent:"space-between",gap:8,marginTop:8}}><span>Overall win rate</span><b style={{color:srbPerformance.overall.winRate==null?"#94a3b8":srbPerformance.overall.winRate>=50?"#4ade80":"#fb7185"}}>{srbPerformance.overall.winRate==null?"—":srbPerformance.overall.winRate.toFixed(1)+"%"}</b></p><RateBar winRate={srbPerformance.overall.winRate} lossRate={srbPerformance.overall.lossRate}/>
+            <p style={{fontSize:12,marginTop:8}}>Long · <b>{srbPerformance.long.winRate==null?"—":srbPerformance.long.winRate.toFixed(1)+"%"}</b> win <span style={{color:"#94a3b8"}}>/</span> <span style={{color:"#fb7185"}}>{srbPerformance.long.lossRate==null?"—":srbPerformance.long.lossRate.toFixed(1)+"%"} loss</span></p><RateBar winRate={srbPerformance.long.winRate} lossRate={srbPerformance.long.lossRate}/>
+            <p style={{fontSize:12,marginTop:8}}>Short · <b>{srbPerformance.short.winRate==null?"—":srbPerformance.short.winRate.toFixed(1)+"%"}</b> win <span style={{color:"#94a3b8"}}>/</span> <span style={{color:"#fb7185"}}>{srbPerformance.short.lossRate==null?"—":srbPerformance.short.lossRate.toFixed(1)+"%"} loss</span></p><RateBar winRate={srbPerformance.short.winRate} lossRate={srbPerformance.short.lossRate}/>
+            <p>Net R · <b>{srbPerformance.overall.trades?srbPerformance.overall.totalR.toFixed(2):"—"}</b></p>
           </div>
           <div className="condition-box"><strong>04 · LIVE CONFLUENCE</strong>
             <p>Liquidity target · <b>{fmt(result.strategyEngine.liquidityTarget)}</b></p>
