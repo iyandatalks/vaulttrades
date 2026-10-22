@@ -171,7 +171,7 @@ function closedSrbPerformance(input: Candle[]) {
     const score=(e200!=null&&(dir==="BUY"?sig.close>e200:sig.close<e200)?15:0)+(e20!=null&&(dir==="BUY"?sig.close>e20:sig.close<e20)?15:0)+(rsi!=null&&(dir==="BUY"?rsi>50:rsi<50)?20:0)+(sig.volume!=null&&avgVol!=null&&sig.volume>avgVol?30:0)+(atr>0&&range>atr*.5?20:0);
     const grade=score>=80?"A":score>=65?"B":score>=50?"C":"F";
     let fill=-1, blocked=false;
-    for(let i=breakIdx+1;i<candles.length;i++){
+    for(let i=breakIdx+1;i<candles.length && i<=breakIdx+12;i++){
       const b=candles[i], entryHit=dir==="BUY"?b.low<=entry:b.high>=entry;
       const riskHit=dir==="BUY"?(b.low<=stop||b.high>=target):(b.high>=stop||b.low<=target);
       if(riskHit){blocked=true;break;} if(entryHit){fill=i;break;}
@@ -249,7 +249,8 @@ export default function AnalyzerPage() {
   const eligibleWindows = weekdaySast >= 1 && weekdaySast <= 5 ? sessionWindows.filter(w => clockMinutes >= w.end) : [];
   const currentWindow = eligibleWindows.at(-1);
   const inOpeningWindow = weekdaySast >= 1 && weekdaySast <= 5 ? sessionWindows.find(w => clockMinutes >= w.start && clockMinutes < w.end) : undefined;
-  const currentSession = inOpeningWindow?.name || currentWindow?.name || (weekdaySast === 6 || weekdaySast === 7 ? "WEEKEND" : "BEFORE TOKYO");
+  const currentSession = inOpeningWindow?.name || (weekdaySast === 6 || weekdaySast === 7 ? "WEEKEND" : "BETWEEN OPENING WINDOWS");
+  const latestCompletedSession = currentWindow?.name || "NO COMPLETED WINDOW TODAY";
 
   const strategyDisplayName = (id?: string, fallback?: string) => id && PUBLIC_STRATEGY_LABELS[id] ? PUBLIC_STRATEGY_LABELS[id] : fallback || "Strategy";
   const runAnalysis = async () => {
@@ -436,11 +437,11 @@ export default function AnalyzerPage() {
       </section>}
       {strategy === "srbOb" && result.strategyEngine && <section className="card" style={{ border: "1px solid rgba(212,166,55,.32)", background: "linear-gradient(145deg,rgba(10,16,30,.98),rgba(5,8,18,.98))" }}>
         <div className="section-label">VAULTTRADES SRB & OB · LIVE DASHBOARD</div>
-        <p className="muted">SAST {localClock} · Current clock window <strong>{currentSession}</strong> · Strategy range in analysis <strong>{result.strategyEngine.window || "—"}</strong>. Session status advances with the SAST clock; refresh analysis to update price-derived values.</p>
+        <p className="muted">SAST {localClock} · Clock status <strong>{currentSession}</strong> · Latest completed window <strong>{latestCompletedSession}</strong> · Strategy range in analysis <strong>{result.strategyEngine.window || "—"}</strong>. Session status advances with the SAST clock; refresh analysis to update price-derived values.</p>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(230px,1fr))", gap:12, marginTop:14 }}>
           <div className="condition-box"><strong>01 · RANGE SETUP</strong>
             <p>Session · <b>{result.strategyEngine.window || currentSession}</b></p>
-            <p>Breakout · <b style={{color:result.strategyEngine.direction==="BUY"?"#4ade80":result.strategyEngine.direction==="SELL"?"#fb7185":"#cbd5e1"}}>{result.strategyEngine.direction==="BUY"?"BROKE ABOVE RANGE":result.strategyEngine.direction==="SELL"?"BROKE BELOW RANGE":result.strategyEngine.state==="ARMED"?"NOT BROKEN":"NO CONFIRMED BREAK"}</b></p>
+            <p>Breakout · <b style={{color:result.strategyEngine.direction==="BUY"?"#4ade80":result.strategyEngine.direction==="SELL"?"#fb7185":"#cbd5e1"}}>{result.strategyEngine.direction==="BUY"?"BROKE ABOVE RANGE":result.strategyEngine.direction==="SELL"?"BROKE BELOW RANGE":result.strategyEngine.state==="ARMED"?"NOT BROKEN":"NO CONFIRMED BREAK"}</b></p><p>Breakout close · <b>{fmt(result.strategyEngine.breakoutPrice)}</b></p><p>Breakout time · <b>{result.strategyEngine.breakoutTime || "—"}</b></p>
             <p>State / gate · <b>{result.strategyEngine.state || "WAITING"}</b></p>
             <p>Range high · <b>{fmt(result.strategyEngine.rangeHigh)}</b></p><p>Range low · <b>{fmt(result.strategyEngine.rangeLow)}</b></p>
             <p>Range size · <b>{result.strategyEngine.rangeHigh != null && result.strategyEngine.rangeLow != null ? fmt(result.strategyEngine.rangeHigh-result.strategyEngine.rangeLow) : "—"}</b></p>
