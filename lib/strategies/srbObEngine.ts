@@ -22,6 +22,23 @@ function localParts(value: string) {
   const weekday = ({ Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 } as Record<string, number>)[get("weekday")] ?? 0;
   return { weekday, clock: get("hour") + ":" + get("minute"), dateKey: new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Johannesburg", year: "numeric", month: "2-digit", day: "2-digit" }).format(date) };
 }
+function aggregateTo30m(input: Candle[]): Candle[] {
+  if (input.length < 3) return input;
+  const gaps = input.slice(1).map((c, i) => (new Date(c.datetime).getTime() - new Date(input[i].datetime).getTime()) / 60000).filter(v => v > 0 && v <= 240).sort((a, b) => a - b);
+  const medianGap = gaps.length ? gaps[Math.floor(gaps.length / 2)] : 30;
+  if (medianGap >= 30) return input;
+  const grouped = new Map<string, Candle>();
+  for (const c of input) {
+    const p = localParts(c.datetime); if (!p) continue;
+    const parts = p.clock.split(':').map(Number);
+    const bucket = String(parts[0]).padStart(2, '0') + ':' + String(parts[1] < 30 ? 0 : 30).padStart(2, '0');
+    const key = p.dateKey + ' ' + bucket;
+    const old = grouped.get(key);
+    if (!old) grouped.set(key, { datetime: c.datetime, open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume });
+    else { old.high = Math.max(old.high, c.high); old.low = Math.min(old.low, c.low); old.close = c.close; old.volume = old.volume == null || c.volume == null ? null : old.volume + c.volume; }
+  }
+  return [...grouped.values()].sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
+}
 function atr14(c: Candle[]) {
   if (c.length < 15) return null;
   const tr = c.map((x, i) => i === 0 ? x.high - x.low : Math.max(x.high - x.low, Math.abs(x.high - c[i - 1].close), Math.abs(x.low - c[i - 1].close)));
@@ -59,6 +76,8 @@ function findOB(c: Candle[], dir: "BUY" | "SELL", target: number | null, a: numb
   return best ? { direction: best.direction, top: best.top, bottom: best.bottom } : null;
 }
 export function evaluateSrbOb(candles: Candle[], config?: { fibLevel?: number; stopExtension?: number; targetExtension?: number; minScore?: number; trendOnly?: boolean; limitExpiryBars?: number; ticketClearanceAtr?: number; dxyDirection?: "BUY" | "SELL" | "NEUTRAL" | null; silverDirection?: "BUY" | "SELL" | "NEUTRAL" | null }) : SRBResult {
+  // Match the source indicator's 30-minute formation timeframe when lower-timeframe candles are supplied.
+  candles = aggregateTo30m(candles);
   const fibLevel = config?.fibLevel ?? .681, stopExtension = config?.stopExtension ?? 1.25, targetExtension = config?.targetExtension ?? .618;
   const empty = (state: string, window: string | null, hi: number | null, lo: number | null, score = 0, evidence: string[] = [], missing: string[] = []): SRBResult => ({
     state, direction: "NO TRADE", entry: null, stopLoss: null, finalTp: null, rangeHigh: hi, rangeLow: lo, window, fibLevel, score, evidence, missingConditions: missing,
