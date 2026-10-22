@@ -6,7 +6,7 @@ type SRBResult = {
   score: number; evidence: string[]; missingConditions: string[]; invalidation: string;
   liquidityTarget: number | null; orderBlock: { direction: string; top: number; bottom: number } | null;
   riskReward: number | null; breakoutPrice?: number | null; breakoutTime?: string | null; breakoutDirection?: "BUY" | "SELL" | null;
-  confluence?: { macroTrend: string; fastTrend: string; rsi: number | null; rsiAligned: boolean | null; volumeRatio: number | null; volumeGood: boolean; rangeSize: number; rangeAtrRatio: number | null; longScore: number; shortScore: number; dxy: string; silver: string; gate: string };
+  confluence?: { macroTrend: string; fastTrend: string; rsi: number | null; rsiAligned: boolean | null; volumeRatio: number | null; volumeGood: boolean; rangeSize: number; rangeAtrRatio: number | null; longScore: number; shortScore: number; dxy: string; silver: string; gate: string; maChannelUpper: number | null; maChannelLower: number | null; maChannelDirection: string; maChannelAligned: boolean | null; maChannelMode: string };
   source: "SRB_OB_DETERMINISTIC";
 };
 const windows = [
@@ -66,6 +66,28 @@ function rsi(values: number[], length = 14) {
   }
   return losses === 0 ? 100 : 100 - 100 / (1 + gains / losses);
 }
+function movingAverageChannel(candles: Candle[], period = 20) {
+  if (period < 1 || candles.length < period) return { upper: null as number | null, lower: null as number | null, direction: "INSUFFICIENT HISTORY" };
+  const window = candles.slice(-period);
+  const upper = window.reduce((sum, candle) => sum + candle.high, 0) / period;
+  const lower = window.reduce((sum, candle) => sum + candle.low, 0) / period;
+  const close = candles.at(-1)?.close;
+  const direction = close == null ? "INSUFFICIENT HISTORY" : close > upper && close > lower ? "BULLISH" : close < upper && close < lower ? "BEARISH" : "INSIDE CHANNEL";
+  return { upper, lower, direction };
+}
+function lastConfirmedSwing(candles: Candle[], side: "HIGH" | "LOW", length = 3): number | null {
+  if (candles.length < length * 2 + 1) return null;
+  for (let i = candles.length - length - 1; i >= length; i--) {
+    const value = side === "HIGH" ? candles[i].high : candles[i].low;
+    let pivot = true;
+    for (let j = 1; j <= length; j++) {
+      if (side === "HIGH" && (value <= candles[i - j].high || value <= candles[i + j].high)) pivot = false;
+      if (side === "LOW" && (value >= candles[i - j].low || value >= candles[i + j].low)) pivot = false;
+    }
+    if (pivot) return value;
+  }
+  return null;
+}
 function findOB(c: Candle[], dir: "BUY" | "SELL", target: number | null, a: number) {
   if (target == null) return null;
   let best: { direction: string; top: number; bottom: number; distance: number } | null = null;
@@ -80,14 +102,17 @@ function findOB(c: Candle[], dir: "BUY" | "SELL", target: number | null, a: numb
   }
   return best ? { direction: best.direction, top: best.top, bottom: best.bottom } : null;
 }
-export function evaluateSrbOb(candles: Candle[], config?: { fibLevel?: number; stopExtension?: number; targetExtension?: number; minScore?: number; trendOnly?: boolean; limitExpiryBars?: number; ticketClearanceAtr?: number; dxyDirection?: "BUY" | "SELL" | "NEUTRAL" | null; silverDirection?: "BUY" | "SELL" | "NEUTRAL" | null }) : SRBResult {
+export function evaluateSrbOb(candles: Candle[], config?: { fibLevel?: number; stopExtension?: number; targetExtension?: number; minScore?: number; trendOnly?: boolean; limitExpiryBars?: number; ticketClearanceAtr?: number; maChannelPeriod?: number; maChannelMode?: "VETO" | "VOTE" | "OFF"; stopModel?: "FIB_0382" | "FIB_0500" | "OPPOSITE_RANGE_EDGE" | "FIB_EXTENSION"; dxyDirection?: "BUY" | "SELL" | "NEUTRAL" | null; silverDirection?: "BUY" | "SELL" | "NEUTRAL" | null }) : SRBResult {
   // Keep chart-timeframe candles for exact session-range geometry and trade lifecycle.
   // Use completed 30-minute aggregates only to confirm breakout closes.
   const formationCandles = aggregateTo30m(candles);
   const fibLevel = config?.fibLevel ?? .681, stopExtension = config?.stopExtension ?? 1.25, targetExtension = config?.targetExtension ?? .618;
+  const maChannelPeriod = Math.max(1, config?.maChannelPeriod ?? 20);
+  const maChannelMode = config?.maChannelMode ?? "VETO";
   const empty = (state: string, window: string | null, hi: number | null, lo: number | null, score = 0, evidence: string[] = [], missing: string[] = []): SRBResult => {
     const last = candles.at(-1);
     const closes = candles.map(x => x.close);
+    const liveChannel = movingAverageChannel(candles, maChannelPeriod);
     const liveAtr = atr14(candles) ?? 0;
     const liveEma20 = ema(closes, 20), liveEma200 = ema(closes, 200), liveRsi = rsi(closes);
     const liveVolumes = candles.slice(-21, -1).map(x => x.volume).filter((x): x is number => x != null);
