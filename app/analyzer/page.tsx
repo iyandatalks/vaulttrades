@@ -144,6 +144,9 @@ function closedSrbPerformance(input: Candle[]) {
   };
   if (input.length < 25) return { sessions, grades, overall, long, short };
   const candles = [...input].sort((a,b)=>new Date(a.datetime).getTime()-new Date(b.datetime).getTime());
+  const gaps = candles.slice(1).map((c,i)=>(new Date(c.datetime).getTime()-new Date(candles[i].datetime).getTime())/60000).filter(v=>v>0&&v<=240).sort((a,b)=>a-b);
+  const medianGap = gaps.length ? gaps[Math.floor(gaps.length/2)] : 15;
+  const expectedRangeBars = Math.max(1,Math.ceil(30/medianGap));
   const parts = candles.map(c=>sastCandleParts(c.datetime));
   const dates = [...new Set(parts.filter((p):p is NonNullable<typeof p>=>!!p && ["Mon","Tue","Wed","Thu","Fri"].includes(p.weekday)).map(p=>p.date))];
   const closes = (end:number) => candles.slice(0,end).map(c=>c.close);
@@ -153,7 +156,7 @@ function closedSrbPerformance(input: Candle[]) {
     const w=SRB_WINDOWS[wi];
     const dayIdx=parts.map((p,i)=>p?.date===date?i:-1).filter(i=>i>=0);
     const rangeIdx=dayIdx.filter(i=>parts[i]!.minute>=w.start && parts[i]!.minute<w.end);
-    if(rangeIdx.length<2) continue;
+    if(rangeIdx.length<expectedRangeBars) continue;
     const rangeEnd=Math.max(...rangeIdx), hi=Math.max(...rangeIdx.map(i=>candles[i].high)), lo=Math.min(...rangeIdx.map(i=>candles[i].low)), range=hi-lo;
     if(!(range>0))continue;
     let breakIdx=-1, dir:"BUY"|"SELL"|null=null;
@@ -172,6 +175,24 @@ function closedSrbPerformance(input: Candle[]) {
     const score=(e200!=null&&(dir==="BUY"?sig.close>e200:sig.close<e200)?15:0)+(e20!=null&&(dir==="BUY"?sig.close>e20:sig.close<e20)?15:0)+(rsi!=null&&(dir==="BUY"?rsi>50:rsi<50)?20:0)+(sig.volume!=null&&avgVol!=null&&sig.volume>avgVol?30:0)+(atr>0&&range>atr*.5?20:0);
     const grade=score>=80?"A":score>=65?"B":score>=50?"C":"F";
     if (score < 50) continue;
+    const signalHistory=history.slice(0,-1);
+    const priorHighs=signalHistory.map(x=>x.high), priorLows=signalHistory.map(x=>x.low);
+    const upperTarget=Math.min(...priorHighs.filter(v=>v>sig.close),Infinity);
+    const lowerTarget=Math.max(...priorLows.filter(v=>v<sig.close),-Infinity);
+    const liqTarget=dir==="BUY"?(Number.isFinite(upperTarget)?upperTarget:null):(Number.isFinite(lowerTarget)?lowerTarget:null);
+    let opposingOB:{top:number;bottom:number}|null=null;
+    if(liqTarget!=null&&atr>0){
+      for(let oi=Math.max(2,signalHistory.length-100);oi<signalHistory.length-1;oi++){
+        const base=signalHistory[oi], impulse=signalHistory[oi+1], body=Math.abs(impulse.close-impulse.open);
+        const bearish=base.close>base.open&&impulse.close<impulse.open&&body>=atr*.8&&impulse.close<base.low;
+        const bullish=base.close<base.open&&impulse.close>impulse.open&&body>=atr*.8&&impulse.close>base.high;
+        const valid=dir==="BUY"?(bullish&&base.high<liqTarget):(bearish&&base.low>liqTarget);
+        if(valid)opposingOB={top:base.high,bottom:base.low};
+      }
+    }
+    if(opposingOB&&entry<=opposingOB.top+atr*.55&&entry>=opposingOB.bottom-atr*.55)continue;
+    const geometryOK=dir==="BUY"?stop<entry&&target>entry:stop>entry&&target<entry;
+    if(!geometryOK)continue;
     let fill=-1, blocked=false;
     for(let i=breakIdx+1;i<candles.length && i<=breakIdx+12;i++){
       const b=candles[i], entryHit=dir==="BUY"?b.low<=entry:b.high>=entry;
