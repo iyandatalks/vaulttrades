@@ -1,41 +1,66 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+
+type DirectoryKey = "Broker" | "Prop Firm" | "Tool" | "VaultTrades Product";
 
 type Partner = {
   name: string;
-  category: "Broker" | "Prop Firm" | "Tool" | "VaultTrades Product";
+  category: DirectoryKey;
   description: string;
-  code?: string;
-  url?: string;
 };
 
 const partners: Partner[] = [
   {
     name: "Recommended MT5 Brokers",
     category: "Broker",
-    description: "Broker options selected by VaultTrades for users who need an MT5 trading account. Referral links and codes will be added by the VaultTrades team.",
+    description: "Compare recommended brokers and visit their official account-registration pages.",
   },
   {
     name: "Recommended Prop Firms",
     category: "Prop Firm",
-    description: "Prop-firm options for traders evaluating funded-account programs. Referral links and codes will be added by the VaultTrades team.",
+    description: "Explore funded-account providers and review their current rules before signing up.",
   },
   {
     name: "Trading Tools",
     category: "Tool",
-    description: "Useful trading, analysis and productivity tools. Partner links will be added as they are approved.",
+    description: "Explore tools that support planning, journaling and risk awareness.",
   },
   {
     name: "VaultTrades Products",
     category: "VaultTrades Product",
-    description: "Explore VaultTrades products, services and member tools from one shareable page.",
-    url: "/products",
+    description: "Browse VaultTrades trading products and mentorship services.",
   },
+];
+
+const brokers = [
+  { name: "XM Broker", description: "MT4/MT5 trading accounts for forex, gold and other markets.", url: "https://www.xmza.com/referral?token=9TMOAfWroLZu69ys2-IUqg" },
+  { name: "Headway", description: "MT4/MT5 broker; review the account entity and current terms for your location.", url: "https://headway.partners/user/signup?hwp=d93922" },
+  { name: "JustMarkets", description: "MT4/MT5 trading accounts; available conditions depend on the account and jurisdiction.", url: "https://one.justmarkets.link/a/trea9c04a1" },
+];
+
+const propFirms = [
+  { name: "Top One Trader", description: "Compare its current evaluation models and trading rules.", url: "https://toponetrader.com/?linkId=lp_148658&sourceId=sibongilesz2017gmailcom&tenantId=toponetrader" },
+  { name: "Goat Funded Trader", description: "Review current challenge, funding and payout terms.", url: "https://www.goatfundedtrader.com/" },
+  { name: "Blue Guardian", description: "Compare available funding models and their rules.", url: "https://blueguardian.com/?afmc=2dw1" },
+];
+
+const products = [
+  { name: "Analyzer", description: "Market analysis and trade planning.", url: "/analyzer" },
+  { name: "Copy Trading", description: "VaultTrades copy-trading service.", url: "/copy" },
+  { name: "Mentorship", description: "One-on-one mentorship service.", url: "/founders-mentorship" },
+];
+
+const tools = [
+  { name: "Trading Journal", description: "Review and record your trading activity." },
+  { name: "Wealth Builder", description: "Organise your wealth-building progress." },
+  { name: "Risk Management", description: "Support more structured risk planning." },
 ];
 
 export default function PartnersClient() {
   const [copied, setCopied] = useState(false);
+  const [activeSection, setActiveSection] = useState<DirectoryKey | null>(null);
   const shareUrl = typeof window !== "undefined" ? window.location.href : "https://vaulttradesve.com/partners";
 
   const copyLink = async () => {
@@ -48,7 +73,7 @@ export default function PartnersClient() {
     if (navigator.share) {
       await navigator.share({
         title: "VaultTrades Partners",
-        text: "Explore VaultTrades recommended brokers, prop firms, trading tools and products.",
+        text: "Explore VaultTrades partners, products and tools.",
         url: shareUrl,
       });
     } else {
@@ -56,19 +81,22 @@ export default function PartnersClient() {
     }
   };
 
+  const selectedItems =
+    activeSection === "Broker" ? brokers :
+    activeSection === "Prop Firm" ? propFirms :
+    activeSection === "VaultTrades Product" ? products :
+    activeSection === "Tool" ? tools : [];
+
   return (
     <main className="vt-info-page">
       <div className="vt-info-wrap" style={{ maxWidth: 1120 }}>
         <header className="vt-info-hero">
           <div className="vt-label">VAULTTRADES PARTNERS</div>
-          <h1>Brokers, Prop Firms, Tools & Products</h1>
-          <p>
-            A single shareable page for VaultTrades recommendations, partner offers,
-            referral codes and useful trading resources.
-          </p>
+          <h1>Partners, Products & Tools</h1>
+          <p>Choose a category to explore the resources you need.</p>
           <div className="vt-actions" style={{ justifyContent: "flex-start", marginTop: 20, flexWrap: "wrap" }}>
             <button className="vt-primary" onClick={() => void share()}>
-              {copied ? "Link Copied" : "Share VaultTrades Partners"}
+              {copied ? "Link Copied" : "Share VaultTrades"}
             </button>
             <button className="vt-secondary" onClick={() => void copyLink()}>
               Copy Share Link
@@ -77,27 +105,72 @@ export default function PartnersClient() {
         </header>
 
         <section className="vt-info-card" style={{ marginTop: 24, border: "1px solid rgba(212,166,55,.35)" }}>
-          <div className="vt-label">PARTNER DIRECTORY</div>
+          <div className="vt-label">DIRECTORY</div>
           <h2 style={{ marginTop: 10 }}>Choose what you need</h2>
           <div className="vt-info-grid" style={{ marginTop: 18 }}>
-            {partners.map((partner) => (
-              <article className="vt-info-card" key={partner.category}>
-                <div className="vt-label">{partner.category.toUpperCase()}</div>
-                <h2 style={{ marginTop: 10 }}>{partner.name}</h2>
-                <p className="muted" style={{ lineHeight: 1.65 }}>{partner.description}</p>
-                {partner.url ? (
-                  <a className="vt-primary" href={partner.url} style={{ display: "inline-block", marginTop: 8 }}>
-                    Explore →
-                  </a>
-                ) : (
-                  <span className="muted" style={{ display: "inline-block", marginTop: 8 }}>
-                    Partner links coming soon
+            {partners.map((partner) => {
+              const selected = activeSection === partner.category;
+              return (
+                <button
+                  type="button"
+                  key={partner.category}
+                  className="vt-info-card"
+                  onClick={() => setActiveSection(selected ? null : partner.category)}
+                  aria-expanded={selected}
+                  style={{
+                    textAlign: "left",
+                    color: "inherit",
+                    cursor: "pointer",
+                    border: selected ? "1px solid #d4a637" : undefined,
+                    width: "100%",
+                  }}
+                >
+                  <div className="vt-label">{partner.category.toUpperCase()}</div>
+                  <h2 style={{ marginTop: 10 }}>{partner.name}</h2>
+                  <p className="muted" style={{ lineHeight: 1.65 }}>{partner.description}</p>
+                  <span className="vt-primary" style={{ display: "inline-block", marginTop: 8 }}>
+                    {selected ? "Close ↑" : "Explore →"}
                   </span>
-                )}
-              </article>
-            ))}
+                </button>
+              );
+            })}
           </div>
         </section>
+
+        {activeSection && (
+          <section className="vt-info-card" style={{ marginTop: 18 }}>
+            <div className="vt-label">{activeSection.toUpperCase()}</div>
+            <h2 style={{ marginTop: 10 }}>
+              {activeSection === "Broker" ? "Recommended MT5 Brokers" :
+               activeSection === "Prop Firm" ? "Recommended Prop Firms" :
+               activeSection === "VaultTrades Product" ? "VaultTrades Products" : "Trading Tools"}
+            </h2>
+            <div className="vt-info-grid" style={{ marginTop: 16 }}>
+              {selectedItems.map((item) => (
+                <article className="vt-info-card" key={item.name}>
+                  <h2>{item.name}</h2>
+                  <p className="muted" style={{ lineHeight: 1.65 }}>{item.description}</p>
+                  {"url" in item && item.url ? (
+                    <a className="vt-primary" href={item.url} style={{ display: "inline-block", marginTop: 10 }}
+                      target={item.url.startsWith("http") ? "_blank" : undefined}
+                      rel={item.url.startsWith("http") ? "noreferrer" : undefined}>
+                      {activeSection === "VaultTrades Product" ? "View Product →" : "Visit Website →"}
+                    </a>
+                  ) : (
+                    <p className="muted" style={{ marginTop: 10, marginBottom: 0 }}>
+                      Available from your VaultTrades dashboard.
+                    </p>
+                  )}
+                </article>
+              ))}
+            </div>
+            {(activeSection === "Broker" || activeSection === "Prop Firm") && (
+              <p className="muted" style={{ marginTop: 14, marginBottom: 0 }}>
+                Partner links may generate a referral benefit. Offers and account terms can change; review the provider's current terms before registering. Trading and funding outcomes are not guaranteed.
+              </p>
+            )}
+          </section>
+        )}
 
         <section className="vt-info-card" style={{ marginTop: 24 }}>
           <div className="vt-label">REFERRAL DISCLOSURE</div>
@@ -107,22 +180,6 @@ export default function PartnersClient() {
             through an approved partner link. Any applicable referral code, offer or
             commercial relationship will be displayed with the relevant partner.
           </p>
-        </section>
-
-        <section className="vt-info-card" style={{ marginTop: 24 }}>
-          <div className="vt-label">SHARE</div>
-          <h2 style={{ marginTop: 10 }}>Send this page to another trader.</h2>
-          <p className="muted">Share one VaultTrades link instead of sending separate broker, prop-firm and tool links.</p>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
-            <input
-              readOnly
-              value={shareUrl}
-              style={{ flex: 1, minWidth: 260, padding: 13, borderRadius: 9, border: "1px solid rgba(255,255,255,.12)", background: "#050812", color: "#f4f6fb" }}
-            />
-            <button className="vt-primary" onClick={() => void copyLink()}>
-              {copied ? "Copied" : "Copy Link"}
-            </button>
-          </div>
         </section>
       </div>
     </main>
