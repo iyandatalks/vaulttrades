@@ -9,6 +9,7 @@ const products = [
   { title: "AI COACH", text: "Available to customers with any active VaultTrades product. Ask questions about market structure, strategy conditions, analysis and trading decisions.", href: "/ai-coach", action: "Open AI Coach" },
   { title: "JOURNAL", text: "Available to customers with any active VaultTrades product. Record trades, review decisions and turn your execution history into useful trading data.", href: "/journal", action: "Open Journal" },
   { title: "FUNDED ACCOUNT WEALTH BUILDER", text: "Available to customers with any active VaultTrades product. Model capital, income goals, buffers and monthly return assumptions.", href: "/funded-account-wealth-builder", action: "Open Wealth Builder" },
+  { title: "VAULTTRADES COMMUNITY", text: "Join the VaultTrades online trading community. Learn market structure, strengthen trading discipline and connect with fellow traders.", href: "/vaulttrades-community", action: "Open Community" },
 ];
 
 const workflow = [
