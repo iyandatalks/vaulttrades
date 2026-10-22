@@ -22,13 +22,9 @@ const clean = (value: unknown) => typeof value === "string" ? value.trim() : "";
 
 function calculateChannel(candles: Array<{ high: number; low: number; close: number }>, length = 20) {
   if (candles.length < length) return { upper: null, lower: null, middle: null };
-  const k = 2 / (length + 1);
-  let upper = candles.slice(0, length).reduce((s, c) => s + c.high, 0) / length;
-  let lower = candles.slice(0, length).reduce((s, c) => s + c.low, 0) / length;
-  for (let i = length; i < candles.length; i++) {
-    upper = candles[i].high * k + upper * (1 - k);
-    lower = candles[i].low * k + lower * (1 - k);
-  }
+  const channelCandles = candles.slice(-length);
+  const upper = channelCandles.reduce((sum, candle) => sum + candle.high, 0) / length;
+  const lower = channelCandles.reduce((sum, candle) => sum + candle.low, 0) / length;
   return { upper, lower, middle: (upper + lower) / 2 };
 }
 
