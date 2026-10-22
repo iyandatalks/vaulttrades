@@ -95,7 +95,7 @@ type Result = {
   educationalNote?: string;
   qualityChecks?: { smcStrongCount?: number; rrValid?: boolean; slDistanceValid?: boolean; entryDistanceValid?: boolean; universalTradeGate?: boolean };
   scanner?: Scanner;
-  strategyEngine?: { source?: string; state?: string; direction?: string; entry?: number | null; stopLoss?: number | null; finalTp?: number | null; rangeHigh?: number | null; rangeLow?: number | null; window?: string | null; fibLevel?: number; score?: number; evidence?: string[]; missingConditions?: string[]; liquidityTarget?: number | null; orderBlock?: { direction: string; top: number; bottom: number } | null; riskReward?: number | null; invalidation?: string };
+  strategyEngine?: { source?: string; state?: string; signal?: string; direction?: string; entry?: number | null; stopLoss?: number | null; finalTp?: number | null; rangeHigh?: number | null; rangeLow?: number | null; window?: string | null; fibLevel?: number; score?: number; evidence?: string[]; missingConditions?: string[]; liquidityTarget?: number | null; orderBlock?: { direction: string; top: number; bottom: number } | null; riskReward?: number | null; invalidation?: string; ema20?: number | null; slowEMA?: number | null; atr?: number | null; bullStructure?: boolean; bearStructure?: boolean; bullTouch?: boolean; bearTouch?: boolean; bullReject?: boolean; bearReject?: boolean; bullMABreak?: boolean; bearMABreak?: boolean; utBull?: boolean; utBear?: boolean; smiBull?: boolean; smiBear?: boolean; confirmation?: { long: number; short: number } };
 };
 
 const TIMEFRAMES: Timeframe[] = ["1m", "5m", "15m", "30m", "1H", "4H", "1D", "1W", "1M"];
@@ -281,6 +281,25 @@ export default function AnalyzerPage() {
     {result && <>
       <section className="card"><div className="section-label">LIVE CHART</div><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}><div><h2 className="title" style={{ marginBottom: 3 }}>{result.market?.asset}</h2><div className="muted">{result.market?.timeframe} · Current price {fmt(result.market?.currentPrice)}</div></div><div className="condition-box" style={{ padding: "10px 14px" }}><strong>Strategy: {strategyDisplayName(result.strategy?.id, result.strategy?.name)}</strong></div></div><LiveMarketChart candles={result.chart?.candles || []} channel={result.chart?.channel20} liquidityTargets={s?.liquidityTargets ?? result.liquidityTargets} /></section>
 
+      {strategy === "ema20" && result.strategyEngine && <section className="card" style={{ border: "1px solid rgba(212,166,55,.4)" }}>
+        <div className="section-label">EMA20 + OB ENGINE · LIVE SOURCE STATE</div>
+        <h2 className="title">{result.strategyEngine.state || "WAITING"} · {result.strategyEngine.signal || "NO TRADE"}</h2>
+        <p className="muted">Source-native EMA20 logic: persistent confirmed structure → EMA20 pullback/rejection → break of rejection boundary → UT Bot or SMI confirmation. No new signal means no entry is fabricated.</p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: 10, marginTop: 14 }}>
+          <PriceLevel label="EMA20" value={result.strategyEngine.ema20} kind="orange" />
+          <PriceLevel label="SLOW EMA CONTEXT" value={result.strategyEngine.slowEMA} kind="orange" />
+          <PriceLevel label="ATR(14)" value={result.strategyEngine.atr} kind="orange" />
+          <PriceLevel label="SOURCE ENTRY" value={result.strategyEngine.entry} kind="entry" />
+          <PriceLevel label="SOURCE STOP" value={result.strategyEngine.stopLoss} kind="sl" />
+          <PriceLevel label="SOURCE TARGET" value={result.strategyEngine.finalTp} kind="tp" />
+        </div>
+        <div className="condition-box" style={{ marginTop: 12 }}>
+          <strong>Confirmation score · Long {result.strategyEngine.confirmation?.long ?? 0}/2 · Short {result.strategyEngine.confirmation?.short ?? 0}/2</strong>
+          <p className="muted">{result.strategyEngine.evidence?.join(" · ") || "No active source confirmations on the latest candle."}</p>
+          {result.strategyEngine.missingConditions?.length ? <p className="muted">Waiting / rejected: {result.strategyEngine.missingConditions.join(" · ")}</p> : null}
+          <p className="muted">Invalidation: {result.strategyEngine.invalidation || "No active rejection setup."}</p>
+        </div>
+      </section>}
       {strategy === "srbOb" && result.strategyEngine && <section className="card" style={{ border: "1px solid rgba(212,166,55,.4)" }}>
         <div className="section-label">SRB & OB ENGINE · LIVE SOURCE STATE</div>
         <h2 className="title">{result.strategyEngine.state || "WAITING"} · {result.strategyEngine.window || "No active window detected"}</h2>
