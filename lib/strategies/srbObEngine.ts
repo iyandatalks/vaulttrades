@@ -8,11 +8,11 @@ type SRBResult = {
   riskReward: number | null; source: "SRB_OB_DETERMINISTIC";
 };
 const windows = [
-  { id: 1, name: "TOKYO", start: "02:30", end: "03:00", days: [1, 2] },
-  { id: 2, name: "LONDON 1", start: "10:00", end: "10:30", days: [3, 4, 5] },
-  { id: 3, name: "LONDON 2", start: "12:00", end: "12:30", days: [2] },
-  { id: 4, name: "NYSE 1", start: "15:30", end: "16:00", days: [2] },
-  { id: 5, name: "NYSE 2", start: "19:45", end: "20:15", days: [3] },
+  { id: 1, name: "TOKYO", start: "02:30", end: "03:00", days: [1, 2, 3, 4, 5] },
+  { id: 2, name: "LONDON 1", start: "10:00", end: "10:30", days: [1, 2, 3, 4, 5] },
+  { id: 3, name: "LONDON 2", start: "12:00", end: "12:30", days: [1, 2, 3, 4, 5] },
+  { id: 4, name: "NEW YORK 1", start: "15:30", end: "16:00", days: [1, 2, 3, 4, 5] },
+  { id: 5, name: "NEW YORK 2", start: "19:45", end: "20:15", days: [1, 2, 3, 4, 5] },
 ];
 function localParts(value: string) {
   const date = new Date(value.includes("T") ? value : value.replace(" ", "T") + "Z");
