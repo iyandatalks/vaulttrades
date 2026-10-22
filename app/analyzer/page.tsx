@@ -212,6 +212,21 @@ function closedSrbPerformance(input: Candle[]) {
   }
   return { sessions, grades, overall, long, short };
 }
+function recentSwingStructure(input: Candle[], length = 3) {
+  const highs: { index:number; price:number }[] = [], lows: { index:number; price:number }[] = [];
+  if(input.length < length*2+5) return { label:"INSUFFICIENT HISTORY", lastHigh:null as number|null, lastLow:null as number|null, higherHigh:null as boolean|null, higherLow:null as boolean|null };
+  for(let i=length;i<input.length-length;i++){
+    const x=input[i];
+    let isHigh=true,isLow=true;
+    for(let j=i-length;j<=i+length;j++){if(j===i)continue;if(input[j].high>x.high)isHigh=false;if(input[j].low<x.low)isLow=false;}
+    if(isHigh)highs.push({index:i,price:x.high});
+    if(isLow)lows.push({index:i,price:x.low});
+  }
+  const h1=highs.at(-2),h2=highs.at(-1),l1=lows.at(-2),l2=lows.at(-1);
+  const higherHigh=h1&&h2?h2.price>h1.price:null, higherLow=l1&&l2?l2.price>l1.price:null;
+  const label=higherHigh===true&&higherLow===true?"HH + HL · BULLISH":higherHigh===false&&higherLow===false?"LH + LL · BEARISH":"MIXED / TRANSITION";
+  return {label,lastHigh:h2?.price??null,lastLow:l2?.price??null,higherHigh,higherLow};
+}
 function RateBar({ winRate, lossRate }: { winRate:number|null; lossRate:number|null }) {
   const w=Math.max(0,Math.min(100,winRate??0)), l=Math.max(0,Math.min(100,lossRate??0));
   return <div aria-label={`Win rate ${winRate==null?"unavailable":winRate.toFixed(1)+"%"}; loss rate ${lossRate==null?"unavailable":lossRate.toFixed(1)+"%"}`} style={{height:9,display:"flex",width:"100%",overflow:"hidden",borderRadius:99,background:"#263244",marginTop:6}}>
@@ -370,6 +385,7 @@ export default function AnalyzerPage() {
 
   const changeMarket = (value: MarketType) => { setMarketType(value); setSymbol(DEFAULT_SYMBOLS[value][0]); setResult(null); setLockedTrade(null); setError(""); };
   const srbPerformance = closedSrbPerformance(result?.chart?.candles ?? []);
+  const srbStructure = recentSwingStructure(result?.chart?.candles ?? []);
   const srbDisplayScore = result?.strategyEngine ? (result.strategyEngine.breakoutDirection ? (result.strategyEngine.score ?? 0) : Math.max(result.strategyEngine.confluence?.longScore ?? 0, result.strategyEngine.confluence?.shortScore ?? 0)) : 0;
   const s = result?.scanner;
   const displayDirection = s?.projectedDirection && s.projectedDirection !== "NO TRADE" ? s.projectedDirection : result?.direction;
@@ -471,6 +487,9 @@ export default function AnalyzerPage() {
             <p>Range high · <b>{fmt(result.strategyEngine.rangeHigh)}</b></p><p>Range low · <b>{fmt(result.strategyEngine.rangeLow)}</b></p>
             <p>Range size · <b>{result.strategyEngine.rangeHigh != null && result.strategyEngine.rangeLow != null ? fmt(result.strategyEngine.rangeHigh-result.strategyEngine.rangeLow) : "—"}</b></p>
             <p>Midline · <b>{result.strategyEngine.rangeHigh != null && result.strategyEngine.rangeLow != null ? fmt((result.strategyEngine.rangeHigh+result.strategyEngine.rangeLow)/2) : "—"}</b></p>
+            <p>Recent swing structure · <b style={{color:srbStructure.label.includes("BULLISH")?"#4ade80":srbStructure.label.includes("BEARISH")?"#fb7185":"#cbd5e1"}}>{srbStructure.label}</b></p>
+            <p>Latest swing high / HH · <b>{fmt(srbStructure.lastHigh)} / {srbStructure.higherHigh==null?"—":srbStructure.higherHigh?"HH":"LH"}</b></p>
+            <p>Latest swing low / HL · <b>{fmt(srbStructure.lastLow)} / {srbStructure.higherLow==null?"—":srbStructure.higherLow?"HL":"LL"}</b></p>
             <p>Regime · <b>{(result.strategyEngine.score ?? 0) >= 50 ? "CONFLUENCE QUALIFIED" : "WAIT / FILTERED"}</b></p>
           </div>
           <div className="condition-box"><strong>02 · TRADE EXECUTION</strong>
