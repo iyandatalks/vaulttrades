@@ -5,7 +5,7 @@ type SRBResult = {
   rangeHigh: number | null; rangeLow: number | null; window: string | null; fibLevel: number;
   score: number; evidence: string[]; missingConditions: string[]; invalidation: string;
   liquidityTarget: number | null; orderBlock: { direction: string; top: number; bottom: number } | null;
-  riskReward: number | null; breakoutPrice?: number | null; breakoutTime?: string | null;
+  riskReward: number | null; breakoutPrice?: number | null; breakoutTime?: string | null; breakoutDirection?: "BUY" | "SELL" | null;
   confluence?: { macroTrend: string; fastTrend: string; rsi: number | null; rsiAligned: boolean | null; volumeRatio: number | null; volumeGood: boolean; rangeSize: number; rangeAtrRatio: number | null; longScore: number; shortScore: number; dxy: string; silver: string; gate: string };
   source: "SRB_OB_DETERMINISTIC";
 };
@@ -97,7 +97,7 @@ export function evaluateSrbOb(candles: Candle[], config?: { fibLevel?: number; s
       (liveRsi != null && (side === "BUY" ? liveRsi > 50 : liveRsi < 50) ? 20 : 0) +
       (liveVolumeGood ? 30 : 0) + (liveAtr > 0 && liveRangeSize > liveAtr * .5 ? 20 : 0);
     return {
-      state, direction: "NO TRADE", entry: null, stopLoss: null, finalTp: null, rangeHigh: hi, rangeLow: lo, window, fibLevel, score, evidence, missingConditions: missing,
+      state, direction: "NO TRADE", entry: null, stopLoss: null, finalTp: null, rangeHigh: hi, rangeLow: lo, window, fibLevel, score, evidence, missingConditions: missing, breakoutDirection: null,
       invalidation: "Wait for the next configured opening range, a confirmed close breakout, then a valid Fib pullback retest.", liquidityTarget: null, orderBlock: null, riskReward: null,
       confluence: {
         macroTrend: liveEma200 == null || !last ? "INSUFFICIENT HISTORY" : last.close > liveEma200 ? "BULLISH" : last.close < liveEma200 ? "BEARISH" : "NEUTRAL",
@@ -239,11 +239,11 @@ export function evaluateSrbOb(candles: Candle[], config?: { fibLevel?: number; s
     ...(expired && !touched ? ["Fib limit expired after " + expiryBars + " bars without a fill."] : []),
     ...(!touched && !expired && !riskHitBeforeFill ? ["Waiting for price to retest the fixed Fib entry; breakout is not an entry."] : []),
   ];
-  if (riskHitBeforeFill) return { ...empty("CANCELLED", selected.window.name, hi, lo, score, evidence, missing), entry, stopLoss, finalTp, liquidityTarget, orderBlock: ob, riskReward: rr, breakoutPrice: signalCandle.close, breakoutTime: signalCandle.datetime, confluence: confluenceDetails, invalidation: "Pending setup cancelled because stop/target was reached before the Fib entry filled." };
-  if (expired && !touched) return { ...empty("EXPIRED", selected.window.name, hi, lo, score, evidence, missing), entry, stopLoss, finalTp, liquidityTarget, orderBlock: ob, riskReward: rr, breakoutPrice: signalCandle.close, breakoutTime: signalCandle.datetime, confluence: confluenceDetails, invalidation: "Unfilled Fib setup expired after " + expiryBars + " bars." };
-  if (!scoreOK || !geometry || insideOB || !trendOK || !dxyOK || !silverOK) return { ...empty("REJECTED", selected.window.name, hi, lo, score, evidence, missing), direction: "NO TRADE", entry, stopLoss, finalTp, liquidityTarget, orderBlock: ob, riskReward: rr, breakoutPrice: signalCandle.close, breakoutTime: signalCandle.datetime, confluence: confluenceDetails };
-  if (!touched || !afterBreak) return { ...empty("LIMIT WAIT", selected.window.name, hi, lo, score, evidence, missing), entry, stopLoss, finalTp, liquidityTarget, orderBlock: ob, riskReward: rr, breakoutPrice: signalCandle.close, breakoutTime: signalCandle.datetime, confluence: confluenceDetails };
+  if (riskHitBeforeFill) return { ...empty("CANCELLED", selected.window.name, hi, lo, score, evidence, missing), entry, stopLoss, finalTp, liquidityTarget, orderBlock: ob, riskReward: rr, breakoutPrice: signalCandle.close, breakoutTime: signalCandle.datetime, breakoutDirection: dir, confluence: confluenceDetails, invalidation: "Pending setup cancelled because stop/target was reached before the Fib entry filled." };
+  if (expired && !touched) return { ...empty("EXPIRED", selected.window.name, hi, lo, score, evidence, missing), entry, stopLoss, finalTp, liquidityTarget, orderBlock: ob, riskReward: rr, breakoutPrice: signalCandle.close, breakoutTime: signalCandle.datetime, breakoutDirection: dir, confluence: confluenceDetails, invalidation: "Unfilled Fib setup expired after " + expiryBars + " bars." };
+  if (!scoreOK || !geometry || insideOB || !trendOK || !dxyOK || !silverOK) return { ...empty("REJECTED", selected.window.name, hi, lo, score, evidence, missing), direction: "NO TRADE", entry, stopLoss, finalTp, liquidityTarget, orderBlock: ob, riskReward: rr, breakoutPrice: signalCandle.close, breakoutTime: signalCandle.datetime, breakoutDirection: dir, confluence: confluenceDetails };
+  if (!touched || !afterBreak) return { ...empty("LIMIT WAIT", selected.window.name, hi, lo, score, evidence, missing), entry, stopLoss, finalTp, liquidityTarget, orderBlock: ob, riskReward: rr, breakoutPrice: signalCandle.close, breakoutTime: signalCandle.datetime, breakoutDirection: dir, confluence: confluenceDetails };
   const finalState = completedState ?? (touched ? "TRADE OPEN" : "LIMIT WAIT");
   const finalEvidence = completedState === "TARGET HIT" ? [...evidence, "Fib entry filled; target reached after entry."] : completedState === "STOP HIT" ? [...evidence, "Fib entry filled; stop reached after entry."] : touched ? [...evidence, "Fib entry filled; trade remains open because neither exit has been reached."] : evidence;
-  return { ...empty(finalState, selected.window.name, hi, lo, score, finalEvidence, []), direction: dir, entry, stopLoss, finalTp, liquidityTarget, orderBlock: ob, riskReward: rr, breakoutPrice: signalCandle.close, breakoutTime: signalCandle.datetime, confluence: confluenceDetails, invalidation: completedState === "TARGET HIT" ? "Trade closed at the planned target." : completedState === "STOP HIT" ? "Trade closed at the planned stop." : touched ? "Manage the filled trade against its fixed stop and target." : "Wait for price to retest the fixed Fib entry before counting a trade as filled." };
+  return { ...empty(finalState, selected.window.name, hi, lo, score, finalEvidence, []), direction: dir, entry, stopLoss, finalTp, liquidityTarget, orderBlock: ob, riskReward: rr, breakoutPrice: signalCandle.close, breakoutTime: signalCandle.datetime, breakoutDirection: dir, confluence: confluenceDetails, invalidation: completedState === "TARGET HIT" ? "Trade closed at the planned target." : completedState === "STOP HIT" ? "Trade closed at the planned stop." : touched ? "Manage the filled trade against its fixed stop and target." : "Wait for price to retest the fixed Fib entry before counting a trade as filled." };
 }
