@@ -15,6 +15,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const [email, setEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [referral, setReferral] = useState<ReferralState>({ enabled: false, code: null, url: null });
 
   useEffect(() => {
@@ -32,6 +33,7 @@ export default function ProfilePage() {
 
         if (response.ok) {
           setReferral(result?.referral ?? { enabled: false, code: null, url: null });
+          setIsAdmin(result?.admin === true);
         }
       }
 
@@ -72,6 +74,33 @@ export default function ProfilePage() {
 
         {!loading && email && (
           <>
+            {isAdmin && (
+              <section className="vt-info-card" style={{ marginTop: 24, textAlign: "left", border: "1px solid rgba(212,166,55,.35)" }}>
+                <div className="vt-label">ADMIN</div>
+                <h2 style={{ margin: "10px 0 8px", fontSize: 27 }}>Admin Controls</h2>
+                <p className="muted" style={{ maxWidth: 760 }}>
+                  Administrative links for account access, submitted content and partner management.
+                </p>
+                <div className="vt-info-grid" style={{ marginTop: 16 }}>
+                  <article className="vt-info-card">
+                    <h3>Grant Product Access</h3>
+                    <p className="muted">Find a customer and grant or deactivate eligible product access.</p>
+                    <Link className="vt-primary" href="/admin/product-access" style={{ display: "inline-block", marginTop: 8 }}>Open Access Control →</Link>
+                  </article>
+                  <article className="vt-info-card">
+                    <h3>Review Community Posts</h3>
+                    <p className="muted">Approve, keep pending, or reject customer testimonials before publication.</p>
+                    <Link className="vt-primary" href="/admin/community-testimonials" style={{ display: "inline-block", marginTop: 8 }}>Review Submissions →</Link>
+                  </article>
+                  <article className="vt-info-card">
+                    <h3>Manage Partners</h3>
+                    <p className="muted">Manage the partner catalogue and public partner page.</p>
+                    <Link className="vt-primary" href="/admin/partners" style={{ display: "inline-block", marginTop: 8 }}>Open Partner Management →</Link>
+                  </article>
+                </div>
+              </section>
+            )}
+
             <section className="vt-info-card" style={{ marginTop: 24, textAlign: "left" }}>
               <div className="vt-label">REFERRAL</div>
               <h2 style={{ margin: "10px 0 8px", fontSize: 27 }}>VaultTrades Referral</h2>
