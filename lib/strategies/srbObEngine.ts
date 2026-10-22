@@ -117,20 +117,29 @@ export function evaluateSrbOb(candles: Candle[], config?: { fibLevel?: number; s
   if (candles.length < 40) return empty("WAITING", null, null, null, 0, [], ["At least 40 live candles are required."]);
   const parts = candles.map(c => localParts(c.datetime));
   const latestDateKey = [...parts].reverse().find(p => p != null)?.dateKey;
+  const nowParts = localParts(new Date().toISOString());
+  const currentWindow = nowParts ? windows.find(w => w.days.includes(nowParts.weekday) && nowParts.clock >= w.start && nowParts.clock < w.end) : undefined;
   let selected: { window: typeof windows[number]; dateKey: string; indices: number[]; endIndex: number; building: boolean } | null = null;
-  // Prefer today's in-progress opening window; otherwise select the latest completed
-  // one. This prevents the dashboard from showing London while New York is forming.
+  // For live evaluation, the wall-clock session takes precedence over a stale or
+  // future-dated final market candle. Use today's actual SAST date and active window.
+  const liveDateKey = nowParts?.dateKey ?? latestDateKey;
+  if (currentWindow && liveDateKey) {
+    const indices = parts.map((p, i) => p?.dateKey === liveDateKey && p.weekday === nowParts!.weekday && p.clock >= currentWindow.start && p.clock < currentWindow.end ? i : -1).filter(i => i >= 0);
+    if (indices.length) selected = { window: currentWindow, dateKey: liveDateKey, indices, endIndex: indices.at(-1)!, building: true };
+    else return empty("BUILDING", currentWindow.name, null, null, 0, ["Current SAST opening window is forming; candle data for this window is not available yet."], ["Refresh market data for the active window before evaluating its range."]);
+  }
+  // Outside a currently forming opening window, use the most recent eligible
+  // session from the latest SAST market-data date.
   for (let i = candles.length - 1; i >= 0 && !selected; i--) {
-    const p = parts[i]; if (!p || p.dateKey !== latestDateKey) continue;
-    const inProgress = windows.filter(w => w.days.includes(p.weekday) && p.clock >= w.start && p.clock < w.end);
-    const candidates = inProgress.length ? inProgress : windows.filter(w => w.days.includes(p.weekday) && p.clock >= w.end).sort((x,y) => y.end.localeCompare(x.end));
+    const p = parts[i]; if (!p || p.dateKey !== latestDateKey || (nowParts && p.dateKey !== nowParts.dateKey)) continue;
+    const candidates = windows.filter(w => w.days.includes(p.weekday) && p.clock >= w.end).sort((x,y) => y.end.localeCompare(x.end));
     for (const w of candidates) {
       const indices: number[] = [];
       for (let j = i; j >= 0; j--) {
         const pj = parts[j]; if (pj?.dateKey !== p.dateKey) break;
         if (w.days.includes(pj.weekday) && pj.clock >= w.start && pj.clock < w.end) indices.unshift(j);
       }
-      if (indices.length) { selected = { window: w, dateKey: p.dateKey, indices, endIndex: i, building: p.clock < w.end }; break; }
+      if (indices.length) { selected = { window: w, dateKey: p.dateKey, indices, endIndex: i, building: false }; break; }
     }
   }
   if (!selected) return empty("WAITING", null, null, null, 0, [], ["The available live history does not include a completed configured SRB window."]);
