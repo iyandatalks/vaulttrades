@@ -67,10 +67,12 @@ export function evaluateSrbOb(candles: Candle[], config?: { fibLevel?: number; s
   if (candles.length < 40) return empty("WAITING", null, null, null, 0, [], ["At least 40 live candles are required."]);
   const parts = candles.map(c => localParts(c.datetime));
   let selected: { window: typeof windows[number]; dateKey: string; indices: number[]; endIndex: number } | null = null;
+  // Select the most recent eligible range for the latest candle date; don't let
+  // the first item in a static array (e.g. Tokyo) override a later London/NYSE range.
   for (let i = candles.length - 1; i >= 0 && !selected; i--) {
     const p = parts[i]; if (!p) continue;
-    for (const w of windows) {
-      if (!w.days.includes(p.weekday) || p.clock < w.end) continue;
+    const candidates = windows.filter(w => w.days.includes(p.weekday) && p.clock >= w.end).sort((x,y) => y.end.localeCompare(x.end));
+    for (const w of candidates) {
       const indices: number[] = [];
       for (let j = i; j >= 0; j--) {
         const pj = parts[j]; if (pj?.dateKey !== p.dateKey) break;
@@ -80,6 +82,10 @@ export function evaluateSrbOb(candles: Candle[], config?: { fibLevel?: number; s
     }
   }
   if (!selected) return empty("WAITING", null, null, null, 0, [], ["The available live history does not include a completed configured SRB window."]);
+  const intervals = candles.slice(1).map((c, i) => (new Date(c.datetime).getTime() - new Date(candles[i].datetime).getTime()) / 60000).filter(v => v > 0 && v <= 240).sort((x,y)=>x-y);
+  const candleMinutes = intervals.length ? intervals[Math.floor(intervals.length / 2)] : 15;
+  const expectedRangeBars = Math.max(1, Math.ceil(30 / candleMinutes));
+  if (selected.indices.length < expectedRangeBars) return empty("INCOMPLETE RANGE", selected.window.name, null, null, 0, ["Configured 30-minute opening window has incomplete candle coverage."], ["Need " + expectedRangeBars + " candles for this chart timeframe; found " + selected.indices.length + "."]);
   const hi = Math.max(...selected.indices.map(i => candles[i].high)), lo = Math.min(...selected.indices.map(i => candles[i].low));
   const range = hi - lo, last = candles.at(-1)!, previous = candles.at(-2)!;
   const after = candles.map((_, i) => i).filter(i => i > selected!.indices.at(-1)!);
@@ -92,17 +98,12 @@ export function evaluateSrbOb(candles: Candle[], config?: { fibLevel?: number; s
     if (candles[i].close < lo && candles[i - 1].close >= lo) { breakIndex = i; dir = "SELL"; break; }
   }
   if (breakIndex < 0 || !dir) return empty("ARMED", selected.window.name, hi, lo, 0, ["Completed opening range identified.", "No confirmed close breakout beyond the range."], ["Wait for a candle close above range high or below range low."]);
-  const prior = candles.slice(Math.max(0, breakIndex - 60), breakIndex);
-  const lastSwingLow = prior.length ? Math.min(...prior.map(x => x.low)) : lo;
-  const lastSwingHigh = prior.length ? Math.max(...prior.map(x => x.high)) : hi;
-  // Match Strategy 4's Pine pending-lifecycle fix: freeze wick-based anchors
-  // at the breakout bar. Later highs/lows must not move the armed Fib order.
-  const impulseLow = dir === "BUY" ? (lastSwingLow < candles[breakIndex].high ? lastSwingLow : lo) : candles[breakIndex].low;
-  const impulseHigh = dir === "SELL" ? (lastSwingHigh > candles[breakIndex].low ? lastSwingHigh : hi) : candles[breakIndex].high;
-  const impulseRange = Math.max(impulseHigh - impulseLow, 1e-8);
-  const entry = dir === "BUY" ? impulseHigh - impulseRange * fibLevel : impulseLow + impulseRange * fibLevel;
-  const stopLoss = dir === "BUY" ? impulseLow - impulseRange * (stopExtension - 1) : impulseHigh + impulseRange * (stopExtension - 1);
-  const finalTp = dir === "BUY" ? impulseHigh + impulseRange * targetExtension : impulseLow - impulseRange * targetExtension;
+  // Fib entries are pulled back into the completed opening range. Breakout close
+  // arms a limit setup only; it never becomes an immediate market entry.
+  const entry = dir === "BUY" ? hi - range * fibLevel : lo + range * fibLevel;
+  // Match the recorded AURELIA defaults: ORB opposite-edge stop and Fib 1.618 target.
+  const stopLoss = dir === "BUY" ? lo : hi;
+  const finalTp = dir === "BUY" ? hi + range * targetExtension : lo - range * targetExtension;
   const atr = atr14(candles) ?? 0;
   const closes = candles.map(x => x.close), ema20 = ema(closes, 20), ema200 = ema(closes, 200), r = rsi(closes);
   const volumeNow = last.volume, volumes = candles.slice(-21, -1).map(x => x.volume).filter((x): x is number => x != null);
