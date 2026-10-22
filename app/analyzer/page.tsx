@@ -109,9 +109,9 @@ const DEFAULT_SYMBOLS: Record<MarketType, string[]> = {
 };
 const PUBLIC_STRATEGY_IDS = ["fibRetracement", "ema20", "supplyDemand", "srbOb"] as const;
 const PUBLIC_STRATEGY_LABELS: Record<string, string> = {
-  fibRetracement: "1. SMC - FIB Retracement + OB",
-  ema20: "2. EMA20 Pullback Morning Engine",
-  supplyDemand: "3. Supply & Demand",
+  fibRetracement: "1. VaultTrades | Auto Fib Retrace + OB",
+  ema20: "2. VaultTrades | EMA20 + OB",
+  supplyDemand: "3. VaultTrades | Supply and Demand",
   srbOb: "4. VaultTrades | SRB & OB Engine",
 };
 const fmt = (v: number | null | undefined) => v == null || !Number.isFinite(v) ? "—" : v.toLocaleString(undefined, { maximumFractionDigits: 5 });
