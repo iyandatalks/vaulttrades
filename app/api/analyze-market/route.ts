@@ -5,6 +5,7 @@ import { buildAnalyzerMarketContext } from "../../../lib/market-data/indicators"
 import { getTwelveDataTimeSeries } from "../../../lib/market-data/twelvedata";
 import { getMarketProviderRoute, type MarketType } from "../../../lib/market-data/provider";
 import { evaluateEma20 } from "../../../lib/strategies/ema20Engine";
+import { evaluateSrbOb } from "../../../lib/strategies/srbObEngine";
 import { resolveLiquidityTargets } from "../../../lib/market-data/liquidityTargets";
 
 export const runtime = "nodejs";
@@ -164,6 +165,27 @@ export async function POST(request: Request) {
       latestCandle: ema20Engine.datetime,
     } : null;
 
+    const srbObEngine = strategyId === "srbOb" ? evaluateSrbOb(market.candles) : null;
+    const srbObEngineEvidence = srbObEngine ? {
+      source: srbObEngine.source,
+      state: srbObEngine.state,
+      direction: srbObEngine.direction,
+      entry: srbObEngine.entry,
+      stopLoss: srbObEngine.stopLoss,
+      finalTp: srbObEngine.finalTp,
+      rangeHigh: srbObEngine.rangeHigh,
+      rangeLow: srbObEngine.rangeLow,
+      window: srbObEngine.window,
+      fibLevel: srbObEngine.fibLevel,
+      score: srbObEngine.score,
+      evidence: srbObEngine.evidence,
+      missingConditions: srbObEngine.missingConditions,
+      liquidityTarget: srbObEngine.liquidityTarget,
+      orderBlock: srbObEngine.orderBlock,
+      riskReward: srbObEngine.riskReward,
+      invalidation: srbObEngine.invalidation
+    } : null;
+
     const prompt = `You are the VaultTrades educational market analyzer. Analyze REAL LIVE OHLCV data, not a screenshot and not invented prices.
 
 USER SELECTION
@@ -182,10 +204,10 @@ LIVE CALCULATED MARKET CONTEXT
 ${JSON.stringify({ currentPrice: liveCurrentPrice, structure: lockedStructure, volatility: context.volatility, selectedIndicators: indicatorEvidence, channel20High: channel.upper, channel20Low: channel.lower, latestCandle: latest, previousCandle: previous, recentCandles: market.candles.slice(-60), sharedLiquidityTargets: liquidityTargets })}
 
 DETERMINISTIC STRATEGY ENGINE STATE
-${JSON.stringify(ema20EngineEvidence)}
+${JSON.stringify({ ema20: ema20EngineEvidence, srbOb: srbObEngineEvidence })}
 
 IMPORTANT ENGINE AUTHORITY
-If the selected strategy is EMA20, the deterministic Pine-equivalent EMA20 engine above is authoritative for EMA20 lifecycle state, signal transition, entry, stop loss and target. Do not invent, move, replace or recalculate those values. In particular, EMA20 uses ATR(14) x 2.23 for native SL and exactly 1:1.81 RR. A NEW_LONG/NEW_SHORT is the source strategy trigger. If the engine has no new signal, do not manufacture a BUY or SELL from generic indicators.
+If the selected strategy is EMA20, its deterministic Pine-equivalent engine is authoritative for lifecycle state, entry, stop loss and target. If the selected strategy is srbOb, the deterministic SRB & OB engine is authoritative for its session window, breakout, Fib retest, order-block filter, direction, entry, stop and target. Never let generic Analyzer gates or AI rewrite the selected engine output. In particular, EMA20 uses ATR(14) x 2.23 for native SL and exactly 1:1.81 RR. A NEW_LONG/NEW_SHORT is the source strategy trigger. If the engine has no new signal, do not manufacture a BUY or SELL from generic indicators.
 
 PRICE LEVEL INTEGRITY — MANDATORY
 The current price above is authoritative. Support must be below current price. Resistance must be above current price. Never make support equal resistance. If a structural level is unavailable, return null rather than inventing one.
@@ -241,16 +263,16 @@ Return JSON only.`;
     const ai = JSON.parse(text);
 
     const engineDirection: Direction = ema20Engine?.newLong ? "BUY" : ema20Engine?.newShort ? "SELL" : "NO TRADE";
-    const direction = strategyId === "ema20" ? engineDirection : ai.direction as Direction;
-    const entry = strategyId === "ema20" ? (ema20Engine?.newLong ? ema20Engine.longEntry : ema20Engine?.newShort ? ema20Engine.shortEntry : null) : (typeof ai.entry === "number" ? ai.entry : null);
-    const stopLoss = strategyId === "ema20" ? (ema20Engine?.newLong ? ema20Engine.longSL : ema20Engine?.newShort ? ema20Engine.shortSL : null) : (typeof ai.stopLoss === "number" ? ai.stopLoss : null);
-    const finalTp = strategyId === "ema20" ? (ema20Engine?.newLong ? ema20Engine.longTP : ema20Engine?.newShort ? ema20Engine.shortTP : null) : (typeof ai.finalTp === "number" ? ai.finalTp : typeof ai.tp2 === "number" ? ai.tp2 : null);
-    const minimumRR = strategyId === "ema20" ? 1.81 : 2;
+    const direction = strategyId === "ema20" ? engineDirection : strategyId === "srbOb" ? (srbObEngine?.direction ?? "NO TRADE") : ai.direction as Direction;
+    const entry = strategyId === "ema20" ? (ema20Engine?.newLong ? ema20Engine.longEntry : ema20Engine?.newShort ? ema20Engine.shortEntry : null) : strategyId === "srbOb" ? (srbObEngine?.entry ?? null) : (typeof ai.entry === "number" ? ai.entry : null);
+    const stopLoss = strategyId === "ema20" ? (ema20Engine?.newLong ? ema20Engine.longSL : ema20Engine?.newShort ? ema20Engine.shortSL : null) : strategyId === "srbOb" ? (srbObEngine?.stopLoss ?? null) : (typeof ai.stopLoss === "number" ? ai.stopLoss : null);
+    const finalTp = strategyId === "ema20" ? (ema20Engine?.newLong ? ema20Engine.longTP : ema20Engine?.newShort ? ema20Engine.shortTP : null) : strategyId === "srbOb" ? (srbObEngine?.finalTp ?? null) : (typeof ai.finalTp === "number" ? ai.finalTp : typeof ai.tp2 === "number" ? ai.tp2 : null);
+    const minimumRR = strategyId === "ema20" ? 1.81 : strategyId === "srbOb" ? 0.1 : 2;
     const math = tradeMath(direction, entry, stopLoss, finalTp, liveCurrentPrice, minimumRR);
     const strongSmc = [ai.bos, ai.choch, ai.orderBlock, ai.fvg, ai.liquiditySweep, ai.displacement].filter((x: unknown) => typeof x === "number" && x >= 7).length;
     const smcGate = strongSmc >= 2;
     const analyzerTradeGate = direction !== "NO TRADE" && math.valid && (strategyId === "ema20" ? smcGate : smcGate);
-    const finalDirection: Direction = analyzerTradeGate && ai.decision === "TRADE" ? direction : "NO TRADE";
+    const finalDirection: Direction = strategyId === "srbOb" ? (srbObEngine?.direction ?? "NO TRADE") : analyzerTradeGate && ai.decision === "TRADE" ? direction : "NO TRADE";
 
     const nativeEngineOutput = strategyId === "ema20" ? {
       state: ema20EngineEvidence?.state,
@@ -272,18 +294,18 @@ Return JSON only.`;
       chart: { candles: market.candles, channel20: channel },
       liquidityTargets,
       structure: { ...lockedStructure }, volatility: context.volatility,
-      strategyEngine: nativeEngineOutput,
+      strategyEngine: strategyId === "srbOb" ? srbObEngineEvidence : nativeEngineOutput,
       decision: finalDirection === "NO TRADE" ? "NO TRADE" : "TRADE", direction: finalDirection,
       confidence: finalDirection === "NO TRADE" ? Math.min(Number(ai.confidence) || 0, 69) : Number(ai.confidence) || 0,
       setup: ai.setup, marketCondition: ai.marketCondition, marketStructure: ai.marketStructure, recentPriceAction: ai.recentPriceAction,
       confirmedConditions: ai.confirmedConditions,
-      missingConditions: [...ai.missingConditions, ...(strategyId === "ema20" && !ema20Engine?.newLong && !ema20Engine?.newShort ? ["EMA20 Pine-equivalent engine: no newLong/newShort transition on the latest live candle."] : []), ...(strongSmc < 2 ? ["Analyzer SMC confluence gate: fewer than two SMC signals scored 7 or higher."] : []), ...(!math.valid && direction !== "NO TRADE" ? [math.rr !== null && math.rr < minimumRR ? `Strategy price validation: R:R is below the selected strategy minimum of 1:${minimumRR}.` : "Strategy price validation: entry/SL/TP geometry did not pass all applicable gates."] : [])],
+      missingConditions: [...(strategyId === "srbOb" ? (srbObEngine?.missingConditions ?? []) : ai.missingConditions), ...(strategyId === "ema20" && !ema20Engine?.newLong && !ema20Engine?.newShort ? ["EMA20 Pine-equivalent engine: no newLong/newShort transition on the latest live candle."] : []), ...(strongSmc < 2 ? ["Analyzer SMC confluence gate: fewer than two SMC signals scored 7 or higher."] : []), ...(!math.valid && direction !== "NO TRADE" ? [math.rr !== null && math.rr < minimumRR ? `Strategy price validation: R:R is below the selected strategy minimum of 1:${minimumRR}.` : "Strategy price validation: entry/SL/TP geometry did not pass all applicable gates."] : [])],
       smcScores: { BOS: ai.bos, CHoCH: ai.choch, OrderBlock: ai.orderBlock, FVG: ai.fvg, LiquiditySweep: ai.liquiditySweep, Displacement: ai.displacement },
       pipeline: ai.pipeline, nextZone: ai.nextZone, invalidation: ai.invalidation,
       entry: finalDirection === "NO TRADE" ? null : entry, stopLoss: finalDirection === "NO TRADE" ? null : stopLoss,
       tp1: finalDirection === "NO TRADE" ? null : strategyId === "ema20" ? finalTp : ai.tp1, tp2: finalDirection === "NO TRADE" ? null : strategyId === "ema20" ? finalTp : ai.tp2, finalTp: finalDirection === "NO TRADE" ? null : finalTp,
-      rr: finalDirection === "NO TRADE" ? null : math.rr, slDistancePct: finalDirection === "NO TRADE" ? null : math.slPct, entryDistancePct: finalDirection === "NO TRADE" ? null : math.entryDistancePct,
-      nextAction: ai.nextAction, educationalNote: ai.educationalNote,
+      rr: finalDirection === "NO TRADE" ? (srbObEngine?.riskReward ?? null) : math.rr, slDistancePct: finalDirection === "NO TRADE" ? null : math.slPct, entryDistancePct: finalDirection === "NO TRADE" ? null : math.entryDistancePct,
+      nextAction: strategyId === "srbOb" ? (srbObEngine?.missingConditions[0] ?? srbObEngine?.state ?? "Monitor the selected SRB window.") : ai.nextAction, educationalNote: strategyId === "srbOb" ? "SRB & OB uses its own deterministic session-range, Fibonacci pullback and opposing-order-block rules. Confirm the chart state before acting." : ai.educationalNote,
       qualityChecks: { smcStrongCount: strongSmc, rrValid: math.rr !== null && math.rr >= minimumRR, slDistanceValid: math.slPct === null || math.slPct >= 0.1, entryDistanceValid: math.entryDistancePct === null || math.entryDistancePct <= 0.5, universalTradeGate: analyzerTradeGate },
     });
   } catch (error) {
