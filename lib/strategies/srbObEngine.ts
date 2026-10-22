@@ -116,11 +116,12 @@ export function evaluateSrbOb(candles: Candle[], config?: { fibLevel?: number; s
   };
   if (candles.length < 40) return empty("WAITING", null, null, null, 0, [], ["At least 40 live candles are required."]);
   const parts = candles.map(c => localParts(c.datetime));
+  const latestDateKey = [...parts].reverse().find(p => p != null)?.dateKey;
   let selected: { window: typeof windows[number]; dateKey: string; indices: number[]; endIndex: number; building: boolean } | null = null;
   // Prefer today's in-progress opening window; otherwise select the latest completed
   // one. This prevents the dashboard from showing London while New York is forming.
   for (let i = candles.length - 1; i >= 0 && !selected; i--) {
-    const p = parts[i]; if (!p) continue;
+    const p = parts[i]; if (!p || p.dateKey !== latestDateKey) continue;
     const inProgress = windows.filter(w => w.days.includes(p.weekday) && p.clock >= w.start && p.clock < w.end);
     const candidates = inProgress.length ? inProgress : windows.filter(w => w.days.includes(p.weekday) && p.clock >= w.end).sort((x,y) => y.end.localeCompare(x.end));
     for (const w of candidates) {
