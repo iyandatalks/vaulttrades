@@ -95,6 +95,7 @@ type Result = {
   educationalNote?: string;
   qualityChecks?: { smcStrongCount?: number; rrValid?: boolean; slDistanceValid?: boolean; entryDistanceValid?: boolean; universalTradeGate?: boolean };
   scanner?: Scanner;
+  strategyEngine?: { source?: string; state?: string; direction?: string; entry?: number | null; stopLoss?: number | null; finalTp?: number | null; rangeHigh?: number | null; rangeLow?: number | null; window?: string | null; fibLevel?: number; score?: number; evidence?: string[]; missingConditions?: string[]; liquidityTarget?: number | null; orderBlock?: { direction: string; top: number; bottom: number } | null; riskReward?: number | null; invalidation?: string };
 };
 
 const TIMEFRAMES: Timeframe[] = ["1m", "5m", "15m", "30m", "1H", "4H", "1D", "1W", "1M"];
@@ -178,7 +179,7 @@ export default function AnalyzerPage() {
       if (!res.ok) throw new Error(data.error || "Unable to analyze live market data.");
       setResult(data);
       const candles = Array.isArray(data.chart?.candles) ? data.chart.candles : [];
-      if (candles.length >= 30) {
+      if (candles.length >= 30 && strategy !== "srbOb") {
         setScannerLoading(true);
         try {
           const scannerRes = await fetch("/api/ai-scanner", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
@@ -280,6 +281,25 @@ export default function AnalyzerPage() {
     {result && <>
       <section className="card"><div className="section-label">LIVE CHART</div><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}><div><h2 className="title" style={{ marginBottom: 3 }}>{result.market?.asset}</h2><div className="muted">{result.market?.timeframe} · Current price {fmt(result.market?.currentPrice)}</div></div><div className="condition-box" style={{ padding: "10px 14px" }}><strong>Strategy: {strategyDisplayName(result.strategy?.id, result.strategy?.name)}</strong></div></div><LiveMarketChart candles={result.chart?.candles || []} channel={result.chart?.channel20} liquidityTargets={s?.liquidityTargets ?? result.liquidityTargets} /></section>
 
+      {strategy === "srbOb" && result.strategyEngine && <section className="card" style={{ border: "1px solid rgba(212,166,55,.4)" }}>
+        <div className="section-label">SRB & OB ENGINE · LIVE SOURCE STATE</div>
+        <h2 className="title">{result.strategyEngine.state || "WAITING"} · {result.strategyEngine.window || "No active window detected"}</h2>
+        <p className="muted">This strategy is evaluated independently. A range breakout arms a Fib pullback; it does not trigger an immediate entry.</p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: 10, marginTop: 14 }}>
+          <PriceLevel label="RANGE HIGH" value={result.strategyEngine.rangeHigh} kind="orange" />
+          <PriceLevel label="RANGE LOW" value={result.strategyEngine.rangeLow} kind="orange" />
+          <PriceLevel label="PLANNED FIB ENTRY" value={result.strategyEngine.entry} kind="entry" />
+          <PriceLevel label="PLANNED STOP" value={result.strategyEngine.stopLoss} kind="sl" />
+          <PriceLevel label="PLANNED TARGET" value={result.strategyEngine.finalTp} kind="tp" />
+        </div>
+        <div className="condition-box" style={{ marginTop: 12 }}>
+          <strong>Confluence {result.strategyEngine.score ?? 0}/100 · Fib {(100 * (result.strategyEngine.fibLevel ?? 0.681)).toFixed(1)}% · R:R {fmt(result.strategyEngine.riskReward)}</strong>
+          <p className="muted">{result.strategyEngine.evidence?.join(" · ") || "No confirmed SRB evidence yet."}</p>
+          {result.strategyEngine.missingConditions?.length ? <p className="muted">Waiting / rejected: {result.strategyEngine.missingConditions.join(" · ")}</p> : null}
+          {result.strategyEngine.orderBlock ? <p className="muted">Opposing OB reference: {result.strategyEngine.orderBlock.direction} · {fmt(result.strategyEngine.orderBlock.bottom)}–{fmt(result.strategyEngine.orderBlock.top)}</p> : null}
+          <p className="muted">Invalidation: {result.strategyEngine.invalidation || "No active setup invalidation."}</p>
+        </div>
+      </section>}
       <section className="card execution-card" style={{ border: "1px solid rgba(212,166,55,.28)", background: "linear-gradient(145deg, rgba(10,16,30,.98), rgba(5,8,18,.98))" }}>
         <div className="section-label">AI SCANNER</div>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", alignItems: "center" }}><div><h2 className="title" style={{ marginBottom: 4 }}>{scannerStatus}</h2><div className="muted">{s?.trend || result.marketCondition || "Market state"} · {s?.institutionalActivity ? `Institutional activity: ${s.institutionalActivity}` : result.market?.directionalBias}</div></div><div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}><div style={{ minWidth: 135, textAlign: "center", padding: 12, borderRadius: 12, background: "rgba(212,166,55,.10)", border: "1px solid rgba(212,166,55,.35)" }}><span className="muted">QUALITY</span><div style={{ fontSize: 28, fontWeight: 900 }}>{Math.round(result.confidence ?? 0)}<span style={{ fontSize: 15 }}>/100</span></div></div><div style={{ minWidth: 135, textAlign: "center", padding: 12, borderRadius: 12, background: "rgba(45,125,255,.10)", border: "1px solid rgba(45,125,255,.35)" }}><span className="muted">PROJECTED PROBABILITY</span><div style={{ fontSize: 28, fontWeight: 900 }}>{s?.projectedProbability ?? "—"}<span style={{ fontSize: 15 }}>{s?.projectedProbability != null ? "%" : ""}</span></div></div></div></div>
