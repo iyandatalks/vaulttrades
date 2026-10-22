@@ -212,12 +212,21 @@ function pivotLevels(candles: MarketDataCandle[], pivotLength = 3): { support: n
 export function buildAnalyzerMarketContext(candles: MarketDataCandle[], symbol: string, timeframe: string, selectedNames: string[]): AnalyzerMarketContext {
   const closes = candles.map(c => c.close), price = closes.at(-1) ?? null;
   const ema9 = ema(closes, 9), ema20 = ema(closes, 20), ema50 = ema(closes, 50), ema100 = ema(closes, 100);
-  const sma20 = sma(closes, 20), atr14 = atr(candles, 14), rsi14 = rsi(closes, 14);
+  const sma20 = sma(closes, 20), channelUpper = sma(candles.map(c => c.high), 20), channelLower = sma(candles.map(c => c.low), 20);
+  const channelSignal = channelUpper === null || channelLower === null || price === null
+    ? "NEUTRAL"
+    : price > channelUpper && price > channelLower
+      ? "BULLISH"
+      : price < channelUpper && price < channelLower
+        ? "BEARISH"
+        : "NEUTRAL";
+  const atr14 = atr(candles, 14), rsi14 = rsi(closes, 14);
   const adx14 = adx(candles, 14), macdV = macd(closes), bb = bollinger(closes), vw = vwap(candles), rv = rvol(candles), st = stoch(candles), mf = mfi(candles), smiV = smi(candles, 7, 2, 2);
   const emaSignal = !finite(ema9) || !finite(ema20) || !finite(price) ? "NEUTRAL" : ema9 > ema20 && price > ema20 ? "BULLISH" : ema9 < ema20 && price < ema20 ? "BEARISH" : "NEUTRAL";
   const atrPct = finite(price) && finite(atr14) && price !== 0 ? atr14 / price * 100 : null;
   const readings: IndicatorReading[] = [
     reading("SMA", sma20, finite(price) && finite(sma20) ? price > sma20 ? "BULLISH" : price < sma20 ? "BEARISH" : "NEUTRAL" : "NEUTRAL", "20-period simple moving-average context.", { period: 20 }),
+    reading("Moving Average Channel", channelUpper !== null && channelLower !== null ? (channelUpper + channelLower) / 2 : null, channelSignal, "Original 20-period SMA channel: upper = SMA(high, 20), lower = SMA(low, 20). Bullish above both lines; bearish below both.", { period: 20, upper: channelUpper, lower: channelLower }),
     reading("EMA", ema20, emaSignal, "EMA trend context. Exact source lengths are selected by the strategy contract.", { ema9, ema20, ema50, ema100 }),
     reading("ATR", atr14, "NEUTRAL", "14-period Wilder/RMA true-range volatility; direction is not inferred from ATR.", { period: 14, atrPct }),
     reading("VWAP", vw, finite(price) && finite(vw) ? price > vw ? "BULLISH" : price < vw ? "BEARISH" : "NEUTRAL" : "NEUTRAL", "Volume-weighted price context from available volume.", { period: 20 }),
