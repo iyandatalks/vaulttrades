@@ -85,9 +85,11 @@ export function evaluateSrbOb(candles: Candle[], config?: { fibLevel?: number; s
   const after = candles.map((_, i) => i).filter(i => i > selected!.indices.at(-1)!);
   if (!after.length) return empty("BUILDING", selected.window.name, hi, lo, 0, ["Opening range is being formed."], ["Wait until the opening-range window closes."]);
   let breakIndex = -1, dir: "BUY" | "SELL" | null = null;
+  // Use the FIRST confirmed close breakout after the completed range.
+  // Later breakouts must not silently replace the pending setup's origin.
   for (const i of after) {
-    if (candles[i].close > hi && candles[i - 1].close <= hi) { breakIndex = i; dir = "BUY"; }
-    if (candles[i].close < lo && candles[i - 1].close >= lo) { breakIndex = i; dir = "SELL"; }
+    if (candles[i].close > hi && candles[i - 1].close <= hi) { breakIndex = i; dir = "BUY"; break; }
+    if (candles[i].close < lo && candles[i - 1].close >= lo) { breakIndex = i; dir = "SELL"; break; }
   }
   if (breakIndex < 0 || !dir) return empty("ARMED", selected.window.name, hi, lo, 0, ["Completed opening range identified.", "No confirmed close breakout beyond the range."], ["Wait for a candle close above range high or below range low."]);
   const prior = candles.slice(Math.max(0, breakIndex - 60), breakIndex);
@@ -95,8 +97,8 @@ export function evaluateSrbOb(candles: Candle[], config?: { fibLevel?: number; s
   const lastSwingHigh = prior.length ? Math.max(...prior.map(x => x.high)) : hi;
   // Match Strategy 4's Pine pending-lifecycle fix: freeze wick-based anchors
   // at the breakout bar. Later highs/lows must not move the armed Fib order.
-  const impulseLow = dir === "BUY" ? Math.min(lastSwingLow, lo) : candles[breakIndex].low;
-  const impulseHigh = dir === "SELL" ? Math.max(lastSwingHigh, hi) : candles[breakIndex].high;
+  const impulseLow = dir === "BUY" ? (lastSwingLow < candles[breakIndex].high ? lastSwingLow : lo) : candles[breakIndex].low;
+  const impulseHigh = dir === "SELL" ? (lastSwingHigh > candles[breakIndex].low ? lastSwingHigh : hi) : candles[breakIndex].high;
   const impulseRange = Math.max(impulseHigh - impulseLow, 1e-8);
   const entry = dir === "BUY" ? impulseHigh - impulseRange * fibLevel : impulseLow + impulseRange * fibLevel;
   const stopLoss = dir === "BUY" ? impulseLow - impulseRange * (stopExtension - 1) : impulseHigh + impulseRange * (stopExtension - 1);
@@ -118,7 +120,7 @@ export function evaluateSrbOb(candles: Candle[], config?: { fibLevel?: number; s
   const dxyOK = !config?.dxyDirection || config.dxyDirection === dir;
   const silverOK = !config?.silverDirection || config.silverDirection === dir;
   const rr = Math.abs(finalTp - entry) / Math.max(Math.abs(entry - stopLoss), 1e-8);
-  const expiryBars = Math.max(1, config?.limitExpiryBars ?? 8);
+  const expiryBars = Math.max(1, config?.limitExpiryBars ?? 12);
   const barsSinceBreak = candles.length - 1 - breakIndex;
   const afterBreak = barsSinceBreak > 0;
   const expired = barsSinceBreak >= expiryBars;
@@ -149,9 +151,9 @@ export function evaluateSrbOb(candles: Candle[], config?: { fibLevel?: number; s
     ...(expired && !touched ? ["Fib limit expired after " + expiryBars + " bars without a fill."] : []),
     ...(!touched && !expired && !riskHitBeforeFill ? ["Waiting for price to retest the fixed Fib entry; breakout is not an entry."] : []),
   ];
-  if (!scoreOK || !geometry || insideOB || !trendOK || !dxyOK || !silverOK) return { ...empty("REJECTED", selected.window.name, hi, lo, score, evidence, missing), direction: "NO TRADE", entry, stopLoss, finalTp, liquidityTarget, orderBlock: ob, riskReward: rr };
   if (riskHitBeforeFill) return { ...empty("CANCELLED", selected.window.name, hi, lo, score, evidence, missing), entry, stopLoss, finalTp, liquidityTarget, orderBlock: ob, riskReward: rr, invalidation: "Pending setup cancelled because stop/target was reached before the Fib entry filled." };
   if (expired && !touched) return { ...empty("EXPIRED", selected.window.name, hi, lo, score, evidence, missing), entry, stopLoss, finalTp, liquidityTarget, orderBlock: ob, riskReward: rr, invalidation: "Unfilled Fib setup expired after " + expiryBars + " bars." };
+  if (!scoreOK || !geometry || insideOB || !trendOK || !dxyOK || !silverOK) return { ...empty("REJECTED", selected.window.name, hi, lo, score, evidence, missing), direction: "NO TRADE", entry, stopLoss, finalTp, liquidityTarget, orderBlock: ob, riskReward: rr };
   if (!touched || !afterBreak) return { ...empty("LIMIT WAIT", selected.window.name, hi, lo, score, evidence, missing), entry, stopLoss, finalTp, liquidityTarget, orderBlock: ob, riskReward: rr };
   return { ...empty("FIB RETEST DETECTED", selected.window.name, hi, lo, score, evidence, []), direction: dir, entry, stopLoss, finalTp, liquidityTarget, orderBlock: ob, riskReward: rr, invalidation: dir === "BUY" ? "Invalidate if price reaches the planned stop below the impulse low." : "Invalidate if price reaches the planned stop above the impulse high." };
 }
