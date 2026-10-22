@@ -122,7 +122,7 @@ export function evaluateSrbOb(candles: Candle[], config?: { fibLevel?: number; s
   // Fib entries are pulled back into the completed opening range. Breakout close
   // arms a limit setup only; it never becomes an immediate market entry.
   const entry = dir === "BUY" ? hi - range * fibLevel : lo + range * fibLevel;
-  // Match the recorded AURELIA defaults: ORB opposite-edge stop and Fib 1.618 target.
+  // Use the VaultTrades defaults: ORB opposite-edge stop and Fib 1.618 target.
   const stopLoss = dir === "BUY" ? lo : hi;
   const finalTp = dir === "BUY" ? hi + range * targetExtension : lo - range * targetExtension;
   // Evaluate entry filters against information available at the breakout close, not
