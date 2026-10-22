@@ -457,27 +457,13 @@ export default function AnalyzerPage() {
           <p className="muted">Invalidation: {result.strategyEngine.invalidation || "No active rejection setup."}</p>
         </div>
       </section>}
-      {strategy === "srbOb" && result.strategyEngine && <section className="card" style={{ border: "1px solid rgba(212,166,55,.4)" }}>
-        <div className="section-label">SRB & OB ENGINE · LIVE SOURCE STATE</div>
-        <h2 className="title">{result.strategyEngine.state || "WAITING"} · {result.strategyEngine.window || "No active window detected"}</h2>
-        <p className="muted">This strategy is evaluated independently. A range breakout arms a Fib pullback; it does not trigger an immediate entry.</p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: 10, marginTop: 14 }}>
-          <PriceLevel label="RANGE HIGH" value={result.strategyEngine.rangeHigh} kind="orange" />
-          <PriceLevel label="RANGE LOW" value={result.strategyEngine.rangeLow} kind="orange" />
-          <PriceLevel label="PLANNED FIB ENTRY" value={result.strategyEngine.entry} kind="entry" />
-          <PriceLevel label="PLANNED STOP" value={result.strategyEngine.stopLoss} kind="sl" />
-          <PriceLevel label="PLANNED TARGET" value={result.strategyEngine.finalTp} kind="tp" />
-        </div>
-        <div className="condition-box" style={{ marginTop: 12 }}>
-          <strong>Confluence {result.strategyEngine.score ?? 0}/100 · Fib {(100 * (result.strategyEngine.fibLevel ?? 0.681)).toFixed(1)}% · R:R {fmt(result.strategyEngine.riskReward)}</strong>
-          <p className="muted">{result.strategyEngine.evidence?.join(" · ") || "No confirmed SRB evidence yet."}</p>
-          {result.strategyEngine.missingConditions?.length ? <p className="muted">Setup conditions: {result.strategyEngine.missingConditions.join(" · ")}</p> : null}
-          {result.strategyEngine.orderBlock ? <p className="muted">Opposing OB reference: {result.strategyEngine.orderBlock.direction} · {fmt(result.strategyEngine.orderBlock.bottom)}–{fmt(result.strategyEngine.orderBlock.top)}</p> : null}
-          <p className="muted">Invalidation: {result.strategyEngine.invalidation || "No active setup invalidation."}</p>
-        </div>
-      </section>}
       {strategy === "srbOb" && result.strategyEngine && <section className="card" style={{ border: "1px solid rgba(212,166,55,.32)", background: "linear-gradient(145deg,rgba(10,16,30,.98),rgba(5,8,18,.98))" }}>
-        <p className="muted">SAST {localClock} · Clock status <strong>{currentSession}</strong> · Latest completed window <strong>{latestCompletedSession}</strong> · Strategy range in analysis <strong>{result.strategyEngine.window || "—"}</strong> · Latest market candle <strong>{result.chart?.candles?.at(-1)?.datetime || "not supplied"}</strong>. If that candle timestamp trails the live SAST clock, the market feed is stale and the range cannot advance until new candles arrive.</p>
+        <div style={{display:"flex",flexWrap:"wrap",alignItems:"center",gap:8,marginBottom:10}}>
+          <span className="muted" style={{fontSize:12}}>SAST {localClock}</span>
+          <span style={{padding:"5px 9px",borderRadius:99,fontSize:11,fontWeight:800,background:currentSession==="BETWEEN OPENING WINDOWS"?"rgba(148,163,184,.12)":"rgba(34,197,94,.12)",color:currentSession==="BETWEEN OPENING WINDOWS"?"#cbd5e1":"#4ade80"}}>{currentSession}</span>
+          <span className="muted" style={{fontSize:11}}>Last completed: {latestCompletedSession}</span>
+          {result.strategyEngine.window && <span className="muted" style={{fontSize:11}}>Range: {result.strategyEngine.window}</span>}
+        </div>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(230px,1fr))", gap:12, marginTop:14 }}>
           <div className="condition-box"><strong>01 · RANGE SETUP</strong>
             <p>Session · <b>{result.strategyEngine.window || currentSession}</b></p>
@@ -497,9 +483,12 @@ export default function AnalyzerPage() {
             <p>Planned R:R · <b>{fmt(result.strategyEngine.riskReward)}</b></p><p>Trade state · <b>{result.strategyEngine.state || "WAITING"}</b></p>
           </div>
           <div className="condition-box"><strong>03 · ALGO METRICS</strong>
-            <p>Confluence score · <b>{srbDisplayScore}/100</b></p>
-            <div style={{height:9,background:"#253044",borderRadius:99,overflow:"hidden",margin:"8px 0 12px"}}><div style={{height:"100%",width:Math.max(0,Math.min(100,srbDisplayScore))+"%",background:srbDisplayScore>=65?"#22c55e":srbDisplayScore>=50?"#eab308":"#ef4444",borderRadius:99}}/></div>
-            <p>Minimum gate · <b>50/100</b></p><p>Fib pullback · <b>{((result.strategyEngine.fibLevel ?? 0.681)*100).toFixed(1)}%</b></p>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:8,marginTop:8}}>
+              <div style={{padding:10,borderRadius:9,background:"rgba(212,166,55,.10)",border:"1px solid rgba(212,166,55,.3)"}}><span style={{fontSize:10,color:"#94a3b8"}}>CONFLUENCE</span><div style={{fontSize:23,fontWeight:900}}>{srbDisplayScore}<span style={{fontSize:12}}>/100</span></div><div style={{height:5,background:"#253044",borderRadius:99,overflow:"hidden",marginTop:5}}><div style={{height:"100%",width:Math.max(0,Math.min(100,srbDisplayScore))+"%",background:srbDisplayScore>=65?"#22c55e":srbDisplayScore>=50?"#eab308":"#ef4444"}}/></div></div>
+              <div style={{padding:10,borderRadius:9,background:"rgba(45,125,255,.10)",border:"1px solid rgba(45,125,255,.3)"}}><span style={{fontSize:10,color:"#94a3b8"}}>FIB PULLBACK</span><div style={{fontSize:23,fontWeight:900}}>{((result.strategyEngine.fibLevel ?? 0.681)*100).toFixed(1)}<span style={{fontSize:12}}>%</span></div></div>
+              <div style={{padding:10,borderRadius:9,background:"rgba(148,163,184,.08)",border:"1px solid rgba(148,163,184,.2)"}}><span style={{fontSize:10,color:"#94a3b8"}}>RISK : REWARD</span><div style={{fontSize:23,fontWeight:900}}>{fmt(result.strategyEngine.riskReward)}</div></div>
+              <div style={{padding:10,borderRadius:9,background:"rgba(148,163,184,.08)",border:"1px solid rgba(148,163,184,.2)"}}><span style={{fontSize:10,color:"#94a3b8"}}>QUALITY GATE</span><div style={{fontSize:23,fontWeight:900}}>{srbDisplayScore>=50?"PASS":"WAIT"}</div></div>
+            </div>
             <p>Closed trades · <b>{srbPerformance.overall.trades}</b> · Wins <b style={{color:"#4ade80"}}>{srbPerformance.overall.wins}</b> · Losses <b style={{color:"#fb7185"}}>{srbPerformance.overall.losses}</b></p>
             <p style={{display:"flex",justifyContent:"space-between",gap:8,marginTop:8}}><span>Overall win rate</span><b style={{color:srbPerformance.overall.winRate==null?"#94a3b8":srbPerformance.overall.winRate>=50?"#4ade80":"#fb7185"}}>{srbPerformance.overall.winRate==null?"—":srbPerformance.overall.winRate.toFixed(1)+"%"}</b></p><RateBar winRate={srbPerformance.overall.winRate} lossRate={srbPerformance.overall.lossRate}/>
             <p style={{fontSize:12,marginTop:8}}>Long · <b>{srbPerformance.long.winRate==null?"—":srbPerformance.long.winRate.toFixed(1)+"%"}</b> win <span style={{color:"#94a3b8"}}>/</span> <span style={{color:"#fb7185"}}>{srbPerformance.long.lossRate==null?"—":srbPerformance.long.lossRate.toFixed(1)+"%"} loss</span></p><RateBar winRate={srbPerformance.long.winRate} lossRate={srbPerformance.long.lossRate}/>
@@ -521,8 +510,8 @@ export default function AnalyzerPage() {
             </div>; })()}
             <p style={{marginTop:10}}>Liquidity target · <b>{fmt(result.strategyEngine.liquidityTarget)}</b></p>
             <p>Opposing OB · <b>{result.strategyEngine.orderBlock ? result.strategyEngine.orderBlock.direction+" "+fmt(result.strategyEngine.orderBlock.bottom)+"–"+fmt(result.strategyEngine.orderBlock.top) : "No valid opposing OB identified"}</b></p>
-            <p>Evidence</p><div style={{display:"grid",gap:5}}>{(result.strategyEngine.evidence?.length?result.strategyEngine.evidence:["Waiting for confirmed range/breakout evidence"]).map((item,i)=><div key={i} style={{fontSize:12,padding:"6px 8px",borderRadius:6,background:"rgba(148,163,184,.08)"}}>• {item}</div>)}</div>
-            <p style={{marginTop:8}}>Missing / blocked conditions</p><div style={{display:"grid",gap:5}}>{(result.strategyEngine.missingConditions?.length?result.strategyEngine.missingConditions:["No reported blocking condition"]).map((item,i)=><div key={i} style={{fontSize:12,padding:"6px 8px",borderRadius:6,background:"rgba(239,68,68,.08)",color:"#fecaca"}}>• {item}</div>)}</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:10}}>{(result.strategyEngine.evidence?.length?result.strategyEngine.evidence:["No confirmed breakout"]).slice(0,3).map((item,i)=><span key={i} style={{fontSize:11,padding:"5px 8px",borderRadius:99,background:"rgba(148,163,184,.08)",color:"#cbd5e1"}}>{item}</span>)}</div>
+            {result.strategyEngine.missingConditions?.length ? <div style={{fontSize:11,color:"#fbbf24",marginTop:8}}>WAIT: {result.strategyEngine.missingConditions[0]}</div> : null}
           </div>
           <div className="condition-box"><strong>05 · SESSION & BAND EDGE</strong>
             <p style={{fontSize:12,color:"#94a3b8"}}>Session and grade performance is simulated only from visible candles and counts a result only after a Fib fill and a later stop/target close. It is limited to the history returned for this chart.</p>
