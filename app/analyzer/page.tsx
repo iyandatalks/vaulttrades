@@ -253,7 +253,17 @@ export default function AnalyzerPage() {
   const projectedRR = s?.rr ?? result?.rr;
   const liquidityLabel = displayDirection === "SELL" ? "LIQ SELL" : "LIQ BUY";
   const liquidityTarget = s?.opposingLiquidityTarget ?? projectedFinalTp;
-  const scannerStatus = s?.statusMessage || s?.analysisState?.replaceAll("_", " ") || (displayDirection === "BUY" ? "WATCH — BUY" : displayDirection === "SELL" ? "WATCH — SELL" : "WATCH");
+  const srbState = strategy === "srbOb" ? result?.strategyEngine?.state : null;
+  const scannerStatus = strategy === "srbOb"
+    ? (srbState === "LIMIT WAIT" ? "WAITING FOR FIB RETEST" : srbState === "FIB RETEST DETECTED" ? "FIB RETEST DETECTED" : srbState === "CANCELLED" ? "SETUP CANCELLED" : srbState === "EXPIRED" ? "SETUP EXPIRED" : srbState === "REJECTED" ? "SETUP REJECTED" : srbState || "WAITING")
+    : s?.statusMessage || s?.analysisState?.replaceAll("_", " ") || (displayDirection === "BUY" ? "WATCH — BUY" : displayDirection === "SELL" ? "WATCH — SELL" : "WATCH");
+  const scannerEntry = strategy === "srbOb" ? result?.strategyEngine?.entry : (actualEntry ?? projectedEntry);
+  const scannerStop = strategy === "srbOb" ? result?.strategyEngine?.stopLoss : projectedSL;
+  const scannerTp1 = strategy === "srbOb" ? result?.strategyEngine?.finalTp : projectedTp1;
+  const scannerTp2 = strategy === "srbOb" ? null : projectedTp2;
+  const scannerReason = strategy === "srbOb"
+    ? (result?.strategyEngine?.missingConditions?.join(" · ") || result?.strategyEngine?.invalidation || "No outstanding SRB condition.")
+    : (s?.statusMessage || s?.waitReason || result.nextAction);
 
   return <main className="shell">
     <header className="header"><div className="brand-block"><img src="/vaulttrades-logo.png" alt="VaultTrades" className="logo"/><div className="tagline">Built by Traders.</div><div className="slogan">Focus, discipline, consistency.</div></div><div className="badge">AI SCANNER</div></header>
@@ -322,17 +332,17 @@ export default function AnalyzerPage() {
       <section className="card execution-card" style={{ border: "1px solid rgba(212,166,55,.28)", background: "linear-gradient(145deg, rgba(10,16,30,.98), rgba(5,8,18,.98))" }}>
         <div className="section-label">AI SCANNER</div>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", alignItems: "center" }}><div><h2 className="title" style={{ marginBottom: 4 }}>{scannerStatus}</h2><div className="muted">{s?.trend || result.marketCondition || "Market state"} · {s?.institutionalActivity ? `Institutional activity: ${s.institutionalActivity}` : result.market?.directionalBias}</div></div><div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}><div style={{ minWidth: 135, textAlign: "center", padding: 12, borderRadius: 12, background: "rgba(212,166,55,.10)", border: "1px solid rgba(212,166,55,.35)" }}><span className="muted">QUALITY</span><div style={{ fontSize: 28, fontWeight: 900 }}>{Math.round(result.confidence ?? 0)}<span style={{ fontSize: 15 }}>/100</span></div></div><div style={{ minWidth: 135, textAlign: "center", padding: 12, borderRadius: 12, background: "rgba(45,125,255,.10)", border: "1px solid rgba(45,125,255,.35)" }}><span className="muted">PROJECTED PROBABILITY</span><div style={{ fontSize: 28, fontWeight: 900 }}>{s?.projectedProbability ?? "—"}<span style={{ fontSize: 15 }}>{s?.projectedProbability != null ? "%" : ""}</span></div></div></div></div>
-        <div style={{ marginTop: 15 }}><strong>Trend</strong><p>{s?.trendReason || result.marketStructure}</p><strong>{s?.cycleStatus === "ACTIVE" ? "Trade status" : "Why we are waiting"}</strong><p>{s?.statusMessage || s?.waitReason || result.nextAction}</p></div>
+        <div style={{ marginTop: 15 }}><strong>Trend</strong><p>{s?.trendReason || result.marketStructure}</p><strong>{s?.cycleStatus === "ACTIVE" ? "Trade status" : "Why we are waiting"}</strong><p>{scannerReason}</p></div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 10, marginTop: 16, alignItems: "start" }}>
-          <PriceLevel label="ENTRY" value={actualEntry ?? projectedEntry} kind="entry" />
-          <PriceLevel label="STOP LOSS" value={projectedSL} kind="sl" />
-          <PriceLevel label="TP1" value={projectedTp1} kind="tp" />
-          <PriceLevel label="TP2" value={projectedTp2} kind="tp" />
+          <PriceLevel label="ENTRY" value={scannerEntry} kind="entry" />
+          <PriceLevel label="STOP LOSS" value={scannerStop} kind="sl" />
+          <PriceLevel label="TP1" value={scannerTp1} kind="tp" />
+          <PriceLevel label="TP2" value={scannerTp2} kind="tp" />
         </div>
 
         <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginTop: 12 }}>
-          <div className="execution-item" style={{ minWidth: 180 }}><span>TRADE STATUS</span><strong>{s?.cycleStatus === "ACTIVE" ? "RUNNING" : s?.cycleStatus === "COMPLETED" ? "COMPLETED" : "WAITING"}</strong></div>
+          <div className="execution-item" style={{ minWidth: 180 }}><span>TRADE STATUS</span><strong>{strategy === "srbOb" ? (srbState || "WAITING") : s?.cycleStatus === "ACTIVE" ? "RUNNING" : s?.cycleStatus === "COMPLETED" ? "COMPLETED" : "WAITING"}</strong></div>
         </div>
       </section>
 
