@@ -6,6 +6,7 @@ import { getTwelveDataTimeSeries } from "../../../lib/market-data/twelvedata";
 import { getMarketProviderRoute, type MarketType } from "../../../lib/market-data/provider";
 import { evaluateEma20 } from "../../../lib/strategies/ema20Engine";
 import { evaluateSrbOb } from "../../../lib/strategies/srbObEngine";
+import { analyzeAutoFibRetrace } from "../../../lib/strategies/autoFibRetrace";
 import { resolveLiquidityTargets } from "../../../lib/market-data/liquidityTargets";
 
 export const runtime = "nodejs";
@@ -163,6 +164,32 @@ export async function POST(request: Request) {
       riskReward: 1.81,
       bias0600: ema20Engine.bias0600,
       latestCandle: ema20Engine.datetime,
+    } : null;
+
+    const autoFibEngine = strategyId === "fibRetracement" ? analyzeAutoFibRetrace({
+      candles: market.candles.map((c) => ({ time: new Date(c.datetime).getTime(), open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume ?? undefined })),
+    }) : null;
+    const autoFibEngineEvidence = autoFibEngine ? {
+      source: "AUTO_FIB_RETRACE_DETERMINISTIC",
+      state: autoFibEngine.state,
+      signal: autoFibEngine.signal,
+      direction: "NO TRADE",
+      entry: autoFibEngine.entry,
+      stopLoss: autoFibEngine.stopLoss,
+      finalTp: autoFibEngine.finalTp,
+      rangeHigh: autoFibEngine.buy.high ?? autoFibEngine.sell.high,
+      rangeLow: autoFibEngine.buy.low ?? autoFibEngine.sell.low,
+      fibLevel: autoFibEngine.buy.flipPrice ?? autoFibEngine.sell.flipPrice,
+      score: Math.max(autoFibEngine.buyConfluence, autoFibEngine.sellConfluence),
+      evidence: autoFibEngine.evidence,
+      missingConditions: autoFibEngine.missingConditions,
+      liquidityTarget: null,
+      orderBlock: null,
+      riskReward: autoFibEngine.riskReward,
+      invalidation: autoFibEngine.invalidation.join(" "),
+      buy: autoFibEngine.buy,
+      sell: autoFibEngine.sell,
+      message: autoFibEngine.message,
     } : null;
 
     const srbObEngine = strategyId === "srbOb" ? evaluateSrbOb(market.candles) : null;
@@ -327,7 +354,7 @@ Return JSON only.`;
       chart: { candles: market.candles, channel20: channel },
       liquidityTargets,
       structure: { ...lockedStructure }, volatility: context.volatility,
-      strategyEngine: strategyId === "srbOb" ? srbObEngineEvidence : nativeEngineOutput,
+      strategyEngine: strategyId === "srbOb" ? srbObEngineEvidence : strategyId === "fibRetracement" ? autoFibEngineEvidence : nativeEngineOutput,
       decision: finalDirection === "NO TRADE" ? "NO TRADE" : "TRADE", direction: finalDirection,
       confidence: finalDirection === "NO TRADE" ? Math.min(Number(ai.confidence) || 0, 69) : Number(ai.confidence) || 0,
       setup: ai.setup, marketCondition: ai.marketCondition, marketStructure: ai.marketStructure, recentPriceAction: ai.recentPriceAction,
