@@ -263,7 +263,7 @@ export default function AnalyzerPage() {
   const scannerTp2 = strategy === "srbOb" ? null : projectedTp2;
   const scannerReason = strategy === "srbOb"
     ? (result?.strategyEngine?.missingConditions?.join(" · ") || result?.strategyEngine?.invalidation || "No outstanding SRB condition.")
-    : (s?.statusMessage || s?.waitReason || result.nextAction);
+    : (s?.statusMessage || s?.waitReason || result?.nextAction || "Waiting for market data.");
 
   return <main className="shell">
     <header className="header"><div className="brand-block"><img src="/vaulttrades-logo.png" alt="VaultTrades" className="logo"/><div className="tagline">Built by Traders.</div><div className="slogan">Focus, discipline, consistency.</div></div><div className="badge">AI SCANNER</div></header>
