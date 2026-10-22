@@ -306,7 +306,7 @@ export default function AnalyzerPage() {
         <div className="condition-box" style={{ marginTop: 12 }}>
           <strong>Confirmation score · Long {result.strategyEngine.confirmation?.long ?? 0}/2 · Short {result.strategyEngine.confirmation?.short ?? 0}/2</strong>
           <p className="muted">{result.strategyEngine.evidence?.join(" · ") || "No active source confirmations on the latest candle."}</p>
-          {result.strategyEngine.missingConditions?.length ? <p className="muted">Waiting / rejected: {result.strategyEngine.missingConditions.join(" · ")}</p> : null}
+          {result.strategyEngine.missingConditions?.length ? <p className="muted">Setup conditions: {result.strategyEngine.missingConditions.join(" · ")}</p> : null}
           <p className="muted">Invalidation: {result.strategyEngine.invalidation || "No active rejection setup."}</p>
         </div>
       </section>}
