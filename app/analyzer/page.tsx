@@ -448,7 +448,7 @@ export default function AnalyzerPage() {
             <p>Range high · <b>{fmt(result.strategyEngine.rangeHigh)}</b></p><p>Range low · <b>{fmt(result.strategyEngine.rangeLow)}</b></p>
             <p>Range size · <b>{result.strategyEngine.rangeHigh != null && result.strategyEngine.rangeLow != null ? fmt(result.strategyEngine.rangeHigh-result.strategyEngine.rangeLow) : "—"}</b></p>
             <p>Midline · <b>{result.strategyEngine.rangeHigh != null && result.strategyEngine.rangeLow != null ? fmt((result.strategyEngine.rangeHigh+result.strategyEngine.rangeLow)/2) : "—"}</b></p>
-            <p>Regime · <b>{result.strategyEngine.score >= 50 ? "CONFLUENCE QUALIFIED" : "WAIT / FILTERED"}</b></p>
+            <p>Regime · <b>{(result.strategyEngine.score ?? 0) >= 50 ? "CONFLUENCE QUALIFIED" : "WAIT / FILTERED"}</b></p>
           </div>
           <div className="condition-box"><strong>02 · TRADE EXECUTION</strong>
             <p>Direction · <b>{result.strategyEngine.direction || "NO TRADE"}</b></p><p>Entry · <b>{fmt(result.strategyEngine.entry)}</b></p>
