@@ -58,7 +58,7 @@ function findOB(c: Candle[], dir: "BUY" | "SELL", target: number | null, a: numb
   }
   return best ? { direction: best.direction, top: best.top, bottom: best.bottom } : null;
 }
-export function evaluateSrbOb(candles: Candle[], config?: { fibLevel?: number; stopExtension?: number; targetExtension?: number; minScore?: number; trendOnly?: boolean; limitExpiryBars?: number; dxyDirection?: "BUY" | "SELL" | "NEUTRAL" | null; silverDirection?: "BUY" | "SELL" | "NEUTRAL" | null }) : SRBResult {
+export function evaluateSrbOb(candles: Candle[], config?: { fibLevel?: number; stopExtension?: number; targetExtension?: number; minScore?: number; trendOnly?: boolean; limitExpiryBars?: number; ticketClearanceAtr?: number; dxyDirection?: "BUY" | "SELL" | "NEUTRAL" | null; silverDirection?: "BUY" | "SELL" | "NEUTRAL" | null }) : SRBResult {
   const fibLevel = config?.fibLevel ?? .681, stopExtension = config?.stopExtension ?? 1.25, targetExtension = config?.targetExtension ?? .618;
   const empty = (state: string, window: string | null, hi: number | null, lo: number | null, score = 0, evidence: string[] = [], missing: string[] = []): SRBResult => ({
     state, direction: "NO TRADE", entry: null, stopLoss: null, finalTp: null, rangeHigh: hi, rangeLow: lo, window, fibLevel, score, evidence, missingConditions: missing,
@@ -115,7 +115,9 @@ export function evaluateSrbOb(candles: Candle[], config?: { fibLevel?: number; s
   const lowerTarget = Math.max(...candles.map(x => x.low).filter(v => v < last.close), -Infinity);
   const liquidityTarget = dir === "BUY" ? (Number.isFinite(upperTarget) ? upperTarget : null) : (Number.isFinite(lowerTarget) ? lowerTarget : null);
   const ob = findOB(candles.slice(0, -1), dir === "BUY" ? "SELL" : "BUY", liquidityTarget, atr);
-  const insideOB = !!ob && entry <= ob.top && entry >= ob.bottom;
+  const clearance = atr * (config?.ticketClearanceAtr ?? 0.55);
+  // Keep the historical OB fixed; reject a ticket inside or too close to the opposing zone.
+  const insideOB = !!ob && entry <= ob.top + clearance && entry >= ob.bottom - clearance;
   const trendOK = !config?.trendOnly || (ema200 != null && (dir === "BUY" ? last.close > ema200 : last.close < ema200));
   const dxyOK = !config?.dxyDirection || config.dxyDirection === dir;
   const silverOK = !config?.silverDirection || config.silverDirection === dir;
