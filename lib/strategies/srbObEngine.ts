@@ -225,7 +225,6 @@ export function evaluateSrbOb(candles: Candle[], config?: { fibLevel?: number; s
   const impulseRange = Math.max(impulseHigh - impulseLow, Number.EPSILON);
   const entry = dir === "BUY" ? impulseHigh - impulseRange * fibLevel : impulseLow + impulseRange * fibLevel;
   const stopModel = config?.stopModel ?? "OPPOSITE_RANGE_EDGE";
-  const stopExtension = config?.stopExtension ?? 1.25;
   const stopLoss = dir === "BUY"
     ? stopModel === "FIB_0382" ? impulseHigh - impulseRange * 0.382
       : stopModel === "FIB_0500" ? impulseHigh - impulseRange * 0.5
