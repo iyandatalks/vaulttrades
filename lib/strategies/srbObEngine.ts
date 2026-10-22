@@ -321,7 +321,14 @@ export function evaluateSrbOb(candles: Candle[], config?: { fibLevel?: number; s
     maChannelUpper: signalChannel.upper, maChannelLower: signalChannel.lower, maChannelDirection: signalChannel.direction,
     maChannelAligned: channelAligned, maChannelMode,
   };
-  const evidence = ["Completed configured opening range: " + selected.window.name, "Confirmed range breakout at " + candles[breakIndex].datetime, "Fib pullback level: " + (fibLevel * 100).toFixed(1) + "%", "Confluence score: " + score + "/100", "Order-block exclusion: " + (insideOB ? "entry overlaps opposing OB" : "no opposing OB overlap identified")];
+  const evidence = [
+    "Completed configured opening range: " + selected.window.name,
+    "Confirmed range breakout at " + candles[breakIndex].datetime,
+    "Moving-average channel: SMA(high, " + maChannelPeriod + ") / SMA(low, " + maChannelPeriod + ") — " + signalChannel.direction,
+    "Fib pullback level: " + (fibLevel * 100).toFixed(1) + "% from frozen impulse wicks",
+    "Confluence score: " + score + "/100",
+    "Order-block exclusion: " + (insideOB ? "entry overlaps opposing OB" : "no opposing OB overlap identified")
+  ];
   const missing = [
     ...(!scoreOK ? ["Confluence score is below the configured minimum."] : []),
     ...(!geometry ? ["Stop/target geometry is invalid."] : []),
