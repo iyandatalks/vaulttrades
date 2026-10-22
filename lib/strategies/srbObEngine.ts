@@ -150,6 +150,7 @@ export function evaluateSrbOb(candles: Candle[], config?: { fibLevel?: number; s
   // Reconstruct the resting-limit lifecycle from bars after the breakout.
   // If stop/target is reached before the Fib price, the pending setup is invalid.
   let touched = false;
+  let fillIndex = -1;
   let riskHitBeforeFill = false;
   for (let i = breakIndex + 1; i < candles.length; i++) {
     const bar = candles[i];
@@ -157,8 +158,23 @@ export function evaluateSrbOb(candles: Candle[], config?: { fibLevel?: number; s
     const riskTouched = dir === "BUY"
       ? bar.low <= stopLoss || bar.high >= finalTp
       : bar.high >= stopLoss || bar.low <= finalTp;
+    // If the entry and a risk level are both touched on the same pre-fill candle,
+    // resolve conservatively as no fill; the candle cannot prove event ordering.
     if (riskTouched) { riskHitBeforeFill = true; break; }
-    if (entryTouched) { touched = true; break; }
+    if (entryTouched) { touched = true; fillIndex = i; break; }
+  }
+  let completedState: "TARGET HIT" | "STOP HIT" | null = null;
+  if (touched && fillIndex >= 0) {
+    for (let i = fillIndex + 1; i < candles.length; i++) {
+      const bar = candles[i];
+      const stopHit = dir === "BUY" ? bar.low <= stopLoss : bar.high >= stopLoss;
+      const targetHit = dir === "BUY" ? bar.high >= finalTp : bar.low <= finalTp;
+      if (stopHit || targetHit) {
+        // If a single candle spans both levels, choose the stop as the conservative outcome.
+        completedState = targetHit && !stopHit ? "TARGET HIT" : "STOP HIT";
+        break;
+      }
+    }
   }
   const scoreOK = score >= (config?.minScore ?? 50);
   const evidence = ["Completed configured opening range: " + selected.window.name, "Confirmed range breakout at " + candles[breakIndex].datetime, "Fib pullback level: " + (fibLevel * 100).toFixed(1) + "%", "Confluence score: " + score + "/100", "Order-block exclusion: " + (insideOB ? "entry overlaps opposing OB" : "no opposing OB overlap identified")];
@@ -177,5 +193,7 @@ export function evaluateSrbOb(candles: Candle[], config?: { fibLevel?: number; s
   if (expired && !touched) return { ...empty("EXPIRED", selected.window.name, hi, lo, score, evidence, missing), entry, stopLoss, finalTp, liquidityTarget, orderBlock: ob, riskReward: rr, invalidation: "Unfilled Fib setup expired after " + expiryBars + " bars." };
   if (!scoreOK || !geometry || insideOB || !trendOK || !dxyOK || !silverOK) return { ...empty("REJECTED", selected.window.name, hi, lo, score, evidence, missing), direction: "NO TRADE", entry, stopLoss, finalTp, liquidityTarget, orderBlock: ob, riskReward: rr };
   if (!touched || !afterBreak) return { ...empty("LIMIT WAIT", selected.window.name, hi, lo, score, evidence, missing), entry, stopLoss, finalTp, liquidityTarget, orderBlock: ob, riskReward: rr };
-  return { ...empty("FIB RETEST DETECTED", selected.window.name, hi, lo, score, evidence, []), direction: dir, entry, stopLoss, finalTp, liquidityTarget, orderBlock: ob, riskReward: rr, invalidation: dir === "BUY" ? "Invalidate if price reaches the planned stop below the impulse low." : "Invalidate if price reaches the planned stop above the impulse high." };
+  const finalState = completedState ?? (touched ? "TRADE OPEN" : "LIMIT WAIT");
+  const finalEvidence = completedState === "TARGET HIT" ? [...evidence, "Fib entry filled; target reached after entry."] : completedState === "STOP HIT" ? [...evidence, "Fib entry filled; stop reached after entry."] : touched ? [...evidence, "Fib entry filled; trade remains open because neither exit has been reached."] : evidence;
+  return { ...empty(finalState, selected.window.name, hi, lo, score, finalEvidence, []), direction: dir, entry, stopLoss, finalTp, liquidityTarget, orderBlock: ob, riskReward: rr, invalidation: completedState === "TARGET HIT" ? "Trade closed at the planned target." : completedState === "STOP HIT" ? "Trade closed at the planned stop." : touched ? "Manage the filled trade against its fixed stop and target." : "Wait for price to retest the fixed Fib entry before counting a trade as filled." };
 }
