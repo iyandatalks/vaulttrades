@@ -153,11 +153,22 @@ export default function AnalyzerPage() {
   }, []);
   const localClock = new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Johannesburg", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(clockNow);
   const clockMinutes = Number(localClock.slice(0, 2)) * 60 + Number(localClock.slice(3, 5));
-  const currentSession = clockMinutes >= 150 && clockMinutes < 180 ? "TOKYO" :
-    clockMinutes >= 600 && clockMinutes < 630 ? "LONDON 1" :
-    clockMinutes >= 720 && clockMinutes < 750 ? "LONDON 2" :
-    clockMinutes >= 930 && clockMinutes < 960 ? "NEW YORK 1" :
-    clockMinutes >= 1185 && clockMinutes < 1215 ? "NEW YORK 2" : "BETWEEN WINDOWS";
+  const weekdaySast = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Johannesburg", weekday: "short" }).format(clockNow) === "Mon" ? 1 :
+    new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Johannesburg", weekday: "short" }).format(clockNow) === "Tue" ? 2 :
+    new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Johannesburg", weekday: "short" }).format(clockNow) === "Wed" ? 3 :
+    new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Johannesburg", weekday: "short" }).format(clockNow) === "Thu" ? 4 :
+    new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Johannesburg", weekday: "short" }).format(clockNow) === "Fri" ? 5 : 0);
+  const sessionWindows = [
+    { name: "TOKYO", start: 150, end: 180 },
+    { name: "LONDON 1", start: 600, end: 630 },
+    { name: "LONDON 2", start: 720, end: 750 },
+    { name: "NEW YORK 1", start: 930, end: 960 },
+    { name: "NEW YORK 2", start: 1185, end: 1215 },
+  ];
+  const eligibleWindows = weekdaySast >= 1 && weekdaySast <= 5 ? sessionWindows.filter(w => clockMinutes >= w.end) : [];
+  const currentWindow = eligibleWindows.at(-1);
+  const inOpeningWindow = weekdaySast >= 1 && weekdaySast <= 5 ? sessionWindows.find(w => clockMinutes >= w.start && clockMinutes < w.end) : undefined;
+  const currentSession = inOpeningWindow?.name || currentWindow?.name || (weekdaySast === 6 || weekdaySast === 7 ? "WEEKEND" : "BEFORE TOKYO");
 
   const strategyDisplayName = (id?: string, fallback?: string) => id && PUBLIC_STRATEGY_LABELS[id] ? PUBLIC_STRATEGY_LABELS[id] : fallback || "Strategy";
   const runAnalysis = async () => {
@@ -341,14 +352,54 @@ export default function AnalyzerPage() {
           <p className="muted">Invalidation: {result.strategyEngine.invalidation || "No active setup invalidation."}</p>
         </div>
       </section>}
-      {strategy === "srbOb" && result.strategyEngine && <section className="card" style={{ border: "1px solid rgba(212,166,55,.32)" }}>
-        <div className="section-label">AURELIA SRB · STRATEGY DASHBOARD</div><p className="muted">Live SAST clock: {localClock} · Current session window: <strong>{currentSession}</strong>. Refresh analysis to update range and breakout state.</p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10, marginTop: 12 }}>
-          <div className="condition-box"><strong>RANGE SETUP</strong><p className="muted">Session · {result.strategyEngine.window || "—"}</p><p>State · {result.strategyEngine.state || "WAITING"}</p><p>High · {fmt(result.strategyEngine.rangeHigh)} / Low · {fmt(result.strategyEngine.rangeLow)}</p><p>Range size · {result.strategyEngine.rangeHigh != null && result.strategyEngine.rangeLow != null ? fmt(result.strategyEngine.rangeHigh - result.strategyEngine.rangeLow) : "—"}</p></div>
-          <div className="condition-box"><strong>TRADE EXECUTION</strong><p>Direction · {result.strategyEngine.direction || "NO TRADE"}</p><p>Entry · {fmt(result.strategyEngine.entry)}</p><p>Stop · {fmt(result.strategyEngine.stopLoss)}</p><p>Target · {fmt(result.strategyEngine.finalTp)}</p><p>Planned R:R · {fmt(result.strategyEngine.riskReward)}</p></div>
-          <div className="condition-box"><strong>ALGO METRICS</strong><p>Latest confluence · {result.strategyEngine.score ?? 0}/100</p><p>Minimum score gate · 50/100</p><p>Fib pullback · {((result.strategyEngine.fibLevel ?? 0.681) * 100).toFixed(1)}%</p><p className="muted">W/L, profit factor and expectancy must use filled and closed trades only.</p></div>
-          <div className="condition-box"><strong>LIVE CONFLUENCE</strong><p>Liquidity target · {fmt(result.strategyEngine.liquidityTarget)}</p><p>Opposing OB · {result.strategyEngine.orderBlock ? result.strategyEngine.orderBlock.direction + " " + fmt(result.strategyEngine.orderBlock.bottom) + "–" + fmt(result.strategyEngine.orderBlock.top) : "No valid reference returned"}</p><p className="muted">{result.strategyEngine.evidence?.join(" · ") || "Waiting for confirmed range and breakout evidence."}</p></div>
-          <div className="condition-box"><strong>SESSION & BAND EDGE</strong><p>Active window · {result.strategyEngine.window || "—"}</p><p>Order expiry · 12 bars</p><p>Ticket clearance · 0.55 ATR</p><p className="muted">Per-session and grade win rates are tracked in the Pine dashboard from filled and closed trades.</p></div>
+      {strategy === "srbOb" && result.strategyEngine && <section className="card" style={{ border: "1px solid rgba(212,166,55,.32)", background: "linear-gradient(145deg,rgba(10,16,30,.98),rgba(5,8,18,.98))" }}>
+        <div className="section-label">VAULTTRADES SRB & OB · LIVE DASHBOARD</div>
+        <p className="muted">SAST {localClock} · Current clock window <strong>{currentSession}</strong> · Strategy range in analysis <strong>{result.strategyEngine.window || "—"}</strong>. Session status advances with the SAST clock; refresh analysis to update price-derived values.</p>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(230px,1fr))", gap:12, marginTop:14 }}>
+          <div className="condition-box"><strong>01 · RANGE SETUP</strong>
+            <p>Session · <b>{result.strategyEngine.window || currentSession}</b></p>
+            <p>Breakout · <b style={{color:result.strategyEngine.direction==="BUY"?"#4ade80":result.strategyEngine.direction==="SELL"?"#fb7185":"#cbd5e1"}}>{result.strategyEngine.direction==="BUY"?"BROKE ABOVE RANGE":result.strategyEngine.direction==="SELL"?"BROKE BELOW RANGE":result.strategyEngine.state==="ARMED"?"NOT BROKEN":"NO CONFIRMED BREAK"}</b></p>
+            <p>State / gate · <b>{result.strategyEngine.state || "WAITING"}</b></p>
+            <p>Range high · <b>{fmt(result.strategyEngine.rangeHigh)}</b></p><p>Range low · <b>{fmt(result.strategyEngine.rangeLow)}</b></p>
+            <p>Range size · <b>{result.strategyEngine.rangeHigh != null && result.strategyEngine.rangeLow != null ? fmt(result.strategyEngine.rangeHigh-result.strategyEngine.rangeLow) : "—"}</b></p>
+            <p>Midline · <b>{result.strategyEngine.rangeHigh != null && result.strategyEngine.rangeLow != null ? fmt((result.strategyEngine.rangeHigh+result.strategyEngine.rangeLow)/2) : "—"}</b></p>
+            <p>Regime · <b>{result.strategyEngine.score >= 50 ? "CONFLUENCE QUALIFIED" : "WAIT / FILTERED"}</b></p>
+          </div>
+          <div className="condition-box"><strong>02 · TRADE EXECUTION</strong>
+            <p>Direction · <b>{result.strategyEngine.direction || "NO TRADE"}</b></p><p>Entry · <b>{fmt(result.strategyEngine.entry)}</b></p>
+            <p>Stop loss · <b style={{color:"#fb7185"}}>{fmt(result.strategyEngine.stopLoss)}</b></p><p>Target · <b style={{color:"#4ade80"}}>{fmt(result.strategyEngine.finalTp)}</b></p>
+            <p>Planned R:R · <b>{fmt(result.strategyEngine.riskReward)}</b></p><p>Trade state · <b>{result.strategyEngine.state || "WAITING"}</b></p>
+          </div>
+          <div className="condition-box"><strong>03 · ALGO METRICS</strong>
+            <p>Confluence score · <b>{result.strategyEngine.score ?? 0}/100</b></p>
+            <div style={{height:9,background:"#253044",borderRadius:99,overflow:"hidden",margin:"8px 0 12px"}}><div style={{height:"100%",width:Math.max(0,Math.min(100,result.strategyEngine.score??0))+"%",background:(result.strategyEngine.score??0)>=65?"#22c55e":(result.strategyEngine.score??0)>=50?"#eab308":"#ef4444",borderRadius:99}}/></div>
+            <p>Minimum gate · <b>50/100</b></p><p>Fib pullback · <b>{((result.strategyEngine.fibLevel ?? 0.681)*100).toFixed(1)}%</b></p>
+            <p>Closed-trade stats · <b>Shown only when closed outcomes are available</b></p>
+          </div>
+          <div className="condition-box"><strong>04 · LIVE CONFLUENCE</strong>
+            <p>Liquidity target · <b>{fmt(result.strategyEngine.liquidityTarget)}</b></p>
+            <p>Opposing OB · <b>{result.strategyEngine.orderBlock ? result.strategyEngine.orderBlock.direction+" "+fmt(result.strategyEngine.orderBlock.bottom)+"–"+fmt(result.strategyEngine.orderBlock.top) : "No valid opposing OB identified"}</b></p>
+            <p>Evidence</p><div style={{display:"grid",gap:5}}>{(result.strategyEngine.evidence?.length?result.strategyEngine.evidence:["Waiting for confirmed range/breakout evidence"]).map((item,i)=><div key={i} style={{fontSize:12,padding:"6px 8px",borderRadius:6,background:"rgba(148,163,184,.08)"}}>• {item}</div>)}</div>
+            <p style={{marginTop:8}}>Missing / blocked conditions</p><div style={{display:"grid",gap:5}}>{(result.strategyEngine.missingConditions?.length?result.strategyEngine.missingConditions:["No reported blocking condition"]).map((item,i)=><div key={i} style={{fontSize:12,padding:"6px 8px",borderRadius:6,background:"rgba(239,68,68,.08)",color:"#fecaca"}}>• {item}</div>)}</div>
+          </div>
+          <div className="condition-box"><strong>05 · SESSION & BAND EDGE</strong>
+            <p style={{fontSize:12,color:"#94a3b8"}}>Five configured SAST windows. Win/loss rates must come from filled and closed trades, not unfilled Fib tickets.</p>
+            <div style={{display:"grid",gap:7,marginTop:8}}>{[
+              {name:"TOKYO",time:"02:30–03:00"},
+              {name:"LONDON 1",time:"10:00–10:30"},
+              {name:"LONDON 2",time:"12:00–12:30"},
+              {name:"NEW YORK 1",time:"15:30–16:00"},
+              {name:"NEW YORK 2",time:"19:45–20:15"},
+            ].map((w,i)=><div key={w.name} style={{padding:8,borderRadius:8,border:"1px solid "+(w.name===(result.strategyEngine.window||currentSession)?"rgba(212,166,55,.75)":"rgba(148,163,184,.15)"),background:w.name===(result.strategyEngine.window||currentSession)?"rgba(212,166,55,.10)":"rgba(148,163,184,.04)"}}>
+              <div style={{display:"flex",justifyContent:"space-between",gap:8}}><b>{w.name}</b><span style={{fontSize:11,color:"#94a3b8"}}>{w.time} SAST</span></div>
+              <div style={{fontSize:12,marginTop:4,color:w.name===currentSession?"#fbbf24":"#cbd5e1"}}>{w.name===currentSession?"CURRENT CLOCK WINDOW":i===0&&clockMinutes>=180||i===1&&clockMinutes>=630||i===2&&clockMinutes>=750||i===3&&clockMinutes>=960||i===4&&clockMinutes>=1215?"WINDOW COMPLETE":"UPCOMING"}</div>
+            </div>)}</div>
+            <p style={{marginTop:10}}>Grade edge · <b>A / B / C / F</b></p>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:5}}>
+              {[{g:"A",c:"#22c55e"},{g:"B",c:"#84cc16"},{g:"C",c:"#eab308"},{g:"F",c:"#ef4444"}].map(x=><div key={x.g} style={{textAlign:"center",padding:8,borderRadius:7,background:x.c+"18",border:"1px solid "+x.c+"70",color:x.c,fontWeight:800}}>{x.g}<div style={{fontSize:10,fontWeight:500,color:"#cbd5e1"}}>W/L —</div><div style={{fontSize:10}}>Win — · Loss —</div></div>)}
+            </div>
+            <p style={{fontSize:11,color:"#94a3b8",marginTop:8}}>No fabricated percentages: session and grade rates display once the closed-trade history is available to this app view.</p>
+          </div>
         </div>
       </section>}
       <section className="card execution-card" style={{ border: "1px solid rgba(212,166,55,.28)", background: "linear-gradient(145deg, rgba(10,16,30,.98), rgba(5,8,18,.98))" }}>
