@@ -6,7 +6,7 @@ import TestimonialStyles from "./TestimonialStyles";
 const outcomes = [
   ["01", "A repeatable trading routine", "Know what to check before, during and after a trade instead of improvising under pressure."],
   ["02", "A defined risk framework", "Work with risk per trade, position sizing, invalidation, drawdown awareness and daily boundaries."],
-  ["03", "A setup decision process", "Learn to evaluate structure, liquidity, FIB levels, FVGs, OBs, EMA conditions and session context without turning the chart into noise."],
+  ["03", "A setup decision process", "Learn to evaluate market context and setup quality without turning the chart into noise."],
   ["04", "Execution discipline", "Build rules around entries, stops, targets, trade management and when to stay out."],
   ["05", "A psychology framework", "Work on FOMO, revenge trading, hesitation, overconfidence and the habit of breaking your own rules."],
   ["06", "A review habit", "Review whether the process was followed — not simply whether the last trade won or lost."],
@@ -22,7 +22,7 @@ const packageItems = [
   "Trading psychology and discipline training",
   "VaultTrades training and e-book library",
   "Technology and automation education",
-  "OBSERVE → VALIDATE → LIVE framework",
+  "Practical education on evaluating and using trading tools responsibly",
   "Online community accountability and development",
 ];
 
@@ -58,6 +58,11 @@ export default function VaultTradesCommunitySales() {
   }, []);
 
   async function submitTestimonial() {
+    if (testimonial.trim().length < 20) {
+      setTestimonialStatus("Please write at least 20 characters so we can review your experience.");
+      return;
+    }
+
     setSubmitting(true);
     setTestimonialStatus("");
 
@@ -70,7 +75,9 @@ export default function VaultTradesCommunitySales() {
       const data = await res.json();
 
       if (!res.ok) {
-        setTestimonialStatus(data.message || "Your testimonial could not be submitted.");
+        setTestimonialStatus(data.message || (data.error === "SIGN_IN_REQUIRED"
+          ? "Please sign in to submit your testimonial."
+          : "Your testimonial could not be submitted. Please try again."));
         return;
       }
 
@@ -116,8 +123,8 @@ export default function VaultTradesCommunitySales() {
           </div>
           <div className="vt-community-copy">
             <p>There are enough indicators, strategies and signals.</p>
-            <p>The real problem is what happens after the setup appears: the late entry, oversized position, moved stop, revenge trade or decision made from emotion.</p>
-            <p><strong>VaultTrades is built around the process between analysis and execution.</strong></p>
+            <p>The real challenge is making consistent decisions: avoiding late entries, oversized positions, emotional trades and changes to a plan under pressure.</p>
+            <p><strong>VaultTrades is built around developing a disciplined, risk-aware trading process.</strong></p>
           </div>
         </div>
       </section>
@@ -138,14 +145,14 @@ export default function VaultTradesCommunitySales() {
 
       <section className="vt-community-dark">
         <div className="vt-community-container">
-          <div className="vt-label">THE VAULTTRADES FRAMEWORK</div>
-          <div className="vt-framework">
-            {["MARKET", "SETUP", "SIGNAL", "RISK", "EXECUTE", "MANAGE", "REVIEW"].map((x, i) => (
-              <div key={x}><small>0{i + 1}</small><strong>{x}</strong></div>
-            ))}
+          <div className="vt-label">OUR APPROACH</div>
+          <h2>Education, structure and responsible execution.</h2>
+          <div className="vt-outcome-grid">
+            <article className="vt-outcome"><div>01</div><h3>Understand the market</h3><p>Develop a clearer way to assess market conditions and decide whether a trade idea deserves further attention.</p></article>
+            <article className="vt-outcome"><div>02</div><h3>Plan your risk</h3><p>Set personal risk limits and understand where a trade idea is no longer valid before committing capital.</p></article>
+            <article className="vt-outcome"><div>03</div><h3>Review your decisions</h3><p>Use reflection and trading records to identify habits, learn from outcomes and improve consistency over time.</p></article>
           </div>
-          <div className="vt-framework-bottom">DEFINE → CALCULATE → EXECUTE → CONTROL → REVIEW</div>
-          <p className="vt-framework-note">The objective is not to eliminate losing trades. <strong>The objective is to prevent one trade from becoming a damaging decision.</strong></p>
+          <p className="vt-framework-note">Tools and automation can support a process, but they cannot remove market risk or guarantee a result.</p>
         </div>
       </section>
 
@@ -167,9 +174,8 @@ export default function VaultTradesCommunitySales() {
           <h2>Hear from people who have actually purchased and used VaultTrades products.</h2>
           <p className="vt-testimonials-intro">
             Have you purchased a VaultTrades product or joined one of our programmes?
-            We would love to hear from you. Share how your experience with our service or programme
-            has influenced your trading habits, decision-making and financial journey.
-            Your submission will be reviewed before it is published.
+            We would love to hear how your experience influenced your learning, trading habits or decision-making.
+            Submissions are reviewed before publication, and testimonials are accepted from customers with an active purchased product.
           </p>
 
           {testimonials.length > 0 ? (
@@ -188,7 +194,7 @@ export default function VaultTradesCommunitySales() {
           ) : (
             <div className="vt-testimonials-empty">
               <strong>Could you be the first to share your VaultTrades experience?</strong>
-              <span>If you have purchased an active VaultTrades product, we would love to hear from you below.</span>
+              <span>Sign in with an account that has an active purchased VaultTrades product to submit a testimonial.</span>
             </div>
           )}
 
@@ -196,44 +202,46 @@ export default function VaultTradesCommunitySales() {
             <div>
               <div className="vt-label">ADD YOUR EXPERIENCE</div>
               <h3>Share your VaultTrades experience.</h3>
-              <p>
-                We would love to hear from you. How has our service or programme changed your trading
-                habits and financial journey? Submit your testimonial and share your experience with the community.
-              </p>
+              <p>Tell us what you found useful and how the product or programme affected your approach. Please share your genuine experience; publication is subject to review.</p>
             </div>
 
             {canSubmit ? (
               <div className="vt-testimonial-form">
                 <textarea
                   value={testimonial}
-                  onChange={(e) => setTestimonial(e.target.value)}
+                  onChange={(e) => {
+                    setTestimonial(e.target.value);
+                    if (testimonialStatus) setTestimonialStatus("");
+                  }}
                   maxLength={1000}
-                  placeholder="Tell the community what changed in your trading process, education or experience with VaultTrades..."
+                  placeholder="Write at least 20 characters about your experience with VaultTrades..."
                   rows={6}
+                  aria-label="Your VaultTrades testimonial"
                 />
                 <div className="vt-testimonial-form-footer">
-                  <span>{testimonial.length}/1000</span>
+                  <span>{testimonial.length}/1000 · Minimum 20 characters</span>
                   <button
                     className="vt-community-cta vt-testimonial-button"
                     onClick={submitTestimonial}
                     disabled={submitting || testimonial.trim().length < 20}
+                    type="button"
                   >
                     {submitting ? "SUBMITTING..." : "SUBMIT TESTIMONY"}
                   </button>
                 </div>
-                {testimonialStatus && <div className="vt-testimonial-status">{testimonialStatus}</div>}
+                {testimonialStatus && <div className="vt-testimonial-status" role="status">{testimonialStatus}</div>}
               </div>
             ) : (
               <div className="vt-testimonial-gate">
                 <strong>{signedIn ? "Active product required" : "Customer access required"}</strong>
                 <p>
                   {signedIn
-                    ? "If you have purchased a VaultTrades product, make sure your active product is linked to this account to unlock testimonial submission."
+                    ? "Testimonial submission is available to accounts with an active purchased VaultTrades product."
                     : "Sign in to your VaultTrades account after purchasing a product to unlock testimonial submission."}
                 </p>
                 <div className="vt-community-actions">
-                  {!signedIn && <a className="vt-community-link" href="/auth/login?next=%2Fcommunity">SIGN IN</a>}
-                  <a className="vt-community-cta" href={checkout}>VIEW PRODUCTS <b>→</b></a>
+                  {!signedIn && <a className="vt-community-link" href="/auth/login?next=%2Fvaulttrades-community%23testimonials">SIGN IN</a>}
+                  <a className="vt-community-cta" href="/products">VIEW PRODUCTS <b>→</b></a>
                 </div>
               </div>
             )}
@@ -244,13 +252,13 @@ export default function VaultTradesCommunitySales() {
       <section className="vt-community-dark">
         <div className="vt-community-container vt-problem-grid">
           <div>
-            <div className="vt-label">TECHNOLOGY</div>
-            <h2>Learn how the VaultTrades workflow connects.</h2>
+            <div className="vt-label">TRADING EDUCATION & TECHNOLOGY</div>
+            <h2>Understand the tools. Keep control of your decisions.</h2>
           </div>
           <div className="vt-community-copy">
-            <div className="vt-flow">TradingView <i>→</i> VaultTrades <i>→</i> Validation <i>→</i> Risk Rules <i>→</i> MT5</div>
-            <p>Automation is not presented as a profit machine. It is treated as an execution layer that must operate inside defined rules.</p>
-            <p><strong>OBSERVE → VALIDATE → LIVE.</strong> Test the behaviour before trusting technology with live capital.</p>
+            <p>VaultTrades brings together market education, analysis tools and optional execution technology to support a more structured trading routine.</p>
+            <p>Each trader remains responsible for understanding the risks, setting suitable limits and deciding whether to trade.</p>
+            <p><strong>Observe carefully. Validate your approach. Use live capital only when you understand the risks.</strong></p>
           </div>
         </div>
       </section>
@@ -271,7 +279,7 @@ export default function VaultTradesCommunitySales() {
                   <li>Recognise when a setup does not qualify.</li>
                   <li>Separate a good process from a profitable outcome.</li>
                   <li>Identify emotional and behavioural trading patterns.</li>
-                  <li>Understand the path from strategy observation to controlled execution.</li>
+                  <li>Make informed decisions about trading tools and technology.</li>
                 </ul>
               </div>
             </div>
