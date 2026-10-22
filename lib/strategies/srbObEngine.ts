@@ -120,11 +120,16 @@ export function evaluateSrbOb(candles: Candle[], config?: { fibLevel?: number; s
     const liveVolumeGood = last?.volume != null && liveVolumeAvg != null && last.volume > liveVolumeAvg;
     const liveRangeSize = hi != null && lo != null ? hi - lo : 0;
     const liveVolumeRatio = last?.volume != null && liveVolumeAvg != null && liveVolumeAvg > 0 ? last.volume/liveVolumeAvg : null;
-    const scoreFor = (side: "BUY" | "SELL") =>
+    const channelAligned = (side: "BUY" | "SELL") => liveChannel.upper !== null && liveChannel.lower !== null && !!last &&
+      (side === "BUY" ? last.close > liveChannel.upper && last.close > liveChannel.lower : last.close < liveChannel.upper && last.close < liveChannel.lower);
+    const baseScoreFor = (side: "BUY" | "SELL") =>
       (liveEma200 != null && last && (side === "BUY" ? last.close > liveEma200 : last.close < liveEma200) ? 15 : 0) +
       (liveEma20 != null && last && (side === "BUY" ? last.close > liveEma20 : last.close < liveEma20) ? 15 : 0) +
       (liveRsi != null && (side === "BUY" ? liveRsi > 50 : liveRsi < 50) ? 20 : 0) +
       (liveVolumeGood ? 30 : 0) + (liveAtr > 0 && liveRangeSize > liveAtr * .5 ? 20 : 0);
+    const scoreFor = (side: "BUY" | "SELL") => maChannelMode === "VOTE"
+      ? Math.round(baseScoreFor(side) * .85 + (channelAligned(side) ? 15 : 0))
+      : baseScoreFor(side);
     return {
       state, direction: "NO TRADE", entry: null, stopLoss: null, finalTp: null, rangeHigh: hi, rangeLow: lo, window, fibLevel, score, evidence, missingConditions: missing, breakoutDirection: null,
       invalidation: "Wait for the next configured opening range, a confirmed close breakout, then a valid Fib pullback retest.", liquidityTarget: null, orderBlock: null, riskReward: null,
@@ -134,7 +139,9 @@ export function evaluateSrbOb(candles: Candle[], config?: { fibLevel?: number; s
         rsi: liveRsi, rsiAligned: null, volumeRatio: liveVolumeRatio, volumeGood: liveVolumeGood,
         rangeSize: liveRangeSize, rangeAtrRatio: liveAtr > 0 && liveRangeSize > 0 ? liveRangeSize/liveAtr : null,
         longScore: scoreFor("BUY"), shortScore: scoreFor("SELL"),
-        dxy: config?.dxyDirection ?? "NOT PROVIDED", silver: config?.silverDirection ?? "NOT PROVIDED", gate: state
+        dxy: config?.dxyDirection ?? "NOT PROVIDED", silver: config?.silverDirection ?? "NOT PROVIDED", gate: state,
+        maChannelUpper: liveChannel.upper, maChannelLower: liveChannel.lower, maChannelDirection: liveChannel.direction,
+        maChannelAligned: null, maChannelMode
       },
       source: "SRB_OB_DETERMINISTIC"
     };
