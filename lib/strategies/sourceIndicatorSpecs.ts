@@ -63,6 +63,13 @@ export const SOURCE_INDICATORS: Record<StrategyId, readonly SourceIndicatorSpec[
     { name: "ADX", purpose: "Trend-strength confirmation", parameters: "Length 14; minimum 20; DI direction required", required: true },
     { name: "ATR", purpose: "Adaptive trigger and stop/target geometry", parameters: "Length 14; trigger 1.5 ATR; stop 1.5 ATR", required: true },
   ],
+  srbOb: [
+    { name: "EMA", purpose: "Optional trend filter and confluence score", parameters: "EMA 20 and EMA 200; EMA200 filter disabled by default", required: true },
+    { name: "ATR", purpose: "Opening-range size and displacement measurement", parameters: "Length 14; range must exceed 0.5 ATR for full range score", required: true },
+    { name: "RSI", purpose: "Directional confluence score", parameters: "Length 14; bullish above 50, bearish below 50", required: true },
+    { name: "Volume", purpose: "Participation confluence score", parameters: "Current volume compared with prior 20-bar average", required: true },
+    { name: "Fibonacci Retracement", purpose: "Resting pullback entry after confirmed range breakout", parameters: "68.1% default; optional 78.6% or 88%; wick-anchored impulse", required: true },
+  ],
   m15DualEngine: [
     { name: "Adaptive Execution", purpose: "Primary M15 market direction, momentum, strength, structure and trigger scoring", parameters: "Existing Adaptive Execution configuration; default confirmation threshold 70", required: true },
     { name: "ATR", purpose: "M15 Auto Fib displacement and stop geometry", parameters: "Length 14; displacement threshold 0.6 ATR", required: true },
