@@ -440,7 +440,7 @@ export default function AnalyzerPage() {
       </section>}
       {strategy === "srbOb" && result.strategyEngine && <section className="card" style={{ border: "1px solid rgba(212,166,55,.32)", background: "linear-gradient(145deg,rgba(10,16,30,.98),rgba(5,8,18,.98))" }}>
         <div className="section-label">VAULTTRADES SRB & OB · LIVE DASHBOARD</div>
-        <p className="muted">SAST {localClock} · Clock status <strong>{currentSession}</strong> · Latest completed window <strong>{latestCompletedSession}</strong> · Strategy range in analysis <strong>{result.strategyEngine.window || "—"}</strong>. Session status advances with the SAST clock; refresh analysis to update price-derived values.</p>
+        <p className="muted">SAST {localClock} · Clock status <strong>{currentSession}</strong> · Latest completed window <strong>{latestCompletedSession}</strong> · Strategy range in analysis <strong>{result.strategyEngine.window || "—"}</strong> · Latest market candle <strong>{result.chart?.candles?.at(-1)?.datetime || "not supplied"}</strong>. If that candle timestamp trails the live SAST clock, the market feed is stale and the range cannot advance until new candles arrive.</p>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(230px,1fr))", gap:12, marginTop:14 }}>
           <div className="condition-box"><strong>01 · RANGE SETUP</strong>
             <p>Session · <b>{result.strategyEngine.window || currentSession}</b></p>
