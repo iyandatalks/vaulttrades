@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ANALYZER_STRATEGIES, ANALYZER_STRATEGY_MAP } from "../../lib/strategies/analyzerProfiles";
 import { LiveMarketChart } from "./LiveMarketChart";
 import RiskManager from "../components/RiskManager";
@@ -146,6 +146,18 @@ export default function AnalyzerPage() {
   const [scannerLoading, setScannerLoading] = useState(false);
   const [error, setError] = useState("");
   const [lockedTrade, setLockedTrade] = useState<LockedTrade | null>(null);
+  const [clockNow, setClockNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setClockNow(new Date()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const localClock = new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Johannesburg", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(clockNow);
+  const clockMinutes = Number(localClock.slice(0, 2)) * 60 + Number(localClock.slice(3, 5));
+  const currentSession = clockMinutes >= 150 && clockMinutes < 180 ? "TOKYO" :
+    clockMinutes >= 600 && clockMinutes < 630 ? "LONDON 1" :
+    clockMinutes >= 720 && clockMinutes < 750 ? "LONDON 2" :
+    clockMinutes >= 930 && clockMinutes < 960 ? "NEW YORK 1" :
+    clockMinutes >= 1185 && clockMinutes < 1215 ? "NEW YORK 2" : "BETWEEN WINDOWS";
 
   const strategyDisplayName = (id?: string, fallback?: string) => id && PUBLIC_STRATEGY_LABELS[id] ? PUBLIC_STRATEGY_LABELS[id] : fallback || "Strategy";
   const runAnalysis = async () => {
@@ -330,7 +342,7 @@ export default function AnalyzerPage() {
         </div>
       </section>}
       {strategy === "srbOb" && result.strategyEngine && <section className="card" style={{ border: "1px solid rgba(212,166,55,.32)" }}>
-        <div className="section-label">AURELIA SRB · STRATEGY DASHBOARD</div>
+        <div className="section-label">AURELIA SRB · STRATEGY DASHBOARD</div><p className="muted">Live SAST clock: {localClock} · Current session window: <strong>{currentSession}</strong>. Refresh analysis to update range and breakout state.</p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10, marginTop: 12 }}>
           <div className="condition-box"><strong>RANGE SETUP</strong><p className="muted">Session · {result.strategyEngine.window || "—"}</p><p>State · {result.strategyEngine.state || "WAITING"}</p><p>High · {fmt(result.strategyEngine.rangeHigh)} / Low · {fmt(result.strategyEngine.rangeLow)}</p><p>Range size · {result.strategyEngine.rangeHigh != null && result.strategyEngine.rangeLow != null ? fmt(result.strategyEngine.rangeHigh - result.strategyEngine.rangeLow) : "—"}</p></div>
           <div className="condition-box"><strong>TRADE EXECUTION</strong><p>Direction · {result.strategyEngine.direction || "NO TRADE"}</p><p>Entry · {fmt(result.strategyEngine.entry)}</p><p>Stop · {fmt(result.strategyEngine.stopLoss)}</p><p>Target · {fmt(result.strategyEngine.finalTp)}</p><p>Planned R:R · {fmt(result.strategyEngine.riskReward)}</p></div>
