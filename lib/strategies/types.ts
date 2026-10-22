@@ -13,7 +13,8 @@ export type StrategyId =
   | "institutional"
   | "adaptiveExecution"
   | "adaptiveAutomated"
-  | "m15DualEngine";
+  | "m15DualEngine"
+  | "srbOb";
 
 export type StrategySignal = "BUY" | "SELL" | "NONE";
 export type StrategyState = "WAITING" | "DEVELOPING" | "ENTRY_READY" | "BUY" | "SELL" | "NO_TRADE";
