@@ -116,6 +116,87 @@ const PUBLIC_STRATEGY_LABELS: Record<string, string> = {
 };
 const fmt = (v: number | null | undefined) => v == null || !Number.isFinite(v) ? "—" : v.toLocaleString(undefined, { maximumFractionDigits: 5 });
 
+type SRBWindow = { name: string; start: number; end: number };
+type ClosedSRBStat = { trades: number; wins: number; losses: number; winRate: number | null; lossRate: number | null; totalR: number };
+const SRB_WINDOWS: SRBWindow[] = [
+  { name: "TOKYO", start: 150, end: 180 },
+  { name: "LONDON 1", start: 600, end: 630 },
+  { name: "LONDON 2", start: 720, end: 750 },
+  { name: "NEW YORK 1", start: 930, end: 960 },
+  { name: "NEW YORK 2", start: 1185, end: 1215 },
+];
+const emptyClosedStat = (): ClosedSRBStat => ({ trades: 0, wins: 0, losses: 0, winRate: null, lossRate: null, totalR: 0 });
+function sastCandleParts(value: string) {
+  const d = new Date(value.includes("T") ? value : value.replace(" ", "T") + "Z");
+  if (!Number.isFinite(d.getTime())) return null;
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone:"Africa/Johannesburg", year:"numeric", month:"2-digit", day:"2-digit", weekday:"short", hour:"2-digit", minute:"2-digit", hourCycle:"h23" }).formatToParts(d);
+  const get = (k:string) => parts.find(p=>p.type===k)?.value ?? "";
+  return { date:get("year")+"-"+get("month")+"-"+get("day"), minute:Number(get("hour"))*60+Number(get("minute")), weekday:get("weekday") };
+}
+function closedSrbPerformance(input: Candle[]) {
+  const sessions = SRB_WINDOWS.map(w => ({ name:w.name, ...emptyClosedStat() }));
+  const grades = (["A","B","C","F"] as const).map(g => ({ grade:g, ...emptyClosedStat() }));
+  const add = (stat: ClosedSRBStat, win:boolean, r:number) => {
+    stat.trades++; if(win) stat.wins++; else stat.losses++;
+    stat.totalR += r; stat.winRate = stat.trades ? stat.wins/stat.trades*100 : null;
+    stat.lossRate = stat.trades ? stat.losses/stat.trades*100 : null;
+  };
+  if (input.length < 25) return { sessions, grades };
+  const candles = [...input].sort((a,b)=>new Date(a.datetime).getTime()-new Date(b.datetime).getTime());
+  const parts = candles.map(c=>sastCandleParts(c.datetime));
+  const dates = [...new Set(parts.filter((p):p is NonNullable<typeof p>=>!!p && ["Mon","Tue","Wed","Thu","Fri"].includes(p.weekday)).map(p=>p.date))];
+  const closes = (end:number) => candles.slice(0,end).map(c=>c.close);
+  const calcEma = (v:number[], n:number) => { if(v.length<n)return null; const k=2/(n+1); let x=v.slice(0,n).reduce((a,b)=>a+b,0)/n; for(let i=n;i<v.length;i++)x=v[i]*k+x*(1-k); return x; };
+  const calcRsi = (v:number[], n=14) => { if(v.length<n+1)return null; let gain=0,loss=0; for(let i=v.length-n;i<v.length;i++){const d=v[i]-v[i-1];if(d>0)gain+=d;else loss-=d;} return loss===0?100:100-100/(1+gain/loss); };
+  for (const date of dates) for (let wi=0;wi<SRB_WINDOWS.length;wi++) {
+    const w=SRB_WINDOWS[wi];
+    const dayIdx=parts.map((p,i)=>p?.date===date?i:-1).filter(i=>i>=0);
+    const rangeIdx=dayIdx.filter(i=>parts[i]!.minute>=w.start && parts[i]!.minute<w.end);
+    if(rangeIdx.length<2) continue;
+    const rangeEnd=Math.max(...rangeIdx), hi=Math.max(...rangeIdx.map(i=>candles[i].high)), lo=Math.min(...rangeIdx.map(i=>candles[i].low)), range=hi-lo;
+    if(!(range>0))continue;
+    let breakIdx=-1, dir:"BUY"|"SELL"|null=null;
+    for(const i of dayIdx.filter(i=>i>rangeEnd)){
+      if(i>0&&candles[i].close>hi&&candles[i-1].close<=hi){breakIdx=i;dir="BUY";break;}
+      if(i>0&&candles[i].close<lo&&candles[i-1].close>=lo){breakIdx=i;dir="SELL";break;}
+    }
+    if(breakIdx<0||!dir)continue;
+    const entry=dir==="BUY"?hi-range*.681:lo+range*.681, stop=dir==="BUY"?lo:hi, target=dir==="BUY"?hi+range*.618:lo-range*.618;
+    const sig=candles[breakIdx], history=candles.slice(0,breakIdx+1), cv=history.map(x=>x.close);
+    const tr=history.map((x,i)=>i===0?x.high-x.low:Math.max(x.high-x.low,Math.abs(x.high-history[i-1].close),Math.abs(x.low-history[i-1].close)));
+    const atr=tr.length>=15?tr.slice(-14).reduce((a,b)=>a+b,0)/14:0;
+    const e20=calcEma(cv,20), e200=calcEma(cv,200), rsi=calcRsi(cv);
+    const vols=history.slice(-21,-1).map(x=>x.volume).filter((x):x is number=>x!=null);
+    const avgVol=vols.length?vols.reduce((a,b)=>a+b,0)/vols.length:null;
+    const score=(e200!=null&&(dir==="BUY"?sig.close>e200:sig.close<e200)?15:0)+(e20!=null&&(dir==="BUY"?sig.close>e20:sig.close<e20)?15:0)+(rsi!=null&&(dir==="BUY"?rsi>50:rsi<50)?20:0)+(sig.volume!=null&&avgVol!=null&&sig.volume>avgVol?30:0)+(atr>0&&range>atr*.5?20:0);
+    const grade=score>=80?"A":score>=65?"B":score>=50?"C":"F";
+    let fill=-1, blocked=false;
+    for(let i=breakIdx+1;i<candles.length;i++){
+      const b=candles[i], entryHit=dir==="BUY"?b.low<=entry:b.high>=entry;
+      const riskHit=dir==="BUY"?(b.low<=stop||b.high>=target):(b.high>=stop||b.low<=target);
+      if(riskHit){blocked=true;break;} if(entryHit){fill=i;break;}
+    }
+    if(blocked||fill<0)continue;
+    let closed:false|true=false, won=false;
+    for(let i=fill+1;i<candles.length;i++){
+      const b=candles[i], sl=dir==="BUY"?b.low<=stop:b.high>=stop, tp=dir==="BUY"?b.high>=target:b.low<=target;
+      if(sl||tp){closed=true;won=tp&&!sl;break;}
+    }
+    if(!closed)continue;
+    const risk=Math.abs(entry-stop), reward=Math.abs(target-entry), rr= risk>0?reward/risk:0;
+    add(sessions[wi],won,won?rr:-1);
+    const gi=grades.findIndex(g=>g.grade===grade); if(gi>=0)add(grades[gi],won,won?rr:-1);
+  }
+  return { sessions, grades };
+}
+function RateBar({ winRate, lossRate }: { winRate:number|null; lossRate:number|null }) {
+  const w=Math.max(0,Math.min(100,winRate??0)), l=Math.max(0,Math.min(100,lossRate??0));
+  return <div aria-label={`Win rate ${winRate==null?"unavailable":winRate.toFixed(1)+"%"}; loss rate ${lossRate==null?"unavailable":lossRate.toFixed(1)+"%"}`} style={{height:9,display:"flex",width:"100%",overflow:"hidden",borderRadius:99,background:"#263244",marginTop:6}}>
+    <div style={{width:w+"%",background:"#22c55e",transition:"width .2s"}}/><div style={{width:l+"%",background:"#ef4444",transition:"width .2s"}}/>
+  </div>;
+}
+
+
 type LevelKind = "entry" | "sl" | "tp" | "orange";
 const levelColors: Record<LevelKind, { border: string; background: string; text: string }> = {
   entry: { border: "rgba(45,125,255,.65)", background: "rgba(45,125,255,.14)", text: "#dbeafe" },
@@ -263,6 +344,7 @@ export default function AnalyzerPage() {
   };
 
   const changeMarket = (value: MarketType) => { setMarketType(value); setSymbol(DEFAULT_SYMBOLS[value][0]); setResult(null); setLockedTrade(null); setError(""); };
+  const srbPerformance = closedSrbPerformance(result?.chart?.candles ?? []);
   const s = result?.scanner;
   const displayDirection = s?.projectedDirection && s.projectedDirection !== "NO TRADE" ? s.projectedDirection : result?.direction;
   const projectedEntry = s?.projectedEntry ?? result?.entry;
@@ -383,22 +465,19 @@ export default function AnalyzerPage() {
             <p style={{marginTop:8}}>Missing / blocked conditions</p><div style={{display:"grid",gap:5}}>{(result.strategyEngine.missingConditions?.length?result.strategyEngine.missingConditions:["No reported blocking condition"]).map((item,i)=><div key={i} style={{fontSize:12,padding:"6px 8px",borderRadius:6,background:"rgba(239,68,68,.08)",color:"#fecaca"}}>• {item}</div>)}</div>
           </div>
           <div className="condition-box"><strong>05 · SESSION & BAND EDGE</strong>
-            <p style={{fontSize:12,color:"#94a3b8"}}>Five configured SAST windows. Win/loss rates must come from filled and closed trades, not unfilled Fib tickets.</p>
-            <div style={{display:"grid",gap:7,marginTop:8}}>{[
-              {name:"TOKYO",time:"02:30–03:00"},
-              {name:"LONDON 1",time:"10:00–10:30"},
-              {name:"LONDON 2",time:"12:00–12:30"},
-              {name:"NEW YORK 1",time:"15:30–16:00"},
-              {name:"NEW YORK 2",time:"19:45–20:15"},
-            ].map((w,i)=><div key={w.name} style={{padding:8,borderRadius:8,border:"1px solid "+(w.name===(result.strategyEngine.window||currentSession)?"rgba(212,166,55,.75)":"rgba(148,163,184,.15)"),background:w.name===(result.strategyEngine.window||currentSession)?"rgba(212,166,55,.10)":"rgba(148,163,184,.04)"}}>
-              <div style={{display:"flex",justifyContent:"space-between",gap:8}}><b>{w.name}</b><span style={{fontSize:11,color:"#94a3b8"}}>{w.time} SAST</span></div>
-              <div style={{fontSize:12,marginTop:4,color:w.name===currentSession?"#fbbf24":"#cbd5e1"}}>{w.name===currentSession?"CURRENT CLOCK WINDOW":i===0&&clockMinutes>=180||i===1&&clockMinutes>=630||i===2&&clockMinutes>=750||i===3&&clockMinutes>=960||i===4&&clockMinutes>=1215?"WINDOW COMPLETE":"UPCOMING"}</div>
-            </div>)}</div>
-            <p style={{marginTop:10}}>Grade edge · <b>A / B / C / F</b></p>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:5}}>
-              {[{g:"A",c:"#22c55e"},{g:"B",c:"#84cc16"},{g:"C",c:"#eab308"},{g:"F",c:"#ef4444"}].map(x=><div key={x.g} style={{textAlign:"center",padding:8,borderRadius:7,background:x.c+"18",border:"1px solid "+x.c+"70",color:x.c,fontWeight:800}}>{x.g}<div style={{fontSize:10,fontWeight:500,color:"#cbd5e1"}}>W/L —</div><div style={{fontSize:10}}>Win — · Loss —</div></div>)}
+            <p style={{fontSize:12,color:"#94a3b8"}}>Session and grade performance is simulated only from visible candles and counts a result only after a Fib fill and a later stop/target close. It is limited to the history returned for this chart.</p>
+            <div style={{display:"grid",gap:7,marginTop:8}}>{srbPerformance.sessions.map((st,i)=>{const w=SRB_WINDOWS[i];const active=w.name===currentSession;return <div key={st.name} style={{padding:9,borderRadius:8,border:"1px solid "+(active?"rgba(212,166,55,.75)":"rgba(148,163,184,.15)"),background:active?"rgba(212,166,55,.10)":"rgba(148,163,184,.04)"}}>
+              <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center"}}><b>{st.name}</b><span style={{fontSize:11,color:"#94a3b8"}}>{String(Math.floor(w.start/60)).padStart(2,"0")+":"+String(w.start%60).padStart(2,"0")}–{String(Math.floor(w.end/60)).padStart(2,"0")+":"+String(w.end%60).padStart(2,"0")} SAST</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginTop:5}}><span>Trades {st.trades} · W {st.wins} · L {st.losses}</span><b style={{color:st.winRate==null?"#94a3b8":st.winRate>=50?"#4ade80":"#fb7185"}}>{st.winRate==null?"No closed data":st.winRate.toFixed(1)+"% win"}</b></div><RateBar winRate={st.winRate} lossRate={st.lossRate}/><div style={{fontSize:11,color:"#94a3b8",marginTop:4}}>Loss {st.lossRate==null?"—":st.lossRate.toFixed(1)+"%"} · Net R {st.trades?st.totalR.toFixed(2):"—"}</div>
+            </div>})}</div>
+            <p style={{marginTop:10}}>Grade edge · <b>A / B / C / F</b> <span style={{fontSize:11,color:"#94a3b8"}}>(A ≥ 80, B ≥ 65, C ≥ 50, F below 50)</span></p>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:7}}>
+              {srbPerformance.grades.map(g=>{const col=g.grade==="A"?"#22c55e":g.grade==="B"?"#84cc16":g.grade==="C"?"#eab308":"#ef4444";return <div key={g.grade} style={{padding:9,borderRadius:8,background:col+"12",border:"1px solid "+col+"65"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",color:col,fontWeight:900}}><span>GRADE {g.grade}</span><span>{g.winRate==null?"—":g.winRate.toFixed(1)+"%"}</span></div>
+                <div style={{fontSize:12,color:"#cbd5e1",marginTop:4}}>Trades {g.trades} · Wins <span style={{color:"#4ade80"}}>{g.wins}</span> · Losses <span style={{color:"#fb7185"}}>{g.losses}</span></div><RateBar winRate={g.winRate} lossRate={g.lossRate}/>
+                <div style={{fontSize:11,color:"#94a3b8",marginTop:4}}>Loss rate {g.lossRate==null?"—":g.lossRate.toFixed(1)+"%"} · Net R {g.trades?g.totalR.toFixed(2):"—"}</div>
+              </div>})}
             </div>
-            <p style={{fontSize:11,color:"#94a3b8",marginTop:8}}>No fabricated percentages: session and grade rates display once the closed-trade history is available to this app view.</p>
           </div>
         </div>
       </section>}
