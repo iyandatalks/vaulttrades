@@ -30,16 +30,19 @@ function aggregateTo30m(input: Candle[]): Candle[] {
   const medianGap = gaps.length ? gaps[Math.floor(gaps.length / 2)] : 30;
   if (medianGap >= 30) return input;
   const grouped = new Map<string, Candle>();
+  const counts = new Map<string, number>();
+  const expectedBars = Math.max(1, Math.ceil(30 / medianGap));
   for (const c of input) {
     const p = localParts(c.datetime); if (!p) continue;
     const parts = p.clock.split(':').map(Number);
     const bucket = String(parts[0]).padStart(2, '0') + ':' + String(parts[1] < 30 ? 0 : 30).padStart(2, '0');
     const key = p.dateKey + ' ' + bucket;
     const old = grouped.get(key);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
     if (!old) grouped.set(key, { datetime: c.datetime, open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume });
     else { old.high = Math.max(old.high, c.high); old.low = Math.min(old.low, c.low); old.close = c.close; old.volume = old.volume == null || c.volume == null ? null : old.volume + c.volume; }
   }
-  return [...grouped.values()].sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
+  return [...grouped.entries()].filter(([key]) => (counts.get(key) ?? 0) >= expectedBars).map(([, candle]) => candle).sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
 }
 function atr14(c: Candle[]) {
   if (c.length < 15) return null;
@@ -78,8 +81,9 @@ function findOB(c: Candle[], dir: "BUY" | "SELL", target: number | null, a: numb
   return best ? { direction: best.direction, top: best.top, bottom: best.bottom } : null;
 }
 export function evaluateSrbOb(candles: Candle[], config?: { fibLevel?: number; stopExtension?: number; targetExtension?: number; minScore?: number; trendOnly?: boolean; limitExpiryBars?: number; ticketClearanceAtr?: number; dxyDirection?: "BUY" | "SELL" | "NEUTRAL" | null; silverDirection?: "BUY" | "SELL" | "NEUTRAL" | null }) : SRBResult {
-  // Match the source indicator's 30-minute formation timeframe when lower-timeframe candles are supplied.
-  candles = aggregateTo30m(candles);
+  // Keep chart-timeframe candles for exact session-range geometry and trade lifecycle.
+  // Use completed 30-minute aggregates only to confirm breakout closes.
+  const formationCandles = aggregateTo30m(candles);
   const fibLevel = config?.fibLevel ?? .681, stopExtension = config?.stopExtension ?? 1.25, targetExtension = config?.targetExtension ?? .618;
   const empty = (state: string, window: string | null, hi: number | null, lo: number | null, score = 0, evidence: string[] = [], missing: string[] = []): SRBResult => {
     const last = candles.at(-1);
@@ -139,11 +143,27 @@ export function evaluateSrbOb(candles: Candle[], config?: { fibLevel?: number; s
   const after = candles.map((_, i) => i).filter(i => i > selected!.indices.at(-1)!);
   if (!after.length) return empty("BUILDING", selected.window.name, hi, lo, 0, ["Opening range is being formed."], ["Wait until the opening-range window closes."]);
   let breakIndex = -1, dir: "BUY" | "SELL" | null = null;
-  // Use the FIRST confirmed close breakout after the completed range.
-  // Later breakouts must not silently replace the pending setup's origin.
-  for (const i of after) {
-    if (candles[i].close > hi && candles[i - 1].close <= hi) { breakIndex = i; dir = "BUY"; break; }
-    if (candles[i].close < lo && candles[i - 1].close >= lo) { breakIndex = i; dir = "SELL"; break; }
+  const formationParts = formationCandles.map(c => localParts(c.datetime));
+  // Use the FIRST confirmed 30-minute close whose formation candle starts after
+  // the complete range. This matters for the 19:45–20:15 New York 2 window,
+  // which does not align to a standard :00/:30 candle boundary.
+  for (let fi = 1; fi < formationCandles.length; fi++) {
+    const fp = formationParts[fi];
+    if (!fp || fp.dateKey !== selected.dateKey || fp.clock < selected.window.end) continue;
+    const formed = formationCandles[fi], prevFormed = formationCandles[fi - 1];
+    let candidateDir: "BUY" | "SELL" | null = null;
+    if (formed.close > hi && prevFormed.close <= hi) candidateDir = "BUY";
+    else if (formed.close < lo && prevFormed.close >= lo) candidateDir = "SELL";
+    if (!candidateDir) continue;
+    const formationEnd = new Date(formed.datetime).getTime() + 30 * 60_000;
+    let mappedIndex = -1;
+    for (let ci = 0; ci < candles.length; ci++) {
+      if (parts[ci]?.dateKey === selected.dateKey && new Date(candles[ci].datetime).getTime() < formationEnd) mappedIndex = ci;
+    }
+    if (mappedIndex <= selected.indices.at(-1)!) continue;
+    breakIndex = mappedIndex;
+    dir = candidateDir;
+    break;
   }
   if (breakIndex < 0 || !dir) return empty("ARMED", selected.window.name, hi, lo, 0, ["Completed opening range identified.", "No confirmed close breakout beyond the range."], ["Wait for a candle close above range high or below range low."]);
   // Fib entries are pulled back into the completed opening range. Breakout close
