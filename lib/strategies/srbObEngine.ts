@@ -5,7 +5,9 @@ type SRBResult = {
   rangeHigh: number | null; rangeLow: number | null; window: string | null; fibLevel: number;
   score: number; evidence: string[]; missingConditions: string[]; invalidation: string;
   liquidityTarget: number | null; orderBlock: { direction: string; top: number; bottom: number } | null;
-  riskReward: number | null; breakoutPrice?: number | null; breakoutTime?: string | null; source: "SRB_OB_DETERMINISTIC";
+  riskReward: number | null; breakoutPrice?: number | null; breakoutTime?: string | null;
+  confluence?: { macroTrend: string; fastTrend: string; rsi: number | null; rsiAligned: boolean | null; volumeRatio: number | null; volumeGood: boolean; rangeSize: number; rangeAtrRatio: number | null; longScore: number; shortScore: number; dxy: string; silver: string; gate: string };
+  source: "SRB_OB_DETERMINISTIC";
 };
 const windows = [
   { id: 1, name: "TOKYO", start: "02:30", end: "03:00", days: [1, 2, 3, 4, 5] },
@@ -135,6 +137,11 @@ export function evaluateSrbOb(candles: Candle[], config?: { fibLevel?: number; s
   const score = (ema200 != null && (dir === "BUY" ? signalCandle.close > ema200 : signalCandle.close < ema200) ? 15 : 0) +
     (ema20 != null && (dir === "BUY" ? signalCandle.close > ema20 : signalCandle.close < ema20) ? 15 : 0) +
     (r != null && (dir === "BUY" ? r > 50 : r < 50) ? 20 : 0) + (volumeGood ? 30 : 0) + (atr > 0 && range > atr * .5 ? 20 : 0);
+  const scoreFor = (side: "BUY" | "SELL") =>
+    (ema200 != null && (side === "BUY" ? signalCandle.close > ema200 : signalCandle.close < ema200) ? 15 : 0) +
+    (ema20 != null && (side === "BUY" ? signalCandle.close > ema20 : signalCandle.close < ema20) ? 15 : 0) +
+    (r != null && (side === "BUY" ? r > 50 : r < 50) ? 20 : 0) + (volumeGood ? 30 : 0) + (atr > 0 && range > atr * .5 ? 20 : 0);
+  const longScore = scoreFor("BUY"), shortScore = scoreFor("SELL");
   const priorHighs = signalCandles.slice(0, -1).map(x => x.high);
   const priorLows = signalCandles.slice(0, -1).map(x => x.low);
   const upperTarget = Math.min(...priorHighs.filter(v => v > signalCandle.close), Infinity);
@@ -183,6 +190,16 @@ export function evaluateSrbOb(candles: Candle[], config?: { fibLevel?: number; s
     }
   }
   const scoreOK = score >= (config?.minScore ?? 50);
+  const confluenceDetails = {
+    macroTrend: ema200 == null ? "INSUFFICIENT HISTORY" : signalCandle.close > ema200 ? "BULLISH" : signalCandle.close < ema200 ? "BEARISH" : "NEUTRAL",
+    fastTrend: ema20 == null ? "INSUFFICIENT HISTORY" : signalCandle.close > ema20 ? "BULLISH" : signalCandle.close < ema20 ? "BEARISH" : "NEUTRAL",
+    rsi: r, rsiAligned: r == null ? null : (dir === "BUY" ? r > 50 : r < 50),
+    volumeRatio: volumeNow != null && volumeAvg != null && volumeAvg > 0 ? volumeNow / volumeAvg : null,
+    volumeGood, rangeSize: range, rangeAtrRatio: atr > 0 ? range / atr : null,
+    longScore, shortScore,
+    dxy: config?.dxyDirection ?? "NOT PROVIDED", silver: config?.silverDirection ?? "NOT PROVIDED",
+    gate: riskHitBeforeFill ? "PENDING INVALIDATED" : expired && !touched ? "LIMIT EXPIRED" : !scoreOK ? "SCORE BLOCK" : !geometry ? "GEOMETRY BLOCK" : insideOB ? "OPPOSING OB BLOCK" : !trendOK ? "TREND BLOCK" : !dxyOK ? "DXY BLOCK" : !silverOK ? "SILVER BLOCK" : touched ? "FIB FILLED" : "WAITING FOR FIB RETEST",
+  };
   const evidence = ["Completed configured opening range: " + selected.window.name, "Confirmed range breakout at " + candles[breakIndex].datetime, "Fib pullback level: " + (fibLevel * 100).toFixed(1) + "%", "Confluence score: " + score + "/100", "Order-block exclusion: " + (insideOB ? "entry overlaps opposing OB" : "no opposing OB overlap identified")];
   const missing = [
     ...(!scoreOK ? ["Confluence score is below the configured minimum."] : []),
@@ -195,9 +212,9 @@ export function evaluateSrbOb(candles: Candle[], config?: { fibLevel?: number; s
     ...(expired && !touched ? ["Fib limit expired after " + expiryBars + " bars without a fill."] : []),
     ...(!touched && !expired && !riskHitBeforeFill ? ["Waiting for price to retest the fixed Fib entry; breakout is not an entry."] : []),
   ];
-  if (riskHitBeforeFill) return { ...empty("CANCELLED", selected.window.name, hi, lo, score, evidence, missing), entry, stopLoss, finalTp, liquidityTarget, orderBlock: ob, riskReward: rr, breakoutPrice: signalCandle.close, breakoutTime: signalCandle.datetime, invalidation: "Pending setup cancelled because stop/target was reached before the Fib entry filled." };
+  if (riskHitBeforeFill) return { ...empty("CANCELLED", selected.window.name, hi, lo, score, evidence, missing), entry, stopLoss, finalTp, liquidityTarget, orderBlock: ob, riskReward: rr, breakoutPrice: signalCandle.close, breakoutTime: signalCandle.datetime, confluence: confluenceDetails, invalidation: "Pending setup cancelled because stop/target was reached before the Fib entry filled." };
   if (expired && !touched) return { ...empty("EXPIRED", selected.window.name, hi, lo, score, evidence, missing), entry, stopLoss, finalTp, liquidityTarget, orderBlock: ob, riskReward: rr, breakoutPrice: signalCandle.close, breakoutTime: signalCandle.datetime, invalidation: "Unfilled Fib setup expired after " + expiryBars + " bars." };
-  if (!scoreOK || !geometry || insideOB || !trendOK || !dxyOK || !silverOK) return { ...empty("REJECTED", selected.window.name, hi, lo, score, evidence, missing), direction: "NO TRADE", entry, stopLoss, finalTp, liquidityTarget, orderBlock: ob, riskReward: rr, breakoutPrice: signalCandle.close, breakoutTime: signalCandle.datetime };
+  if (!scoreOK || !geometry || insideOB || !trendOK || !dxyOK || !silverOK) return { ...empty("REJECTED", selected.window.name, hi, lo, score, evidence, missing), direction: "NO TRADE", entry, stopLoss, finalTp, liquidityTarget, orderBlock: ob, riskReward: rr, breakoutPrice: signalCandle.close, breakoutTime: signalCandle.datetime, confluence: confluenceDetails };
   if (!touched || !afterBreak) return { ...empty("LIMIT WAIT", selected.window.name, hi, lo, score, evidence, missing), entry, stopLoss, finalTp, liquidityTarget, orderBlock: ob, riskReward: rr, breakoutPrice: signalCandle.close, breakoutTime: signalCandle.datetime };
   const finalState = completedState ?? (touched ? "TRADE OPEN" : "LIMIT WAIT");
   const finalEvidence = completedState === "TARGET HIT" ? [...evidence, "Fib entry filled; target reached after entry."] : completedState === "STOP HIT" ? [...evidence, "Fib entry filled; stop reached after entry."] : touched ? [...evidence, "Fib entry filled; trade remains open because neither exit has been reached."] : evidence;
