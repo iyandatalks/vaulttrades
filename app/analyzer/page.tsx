@@ -95,7 +95,7 @@ type Result = {
   educationalNote?: string;
   qualityChecks?: { smcStrongCount?: number; rrValid?: boolean; slDistanceValid?: boolean; entryDistanceValid?: boolean; universalTradeGate?: boolean };
   scanner?: Scanner;
-  strategyEngine?: { source?: string; state?: string; signal?: string; direction?: string; entry?: number | null; stopLoss?: number | null; finalTp?: number | null; rangeHigh?: number | null; rangeLow?: number | null; window?: string | null; fibLevel?: number; score?: number; evidence?: string[]; missingConditions?: string[]; liquidityTarget?: number | null; orderBlock?: { direction: string; top: number; bottom: number } | null; riskReward?: number | null; invalidation?: string; ema20?: number | null; slowEMA?: number | null; atr?: number | null; bullStructure?: boolean; bearStructure?: boolean; bullTouch?: boolean; bearTouch?: boolean; bullReject?: boolean; bearReject?: boolean; bullMABreak?: boolean; bearMABreak?: boolean; utBull?: boolean; utBear?: boolean; smiBull?: boolean; smiBear?: boolean; confirmation?: { long: number; short: number } };
+  strategyEngine?: { source?: string; state?: string; signal?: string; direction?: string; entry?: number | null; stopLoss?: number | null; finalTp?: number | null; rangeHigh?: number | null; rangeLow?: number | null; window?: string | null; fibLevel?: number; score?: number; breakoutPrice?: number | null; breakoutTime?: string | null; evidence?: string[]; missingConditions?: string[]; liquidityTarget?: number | null; orderBlock?: { direction: string; top: number; bottom: number } | null; riskReward?: number | null; invalidation?: string; ema20?: number | null; slowEMA?: number | null; atr?: number | null; bullStructure?: boolean; bearStructure?: boolean; bullTouch?: boolean; bearTouch?: boolean; bullReject?: boolean; bearReject?: boolean; bullMABreak?: boolean; bearMABreak?: boolean; utBull?: boolean; utBear?: boolean; smiBull?: boolean; smiBear?: boolean; confirmation?: { long: number; short: number } };
 };
 
 const TIMEFRAMES: Timeframe[] = ["1m", "5m", "15m", "30m", "1H", "4H", "1D", "1W", "1M"];
@@ -170,6 +170,7 @@ function closedSrbPerformance(input: Candle[]) {
     const avgVol=vols.length?vols.reduce((a,b)=>a+b,0)/vols.length:null;
     const score=(e200!=null&&(dir==="BUY"?sig.close>e200:sig.close<e200)?15:0)+(e20!=null&&(dir==="BUY"?sig.close>e20:sig.close<e20)?15:0)+(rsi!=null&&(dir==="BUY"?rsi>50:rsi<50)?20:0)+(sig.volume!=null&&avgVol!=null&&sig.volume>avgVol?30:0)+(atr>0&&range>atr*.5?20:0);
     const grade=score>=80?"A":score>=65?"B":score>=50?"C":"F";
+    if (score < 50) continue;
     let fill=-1, blocked=false;
     for(let i=breakIdx+1;i<candles.length && i<=breakIdx+12;i++){
       const b=candles[i], entryHit=dir==="BUY"?b.low<=entry:b.high>=entry;
@@ -251,6 +252,7 @@ export default function AnalyzerPage() {
   const inOpeningWindow = weekdaySast >= 1 && weekdaySast <= 5 ? sessionWindows.find(w => clockMinutes >= w.start && clockMinutes < w.end) : undefined;
   const currentSession = inOpeningWindow?.name || (weekdaySast === 6 || weekdaySast === 7 ? "WEEKEND" : "BETWEEN OPENING WINDOWS");
   const latestCompletedSession = currentWindow?.name || "NO COMPLETED WINDOW TODAY";
+  const dashboardSelectedSession = inOpeningWindow?.name || currentWindow?.name || "";
 
   const strategyDisplayName = (id?: string, fallback?: string) => id && PUBLIC_STRATEGY_LABELS[id] ? PUBLIC_STRATEGY_LABELS[id] : fallback || "Strategy";
   const runAnalysis = async () => {
@@ -467,7 +469,7 @@ export default function AnalyzerPage() {
           </div>
           <div className="condition-box"><strong>05 · SESSION & BAND EDGE</strong>
             <p style={{fontSize:12,color:"#94a3b8"}}>Session and grade performance is simulated only from visible candles and counts a result only after a Fib fill and a later stop/target close. It is limited to the history returned for this chart.</p>
-            <div style={{display:"grid",gap:7,marginTop:8}}>{srbPerformance.sessions.map((st,i)=>{const w=SRB_WINDOWS[i];const active=w.name===currentSession;return <div key={st.name} style={{padding:9,borderRadius:8,border:"1px solid "+(active?"rgba(212,166,55,.75)":"rgba(148,163,184,.15)"),background:active?"rgba(212,166,55,.10)":"rgba(148,163,184,.04)"}}>
+            <div style={{display:"grid",gap:7,marginTop:8}}>{srbPerformance.sessions.map((st,i)=>{const w=SRB_WINDOWS[i];const active=w.name===dashboardSelectedSession;return <div key={st.name} style={{padding:9,borderRadius:8,border:"1px solid "+(active?"rgba(212,166,55,.75)":"rgba(148,163,184,.15)"),background:active?"rgba(212,166,55,.10)":"rgba(148,163,184,.04)"}}>
               <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center"}}><b>{st.name}</b><span style={{fontSize:11,color:"#94a3b8"}}>{String(Math.floor(w.start/60)).padStart(2,"0")+":"+String(w.start%60).padStart(2,"0")}–{String(Math.floor(w.end/60)).padStart(2,"0")+":"+String(w.end%60).padStart(2,"0")} SAST</span></div>
               <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginTop:5}}><span>Trades {st.trades} · W {st.wins} · L {st.losses}</span><b style={{color:st.winRate==null?"#94a3b8":st.winRate>=50?"#4ade80":"#fb7185"}}>{st.winRate==null?"No closed data":st.winRate.toFixed(1)+"% win"}</b></div><RateBar winRate={st.winRate} lossRate={st.lossRate}/><div style={{fontSize:11,color:"#94a3b8",marginTop:4}}>Loss {st.lossRate==null?"—":st.lossRate.toFixed(1)+"%"} · Net R {st.trades?st.totalR.toFixed(2):"—"}</div>
             </div>})}</div>
