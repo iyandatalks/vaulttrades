@@ -64,6 +64,7 @@ export const SOURCE_INDICATORS: Record<StrategyId, readonly SourceIndicatorSpec[
     { name: "ATR", purpose: "Adaptive trigger and stop/target geometry", parameters: "Length 14; trigger 1.5 ATR; stop 1.5 ATR", required: true },
   ],
   srbOb: [
+    { name: "Moving Average Channel", purpose: "Directional channel gate and chart overlay", parameters: "Upper = SMA(high, 20); lower = SMA(low, 20); bullish above both, bearish below both", required: true },
     { name: "EMA", purpose: "Optional trend filter and confluence score", parameters: "EMA 20 and EMA 200; EMA200 filter disabled by default", required: true },
     { name: "ATR", purpose: "Opening-range size and displacement measurement", parameters: "Length 14; range must exceed 0.5 ATR for full range score", required: true },
     { name: "RSI", purpose: "Directional confluence score", parameters: "Length 14; bullish above 50, bearish below 50", required: true },
