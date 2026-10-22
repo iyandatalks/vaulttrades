@@ -53,9 +53,9 @@ const products = [
 ];
 
 const tools = [
-  { name: "Trading Journal", description: "Review and record your trading activity." },
-  { name: "Wealth Builder", description: "Organise your wealth-building progress." },
-  { name: "Risk Management", description: "Support more structured risk planning." },
+  { name: "Trading Journal", description: "Review and record your trading activity.", url: "/journal" },
+  { name: "Wealth Builder", description: "Organise your wealth-building progress.", url: "/funded-account-wealth-builder" },
+  { name: "Risk Management", description: "Support more structured risk planning.", url: "/risk-manager" },
 ];
 
 export default function PartnersClient() {
