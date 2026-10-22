@@ -123,22 +123,28 @@ export function evaluateSrbOb(candles: Candle[], config?: { fibLevel?: number; s
   // Match the recorded AURELIA defaults: ORB opposite-edge stop and Fib 1.618 target.
   const stopLoss = dir === "BUY" ? lo : hi;
   const finalTp = dir === "BUY" ? hi + range * targetExtension : lo - range * targetExtension;
-  const atr = atr14(candles) ?? 0;
-  const closes = candles.map(x => x.close), ema20 = ema(closes, 20), ema200 = ema(closes, 200), r = rsi(closes);
-  const volumeNow = last.volume, volumes = candles.slice(-21, -1).map(x => x.volume).filter((x): x is number => x != null);
+  // Evaluate entry filters against information available at the breakout close, not
+  // the latest candle. Future price action must never retroactively reject a valid setup.
+  const signalCandles = candles.slice(0, breakIndex + 1);
+  const signalCandle = candles[breakIndex];
+  const atr = atr14(signalCandles) ?? 0;
+  const closes = signalCandles.map(x => x.close), ema20 = ema(closes, 20), ema200 = ema(closes, 200), r = rsi(closes);
+  const volumeNow = signalCandle.volume, volumes = signalCandles.slice(-21, -1).map(x => x.volume).filter((x): x is number => x != null);
   const volumeAvg = volumes.length ? volumes.reduce((a, b) => a + b, 0) / volumes.length : null;
   const volumeGood = volumeNow != null && volumeAvg != null && volumeNow > volumeAvg;
-  const score = (ema200 != null && (dir === "BUY" ? last.close > ema200 : last.close < ema200) ? 15 : 0) +
-    (ema20 != null && (dir === "BUY" ? last.close > ema20 : last.close < ema20) ? 15 : 0) +
+  const score = (ema200 != null && (dir === "BUY" ? signalCandle.close > ema200 : signalCandle.close < ema200) ? 15 : 0) +
+    (ema20 != null && (dir === "BUY" ? signalCandle.close > ema20 : signalCandle.close < ema20) ? 15 : 0) +
     (r != null && (dir === "BUY" ? r > 50 : r < 50) ? 20 : 0) + (volumeGood ? 30 : 0) + (atr > 0 && range > atr * .5 ? 20 : 0);
-  const upperTarget = Math.min(...candles.map(x => x.high).filter(v => v > last.close), Infinity);
-  const lowerTarget = Math.max(...candles.map(x => x.low).filter(v => v < last.close), -Infinity);
+  const priorHighs = signalCandles.slice(0, -1).map(x => x.high);
+  const priorLows = signalCandles.slice(0, -1).map(x => x.low);
+  const upperTarget = Math.min(...priorHighs.filter(v => v > signalCandle.close), Infinity);
+  const lowerTarget = Math.max(...priorLows.filter(v => v < signalCandle.close), -Infinity);
   const liquidityTarget = dir === "BUY" ? (Number.isFinite(upperTarget) ? upperTarget : null) : (Number.isFinite(lowerTarget) ? lowerTarget : null);
-  const ob = findOB(candles.slice(0, -1), dir === "BUY" ? "SELL" : "BUY", liquidityTarget, atr);
+  const ob = findOB(signalCandles.slice(0, -1), dir === "BUY" ? "SELL" : "BUY", liquidityTarget, atr);
   const clearance = atr * (config?.ticketClearanceAtr ?? 0.55);
   // Keep the historical OB fixed; reject a ticket inside or too close to the opposing zone.
   const insideOB = !!ob && entry <= ob.top + clearance && entry >= ob.bottom - clearance;
-  const trendOK = !config?.trendOnly || (ema200 != null && (dir === "BUY" ? last.close > ema200 : last.close < ema200));
+  const trendOK = !config?.trendOnly || (ema200 != null && (dir === "BUY" ? signalCandle.close > ema200 : signalCandle.close < ema200));
   const dxyOK = !config?.dxyDirection || config.dxyDirection === dir;
   const silverOK = !config?.silverDirection || config.silverDirection === dir;
   const rr = Math.abs(finalTp - entry) / Math.max(Math.abs(entry - stopLoss), 1e-8);
