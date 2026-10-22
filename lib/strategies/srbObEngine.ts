@@ -81,33 +81,60 @@ export function evaluateSrbOb(candles: Candle[], config?: { fibLevel?: number; s
   // Match the source indicator's 30-minute formation timeframe when lower-timeframe candles are supplied.
   candles = aggregateTo30m(candles);
   const fibLevel = config?.fibLevel ?? .681, stopExtension = config?.stopExtension ?? 1.25, targetExtension = config?.targetExtension ?? .618;
-  const empty = (state: string, window: string | null, hi: number | null, lo: number | null, score = 0, evidence: string[] = [], missing: string[] = []): SRBResult => ({
-    state, direction: "NO TRADE", entry: null, stopLoss: null, finalTp: null, rangeHigh: hi, rangeLow: lo, window, fibLevel, score, evidence, missingConditions: missing,
-    invalidation: "Wait for the next configured opening range, a confirmed close breakout, then a valid Fib pullback retest.", liquidityTarget: null, orderBlock: null, riskReward: null, source: "SRB_OB_DETERMINISTIC"
-  });
+  const empty = (state: string, window: string | null, hi: number | null, lo: number | null, score = 0, evidence: string[] = [], missing: string[] = []): SRBResult => {
+    const last = candles.at(-1);
+    const closes = candles.map(x => x.close);
+    const liveAtr = atr14(candles) ?? 0;
+    const liveEma20 = ema(closes, 20), liveEma200 = ema(closes, 200), liveRsi = rsi(closes);
+    const liveVolumes = candles.slice(-21, -1).map(x => x.volume).filter((x): x is number => x != null);
+    const liveVolumeAvg = liveVolumes.length ? liveVolumes.reduce((a,b)=>a+b,0)/liveVolumes.length : null;
+    const liveVolumeGood = last?.volume != null && liveVolumeAvg != null && last.volume > liveVolumeAvg;
+    const liveRangeSize = hi != null && lo != null ? hi - lo : 0;
+    const liveVolumeRatio = last?.volume != null && liveVolumeAvg != null && liveVolumeAvg > 0 ? last.volume/liveVolumeAvg : null;
+    const scoreFor = (side: "BUY" | "SELL") =>
+      (liveEma200 != null && last && (side === "BUY" ? last.close > liveEma200 : last.close < liveEma200) ? 15 : 0) +
+      (liveEma20 != null && last && (side === "BUY" ? last.close > liveEma20 : last.close < liveEma20) ? 15 : 0) +
+      (liveRsi != null && (side === "BUY" ? liveRsi > 50 : liveRsi < 50) ? 20 : 0) +
+      (liveVolumeGood ? 30 : 0) + (liveAtr > 0 && liveRangeSize > liveAtr * .5 ? 20 : 0);
+    return {
+      state, direction: "NO TRADE", entry: null, stopLoss: null, finalTp: null, rangeHigh: hi, rangeLow: lo, window, fibLevel, score, evidence, missingConditions: missing,
+      invalidation: "Wait for the next configured opening range, a confirmed close breakout, then a valid Fib pullback retest.", liquidityTarget: null, orderBlock: null, riskReward: null,
+      confluence: {
+        macroTrend: liveEma200 == null || !last ? "INSUFFICIENT HISTORY" : last.close > liveEma200 ? "BULLISH" : last.close < liveEma200 ? "BEARISH" : "NEUTRAL",
+        fastTrend: liveEma20 == null || !last ? "INSUFFICIENT HISTORY" : last.close > liveEma20 ? "BULLISH" : last.close < liveEma20 ? "BEARISH" : "NEUTRAL",
+        rsi: liveRsi, rsiAligned: null, volumeRatio: liveVolumeRatio, volumeGood: liveVolumeGood,
+        rangeSize: liveRangeSize, rangeAtrRatio: liveAtr > 0 && liveRangeSize > 0 ? liveRangeSize/liveAtr : null,
+        longScore: scoreFor("BUY"), shortScore: scoreFor("SELL"),
+        dxy: config?.dxyDirection ?? "NOT PROVIDED", silver: config?.silverDirection ?? "NOT PROVIDED", gate: state
+      },
+      source: "SRB_OB_DETERMINISTIC"
+    };
+  };
   if (candles.length < 40) return empty("WAITING", null, null, null, 0, [], ["At least 40 live candles are required."]);
   const parts = candles.map(c => localParts(c.datetime));
-  let selected: { window: typeof windows[number]; dateKey: string; indices: number[]; endIndex: number } | null = null;
-  // Select the most recent eligible range for the latest candle date; don't let
-  // the first item in a static array (e.g. Tokyo) override a later London/NYSE range.
+  let selected: { window: typeof windows[number]; dateKey: string; indices: number[]; endIndex: number; building: boolean } | null = null;
+  // Prefer today's in-progress opening window; otherwise select the latest completed
+  // one. This prevents the dashboard from showing London while New York is forming.
   for (let i = candles.length - 1; i >= 0 && !selected; i--) {
     const p = parts[i]; if (!p) continue;
-    const candidates = windows.filter(w => w.days.includes(p.weekday) && p.clock >= w.end).sort((x,y) => y.end.localeCompare(x.end));
+    const inProgress = windows.filter(w => w.days.includes(p.weekday) && p.clock >= w.start && p.clock < w.end);
+    const candidates = inProgress.length ? inProgress : windows.filter(w => w.days.includes(p.weekday) && p.clock >= w.end).sort((x,y) => y.end.localeCompare(x.end));
     for (const w of candidates) {
       const indices: number[] = [];
       for (let j = i; j >= 0; j--) {
         const pj = parts[j]; if (pj?.dateKey !== p.dateKey) break;
         if (w.days.includes(pj.weekday) && pj.clock >= w.start && pj.clock < w.end) indices.unshift(j);
       }
-      if (indices.length) { selected = { window: w, dateKey: p.dateKey, indices, endIndex: i }; break; }
+      if (indices.length) { selected = { window: w, dateKey: p.dateKey, indices, endIndex: i, building: p.clock < w.end }; break; }
     }
   }
   if (!selected) return empty("WAITING", null, null, null, 0, [], ["The available live history does not include a completed configured SRB window."]);
   const intervals = candles.slice(1).map((c, i) => (new Date(c.datetime).getTime() - new Date(candles[i].datetime).getTime()) / 60000).filter(v => v > 0 && v <= 240).sort((x,y)=>x-y);
   const candleMinutes = intervals.length ? intervals[Math.floor(intervals.length / 2)] : 15;
   const expectedRangeBars = Math.max(1, Math.ceil(30 / candleMinutes));
-  if (selected.indices.length < expectedRangeBars) return empty("INCOMPLETE RANGE", selected.window.name, null, null, 0, ["Configured 30-minute opening window has incomplete candle coverage."], ["Need " + expectedRangeBars + " candles for this chart timeframe; found " + selected.indices.length + "."]);
   const hi = Math.max(...selected.indices.map(i => candles[i].high)), lo = Math.min(...selected.indices.map(i => candles[i].low));
+  if (selected.building) return empty("BUILDING", selected.window.name, hi, lo, 0, ["Current configured opening range is still forming."], ["Wait for the full 30-minute window to close before confirming a breakout."]);
+  if (selected.indices.length < expectedRangeBars) return empty("INCOMPLETE RANGE", selected.window.name, hi, lo, 0, ["Configured 30-minute opening window has incomplete candle coverage."], ["Need " + expectedRangeBars + " candles for this chart timeframe; found " + selected.indices.length + "."]);
   const range = hi - lo, last = candles.at(-1)!, previous = candles.at(-2)!;
   const after = candles.map((_, i) => i).filter(i => i > selected!.indices.at(-1)!);
   if (!after.length) return empty("BUILDING", selected.window.name, hi, lo, 0, ["Opening range is being formed."], ["Wait until the opening-range window closes."]);
