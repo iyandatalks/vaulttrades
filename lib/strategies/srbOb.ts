@@ -1,0 +1,71 @@
+import type { StrategyRuleSet } from "./types";
+
+/** SRB & OB Engine — standalone source-of-truth contract derived from the supplied Pine v6 indicator. */
+const rules: StrategyRuleSet = {
+  id: "srbOb",
+  name: "VaultTrades | SRB & OB Engine",
+  description: "Five scheduled opening-range windows, confirmed close breakout, wick-anchored Fib pullback entry, opposing-order-block exclusion and risk-controlled lifecycle.",
+  source: "PINE_SCRIPT",
+  timeframes: ["selected Analyzer timeframe"],
+  sequence: [
+    "Build the selected SAST opening range",
+    "Arm only after the range window closes",
+    "Require a close beyond the range high/low",
+    "Anchor the impulse from the last confirmed opposite swing and breakout-side wick",
+    "Calculate the configured Fib retracement entry",
+    "Validate stop/target geometry, confluence and opposing order-block location",
+    "Wait for price to retest the Fib level; breakout close is never an entry",
+    "Cancel unfilled orders on expiry or invalidation",
+    "Track filled trade to stop or target",
+  ],
+  mandatoryRules: [
+    "Keep SRB & OB Engine isolated from the other analyzer strategy engines.",
+    "Use Africa/Johannesburg for the five SRB windows: Tokyo 02:30–03:00 Mon/Tue; London 1 10:00–10:30 Wed–Fri; London 2 12:00–12:30 Tue; NYSE 1 15:30–16:00 Tue; NYSE 2 19:45–20:15 Wed.",
+    "The opening range is built from the bars within its configured window and is armed only after that window ends.",
+    "A long setup requires a confirmed close above the opening-range high; a short setup requires a confirmed close below the opening-range low.",
+    "A breakout only arms a resting Fibonacci pullback setup. Never enter immediately on the breakout candle.",
+    "Long Fib entry is measured down from the impulse high; short Fib entry is measured up from the impulse low. Use wick-based impulse extremes.",
+    "Default Fib entry is 68.1%; user may select 78.6% or 88.0%.",
+    "Default stop extension is 125%; supported extensions are 150% and 175%.",
+    "Default target is Fib 1.618; supported targets are Fib 2.0, Fib 2.618 and one range.",
+    "Reject long entries inside an active bearish order block and short entries inside an active bullish order block.",
+    "Optional DXY, silver and EMA200 filters remain optional; do not silently make them mandatory.",
+    "Apply the configured minimum confluence score, per-window trade cap and daily trade cap.",
+    "Count a trade only after the resting Fib order is actually touched and filled. Unfilled/expired orders are not trades.",
+  ],
+  optionalConfluence: [
+    "EMA20 and EMA200 direction",
+    "RSI(14) above/below 50",
+    "Volume above its 20-bar average",
+    "Opening range greater than 0.5 × ATR(14)",
+    "Optional DXY and silver directional confirmation",
+  ],
+  invalidationRules: [
+    "Cancel a pending order if its entry/stop/target geometry becomes invalid.",
+    "Cancel if an opposing order block overlaps the planned entry.",
+    "Cancel if price hits stop or target before the Fib entry is filled.",
+    "Cancel an unfilled Fib order after the configured expiry bars.",
+    "A filled trade closes at its stop or target; preserve the recorded entry/SL/TP values for that trade.",
+  ],
+  executionRules: [
+    "Never convert a range breakout directly into an entry.",
+    "A resting Fib entry must be reached after the setup/impulse bar.",
+    "Use the selected Fib ratio and the current wick-to-wick impulse for pending-entry recalculation.",
+    "Calculate lot estimate from account size × risk percent divided by stop distance × contract size.",
+    "Keep SRB state, trade counters, levels and results separate from every other strategy.",
+  ],
+  riskRules: [
+    "Default account size is $5,000; default risk is 1.0% per trade; default XAUUSD contract size is 100.",
+    "Default maximum is two filled trades per SRB window and five filled trades per day.",
+    "Do not describe the calculated lot estimate as broker-validated position sizing.",
+    "Trading outcomes are not guaranteed.",
+  ],
+  aiInstructions: [
+    "The supplied VaultTrades | SRB & OB Engine Pine v6 script is authoritative.",
+    "Keep this strategy independent of FIB Retracement, EMA20 Pullback Morning Engine and Supply & Demand.",
+    "Never allow universal Analyzer validation to invent an SRB setup or replace its native entry/SL/TP geometry.",
+    "Distinguish WAITING, RANGE BUILDING, ARMED, LIMIT WAIT, TRADE OPEN, TARGET HIT and STOP HIT.",
+    "If the available candle history does not contain the relevant session/window, state that there is insufficient evidence rather than fabricate a range.",
+  ],
+};
+export default rules;
