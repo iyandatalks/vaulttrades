@@ -15,6 +15,7 @@ import adaptiveExecutionRules from "./adaptiveExecutionRules";
 import adaptiveAutomatedRules from "./adaptiveAutomated";
 import m15DualRules from "./m15DualRules";
 import srbObRules from "./srbOb";
+import lsobrRules from "./lsobr";
 
 export const STRATEGIES: Readonly<Record<StrategyId, StrategyDefinition>> = {
   volatilityBreakout: { rules: volatilityBreakoutRules },
@@ -32,6 +33,7 @@ export const STRATEGIES: Readonly<Record<StrategyId, StrategyDefinition>> = {
   adaptiveAutomated: { rules: adaptiveAutomatedRules },
   m15DualEngine: { rules: m15DualRules },
   srbOb: { rules: srbObRules },
+  lsobr: { rules: lsobrRules },
 };
 
 export const STRATEGY_LIST: readonly StrategyDefinition[] = [
@@ -50,6 +52,7 @@ export const STRATEGY_LIST: readonly StrategyDefinition[] = [
   STRATEGIES.adaptiveAutomated,
   STRATEGIES.m15DualEngine,
   STRATEGIES.srbOb,
+  STRATEGIES.lsobr,
 ];
 
 export function getStrategy(strategyId: StrategyId): StrategyDefinition { return STRATEGIES[strategyId]; }
@@ -71,5 +74,8 @@ export { default as adaptiveExecutionRules } from "./adaptiveExecutionRules";
 export { default as adaptiveAutomatedRules } from "./adaptiveAutomated";
 export { default as m15DualRules } from "./m15DualRules";
 export { default as srbObRules } from "./srbOb";
+export { default as lsobrRules } from "./lsobr";
+export { evaluateLsObr } from "./lsobrEngine";
+export type { LSOBRResult } from "./lsobrEngine";
 export { evaluateM15DualEngine } from "./m15DualEngine";
 export type { M15DualConfig, M15DualResult, M15FibResult, M15Signal, M15State } from "./m15DualEngine";
