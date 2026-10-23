@@ -104,7 +104,20 @@ export function evaluateLsObr(candles: Candle[]): LSOBRResult {
     const validZone = side === "SELL" ? entry < ob.bottom && entry > swept : entry > ob.top && entry < swept;
     if (!validZone) return noSetup("NO TRADE", ["Confirmed OB exit occurred, but its close is not inside the valid zone between the fixed OB and swept liquidity; do not chase price. Wait for a new valid sweep sequence."], ["Liquidity sweep confirmed", "Order-block rejection confirmed", "MSS confirmed", "OB exit close confirmed but entry location failed"], { sweptLiquidity: swept, sweepTime: candles[sweepIndex].datetime, mssTime: candles[mssIndex].datetime, confirmationTime: signal.datetime, orderBlock: { direction: ob.direction, top: ob.top, bottom: ob.bottom, createdAt: ob.createdAt }, rejectionExtreme });
     const targetCandidates = side === "SELL" ? lows.filter(x => x.price < entry && x.index < exitIndex).map(x => x.price).sort((a,b)=>b-a) : highs.filter(x => x.price > entry && x.index < exitIndex).map(x => x.price).sort((a,b)=>a-b);
-    const target = targetCandidates.find(v => side === "SELL" ? v < entry : v > entry) ?? null;
+    const blockedByOpposingOb = (targetPrice: number) => {
+      for (let k = Math.max(1, exitIndex - 100); k < exitIndex - 1; k++) {
+        const base = candles[k], impulse = candles[k + 1];
+        const opposingOb = side === "SELL"
+          ? base.close < base.open && impulse.close > impulse.open && impulse.close > base.high
+          : base.close > base.open && impulse.close < impulse.open && impulse.close < base.low;
+        if (!opposingOb) continue;
+        const zoneTop = base.high, zoneBottom = base.low;
+        const pathTop = Math.max(entry, targetPrice), pathBottom = Math.min(entry, targetPrice);
+        if (zoneTop >= pathBottom && zoneBottom <= pathTop) return true;
+      }
+      return false;
+    };
+    const target = targetCandidates.find(v => (side === "SELL" ? v < entry : v > entry) && !blockedByOpposingOb(v)) ?? null;
     if (target == null) return noSetup("NO TRADE", ["Entry sequence confirmed, but no valid opposing liquidity pool is identifiable from completed swings; target must not be invented."], ["Sweep, fixed OB rejection, MSS and confirmed OB exit are present"], { sweptLiquidity: swept, sweepTime: candles[sweepIndex].datetime, mssTime: candles[mssIndex].datetime, confirmationTime: signal.datetime, orderBlock: { direction: ob.direction, top: ob.top, bottom: ob.bottom, createdAt: ob.createdAt }, rejectionExtreme });
     const stop = side === "SELL" ? Math.max(ob.top, rejectionExtreme) : Math.min(ob.bottom, rejectionExtreme);
     const risk = side === "SELL" ? stop - entry : entry - stop;
