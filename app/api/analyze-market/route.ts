@@ -6,6 +6,7 @@ import { getTwelveDataTimeSeries } from "../../../lib/market-data/twelvedata";
 import { getMarketProviderRoute, type MarketType } from "../../../lib/market-data/provider";
 import { evaluateEma20 } from "../../../lib/strategies/ema20Engine";
 import { evaluateSrbOb } from "../../../lib/strategies/srbObEngine";
+import { evaluateLsObr } from "../../../lib/strategies/lsobrEngine";
 import { analyzeAutoFibRetrace } from "../../../lib/strategies/autoFibRetrace";
 import { resolveLiquidityTargets } from "../../../lib/market-data/liquidityTargets";
 
@@ -189,6 +190,7 @@ export async function POST(request: Request) {
     } : null;
 
     const srbObEngine = strategyId === "srbOb" ? evaluateSrbOb(market.candles) : null;
+    const lsobrEngine = strategyId === "lsobr" ? evaluateLsObr(market.candles) : null;
     const srbObEngineEvidence = srbObEngine ? {
       source: srbObEngine.source,
       state: srbObEngine.state,
@@ -209,6 +211,27 @@ export async function POST(request: Request) {
       invalidation: srbObEngine.invalidation
     } : null;
 
+    const lsobrEngineEvidence = lsobrEngine ? {
+      source: lsobrEngine.source,
+      state: lsobrEngine.state,
+      direction: lsobrEngine.direction,
+      entry: lsobrEngine.entry,
+      stopLoss: lsobrEngine.stopLoss,
+      finalTp: lsobrEngine.finalTp,
+      sweptLiquidity: lsobrEngine.sweptLiquidity,
+      liquidityTarget: lsobrEngine.liquidityTarget,
+      orderBlock: lsobrEngine.orderBlock,
+      rejectionExtreme: lsobrEngine.rejectionExtreme,
+      sweepTime: lsobrEngine.sweepTime,
+      mssTime: lsobrEngine.mssTime,
+      confirmationTime: lsobrEngine.confirmationTime,
+      evidence: lsobrEngine.evidence,
+      missingConditions: lsobrEngine.missingConditions,
+      invalidation: lsobrEngine.invalidation,
+      riskReward: lsobrEngine.riskReward,
+      trend: lsobrEngine.trend,
+    } : null;
+
     const prompt = `You are the VaultTrades educational market analyzer. Analyze REAL LIVE OHLCV data, not a screenshot and not invented prices.
 
 USER SELECTION
@@ -227,10 +250,10 @@ LIVE CALCULATED MARKET CONTEXT
 ${JSON.stringify({ currentPrice: liveCurrentPrice, structure: lockedStructure, volatility: context.volatility, selectedIndicators: indicatorEvidence, channel20High: channel.upper, channel20Low: channel.lower, latestCandle: latest, previousCandle: previous, recentCandles: market.candles.slice(-60), sharedLiquidityTargets: liquidityTargets })}
 
 DETERMINISTIC STRATEGY ENGINE STATE
-${JSON.stringify({ ema20: ema20EngineEvidence, srbOb: srbObEngineEvidence })}
+${JSON.stringify({ ema20: ema20EngineEvidence, srbOb: srbObEngineEvidence, lsobr: lsobrEngineEvidence })}
 
 IMPORTANT ENGINE AUTHORITY
-If the selected strategy is EMA20, its deterministic Pine-equivalent engine is authoritative for lifecycle state, entry, stop loss and target. If the selected strategy is srbOb, the deterministic SRB & OB engine is authoritative for its session window, breakout, Fib retest, order-block filter, direction, entry, stop and target. Never let generic Analyzer gates or AI rewrite the selected engine output. In particular, EMA20 uses ATR(14) x 2.23 for native SL and exactly 1:1.81 RR. A NEW_LONG/NEW_SHORT is the source strategy trigger. If the engine has no new signal, do not manufacture a BUY or SELL from generic indicators.
+If the selected strategy is EMA20, its deterministic Pine-equivalent engine is authoritative for lifecycle state, entry, stop loss and target. If the selected strategy is srbOb, the SRB & OB engine is authoritative for its session-window breakout and Fib retest. If the selected strategy is lsobr, the dedicated LSOBR engine is authoritative for liquidity sweep, pre-existing fixed order block, rejection, MSS, confirmed OB exit, entry location, stop and opposing liquidity target. LSOBR must never use SRB session-window conditions. Never let generic Analyzer gates or AI rewrite the selected engine output. In particular, EMA20 uses ATR(14) x 2.23 for native SL and exactly 1:1.81 RR. A NEW_LONG/NEW_SHORT is the source strategy trigger. If the engine has no new signal, do not manufacture a BUY or SELL from generic indicators.
 
 PRICE LEVEL INTEGRITY — MANDATORY
 The current price above is authoritative. Support must be below current price. Resistance must be above current price. Never make support equal resistance. If a structural level is unavailable, return null rather than inventing one.
