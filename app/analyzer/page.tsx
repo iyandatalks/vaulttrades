@@ -106,12 +106,12 @@ const DEFAULT_SYMBOLS: Record<MarketType, string[]> = {
   STOCKS: ["AAPL", "MSFT", "NVDA", "TSLA", "AMZN"],
   SYNTHETIC: ["V75", "V100", "Boom 1000", "Crash 1000"],
 };
-const PUBLIC_STRATEGY_IDS = ["fibRetracement", "ema20", "supplyDemand", "srbOb"] as const;
+const PUBLIC_STRATEGY_IDS = ["fibRetracement", "ema20", "supplyDemand", "lsobr"] as const;
 const PUBLIC_STRATEGY_LABELS: Record<string, string> = {
   fibRetracement: "1. VaultTrades | Auto Fib Retrace + OB",
   ema20: "2. VaultTrades | EMA20 + OB",
   supplyDemand: "3. VaultTrades | Supply and Demand",
-  srbOb: "4. VaultTrades LSOBR",
+  lsobr: "4. VaultTrades LSOBR",
 };
 const fmt = (v: number | null | undefined) => v == null || !Number.isFinite(v) ? "—" : v.toLocaleString(undefined, { maximumFractionDigits: 5 });
 
@@ -322,7 +322,7 @@ export default function AnalyzerPage() {
       if (!res.ok) throw new Error(data.error || "Unable to analyze live market data.");
       setResult(data);
       const candles = Array.isArray(data.chart?.candles) ? data.chart.candles : [];
-      if (candles.length >= 30 && strategy !== "srbOb") {
+      if (candles.length >= 30 && strategy !== "srbOb" && strategy !== "lsobr") {
         setScannerLoading(true);
         try {
           const scannerRes = await fetch("/api/ai-scanner", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
@@ -399,18 +399,18 @@ export default function AnalyzerPage() {
   const projectedRR = s?.rr ?? result?.rr;
   const liquidityLabel = displayDirection === "SELL" ? "LIQ SELL" : "LIQ BUY";
   const liquidityTarget = s?.opposingLiquidityTarget ?? projectedFinalTp;
-  const srbState = strategy === "srbOb" ? result?.strategyEngine?.state : null;
-  const rawLifecycleState = String((strategy === "srbOb" ? srbState : s?.cycleStatus || s?.analysisState || s?.statusMessage) ?? "").toUpperCase();
+  const srbState = strategy === "lsobr" ? result?.strategyEngine?.state : strategy === "srbOb" ? result?.strategyEngine?.state : null;
+  const rawLifecycleState = String(((strategy === "srbOb" || strategy === "lsobr") ? srbState : s?.cycleStatus || s?.analysisState || s?.statusMessage) ?? "").toUpperCase();
   const tradeIsRunning = s?.cycleStatus === "ACTIVE" || rawLifecycleState === "TRADE OPEN" || rawLifecycleState === "RUNNING" || (s?.actualEntry != null && s?.cycleStatus !== "COMPLETED");
   const pendingSourceStates = ["WAITING", "BUILDING", "INCOMPLETE RANGE", "ARMED", "LIMIT WAIT", "FIB RETEST DETECTED", "SETUP", "DEVELOPING", "WATCHING", "ENTRY READY"];
   const terminalNoTrade = ["CANCELLED", "CANCELED", "EXPIRED", "REJECTED", "INVALIDATED", "COMPLETED", "STOP HIT", "TARGET HIT", "NO TRADE"].includes(rawLifecycleState)
-    || (strategy === "srbOb" ? Boolean(rawLifecycleState) && !pendingSourceStates.includes(rawLifecycleState) && !tradeIsRunning : result?.decision === "NO TRADE" && !tradeIsRunning && !s?.waitReason && !s?.statusMessage);
+    || ((strategy === "srbOb" || strategy === "lsobr") ? ["REJECTED", "CANCELLED", "CANCELED", "EXPIRED", "INVALIDATED", "NO TRADE"].includes(rawLifecycleState) : result?.decision === "NO TRADE" && !tradeIsRunning && !s?.waitReason && !s?.statusMessage);
   const scannerStatus = tradeIsRunning ? "RUNNING" : terminalNoTrade ? "NO TRADE" : "WAITING";
-  const scannerEntry = strategy === "srbOb" ? result?.strategyEngine?.entry : (actualEntry ?? projectedEntry);
-  const scannerStop = strategy === "srbOb" ? result?.strategyEngine?.stopLoss : projectedSL;
-  const scannerTp1 = strategy === "srbOb" ? result?.strategyEngine?.finalTp : projectedTp1;
-  const scannerTp2 = strategy === "srbOb" ? null : projectedTp2;
-  const rawReasons = strategy === "srbOb"
+  const scannerEntry = (strategy === "srbOb" || strategy === "lsobr") ? result?.strategyEngine?.entry : (actualEntry ?? projectedEntry);
+  const scannerStop = (strategy === "srbOb" || strategy === "lsobr") ? result?.strategyEngine?.stopLoss : projectedSL;
+  const scannerTp1 = (strategy === "srbOb" || strategy === "lsobr") ? result?.strategyEngine?.finalTp : projectedTp1;
+  const scannerTp2 = (strategy === "srbOb" || strategy === "lsobr") ? null : projectedTp2;
+  const rawReasons = (strategy === "srbOb" || strategy === "lsobr")
     ? (result?.strategyEngine?.missingConditions?.length ? result.strategyEngine.missingConditions : [result?.strategyEngine?.invalidation].filter((x): x is string => Boolean(x)))
     : [s?.waitReason, s?.statusMessage, result?.nextAction].filter((x): x is string => Boolean(x));
   const scannerReasons = [...new Set(rawReasons.map(x => x.trim()).filter(Boolean))];
@@ -439,7 +439,7 @@ export default function AnalyzerPage() {
       <div className="section-label">STRATEGY</div>
       <h2 className="title">Choose the strategy first</h2>
       <select value={strategy} disabled={loading} onChange={e => { setStrategy(e.target.value); setResult(null); setLockedTrade(null); }} style={{ width: "100%", marginTop: 14, padding: 14, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}>{PUBLIC_STRATEGY_IDS.map(id => <option key={id} value={id}>{PUBLIC_STRATEGY_LABELS[id]}</option>)}</select>
-      <div className="condition-box" style={{ marginTop: 14 }}><strong>{strategyDisplayName(strategy)}</strong><p className="muted">{strategy === "fibRetracement" ? "Institutional liquidity and structure, prior order blocks, CHOCH-based projection, and timeframe-adjusted Fibonacci retracement levels (61.8%, 68.1%, 78.6%, 88%). The Fib level alone never confirms an entry." : strategy === "ema20" ? "Independent EMA20 pullback strategy using EMA20 and EMA105 context, persistent swing structure, EMA touch/rejection, rejection break, and UT Bot OR SMI confirmation. Uses its own source-defined stop and target rules." : strategy === "supplyDemand" ? "Independent supply and demand zone strategy. Zone reach, reaction, hold and flip are validated separately." : strategy === "srbOb" ? "Independent session-range breakout and order-block strategy. Breakouts arm a wick-anchored Fibonacci pullback; the breakout candle is not an entry." : "Strategy-specific rules are loaded from the selected strategy profile."}</p><p className="muted">Analyzer Rules 1–6 remain the universal validation layer. Only the selected strategy supplies the primary setup logic and trade levels.</p></div>
+      <div className="condition-box" style={{ marginTop: 14 }}><strong>{strategyDisplayName(strategy)}</strong><p className="muted">{strategy === "fibRetracement" ? "Institutional liquidity and structure, prior order blocks, CHOCH-based projection, and timeframe-adjusted Fibonacci retracement levels (61.8%, 68.1%, 78.6%, 88%). The Fib level alone never confirms an entry." : strategy === "ema20" ? "Independent EMA20 pullback strategy using EMA20 and EMA105 context, persistent swing structure, EMA touch/rejection, rejection break, and UT Bot OR SMI confirmation. Uses its own source-defined stop and target rules." : strategy === "supplyDemand" ? "Independent supply and demand zone strategy. Zone reach, reaction, hold and flip are validated separately." : strategy === "lsobr" ? "Liquidity sweep → fixed pre-existing order-block rejection → confirmed MSS → completed close out of the OB. Entry is allowed only between the fixed OB and swept liquidity; stop is beyond the OB and target is the next valid opposing liquidity pool. No SRB opening-window conditions apply." : strategy === "srbOb" ? "Independent session-range breakout and order-block strategy. Breakouts arm a wick-anchored Fibonacci pullback; the breakout candle is not an entry." : "Strategy-specific rules are loaded from the selected strategy profile."}</p><p className="muted">Analyzer Rules 1–6 remain the universal validation layer. Only the selected strategy supplies the primary setup logic and trade levels.</p></div>
     </section>
 
     <section className="card"><div className="actions"><button className="primary" type="button" disabled={loading || marketType === "SYNTHETIC"} onClick={() => void runAnalysis()}>{loading ? "Analyzing live market..." : "Analyze Live Market"}</button></div>{marketType === "SYNTHETIC" && <div className="condition-box" style={{ marginTop: 12 }}><strong>Synthetic market connection</strong><p className="muted">This route deliberately does not substitute another provider. Connect the Synthetic/Broker provider before enabling synthetic analysis.</p></div>}{error && <div className="error-box" style={{ marginTop: 12 }}><strong>Analysis Error</strong><p className="muted">{error}</p></div>}</section>
