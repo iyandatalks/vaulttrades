@@ -400,7 +400,7 @@ export default function AnalyzerPage() {
   const liquidityLabel = displayDirection === "SELL" ? "LIQ SELL" : "LIQ BUY";
   const liquidityTarget = s?.opposingLiquidityTarget ?? projectedFinalTp;
   const srbState = strategy === "srbOb" ? result?.strategyEngine?.state : null;
-  const rawLifecycleState = (strategy === "srbOb" ? srbState : s?.cycleStatus || s?.analysisState || s?.statusMessage || "").toUpperCase();
+  const rawLifecycleState = String((strategy === "srbOb" ? srbState : s?.cycleStatus || s?.analysisState || s?.statusMessage) ?? "").toUpperCase();
   const tradeIsRunning = s?.cycleStatus === "ACTIVE" || rawLifecycleState === "TRADE OPEN" || rawLifecycleState === "RUNNING" || (s?.actualEntry != null && s?.cycleStatus !== "COMPLETED");
   const pendingSourceStates = ["WAITING", "BUILDING", "INCOMPLETE RANGE", "ARMED", "LIMIT WAIT", "FIB RETEST DETECTED", "SETUP", "DEVELOPING", "WATCHING", "ENTRY READY"];
   const terminalNoTrade = ["CANCELLED", "CANCELED", "EXPIRED", "REJECTED", "INVALIDATED", "COMPLETED", "STOP HIT", "TARGET HIT", "NO TRADE"].includes(rawLifecycleState)
