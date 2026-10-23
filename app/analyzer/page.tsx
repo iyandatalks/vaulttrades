@@ -112,7 +112,7 @@ const PUBLIC_STRATEGY_LABELS: Record<string, string> = {
   fibRetracement: "1. VaultTrades | Auto Fib Retrace + OB",
   ema20: "2. VaultTrades | EMA20 + OB",
   supplyDemand: "3. VaultTrades | Supply and Demand",
-  srbOb: "4. VaultTrades | SRB & OB Engine",
+  srbOb: "4. VaultTrades LSOBR",
 };
 const fmt = (v: number | null | undefined) => v == null || !Number.isFinite(v) ? "—" : v.toLocaleString(undefined, { maximumFractionDigits: 5 });
 
