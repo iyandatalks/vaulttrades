@@ -63,6 +63,7 @@ export const SOURCE_INDICATORS: Record<StrategyId, readonly SourceIndicatorSpec[
     { name: "ADX", purpose: "Trend-strength confirmation", parameters: "Length 14; minimum 20; DI direction required", required: true },
     { name: "ATR", purpose: "Adaptive trigger and stop/target geometry", parameters: "Length 14; trigger 1.5 ATR; stop 1.5 ATR", required: true },
   ],
+  lsobr: [],
   srbOb: [
     { name: "Moving Average Channel", purpose: "Directional channel gate and chart overlay", parameters: "Upper = SMA(high, 20); lower = SMA(low, 20); bullish above both, bearish below both", required: true },
     { name: "EMA", purpose: "Optional trend filter and confluence score", parameters: "EMA 20 and EMA 200; EMA200 filter disabled by default", required: true },
