@@ -8,11 +8,12 @@ type Props = {
   candles: Candle[];
   channel?: { upper: number | null; lower: number | null; middle?: number | null };
   liquidityTargets?: { buySide: { price: number; source: string; touches: number } | null; sellSide: { price: number; source: string; touches: number } | null };
+  orderBlock?: { direction: string; top: number; bottom: number; createdAt?: string } | null;
 };
 
 const fmtPrice = (value: number) => value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 5 });
 
-export function LiveMarketChart({ candles, channel, liquidityTargets }: Props) {
+export function LiveMarketChart({ candles, channel, liquidityTargets, orderBlock }: Props) {
   const data = useMemo(() => candles.slice(-80), [candles]);
 
   if (!data.length) return <div className="condition-box">No live candles available.</div>;
@@ -27,8 +28,8 @@ export function LiveMarketChart({ candles, channel, liquidityTargets }: Props) {
   const volumeBottom = 490;
   const chartWidth = width - left - right;
   const priceHeight = priceBottom - top;
-  const priceMin = Math.min(...data.map(c => c.low), channel?.lower ?? Infinity, liquidityTargets?.sellSide?.price ?? Infinity);
-  const priceMax = Math.max(...data.map(c => c.high), channel?.upper ?? -Infinity, liquidityTargets?.buySide?.price ?? -Infinity);
+  const priceMin = Math.min(...data.map(c => c.low), channel?.lower ?? Infinity, liquidityTargets?.sellSide?.price ?? Infinity, orderBlock?.bottom ?? Infinity);
+  const priceMax = Math.max(...data.map(c => c.high), channel?.upper ?? -Infinity, liquidityTargets?.buySide?.price ?? -Infinity, orderBlock?.top ?? -Infinity);
   const priceRange = Math.max(priceMax - priceMin, Math.abs(priceMax) * 0.00001, 1e-9);
   const maxVolume = Math.max(...data.map(c => c.volume ?? 0), 1);
   const bodyWidth = Math.max(3, Math.min(11, chartWidth / data.length * 0.62));
@@ -63,6 +64,12 @@ export function LiveMarketChart({ candles, channel, liquidityTargets }: Props) {
         <line x1={left} x2={width - right} y1={volumeTop - 10} y2={volumeTop - 10} stroke="rgba(148,163,184,.16)" />
         <text x={left + 8} y={volumeTop + 14} fill="#64748b" fontSize="11">VOLUME</text>
 
+        {orderBlock && (
+          <g>
+            <rect x={left} y={y(orderBlock.top)} width={chartWidth} height={Math.max(1, y(orderBlock.bottom) - y(orderBlock.top))} fill={orderBlock.direction === "BEARISH" ? "rgba(239,83,80,.16)" : "rgba(38,166,154,.16)"} stroke={orderBlock.direction === "BEARISH" ? "rgba(239,83,80,.85)" : "rgba(38,166,154,.85)"} strokeDasharray="5 4" strokeWidth="1.5" />
+            <text x={left + 8} y={y(orderBlock.top) + 14} fill={orderBlock.direction === "BEARISH" ? "#f87171" : "#5eead4"} fontSize="11" fontWeight="700">{orderBlock.direction} ORDER BLOCK · FIXED</text>
+          </g>
+        )}
         {channel?.upper != null && (
           <>
             <line x1={left} x2={width - right} y1={y(channel.upper)} y2={y(channel.upper)} stroke="#d4a637" strokeDasharray="8 6" strokeWidth="1.5" />
