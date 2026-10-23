@@ -403,7 +403,9 @@ export default function AnalyzerPage() {
   const srbState = strategy === "srbOb" ? result?.strategyEngine?.state : null;
   const rawLifecycleState = (strategy === "srbOb" ? srbState : s?.cycleStatus || s?.analysisState || s?.statusMessage || "").toUpperCase();
   const tradeIsRunning = s?.cycleStatus === "ACTIVE" || rawLifecycleState === "TRADE OPEN" || rawLifecycleState === "RUNNING" || (s?.actualEntry != null && s?.cycleStatus !== "COMPLETED");
-  const terminalNoTrade = ["CANCELLED", "CANCELED", "EXPIRED", "REJECTED", "INVALIDATED", "COMPLETED", "STOP HIT", "TARGET HIT", "NO TRADE"].includes(rawLifecycleState) || result?.decision === "NO TRADE" && !tradeIsRunning;
+  const pendingSourceStates = ["WAITING", "BUILDING", "INCOMPLETE RANGE", "ARMED", "LIMIT WAIT", "FIB RETEST DETECTED", "SETUP", "DEVELOPING", "WATCHING", "ENTRY READY"];
+  const terminalNoTrade = ["CANCELLED", "CANCELED", "EXPIRED", "REJECTED", "INVALIDATED", "COMPLETED", "STOP HIT", "TARGET HIT", "NO TRADE"].includes(rawLifecycleState)
+    || (strategy === "srbOb" ? Boolean(rawLifecycleState) && !pendingSourceStates.includes(rawLifecycleState) && !tradeIsRunning : result?.decision === "NO TRADE" && !tradeIsRunning && !s?.waitReason && !s?.statusMessage);
   const scannerStatus = tradeIsRunning ? "RUNNING" : terminalNoTrade ? "NO TRADE" : "WAITING";
   const scannerEntry = strategy === "srbOb" ? result?.strategyEngine?.entry : (actualEntry ?? projectedEntry);
   const scannerStop = strategy === "srbOb" ? result?.strategyEngine?.stopLoss : projectedSL;
