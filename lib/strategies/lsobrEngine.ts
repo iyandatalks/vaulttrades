@@ -74,7 +74,7 @@ export function evaluateLsObr(candles: Candle[]): LSOBRResult {
   for (const setup of candidates.reverse()) {
     const { side, sweepIndex, swept } = setup;
     const ob = findPriorOb(candles, side, sweepIndex, swept);
-    if (!ob) continue;
+    if (!ob) return noSetup("SETUP", ["Liquidity sweep confirmed at " + swept + "; no valid pre-existing " + (side === "SELL" ? "bearish" : "bullish") + " order block was found on the correct side of swept liquidity. Do not substitute a newly forming or repositioned OB."], ["Liquidity sweep: " + side + " at " + candles[sweepIndex].datetime, "Waiting for a valid historical order block formed before the sweep."], { sweptLiquidity: swept, sweepTime: candles[sweepIndex].datetime });
     const postSweep = candles.slice(sweepIndex + 1);
     if (!postSweep.length) return noSetup("SETUP", ["Liquidity sweep detected; waiting for price to revisit a valid pre-existing order block."], ["Liquidity sweep: " + side + " setup", "Swept liquidity: " + swept], { sweptLiquidity: swept, sweepTime: candles[sweepIndex].datetime, orderBlock: { direction: ob.direction, top: ob.top, bottom: ob.bottom, createdAt: ob.createdAt } });
     let rejectionIndex = -1, rejectionExtreme = side === "SELL" ? -Infinity : Infinity;
