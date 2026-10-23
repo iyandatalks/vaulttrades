@@ -318,7 +318,7 @@ Return JSON only.`;
     const strongSmc = [ai.bos, ai.choch, ai.orderBlock, ai.fvg, ai.liquiditySweep, ai.displacement].filter((x: unknown) => typeof x === "number" && x >= 7).length;
     const smcGate = strongSmc >= 2;
     const analyzerTradeGate = direction !== "NO TRADE" && math.valid && (strategyId === "ema20" ? smcGate : smcGate);
-    const finalDirection: Direction = strategyId === "srbOb" ? (srbObEngine?.direction ?? "NO TRADE") : analyzerTradeGate && ai.decision === "TRADE" ? direction : "NO TRADE";
+    const finalDirection: Direction = strategyId === "srbOb" ? (srbObEngine?.direction ?? "NO TRADE") : strategyId === "lsobr" ? (lsobrEngine?.state === "ENTRY READY" && analyzerTradeGate ? (lsobrEngine.direction as Direction) : "NO TRADE") : analyzerTradeGate && ai.decision === "TRADE" ? direction : "NO TRADE";
 
     const nativeEngineOutput = strategyId === "ema20" ? {
       state: ema20EngineEvidence?.state,
@@ -373,18 +373,18 @@ Return JSON only.`;
       chart: { candles: market.candles, channel20: channel },
       liquidityTargets,
       structure: { ...lockedStructure }, volatility: context.volatility,
-      strategyEngine: strategyId === "srbOb" ? srbObEngineEvidence : strategyId === "fibRetracement" ? autoFibEngineEvidence : nativeEngineOutput,
+      strategyEngine: strategyId === "lsobr" ? lsobrEngineEvidence : strategyId === "srbOb" ? srbObEngineEvidence : strategyId === "fibRetracement" ? autoFibEngineEvidence : nativeEngineOutput,
       decision: finalDirection === "NO TRADE" ? "NO TRADE" : "TRADE", direction: finalDirection,
       confidence: finalDirection === "NO TRADE" ? Math.min(Number(ai.confidence) || 0, 69) : Number(ai.confidence) || 0,
       setup: ai.setup, marketCondition: ai.marketCondition, marketStructure: ai.marketStructure, recentPriceAction: ai.recentPriceAction,
       confirmedConditions: ai.confirmedConditions,
-      missingConditions: [...(strategyId === "srbOb" ? (srbObEngine?.missingConditions ?? []) : ai.missingConditions), ...(strategyId === "ema20" && !ema20Engine?.newLong && !ema20Engine?.newShort ? ["EMA20 Pine-equivalent engine: no newLong/newShort transition on the latest live candle."] : []), ...(strongSmc < 2 ? ["Analyzer SMC confluence gate: fewer than two SMC signals scored 7 or higher."] : []), ...(!math.valid && direction !== "NO TRADE" ? [math.rr !== null && math.rr < minimumRR ? `Strategy price validation: R:R is below the selected strategy minimum of 1:${minimumRR}.` : "Strategy price validation: entry/SL/TP geometry did not pass all applicable gates."] : [])],
+      missingConditions: [...(strategyId === "lsobr" ? [...(lsobrEngine?.missingConditions ?? []), ...(!analyzerTradeGate && lsobrEngine?.state === "ENTRY READY" ? ["Universal Analyzer Rules 1–6 did not validate the LSOBR entry."] : [])] : strategyId === "srbOb" ? (srbObEngine?.missingConditions ?? []) : ai.missingConditions), ...(strategyId === "ema20" && !ema20Engine?.newLong && !ema20Engine?.newShort ? ["EMA20 Pine-equivalent engine: no newLong/newShort transition on the latest live candle."] : []), ...(strongSmc < 2 ? ["Analyzer SMC confluence gate: fewer than two SMC signals scored 7 or higher."] : []), ...(!math.valid && direction !== "NO TRADE" ? [math.rr !== null && math.rr < minimumRR ? `Strategy price validation: R:R is below the selected strategy minimum of 1:${minimumRR}.` : "Strategy price validation: entry/SL/TP geometry did not pass all applicable gates."] : [])],
       smcScores: { BOS: ai.bos, CHoCH: ai.choch, OrderBlock: ai.orderBlock, FVG: ai.fvg, LiquiditySweep: ai.liquiditySweep, Displacement: ai.displacement },
       pipeline: ai.pipeline, nextZone: ai.nextZone, invalidation: ai.invalidation,
-      entry: finalDirection === "NO TRADE" ? null : entry, stopLoss: finalDirection === "NO TRADE" ? null : stopLoss,
-      tp1: finalDirection === "NO TRADE" ? null : strategyId === "ema20" ? finalTp : ai.tp1, tp2: finalDirection === "NO TRADE" ? null : strategyId === "ema20" ? finalTp : ai.tp2, finalTp: finalDirection === "NO TRADE" ? null : finalTp,
-      rr: finalDirection === "NO TRADE" ? (srbObEngine?.riskReward ?? null) : math.rr, slDistancePct: finalDirection === "NO TRADE" ? null : math.slPct, entryDistancePct: finalDirection === "NO TRADE" ? null : math.entryDistancePct,
-      nextAction: strategyId === "srbOb" ? (srbObEngine?.missingConditions[0] ?? srbObEngine?.state ?? "Monitor the selected SRB window.") : ai.nextAction, educationalNote: strategyId === "srbOb" ? "SRB & OB uses its own deterministic session-range, Fibonacci pullback and opposing-order-block rules. Confirm the chart state before acting." : ai.educationalNote,
+      entry: strategyId === "lsobr" ? (lsobrEngine?.entry ?? null) : finalDirection === "NO TRADE" ? null : entry, stopLoss: strategyId === "lsobr" ? (lsobrEngine?.stopLoss ?? null) : finalDirection === "NO TRADE" ? null : stopLoss,
+      tp1: strategyId === "lsobr" ? (lsobrEngine?.finalTp ?? null) : finalDirection === "NO TRADE" ? null : strategyId === "ema20" ? finalTp : ai.tp1, tp2: strategyId === "lsobr" ? null : finalDirection === "NO TRADE" ? null : strategyId === "ema20" ? finalTp : ai.tp2, finalTp: strategyId === "lsobr" ? (lsobrEngine?.finalTp ?? null) : finalDirection === "NO TRADE" ? null : finalTp,
+      rr: strategyId === "lsobr" ? (lsobrEngine?.riskReward ?? null) : finalDirection === "NO TRADE" ? (srbObEngine?.riskReward ?? null) : math.rr, slDistancePct: finalDirection === "NO TRADE" ? null : math.slPct, entryDistancePct: finalDirection === "NO TRADE" ? null : math.entryDistancePct,
+      nextAction: strategyId === "lsobr" ? (lsobrEngine?.missingConditions[0] ?? (lsobrEngine?.state === "ENTRY READY" ? "LSOBR sequence confirmed; verify universal Analyzer gates before treating it as a trade." : lsobrEngine?.state ?? "Wait for the next LSOBR condition.")) : strategyId === "srbOb" ? (srbObEngine?.missingConditions[0] ?? srbObEngine?.state ?? "Monitor the selected SRB window.") : ai.nextAction, educationalNote: strategyId === "lsobr" ? "LSOBR requires a liquidity sweep, fixed pre-existing OB rejection, MSS and a confirmed close out of the OB. No SRB opening-window rules are used." : strategyId === "srbOb" ? "SRB & OB uses its own deterministic session-range, Fibonacci pullback and opposing-order-block rules. Confirm the chart state before acting." : ai.educationalNote,
       qualityChecks: { smcStrongCount: strongSmc, rrValid: math.rr !== null && math.rr >= minimumRR, slDistanceValid: math.slPct === null || math.slPct >= 0.1, entryDistanceValid: math.entryDistancePct === null || math.entryDistancePct <= 0.5, universalTradeGate: analyzerTradeGate },
     });
   } catch (error) {
