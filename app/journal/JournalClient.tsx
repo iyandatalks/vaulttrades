@@ -232,7 +232,6 @@ export default function JournalClient() {
     const [year, month] = statsMonth.split("-").map(Number);
     return entries.filter((e) => {
       const accountMatch =
-        statsAccount === "All accounts" ||
         (statsAccount === "Personal · ZAR" && e.account_type === "Personal" && e.currency === "ZAR") ||
         (statsAccount === "Personal · USD" && e.account_type === "Personal" && e.currency === "USD") ||
         (statsAccount === "Funded · USD" && e.account_type === "Funded" && e.currency === "USD");
@@ -472,7 +471,6 @@ export default function JournalClient() {
               <option>Funded · USD</option>
               <option>Personal · ZAR</option>
               <option>Personal · USD</option>
-              <option>All accounts</option>
             </select>
           </label>
           <label className="muted">
