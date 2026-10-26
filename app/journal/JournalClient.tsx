@@ -8,8 +8,11 @@ type Currency = "ZAR" | "USD";
 type Session = "Asia" | "London" | "New York" | "—";
 type Result = "WIN" | "LOSS" | "BREAK EVEN";
 
+type FundedJournalAccount = { id: string; firm_name: string; starting_capital: number; payout_target: number; currency: string; color: string };
+
 type Entry = {
   id: string;
+  funded_account_id: string | null;
   trade_date: string;
   account_type: Account;
   currency: Currency;
@@ -48,6 +51,14 @@ const currencySymbol = (currency: Currency) => (currency === "ZAR" ? "R" : "$");
 
 export default function JournalClient() {
   const [entries, setEntries] = useState<Entry[]>([]);
+  const [fundedAccounts, setFundedAccounts] = useState<FundedJournalAccount[]>([]);
+  const [firmName, setFirmName] = useState("");
+  const [firmCapital, setFirmCapital] = useState("100000");
+  const [firmTarget, setFirmTarget] = useState("5000");
+  const [firmCurrency, setFirmCurrency] = useState("USD");
+  const [firmColor, setFirmColor] = useState("#D4AF37");
+  const [selectedFirmId, setSelectedFirmId] = useState("");
+  const [accountError, setAccountError] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
   const [form, setForm] = useState({
     tradeDate: todaySast(),
@@ -59,6 +70,7 @@ export default function JournalClient() {
     result: "WIN" as Result,
     pnl: "",
     emotion: "",
+    fundedAccountId: "",
   });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -79,10 +91,15 @@ export default function JournalClient() {
       .single();
     if (!u?.id) return;
 
+    const { data: firmRows } = await sb.from("funded_journal_accounts").select("id, firm_name, starting_capital, payout_target, currency, color").eq("user_id", u.id).order("created_at", { ascending: true });
+    const firms = (firmRows ?? []) as FundedJournalAccount[];
+    setFundedAccounts(firms);
+    setSelectedFirmId((current) => current && firms.some((a) => a.id === current) ? current : (firms[0]?.id ?? ""));
+
     const { data } = await sb
       .from("journal_entries")
       .select(
-        "id, trade_date, account_type, currency, session, symbol, strategy, result, pnl, emotion, note, created_at"
+        "id, trade_date, account_type, currency, funded_account_id, session, symbol, strategy, result, pnl, emotion, note, created_at"
       )
       .eq("user_id", u.id)
       .order("trade_date", { ascending: false })
@@ -91,6 +108,7 @@ export default function JournalClient() {
     setEntries(
       (data ?? []).map((x: any) => ({
         id: x.id,
+        funded_account_id: x.funded_account_id ?? null,
         trade_date: x.trade_date ?? x.created_at?.slice(0, 10),
         account_type: x.account_type ?? "Personal",
         currency: x.currency ?? "ZAR",
