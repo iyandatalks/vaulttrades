@@ -62,6 +62,9 @@ export default function JournalClient() {
   });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [statsAccount, setStatsAccount] = useState("Funded · USD");
+  const [statsMonth, setStatsMonth] = useState(todaySast().slice(0, 7));
+  const [statsYear, setStatsYear] = useState(todaySast().slice(0, 4));
 
   const load = async () => {
     const sb = supabase();
@@ -224,6 +227,70 @@ export default function JournalClient() {
       fundedUsd: summarize("Funded", "USD"),
     };
   }, [entries, currentWeek]);
+
+  const statsRows = useMemo(() => {
+    const [year, month] = statsMonth.split("-").map(Number);
+    return entries.filter((e) => {
+      const accountMatch =
+        statsAccount === "All accounts" ||
+        (statsAccount === "Personal · ZAR" && e.account_type === "Personal" && e.currency === "ZAR") ||
+        (statsAccount === "Personal · USD" && e.account_type === "Personal" && e.currency === "USD") ||
+        (statsAccount === "Funded · USD" && e.account_type === "Funded" && e.currency === "USD");
+      return accountMatch && e.trade_date?.startsWith(`${year}-${String(month).padStart(2, "0")}`);
+    });
+  }, [entries, statsAccount, statsMonth]);
+
+  const yearRows = useMemo(() => {
+    return entries.filter((e) => {
+      const accountMatch =
+        statsAccount === "All accounts" ||
+        (statsAccount === "Personal · ZAR" && e.account_type === "Personal" && e.currency === "ZAR") ||
+        (statsAccount === "Personal · USD" && e.account_type === "Personal" && e.currency === "USD") ||
+        (statsAccount === "Funded · USD" && e.account_type === "Funded" && e.currency === "USD");
+      return accountMatch && e.trade_date?.startsWith(statsYear);
+    });
+  }, [entries, statsAccount, statsYear]);
+
+  const summarize = (rows: Entry[]) => {
+    const wins = rows.filter((e) => e.result === "WIN");
+    const losses = rows.filter((e) => e.result === "LOSS");
+    const net = rows.reduce((sum, e) => sum + e.pnl, 0);
+    const positive = rows.reduce((sum, e) => sum + Math.max(0, e.pnl), 0);
+    const negative = rows.reduce((sum, e) => sum + Math.min(0, e.pnl), 0);
+    const days = new Set(rows.map((e) => e.trade_date)).size;
+    return {
+      trades: rows.length,
+      wins: wins.length,
+      losses: losses.length,
+      winRate: rows.length ? (wins.length / rows.length) * 100 : 0,
+      net,
+      grossProfit: positive,
+      grossLoss: Math.abs(negative),
+      days,
+    };
+  };
+
+  const monthlyStats = summarize(statsRows);
+  const yearlyStats = summarize(yearRows);
+  const monthlyBreakdown = Array.from({ length: 12 }, (_, index) => {
+    const month = String(index + 1).padStart(2, "0");
+    const rows = yearRows.filter((e) => e.trade_date?.slice(5, 7) === month);
+    return { month, label: new Date(Number(statsYear), index, 1).toLocaleString("en", { month: "long" }), ...summarize(rows) };
+  }).filter((m) => m.trades > 0);
+  const dailyBreakdown = Object.values(
+    statsRows.reduce((acc, e) => {
+      const key = e.trade_date;
+      if (!acc[key]) acc[key] = { date: key, pnl: 0 };
+      acc[key].pnl += e.pnl;
+      return acc;
+    }, {} as Record<string, { date: string; pnl: number }>)
+  );
+  const bestDay = dailyBreakdown.length ? dailyBreakdown.reduce((a, b) => (a.pnl > b.pnl ? a : b)) : null;
+  const worstDay = dailyBreakdown.length ? dailyBreakdown.reduce((a, b) => (a.pnl < b.pnl ? a : b)) : null;
+  const bestMonth = monthlyBreakdown.length ? monthlyBreakdown.reduce((a, b) => (a.net > b.net ? a : b)) : null;
+  const worstMonth = monthlyBreakdown.length ? monthlyBreakdown.reduce((a, b) => (a.net < b.net ? a : b)) : null;
+  const statsCurrency: Currency = statsAccount.endsWith("ZAR") ? "ZAR" : "USD";
+  const statsSymbol = currencySymbol(statsCurrency);
 
   const availableCurrencies: Currency[] =
     form.account === "Funded" ? ["USD"] : ["ZAR", "USD"];
@@ -392,6 +459,94 @@ export default function JournalClient() {
             </div>
           ))}
         </div>
+      </section>
+
+      <section className="card" style={{ marginTop: 16 }}>
+        <div className="section-label">MONTHLY &amp; YEARLY STATS</div>
+        <h2 style={{ marginTop: 4 }}>Performance Overview</h2>
+        <p className="muted">Statistics update automatically when journal entries are added, edited, or deleted. Choose one account/currency to keep results comparable.</p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10, marginTop: 14 }}>
+          <label className="muted">
+            Account
+            <select value={statsAccount} onChange={(e) => setStatsAccount(e.target.value)}>
+              <option>Funded · USD</option>
+              <option>Personal · ZAR</option>
+              <option>Personal · USD</option>
+              <option>All accounts</option>
+            </select>
+          </label>
+          <label className="muted">
+            Month
+            <input className="coach-question" type="month" value={statsMonth} onChange={(e) => setStatsMonth(e.target.value)} />
+          </label>
+          <label className="muted">
+            Year
+            <select value={statsYear} onChange={(e) => setStatsYear(e.target.value)}>
+              {Array.from({ length: 8 }, (_, i) => String(Number(todaySast().slice(0, 4)) - i)).map((year) => <option key={year}>{year}</option>)}
+            </select>
+          </label>
+        </div>
+
+        <h3 style={{ marginTop: 20 }}>Monthly Stats</h3>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: 10, marginTop: 10 }}>
+          {[
+            ["Trades", String(monthlyStats.trades)],
+            ["Trading days", String(monthlyStats.days)],
+            ["Wins / Losses", `${monthlyStats.wins} / ${monthlyStats.losses}`],
+            ["Win rate", `${monthlyStats.winRate.toFixed(1)}%`],
+            ["Gross profit", `${statsSymbol}${monthlyStats.grossProfit.toFixed(2)}`],
+            ["Gross losses", `${statsSymbol}${monthlyStats.grossLoss.toFixed(2)}`],
+            ["Net P&L", `${statsSymbol}${monthlyStats.net.toFixed(2)}`],
+          ].map(([label, value]) => (
+            <div className="condition-box" key={label}>
+              <div className="muted">{label}</div>
+              <div style={{ marginTop: 5, fontSize: 20, fontWeight: 700 }}>{value}</div>
+            </div>
+          ))}
+        </div>
+        <div className="muted" style={{ marginTop: 10 }}>
+          Best day: {bestDay ? `${bestDay.date} · ${statsSymbol}${bestDay.pnl.toFixed(2)}` : "—"}
+          {" · "}
+          Worst day: {worstDay ? `${worstDay.date} · ${statsSymbol}${worstDay.pnl.toFixed(2)}` : "—"}
+        </div>
+
+        <h3 style={{ marginTop: 24 }}>Yearly Stats</h3>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: 10, marginTop: 10 }}>
+          {[
+            ["Trades", String(yearlyStats.trades)],
+            ["Trading days", String(yearlyStats.days)],
+            ["Wins / Losses", `${yearlyStats.wins} / ${yearlyStats.losses}`],
+            ["Win rate", `${yearlyStats.winRate.toFixed(1)}%`],
+            ["Gross profit", `${statsSymbol}${yearlyStats.grossProfit.toFixed(2)}`],
+            ["Gross losses", `${statsSymbol}${yearlyStats.grossLoss.toFixed(2)}`],
+            ["Net P&L", `${statsSymbol}${yearlyStats.net.toFixed(2)}`],
+          ].map(([label, value]) => (
+            <div className="condition-box" key={label}>
+              <div className="muted">{label}</div>
+              <div style={{ marginTop: 5, fontSize: 20, fontWeight: 700 }}>{value}</div>
+            </div>
+          ))}
+        </div>
+        <div className="muted" style={{ marginTop: 10 }}>
+          Best month: {bestMonth ? `${bestMonth.label} · ${statsSymbol}${bestMonth.net.toFixed(2)}` : "—"}
+          {" · "}
+          Worst month: {worstMonth ? `${worstMonth.label} · ${statsSymbol}${worstMonth.net.toFixed(2)}` : "—"}
+        </div>
+        {monthlyBreakdown.length > 0 && (
+          <div style={{ overflowX: "auto", marginTop: 16 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead><tr>{["Month", "Trades", "Win rate", "Gross profit", "Gross losses", "Net P&L"].map((h) => <th key={h} style={{ textAlign: "left", padding: 8 }}>{h}</th>)}</tr></thead>
+              <tbody>{monthlyBreakdown.map((m) => <tr key={m.month}>
+                <td style={{ padding: 8 }}>{m.label}</td>
+                <td style={{ padding: 8 }}>{m.trades}</td>
+                <td style={{ padding: 8 }}>{m.winRate.toFixed(1)}%</td>
+                <td style={{ padding: 8 }}>{statsSymbol}{m.grossProfit.toFixed(2)}</td>
+                <td style={{ padding: 8 }}>{statsSymbol}{m.grossLoss.toFixed(2)}</td>
+                <td style={{ padding: 8 }}>{statsSymbol}{m.net.toFixed(2)}</td>
+              </tr>)}</tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       <section className="card" style={{ marginTop: 16 }}>
