@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 
 type Account = "Personal" | "Funded";
-type Currency = "ZAR" | "USD";
+type Currency = "ZAR" | "USD" | "EUR" | "GBP";
 type Session = "Asia" | "London" | "New York" | "—";
 type Result = "WIN" | "LOSS" | "BREAK EVEN";
 
@@ -47,7 +47,7 @@ const startOfWeek = (dateString: string) => {
   return d.toISOString().slice(0, 10);
 };
 
-const currencySymbol = (currency: Currency) => (currency === "ZAR" ? "R" : "$");
+const currencySymbol = (currency: Currency) => currency === "ZAR" ? "R" : currency === "EUR" ? "€" : currency === "GBP" ? "£" : "$";
 
 export default function JournalClient() {
   const [entries, setEntries] = useState<Entry[]>([]);
@@ -162,7 +162,7 @@ export default function JournalClient() {
       trade_date: form.tradeDate,
       account_type: form.account,
       funded_account_id: form.account === "Funded" ? (form.fundedAccountId || selectedFirmId || null) : null,
-      currency: form.account === "Funded" ? "USD" : form.currency,
+      currency: form.account === "Funded" ? ((fundedAccounts.find((a) => a.id === (form.fundedAccountId || selectedFirmId))?.currency as Currency) ?? "USD") : form.currency,
       session: form.session,
       symbol: form.symbol.trim(),
       strategy: form.strategy.trim() || "Other",
@@ -173,7 +173,7 @@ export default function JournalClient() {
       note: form.emotion.trim(),
       data: {
         account: form.account,
-        currency: form.account === "Funded" ? "USD" : form.currency,
+        currency: form.account === "Funded" ? ((fundedAccounts.find((a) => a.id === (form.fundedAccountId || selectedFirmId))?.currency as Currency) ?? "USD") : form.currency,
       },
     };
 
@@ -270,10 +270,10 @@ export default function JournalClient() {
       const accountMatch =
         (statsAccount === "Personal · ZAR" && e.account_type === "Personal" && e.currency === "ZAR") ||
         (statsAccount === "Personal · USD" && e.account_type === "Personal" && e.currency === "USD") ||
-        (statsAccount === "Funded · USD" && e.account_type === "Funded" && e.currency === "USD");
+        (statsAccount === "Funded · USD" && e.account_type === "Funded" && !e.funded_account_id && e.currency === "USD") || (fundedAccounts.some((a) => a.id === statsAccount) && e.funded_account_id === statsAccount);
       return accountMatch && e.trade_date?.startsWith(`${year}-${String(month).padStart(2, "0")}`);
     });
-  }, [entries, statsAccount, statsMonth]);
+  }, [entries, statsAccount, statsMonth, fundedAccounts]);
 
   const yearRows = useMemo(() => {
     return entries.filter((e) => {
@@ -281,10 +281,10 @@ export default function JournalClient() {
         statsAccount === "All accounts" ||
         (statsAccount === "Personal · ZAR" && e.account_type === "Personal" && e.currency === "ZAR") ||
         (statsAccount === "Personal · USD" && e.account_type === "Personal" && e.currency === "USD") ||
-        (statsAccount === "Funded · USD" && e.account_type === "Funded" && e.currency === "USD");
+        (statsAccount === "Funded · USD" && e.account_type === "Funded" && !e.funded_account_id && e.currency === "USD") || (fundedAccounts.some((a) => a.id === statsAccount) && e.funded_account_id === statsAccount);
       return accountMatch && e.trade_date?.startsWith(statsYear);
     });
-  }, [entries, statsAccount, statsYear]);
+  }, [entries, statsAccount, statsYear, fundedAccounts]);
 
   const summarize = (rows: Entry[]) => {
     const wins = rows.filter((e) => e.result === "WIN");
@@ -536,9 +536,10 @@ export default function JournalClient() {
           <label className="muted">
             Account
             <select value={statsAccount} onChange={(e) => setStatsAccount(e.target.value)}>
-              <option>Funded · USD</option>
               <option>Personal · ZAR</option>
               <option>Personal · USD</option>
+              <option>Funded · USD</option>
+              {fundedAccounts.map((firm) => <option key={firm.id} value={firm.id}>{firm.firm_name}</option>)}
             </select>
           </label>
           <label className="muted">
