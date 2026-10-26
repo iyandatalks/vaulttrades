@@ -461,7 +461,7 @@ export default function JournalClient() {
           </label>
 
           <label className="muted">
-            P&amp;L ({form.account === "Funded" ? "$" : form.currency === "ZAR" ? "R" : "$"})
+            P&amp;L ({form.account === "Funded" ? (fundedAccounts.find((a) => a.id === (form.fundedAccountId || selectedFirmId))?.currency === "ZAR" ? "R" : fundedAccounts.find((a) => a.id === (form.fundedAccountId || selectedFirmId))?.currency === "EUR" ? "€" : fundedAccounts.find((a) => a.id === (form.fundedAccountId || selectedFirmId))?.currency === "GBP" ? "£" : "$") : currencySymbol(form.currency)})
             <input
               className="coach-question"
               type="number"
@@ -646,7 +646,7 @@ export default function JournalClient() {
                 {entries.map((e) => (
                   <tr key={e.id}>
                     <td style={{ padding: 8 }}>{e.trade_date}</td>
-                    <td style={{ padding: 8 }}>{e.account_type} · {e.currency}</td>
+                    <td style={{ padding: 8, borderLeft: e.funded_account_id ? "3px solid " + (fundedAccounts.find((a) => a.id === e.funded_account_id)?.color ?? "#D4AF37") : undefined }}>{e.funded_account_id ? fundedAccounts.find((a) => a.id === e.funded_account_id)?.firm_name ?? "Funded account" : e.account_type + " · " + e.currency}</td>
                     <td style={{ padding: 8 }}>{e.session}</td>
                     <td style={{ padding: 8 }}>{e.symbol}</td>
                     <td style={{ padding: 8 }}>{e.strategy}</td>
