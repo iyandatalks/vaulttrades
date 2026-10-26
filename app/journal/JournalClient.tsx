@@ -333,7 +333,42 @@ export default function JournalClient() {
   return (
     <main className="shell">
       <section className="card">
-        <div className="section-label">TRADING JOURNAL · SIMPLE WEEKLY RECORD</div>
+        <div className="section-label">FUNDED PROP FIRM SETUP</div>
+        <h2 style={{ marginTop: 4 }}>Add each funded account once</h2>
+        <p className="muted">Enter the prop firm name, starting capital, and payout target once. Each firm has its own colour-coded journal section and independent stats.</p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 10, marginTop: 14 }}>
+          <label className="muted">Prop firm name<input className="coach-question" value={firmName} onChange={(e) => setFirmName(e.target.value)} placeholder="e.g. Blue Guardian" /></label>
+          <label className="muted">Starting capital<input className="coach-question" type="number" min="0" step="0.01" value={firmCapital} onChange={(e) => setFirmCapital(e.target.value)} /></label>
+          <label className="muted">Payout profit target<input className="coach-question" type="number" min="0" step="0.01" value={firmTarget} onChange={(e) => setFirmTarget(e.target.value)} /></label>
+          <label className="muted">Currency<select value={firmCurrency} onChange={(e) => setFirmCurrency(e.target.value)}>{["USD","ZAR","EUR","GBP"].map((c) => <option key={c}>{c}</option>)}</select></label>
+          <label className="muted">Identify with a colour<input type="color" value={firmColor} onChange={(e) => setFirmColor(e.target.value)} /></label>
+        </div>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 12, flexWrap: "wrap" }}>
+          <button className="primary" onClick={() => void createFundedAccount()}>Add Prop Firm Account</button>
+          <span className="muted">Saved once. Select it whenever you record a daily trade.</span>
+        </div>
+        {accountError && <div className="condition-box" style={{ marginTop: 10, borderColor: "#dc2626" }}>{accountError}</div>}
+        {fundedAccounts.length > 0 && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12, marginTop: 16 }}>
+          {fundedAccounts.map((firm) => {
+            const firmTrades = entries.filter((e) => e.funded_account_id === firm.id);
+            const pnl = firmTrades.reduce((sum, e) => sum + e.pnl, 0);
+            const balance = Number(firm.starting_capital) + pnl;
+            const target = Number(firm.payout_target);
+            const remaining = Math.max(0, target - pnl);
+            const progress = target > 0 ? Math.min(100, Math.max(0, pnl / target * 100)) : 0;
+            const symbol = firm.currency === "ZAR" ? "R" : firm.currency === "EUR" ? "€" : firm.currency === "GBP" ? "£" : "$";
+            return <div key={firm.id} className="condition-box" style={{ borderTop: "4px solid " + firm.color, cursor: "pointer" }} onClick={() => { setSelectedFirmId(firm.id); setStatsAccount(firm.id); setForm((f) => ({ ...f, account: "Funded", currency: "USD", fundedAccountId: firm.id })); }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}><strong>{firm.firm_name}</strong><span style={{ background: firm.color, width: 12, height: 12, borderRadius: 99, display: "inline-block" }} /></div>
+              <div className="muted" style={{ marginTop: 8 }}>Starting capital</div><strong>{symbol}{Number(firm.starting_capital).toFixed(2)}</strong>
+              <div className="muted" style={{ marginTop: 8 }}>Current balance</div><div style={{ fontSize: 22, fontWeight: 700 }}>{symbol}{balance.toFixed(2)}</div>
+              <div className="muted" style={{ marginTop: 8 }}>Net P&amp;L · {firmTrades.length} trades</div><strong>{symbol}{pnl.toFixed(2)}</strong>
+              <div className="muted" style={{ marginTop: 8 }}>Target: {symbol}{target.toFixed(2)} · Remaining: {symbol}{remaining.toFixed(2)}</div>
+              <div style={{ height: 7, background: "rgba(127,127,127,.2)", borderRadius: 99, overflow: "hidden", marginTop: 8 }}><div style={{ height: "100%", width: progress + "%", background: firm.color }} /></div>
+              <button className="secondary" style={{ marginTop: 12 }} onClick={(event) => { event.stopPropagation(); setSelectedFirmId(firm.id); setStatsAccount(firm.id); setForm((f) => ({ ...f, account: "Funded", currency: "USD", fundedAccountId: firm.id })); }}>Open this journal</button>
+            </div>;
+          })}
+        </div>
+        <div className="section-label" style={{ marginTop: 24 }}>TRADING JOURNAL · DAILY RECORD</div>
         <h1 className="title">Trading Journal</h1>
         <p className="muted">
           Keep the record simple: date, account, session, instrument, strategy,
@@ -362,18 +397,15 @@ export default function JournalClient() {
           <label className="muted">
             Account
             <select
-              value={form.account}
+              value={form.account === "Personal" ? "Personal" : (form.fundedAccountId || selectedFirmId || "")}
               onChange={(e) => {
-                const account = e.target.value as Account;
-                setForm((f) => ({
-                  ...f,
-                  account,
-                  currency: account === "Funded" ? "USD" : f.currency,
-                }));
+                const value = e.target.value;
+                if (value === "Personal") setForm((f) => ({ ...f, account: "Personal", fundedAccountId: "" }));
+                else { setSelectedFirmId(value); setForm((f) => ({ ...f, account: "Funded", fundedAccountId: value, currency: "USD" })); }
               }}
             >
-              <option>Personal</option>
-              <option>Funded</option>
+              <option value="Personal">Personal</option>
+              {fundedAccounts.map((firm) => <option key={firm.id} value={firm.id}>{firm.firm_name}</option>)}
             </select>
           </label>
 
