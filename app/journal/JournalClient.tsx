@@ -367,7 +367,7 @@ export default function JournalClient() {
               <button className="secondary" style={{ marginTop: 12 }} onClick={(event) => { event.stopPropagation(); setSelectedFirmId(firm.id); setStatsAccount(firm.id); setForm((f) => ({ ...f, account: "Funded", currency: "USD", fundedAccountId: firm.id })); }}>Open this journal</button>
             </div>;
           })}
-        </div>
+        </div>}
         <div className="section-label" style={{ marginTop: 24 }}>TRADING JOURNAL · DAILY RECORD</div>
         <h1 className="title">Trading Journal</h1>
         <p className="muted">
