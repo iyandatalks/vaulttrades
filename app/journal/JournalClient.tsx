@@ -127,6 +127,20 @@ export default function JournalClient() {
     void load();
   }, []);
 
+  const createFundedAccount = async () => {
+    setAccountError("");
+    if (!userId || !firmName.trim() || !(Number(firmCapital) >= 0) || !(Number(firmTarget) >= 0)) { setAccountError("Enter a prop firm name, starting capital, and payout target."); return; }
+    const sb = supabase();
+    const { data: u } = await sb.from("users").select("id").eq("auth_user_id", userId).single();
+    if (!u?.id) { setAccountError("Your user profile could not be loaded. Please sign in again."); return; }
+    const { data, error } = await sb.from("funded_journal_accounts").insert({ user_id: u.id, firm_name: firmName.trim(), starting_capital: Number(firmCapital), payout_target: Number(firmTarget), currency: firmCurrency, color: firmColor }).select("id").single();
+    if (error || !data?.id) { setAccountError(error?.message ?? "Could not save this prop firm."); return; }
+    setSelectedFirmId(data.id);
+    setForm((f) => ({ ...f, account: "Funded", currency: "USD", fundedAccountId: data.id }));
+    setFirmName(""); setFirmCapital("100000"); setFirmTarget("5000");
+    await load();
+  };
+
   const save = async () => {
     if (!userId) return;
     const sb = supabase();
@@ -147,6 +161,7 @@ export default function JournalClient() {
       entry_type: form.strategy.trim() || "Other",
       trade_date: form.tradeDate,
       account_type: form.account,
+      funded_account_id: form.account === "Funded" ? (form.fundedAccountId || selectedFirmId || null) : null,
       currency: form.account === "Funded" ? "USD" : form.currency,
       session: form.session,
       symbol: form.symbol.trim(),
@@ -183,6 +198,7 @@ export default function JournalClient() {
       result: "WIN",
       pnl: "",
       emotion: "",
+      fundedAccountId: selectedFirmId,
     });
     setSaved(true);
     setTimeout(() => setSaved(false), 1800);
@@ -201,7 +217,9 @@ export default function JournalClient() {
       result: e.result,
       pnl: String(e.pnl),
       emotion: e.emotion,
+      fundedAccountId: e.funded_account_id ?? "",
     });
+    if (e.funded_account_id) setSelectedFirmId(e.funded_account_id);
   };
 
   const remove = async (id: string) => {
