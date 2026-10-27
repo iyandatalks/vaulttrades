@@ -11,12 +11,24 @@ type ReferralState = {
   url: string | null;
 };
 
+type ProfileNotification = {
+  id: string;
+  title: string;
+  body: string;
+  action_href: string;
+  notification_type: string;
+  created_at: string;
+  read_at: string | null;
+};
+
 export default function ProfilePage() {
   const router = useRouter();
   const [email, setEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [referral, setReferral] = useState<ReferralState>({ enabled: false, code: null, url: null });
+  const [notifications, setNotifications] = useState<ProfileNotification[]>([]);
+  const [notificationError, setNotificationError] = useState("");
 
   useEffect(() => {
     const sb = createBrowserClient(
@@ -35,6 +47,11 @@ export default function ProfilePage() {
           setReferral(result?.referral ?? { enabled: false, code: null, url: null });
           setIsAdmin(result?.admin === true);
         }
+
+        const notificationResponse = await fetch("/api/profile/notifications", { cache: "no-store" });
+        const notificationResult = await notificationResponse.json().catch(() => ({}));
+        if (notificationResponse.ok) setNotifications(notificationResult.notifications ?? []);
+        else setNotificationError("Notifications are temporarily unavailable.");
       }
 
       setLoading(false);
@@ -88,6 +105,11 @@ export default function ProfilePage() {
                     <Link className="vt-primary" href="/admin/product-access" style={{ display: "inline-block", marginTop: 8 }}>Open Access Control →</Link>
                   </article>
                   <article className="vt-info-card">
+                    <h3>Verify Broker Referrals</h3>
+                    <p className="muted">Match broker-reported MT5 numbers and send approved customers an in-profile copy-trading onboarding notice.</p>
+                    <Link className="vt-primary" href="/admin/weltrade-referrals" style={{ display: "inline-block", marginTop: 8 }}>Open Referral Verification →</Link>
+                  </article>
+                  <article className="vt-info-card">
                     <h3>Review Community Posts</h3>
                     <p className="muted">Approve, keep pending, or reject customer testimonials before publication.</p>
                     <Link className="vt-primary" href="/admin/community-testimonials" style={{ display: "inline-block", marginTop: 8 }}>Review Submissions →</Link>
@@ -100,6 +122,44 @@ export default function ProfilePage() {
                 </div>
               </section>
             )}
+
+            <section className="vt-info-card" style={{ marginTop: 24, textAlign: "left" }}>
+              <div className="vt-label">NOTIFICATIONS</div>
+              <h2 style={{ margin: "10px 0 8px", fontSize: 27 }}>Your Notifications</h2>
+              <p className="muted">Important account and copy-trading updates appear here.</p>
+              {notificationError && <p className="muted" role="status">{notificationError}</p>}
+              {!notificationError && notifications.length === 0 && <p className="muted">You have no notifications.</p>}
+              {notifications.length > 0 && (
+                <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
+                  {notifications.map(notification => (
+                    <article key={notification.id} style={{ padding: 14, borderRadius: 10, border: notification.read_at ? "1px solid rgba(255,255,255,.10)" : "1px solid rgba(212,166,55,.45)", background: notification.read_at ? "transparent" : "rgba(212,166,55,.06)" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                        <strong>{notification.title}</strong>
+                        {!notification.read_at && <span style={{ color: "#d4a637", fontSize: 12 }}>NEW</span>}
+                      </div>
+                      <p style={{ margin: "8px 0", whiteSpace: "pre-wrap" }}>{notification.body}</p>
+                      <div className="muted" style={{ fontSize: 12 }}>{new Date(notification.created_at).toLocaleString()}</div>
+                      <Link
+                        className="vt-primary"
+                        href={notification.action_href || "/copy"}
+                        onClick={() => {
+                          if (!notification.read_at) {
+                            void fetch("/api/profile/notifications", {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ id: notification.id }),
+                            }).then(() => setNotifications(current => current.map(item => item.id === notification.id ? { ...item, read_at: new Date().toISOString() } : item)));
+                          }
+                        }}
+                        style={{ display: "inline-block", marginTop: 10 }}
+                      >
+                        Open Copy Trading →
+                      </Link>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
 
             <section className="vt-info-card" style={{ marginTop: 24, textAlign: "left" }}>
               <div className="vt-label">REFERRAL</div>
