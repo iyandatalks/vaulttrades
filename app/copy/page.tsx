@@ -1,15 +1,9 @@
-import { redirect } from "next/navigation";
 import CopyClient from "./CopyClient";
-import { createClient } from "@/lib/supabase/server";
-import { getCopyAccess } from "@/lib/copy-access";
 
-export default async function CopyPage() {
-  const auth = await createClient();
-  const { data: { user } } = await auth.auth.getUser();
-  if (!user) redirect("/products?product=copy");
+export const dynamic = "force-dynamic";
 
-  const access = await getCopyAccess(user.id);
-  if (!access.active) redirect("/products?product=copy");
-
+export default function CopyPage() {
+  // The public landing page is browseable without a subscription. Subscriber
+  // controls are conditionally rendered by CopyClient from server-verified API status.
   return <CopyClient />;
 }
