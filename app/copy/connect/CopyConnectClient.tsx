@@ -53,7 +53,7 @@ export default function CopyConnectPage() {
 
   const submitMt5Account = async () => {
     const mt5Login = mt5LoginInput.trim();
-    if (!/^\\d{4,12}$/.test(mt5Login)) {
+    if (!/^\d{4,12}$/.test(mt5Login)) {
       setMessage("Enter a valid MT5 account number (4–12 digits).");
       return;
     }
@@ -145,12 +145,12 @@ export default function CopyConnectPage() {
               inputMode="numeric"
               autoComplete="off"
               value={mt5LoginInput}
-              onChange={(e) => setMt5LoginInput(e.target.value.replace(/\\D/g, "").slice(0, 12))}
+              onChange={(e) => setMt5LoginInput(e.target.value.replace(/\D/g, "").slice(0, 12))}
               placeholder="MT5 account number"
               aria-label="MT5 account number"
               style={{ width: "100%", maxWidth: 300, padding: "12px 13px", borderRadius: 8, border: "1px solid rgba(212,166,55,.35)", background: "#050812", color: "#f4f6fb" }}
             />
-            <button className="vt-primary" type="button" onClick={() => void submitMt5Account()} disabled={accountBusy || !/^\\d{4,12}$/.test(mt5LoginInput.trim())}>
+            <button className="vt-primary" type="button" onClick={() => void submitMt5Account()} disabled={accountBusy || !/^\d{4,12}$/.test(mt5LoginInput.trim())}>
               {accountBusy ? "Submitting…" : "Submit MT5 Account"}
             </button>
           </div>
