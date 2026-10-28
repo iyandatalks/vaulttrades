@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type DirectoryKey = "Broker" | "Prop Firm" | "Tool" | "VaultTrades Product";
 
@@ -55,6 +55,13 @@ export default function PartnersClient() {
       .catch(() => setCatalogue([]));
   }, []);
   const [activeSection, setActiveSection] = useState<DirectoryKey | null>(null);
+  const resultsSectionRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (activeSection) {
+      resultsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [activeSection]);
   const shareUrl = typeof window !== "undefined" ? window.location.href : "https://vaulttradesve.com/partners";
 
   const copyLink = async () => {
@@ -132,7 +139,7 @@ export default function PartnersClient() {
         </section>
 
         {activeSection && (
-          <section className="vt-info-card" style={{ marginTop: 18 }}>
+          <section ref={resultsSectionRef} className="vt-info-card" style={{ marginTop: 18, scrollMarginTop: 24 }}>
             <div className="vt-label">{activeSection.toUpperCase()}</div>
             <h2 style={{ marginTop: 10 }}>
               {activeSection === "Broker" ? "Recommended MT5 Brokers" :
