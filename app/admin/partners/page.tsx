@@ -3,6 +3,14 @@ import { createClient } from "../../../lib/supabase/server";
 import { createAdminClient } from "../../../lib/supabase/admin";
 import PartnerCatalogueManager from "./PartnerCatalogueManager";
 
+type BrokerReferral = {
+  auth_user_id: string | null;
+  broker_referral_partner_name: string | null;
+  broker_referral_user_id: string | null;
+  broker_referral_status: string | null;
+  broker_referral_submitted_at: string | null;
+};
+
 export default async function AdminPartnersPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -29,8 +37,8 @@ export default async function AdminPartnersPage() {
   ]);
 
   const dataErrors = [usersError, licensesError, featuresError, subscriptionsError, brokerReferralsError].filter(Boolean);
-  const brokerReferralByUser = new Map<string, (typeof brokerReferrals)[number]>();
-  for (const referral of brokerReferrals ?? []) {
+  const brokerReferralByUser = new Map<string, BrokerReferral>();
+  for (const referral of (brokerReferrals ?? []) as BrokerReferral[]) {
     if (referral.auth_user_id && !brokerReferralByUser.has(referral.auth_user_id)) brokerReferralByUser.set(referral.auth_user_id, referral);
   }
   const hasActiveWindow = (status: string | null | undefined, startAt?: string | null, endAt?: string | null) =>
