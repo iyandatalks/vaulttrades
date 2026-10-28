@@ -20,14 +20,19 @@ export default async function AdminPartnersPage() {
   }
 
   const now = new Date().toISOString();
-  const [{ data: users = [], error: usersError }, { data: licenses = [], error: licensesError }, { data: features = [], error: featuresError }, { data: subscriptions = [], error: subscriptionsError }] = await Promise.all([
-    admin.from("users").select("id,email,first_name,last_name,created_at,license_status,license_expires_at,is_active,role").neq("role", "admin").order("created_at", { ascending: false }),
+  const [{ data: users = [], error: usersError }, { data: licenses = [], error: licensesError }, { data: features = [], error: featuresError }, { data: subscriptions = [], error: subscriptionsError }, { data: brokerReferrals = [], error: brokerReferralsError }] = await Promise.all([
+    admin.from("users").select("id,auth_user_id,email,first_name,last_name,created_at,license_status,license_expires_at,is_active,role").neq("role", "admin").order("created_at", { ascending: false }),
     admin.from("product_licenses").select("user_id,email,purchased_product_code,status,start_at,end_at"),
     admin.from("user_feature_access").select("user_id,feature_code,status,start_at,end_at"),
     admin.from("subscriptions").select("user_id,status,start_at,end_at"),
+    admin.from("copy_customer_registrations").select("auth_user_id,broker_referral_partner_name,broker_referral_user_id,broker_referral_status,broker_referral_submitted_at").not("broker_referral_user_id", "is", null).order("broker_referral_submitted_at", { ascending: false }),
   ]);
 
-  const dataErrors = [usersError, licensesError, featuresError, subscriptionsError].filter(Boolean);
+  const dataErrors = [usersError, licensesError, featuresError, subscriptionsError, brokerReferralsError].filter(Boolean);
+  const brokerReferralByUser = new Map<string, (typeof brokerReferrals)[number]>();
+  for (const referral of brokerReferrals ?? []) {
+    if (referral.auth_user_id && !brokerReferralByUser.has(referral.auth_user_id)) brokerReferralByUser.set(referral.auth_user_id, referral);
+  }
   const hasActiveWindow = (status: string | null | undefined, startAt?: string | null, endAt?: string | null) =>
     status?.toLowerCase() === "active" &&
     (!startAt || startAt <= now) &&
@@ -49,6 +54,7 @@ export default async function AdminPartnersPage() {
   }
   const internalUsers = (users ?? []).map((account) => ({
     ...account,
+    brokerReferral: account.auth_user_id ? brokerReferralByUser.get(account.auth_user_id) ?? null : null,
     hasAccess: activeIds.has(account.id),
     activeProducts: [
       ...(licenses ?? []).filter((item) => item.user_id === account.id && hasActiveWindow(item.status, item.start_at, item.end_at)).map((item) => item.purchased_product_code || "VaultTrades product"),
@@ -90,7 +96,7 @@ export default async function AdminPartnersPage() {
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 680 }}>
                   <thead><tr style={{ textAlign: "left", borderBottom: "1px solid #303747" }}>
-                    <th style={{ padding: "10px 8px" }}>Member</th><th style={{ padding: "10px 8px" }}>Joined</th><th style={{ padding: "10px 8px" }}>Access</th><th style={{ padding: "10px 8px" }}>Active products</th>
+                    <th style={{ padding: "10px 8px" }}>Member</th><th style={{ padding: "10px 8px" }}>Joined</th><th style={{ padding: "10px 8px" }}>Access</th><th style={{ padding: "10px 8px" }}>Active products</th><th style={{ padding: "10px 8px" }}>Internal partner ID</th>
                   </tr></thead>
                   <tbody>
                     {internalUsers.map((account) => (
@@ -99,9 +105,10 @@ export default async function AdminPartnersPage() {
                         <td style={{ padding: "12px 8px" }}>{account.created_at ? new Date(account.created_at).toLocaleDateString("en-ZA") : "—"}</td>
                         <td style={{ padding: "12px 8px" }}><span style={{ color: account.hasAccess ? "#4ade80" : "#fbbf24", fontWeight: 700 }}>{account.hasAccess ? "Active access" : "Profile only"}</span></td>
                         <td style={{ padding: "12px 8px" }}>{account.activeProducts.length ? [...new Set(account.activeProducts)].join(", ") : "No active product"}</td>
+                        <td style={{ padding: "12px 8px" }}>{account.brokerReferral ? <><strong>{account.brokerReferral.broker_referral_partner_name || "Broker"}</strong><br /><span>{account.brokerReferral.broker_referral_user_id}</span><br /><span className="muted">{account.brokerReferral.broker_referral_status || "pending"}{account.brokerReferral.broker_referral_submitted_at ? ` · ${new Date(account.brokerReferral.broker_referral_submitted_at).toLocaleDateString("en-ZA")}` : ""}</span></> : <span className="muted">Not submitted</span>}</td>
                       </tr>
                     ))}
-                    {internalUsers.length === 0 && <tr><td colSpan={4} style={{ padding: 16 }} className="muted">No registered member profiles found.</td></tr>}
+                    {internalUsers.length === 0 && <tr><td colSpan={5} style={{ padding: 16 }} className="muted">No registered member profiles found.</td></tr>}
                   </tbody>
                 </table>
               </div>
