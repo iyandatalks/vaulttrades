@@ -32,6 +32,7 @@ export default function CopyConnectPage() {
   const [selectedMt5, setSelectedMt5] = useState("");
   const [mt5LoginInput, setMt5LoginInput] = useState("");
   const [accountBusy, setAccountBusy] = useState(false);
+  const [mt5Submitted, setMt5Submitted] = useState(false);
 
   const load = async () => {
     const r = await fetch("/api/copy/status", { cache: "no-store" });
@@ -53,7 +54,7 @@ export default function CopyConnectPage() {
 
   const submitMt5Account = async () => {
     const mt5Login = mt5LoginInput.trim();
-    if (!/^\d{4,12}$/.test(mt5Login)) {
+    if (!/^\\d{4,12}$/.test(mt5Login)) {
       setMessage("Enter a valid MT5 account number (4–12 digits).");
       return;
     }
@@ -71,6 +72,7 @@ export default function CopyConnectPage() {
         return;
       }
       setSelectedMt5(mt5Login);
+      setMt5Submitted(true);
       setMessage(d.message || "MT5 account registered.");
       await load();
     } catch {
@@ -97,12 +99,16 @@ export default function CopyConnectPage() {
       setPairingCode(d.pairingCode || "");
       setPairingExpires(d.expiresAt || "");
       await load();
+    } catch {
+      setMessage("Unable to generate a pairing code. Please try again.");
     } finally {
       setBusy(false);
     }
   };
 
   const account = status?.account;
+  const registeredSelected = !!selectedMt5 && !!status?.registeredMt5Accounts?.some(item => item.mt5_login === selectedMt5);
+  const showMt5Requirement = mt5Submitted || registeredSelected;
 
   return (
     <main className="vt-info-page">
@@ -123,20 +129,6 @@ export default function CopyConnectPage() {
         </section>
 
         <section className="vt-info-card" style={{ marginTop: 20 }}>
-          <div className="vt-label">MT5 REQUIREMENT</div>
-          <h2 style={{ marginTop: 10 }}>Windows MT5 desktop or Windows VPS</h2>
-          <p>Install your broker's MT5 desktop terminal, keep it connected, enable Algo Trading, and attach the VaultTrades Copier EA to a chart.</p>
-          {status?.registeredMt5Accounts?.some(account => account.mt5_login === selectedMt5) ? (
-            <a className="vt-primary" href={`/api/copy/download?mt5Login=${encodeURIComponent(selectedMt5)}`} style={{ display:"inline-block", marginTop: 8 }}>
-              Download VaultTrades Copier (.ex5)
-            </a>
-          ) : (
-            <p className="muted" style={{ marginTop: 10 }}>Register your MT5 account below to unlock the Copier download and pairing workflow.</p>
-          )}
-          <p className="muted" style={{ marginTop: 10 }}>Copier v1.22</p>
-        </section>
-
-        <section className="vt-info-card" style={{ marginTop: 20 }}>
           <div className="vt-label">REGISTER MT5 ACCOUNT</div>
           <h2 style={{ marginTop: 10 }}>Submit the MT5 account covered by your access.</h2>
           <p>Enter the numeric MT5 login shown in your broker's MT5 terminal. This registration is available only while your Copy Trading access is active.</p>
@@ -145,12 +137,12 @@ export default function CopyConnectPage() {
               inputMode="numeric"
               autoComplete="off"
               value={mt5LoginInput}
-              onChange={(e) => setMt5LoginInput(e.target.value.replace(/\D/g, "").slice(0, 12))}
+              onChange={(e) => { setMt5LoginInput(e.target.value.replace(/\\D/g, "").slice(0, 12)); setMt5Submitted(false); }}
               placeholder="MT5 account number"
               aria-label="MT5 account number"
               style={{ width: "100%", maxWidth: 300, padding: "12px 13px", borderRadius: 8, border: "1px solid rgba(212,166,55,.35)", background: "#050812", color: "#f4f6fb" }}
             />
-            <button className="vt-primary" type="button" onClick={() => void submitMt5Account()} disabled={accountBusy || !/^\d{4,12}$/.test(mt5LoginInput.trim())}>
+            <button className="vt-primary" type="button" onClick={() => void submitMt5Account()} disabled={accountBusy || !/^\\d{4,12}$/.test(mt5LoginInput.trim())}>
               {accountBusy ? "Submitting…" : "Submit MT5 Account"}
             </button>
           </div>
@@ -158,30 +150,46 @@ export default function CopyConnectPage() {
           {(status?.registeredMt5Accounts?.length || 0) > 0 && (
             <div style={{ marginTop: 14 }}>
               <label htmlFor="copy-mt5-account">Registered account for pairing</label>
-              <select id="copy-mt5-account" value={selectedMt5} onChange={(e) => setSelectedMt5(e.target.value)} style={{ display: "block", width: "100%", maxWidth: 420, marginTop: 8, padding: "12px 13px", borderRadius: 8, border: "1px solid rgba(212,166,55,.35)", background: "#050812", color: "#f4f6fb" }}>
+              <select id="copy-mt5-account" value={selectedMt5} onChange={(e) => { setSelectedMt5(e.target.value); setMt5Submitted(false); }} style={{ display: "block", width: "100%", maxWidth: 420, marginTop: 8, padding: "12px 13px", borderRadius: 8, border: "1px solid rgba(212,166,55,.35)", background: "#050812", color: "#f4f6fb" }}>
                 <option value="">Select registered MT5 account</option>
-                {(status?.registeredMt5Accounts || []).map(account => <option key={account.mt5_login} value={account.mt5_login}>{account.mt5_login}</option>)}
+                {(status?.registeredMt5Accounts || []).map(item => <option key={item.mt5_login} value={item.mt5_login}>{item.mt5_login}</option>)}
               </select>
             </div>
           )}
         </section>
 
+        {showMt5Requirement && (
+          <section className="vt-info-card" style={{ marginTop: 20 }}>
+            <div className="vt-label">MT5 REQUIREMENT</div>
+            <h2 style={{ marginTop: 10 }}>Windows MT5 desktop or Windows VPS</h2>
+            <p>Install your broker's MT5 desktop terminal, keep it connected, enable Algo Trading, and attach the VaultTrades Copier EA to a chart.</p>
+            {registeredSelected ? (
+              <a className="vt-primary" href={`/api/copy/download?mt5Login=${encodeURIComponent(selectedMt5)}`} style={{ display: "inline-block", marginTop: 8 }}>
+                Download VaultTrades Copier (.ex5)
+              </a>
+            ) : (
+              <p className="muted" style={{ marginTop: 10 }}>Select the registered MT5 account to unlock the Copier download.</p>
+            )}
+            <p className="muted" style={{ marginTop: 10 }}>Copier v1.22</p>
+          </section>
+        )}
+
         <section className="vt-info-card" style={{ marginTop: 20 }}>
           <div className="vt-label">CONNECT</div>
           <h2 style={{ marginTop: 10 }}>Generate your one-time subscription pairing code.</h2>
           <p>The code is valid for up to <strong>24 hours</strong>, but never beyond your subscription expiry. Once activated, the Copier license remains valid only until your subscription expires.</p>
-          <button className="vt-primary" onClick={() => void generate()} disabled={busy || !selectedMt5 || status?.pairing?.available === false} style={{ marginTop: 8 }}>
+          <button className="vt-primary" onClick={() => void generate()} disabled={busy || !selectedMt5 || !registeredSelected || status?.pairing?.available === false} style={{ marginTop: 8 }}>
             {busy ? "Generating…" : "Generate Pairing Code"}
           </button>
           {pairingCode && (
-            <div style={{ marginTop:16, padding:18, borderRadius:12, background:"#050812", border:"1px solid rgba(212,166,55,.35)", textAlign:"center" }}>
+            <div style={{ marginTop: 16, padding: 18, borderRadius: 12, background: "#050812", border: "1px solid rgba(212,166,55,.35)", textAlign: "center" }}>
               <div className="vt-label">ENTER IN MT5 · InpPairingCode</div>
-              <div style={{ marginTop:8, fontSize:30, fontWeight:900, letterSpacing:".12em", color:"#d4a637" }}>{pairingCode}</div>
+              <div style={{ marginTop: 8, fontSize: 30, fontWeight: 900, letterSpacing: ".12em", color: "#d4a637" }}>{pairingCode}</div>
               <p className="muted">Expires {pairingExpires ? new Date(pairingExpires).toLocaleString() : "within 24 hours"}.</p>
             </div>
           )}
           {message && (
-            <div style={{ marginTop:14, color:"#ffcf8a" }}>
+            <div style={{ marginTop: 14, color: "#ffcf8a" }}>
               {message}{" "}
               <Link className="vt-text-link" href="/copy/support">Open in-app support</Link>
             </div>
@@ -214,7 +222,7 @@ export default function CopyConnectPage() {
           <p className="muted">Other MT5 brokers may work, but have not necessarily been tested by VaultTrades.</p>
         </section>
 
-        <p style={{ marginTop:18 }}>
+        <p style={{ marginTop: 18 }}>
           <Link className="vt-text-link" href="/copy/support">Need an activation reset? Use in-app support →</Link>
         </p>
       </div>
