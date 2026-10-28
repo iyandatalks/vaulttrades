@@ -13,11 +13,10 @@ export async function GET() {
   const db = createServiceClient();
   const [{ data: partners, error: partnersError }, { data: registrations, error: registrationsError }] = await Promise.all([
     db.from("partners").select("id,name").eq("category", "Broker").eq("is_published", true).order("sort_order", { ascending: true }).order("name", { ascending: true }),
-    db.from("copy_customer_registrations")
-      .select("broker_referral_partner_id,broker_referral_partner_name,broker_referral_user_id,broker_referral_status,broker_referral_submitted_at")
+    db.from("copy_broker_referrals")
+      .select("broker_referral_partner_id:partner_id,broker_referral_partner_name:partner_name,broker_referral_user_id:broker_user_id,broker_referral_status:status,broker_referral_submitted_at:submitted_at")
       .eq("auth_user_id", user.id)
-      .not("broker_referral_user_id", "is", null)
-      .order("broker_referral_submitted_at", { ascending: false })
+      .order("submitted_at", { ascending: false })
       .limit(1),
   ]);
 
@@ -52,32 +51,29 @@ export async function POST(request: Request) {
   if (!partner) return NextResponse.json({ error: "BROKER_NOT_AVAILABLE", message: "That broker is not currently available. Refresh the page and select a published broker." }, { status: 400 });
 
   const submittedAt = new Date().toISOString();
-  const { data: existing, error: existingError } = await db.from("copy_customer_registrations")
+  const { data: existing, error: existingError } = await db.from("copy_broker_referrals")
     .select("id")
     .eq("auth_user_id", user.id)
-    .order("updated_at", { ascending: false })
-    .limit(1)
     .maybeSingle();
 
   if (existingError) return NextResponse.json({ error: "REGISTRATION_LOOKUP_FAILED" }, { status: 500 });
 
   const referralFields = {
-    broker_referral_partner_id: partner.id,
-    broker_referral_partner_name: partner.name,
-    broker_referral_user_id: brokerUserId,
-    broker_referral_status: "pending",
-    broker_referral_submitted_at: submittedAt,
+    partner_id: partner.id,
+    partner_name: partner.name,
+    broker_user_id: brokerUserId,
+    status: "pending",
+    submitted_at: submittedAt,
     updated_at: submittedAt,
   };
 
   if (existing) {
-    const { error } = await db.from("copy_customer_registrations").update(referralFields).eq("id", existing.id).eq("auth_user_id", user.id);
+    const { error } = await db.from("copy_broker_referrals").update(referralFields).eq("id", existing.id).eq("auth_user_id", user.id);
     if (error) return NextResponse.json({ error: "BROKER_ID_SAVE_FAILED" }, { status: 500 });
   } else {
-    const { error } = await db.from("copy_customer_registrations").insert({
+    const { error } = await db.from("copy_broker_referrals").insert({
       auth_user_id: user.id,
       email: user.email || "",
-      mt5_login: "",
       ...referralFields,
     });
     if (error) return NextResponse.json({ error: "BROKER_ID_SAVE_FAILED" }, { status: 500 });
