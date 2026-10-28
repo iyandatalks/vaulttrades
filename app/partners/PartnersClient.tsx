@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 
 type DirectoryKey = "Broker" | "Prop Firm" | "Tool" | "VaultTrades Product";
 
@@ -31,18 +30,6 @@ const partners: Partner[] = [
   },
 ];
 
-const brokers = [
-  { name: "XM Broker", description: "MT4/MT5 trading accounts for forex, gold and other markets.", url: "https://www.xmza.com/referral?token=9TMOAfWroLZu69ys2-IUqg" },
-  { name: "Headway", description: "MT4/MT5 broker; review the account entity and current terms for your location.", url: "https://headway.partners/user/signup?hwp=d93922" },
-  { name: "JustMarkets", description: "MT4/MT5 trading accounts; available conditions depend on the account and jurisdiction.", url: "https://one.justmarkets.link/a/trea9c04a1" },
-];
-
-const propFirms = [
-  { name: "Top One Trader", description: "Compare its current evaluation models and trading rules.", url: "https://toponetrader.com/?linkId=lp_148658&sourceId=sibongilesz2017gmailcom&tenantId=toponetrader" },
-  { name: "Goat Funded Trader", description: "Review current challenge, funding and payout terms.", url: "https://www.goatfundedtrader.com/" },
-  { name: "Blue Guardian", description: "Compare available funding models and their rules.", url: "https://blueguardian.com/?afmc=2dw1" },
-];
-
 const products = [
   { name: "Analyzer", description: "Market analysis and trade planning.", url: "/analyzer" },
   { name: "Copy Trading", description: "VaultTrades copy-trading service.", url: "/copy" },
@@ -58,8 +45,15 @@ const tools = [
 export default function PartnersClient() {
   const [copied, setCopied] = useState(false);
   const [catalogue, setCatalogue] = useState<CatalogueRecord[]>([]);
-  const [catalogueError, setCatalogueError] = useState(false);
-  useEffect(() => { fetch("/api/partners", { cache: "no-store" }).then(async (r) => { if (!r.ok) throw new Error("Could not load partners"); const data = await r.json(); setCatalogue(data.partners ?? []); }).catch(() => setCatalogueError(true)); }, []);
+  useEffect(() => {
+    fetch("/api/partners", { cache: "no-store" })
+      .then(async (r) => {
+        if (!r.ok) throw new Error("Could not load partners");
+        const data = await r.json();
+        setCatalogue(data.partners ?? []);
+      })
+      .catch(() => setCatalogue([]));
+  }, []);
   const [activeSection, setActiveSection] = useState<DirectoryKey | null>(null);
   const shareUrl = typeof window !== "undefined" ? window.location.href : "https://vaulttradesve.com/partners";
 
@@ -82,10 +76,9 @@ export default function PartnersClient() {
   };
 
   const selectedItems = activeSection === "Broker" || activeSection === "Prop Firm"
-    ? catalogue.filter((item) => item.category === activeSection).map((item) => ({
-        ...item,
-        url: item.referral_url,
-      }))
+    ? catalogue
+        .filter((item) => item.category === activeSection && Boolean(item.referral_url?.trim()))
+        .map((item) => ({ ...item, url: item.referral_url }))
     : activeSection === "VaultTrades Product" ? products : activeSection === "Tool" ? tools : [];
 
   return (
@@ -152,36 +145,23 @@ export default function PartnersClient() {
                   <h2>{item.name}</h2>
                   <p className="muted" style={{ lineHeight: 1.65 }}>{item.description}</p>
                   {"url" in item && item.url ? (
-                    <a className="vt-primary" href={item.url} style={{ display: "inline-block", marginTop: 10 }}
+                    <a
+                      className="vt-primary"
+                      href={item.url}
+                      style={{ display: "inline-block", marginTop: 10 }}
                       target={item.url.startsWith("http") ? "_blank" : undefined}
-                      rel={item.url.startsWith("http") ? "noreferrer" : undefined}>
-                      {"cta_text" in item ? item.cta_text : activeSection === "VaultTrades Product" ? "View Product →" : "Visit Website →"}
+                      rel={item.url.startsWith("http") ? "noopener noreferrer" : undefined}
+                    >
+                      {"cta_text" in item && item.cta_text?.trim()
+                        ? item.cta_text
+                        : activeSection === "VaultTrades Product" ? "View Product →" : "Visit Website →"}
                     </a>
-                  ) : (
-                    <p className="muted" style={{ marginTop: 10, marginBottom: 0 }}>
-                      Available from your VaultTrades dashboard.
-                    </p>
-                  )}
+                  ) : null}
                 </article>
               ))}
             </div>
-            {(activeSection === "Broker" || activeSection === "Prop Firm") && (
-              <p className="muted" style={{ marginTop: 14, marginBottom: 0 }}>
-                Partner links may generate a referral benefit. Offers and account terms can change; review the provider's current terms before registering. Trading and funding outcomes are not guaranteed.
-              </p>
-            )}
           </section>
         )}
-
-        <section className="vt-info-card" style={{ marginTop: 24 }}>
-          <div className="vt-label">REFERRAL DISCLOSURE</div>
-          <h2 style={{ marginTop: 10 }}>Partner links may contain referral tracking.</h2>
-          <p className="muted" style={{ lineHeight: 1.7, marginBottom: 0 }}>
-            VaultTrades may receive a referral or affiliate commission when a user signs up
-            through an approved partner link. Any applicable referral code, offer or
-            commercial relationship will be displayed with the relevant partner.
-          </p>
-        </section>
       </div>
     </main>
   );
