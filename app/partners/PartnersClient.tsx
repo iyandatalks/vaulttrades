@@ -82,7 +82,10 @@ export default function PartnersClient() {
   };
 
   const selectedItems = activeSection === "Broker" || activeSection === "Prop Firm"
-    ? catalogue.filter((item) => item.category === activeSection)
+    ? catalogue.filter((item) => item.category === activeSection).map((item) => ({
+        ...item,
+        url: item.referral_url,
+      }))
     : activeSection === "VaultTrades Product" ? products : activeSection === "Tool" ? tools : [];
 
   return (
@@ -152,7 +155,7 @@ export default function PartnersClient() {
                     <a className="vt-primary" href={item.url} style={{ display: "inline-block", marginTop: 10 }}
                       target={item.url.startsWith("http") ? "_blank" : undefined}
                       rel={item.url.startsWith("http") ? "noreferrer" : undefined}>
-                      {activeSection === "VaultTrades Product" ? "View Product →" : "Visit Website →"}
+                      {"cta_text" in item ? item.cta_text : activeSection === "VaultTrades Product" ? "View Product →" : "Visit Website →"}
                     </a>
                   ) : (
                     <p className="muted" style={{ marginTop: 10, marginBottom: 0 }}>
