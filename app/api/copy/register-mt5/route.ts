@@ -24,7 +24,7 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => ({}));
   const mt5Login = String(body.mt5Login || "").trim();
-  if (!/^\\d{4,12}$/.test(mt5Login)) {
+  if (!/^\d{4,12}$/.test(mt5Login)) {
     return NextResponse.json({ error: "MT5_ID_INVALID", message: "Enter a valid MT5 account number containing 4–12 digits." }, { status: 400 });
   }
 
