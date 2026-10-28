@@ -17,7 +17,7 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const mt5Login = String(url.searchParams.get("mt5Login") || "").trim();
-  if (!/^\\d{4,12}$/.test(mt5Login)) {
+  if (!/^\d{4,12}$/.test(mt5Login)) {
     return NextResponse.json({ error: "MT5_ID_REQUIRED", message: "Register and select your MT5 account before downloading the Copier." }, { status: 400 });
   }
 
