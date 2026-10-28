@@ -152,7 +152,7 @@ export default function PartnersClient() {
                       target={item.url.startsWith("http") ? "_blank" : undefined}
                       rel={item.url.startsWith("http") ? "noopener noreferrer" : undefined}
                     >
-                      {"cta_text" in item && item.cta_text?.trim()
+                      {"cta_text" in item && typeof item.cta_text === "string" && item.cta_text.trim().length > 0
                         ? item.cta_text
                         : activeSection === "VaultTrades Product" ? "View Product →" : "Visit Website →"}
                     </a>
