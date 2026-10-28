@@ -1,15 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
 type DirectoryKey = "Broker" | "Prop Firm" | "Tool" | "VaultTrades Product";
 
-type Partner = {
-  name: string;
-  category: DirectoryKey;
-  description: string;
-};
+type Partner = { name: string; category: DirectoryKey; description: string; };
+type CatalogueRecord = { id: string; name: string; category: DirectoryKey; description: string; referral_url: string; referral_code: string | null; cta_text: string; };
 
 const partners: Partner[] = [
   {
@@ -60,6 +57,9 @@ const tools = [
 
 export default function PartnersClient() {
   const [copied, setCopied] = useState(false);
+  const [catalogue, setCatalogue] = useState<CatalogueRecord[]>([]);
+  const [catalogueError, setCatalogueError] = useState(false);
+  useEffect(() => { fetch("/api/partners", { cache: "no-store" }).then(async (r) => { if (!r.ok) throw new Error("Could not load partners"); const data = await r.json(); setCatalogue(data.partners ?? []); }).catch(() => setCatalogueError(true)); }, []);
   const [activeSection, setActiveSection] = useState<DirectoryKey | null>(null);
   const shareUrl = typeof window !== "undefined" ? window.location.href : "https://vaulttradesve.com/partners";
 
@@ -81,11 +81,9 @@ export default function PartnersClient() {
     }
   };
 
-  const selectedItems =
-    activeSection === "Broker" ? brokers :
-    activeSection === "Prop Firm" ? propFirms :
-    activeSection === "VaultTrades Product" ? products :
-    activeSection === "Tool" ? tools : [];
+  const selectedItems = activeSection === "Broker" || activeSection === "Prop Firm"
+    ? catalogue.filter((item) => item.category === activeSection)
+    : activeSection === "VaultTrades Product" ? products : activeSection === "Tool" ? tools : [];
 
   return (
     <main className="vt-info-page">
