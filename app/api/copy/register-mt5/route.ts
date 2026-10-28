@@ -30,13 +30,37 @@ export async function POST(request: Request) {
 
   const db = createServiceClient();
 
-  // A subscription bound to a specific MT5 login cannot be reassigned from this form.
-  const accountAccess = await getCopyAccess(user.id, mt5Login);
-  if (!accountAccess.active) {
-    return NextResponse.json({
-      error: "MT5_NOT_COVERED",
-      message: "This MT5 account is not covered by your active Copy Trading entitlement. Contact support if the subscription needs to be assigned to this account.",
-    }, { status: accountAccess.reason === "expired" ? 402 : 403 });
+  // Bind an unassigned paid license to this account on first registration.
+  // If a license is already assigned to another login, do not silently reassign it.
+  if (access.licenseId) {
+    const { data: license, error: licenseError } = await db
+      .from("product_licenses")
+      .select("id,mt_login")
+      .eq("id", access.licenseId)
+      .maybeSingle();
+
+    if (licenseError || !license) {
+      return NextResponse.json({ error: "COPY_LICENSE_LOOKUP_FAILED", message: "Unable to verify your Copy Trading license." }, { status: 500 });
+    }
+
+    if (license.mt_login && String(license.mt_login) !== mt5Login) {
+      return NextResponse.json({
+        error: "MT5_ALREADY_BOUND",
+        message: "Your subscription is already assigned to a different MT5 account. Contact support to request an account change.",
+      }, { status: 409 });
+    }
+
+    if (!license.mt_login) {
+      const { error: bindError } = await db
+        .from("product_licenses")
+        .update({ mt_login: mt5Login, updated_at: new Date().toISOString() })
+        .eq("id", license.id)
+        .is("mt_login", null);
+
+      if (bindError) {
+        return NextResponse.json({ error: "MT5_BIND_FAILED", message: "Unable to assign this MT5 account to your subscription." }, { status: 500 });
+      }
+    }
   }
 
   const { data: existing, error: lookupError } = await db
