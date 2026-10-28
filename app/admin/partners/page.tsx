@@ -25,7 +25,7 @@ export default async function AdminPartnersPage() {
     admin.from("product_licenses").select("user_id,email,purchased_product_code,status,start_at,end_at"),
     admin.from("user_feature_access").select("user_id,feature_code,status,start_at,end_at"),
     admin.from("subscriptions").select("user_id,status,start_at,end_at"),
-    admin.from("copy_customer_registrations").select("auth_user_id,broker_referral_partner_name,broker_referral_user_id,broker_referral_status,broker_referral_submitted_at").not("broker_referral_user_id", "is", null).order("broker_referral_submitted_at", { ascending: false }),
+    admin.from("copy_broker_referrals").select("auth_user_id,broker_referral_partner_name:partner_name,broker_referral_user_id:broker_user_id,broker_referral_status:status,broker_referral_submitted_at:submitted_at").order("submitted_at", { ascending: false }),
   ]);
 
   const dataErrors = [usersError, licensesError, featuresError, subscriptionsError, brokerReferralsError].filter(Boolean);
