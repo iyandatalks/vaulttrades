@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+type BrokerPartner = { id: string; name: string };
+
 type Status = {
   connected?: boolean;
   subscriptionActive?: boolean;
@@ -13,6 +15,11 @@ type Status = {
 export default function CopyPage() {
   const [connected, setConnected] = useState(false);
   const [statusText, setStatusText] = useState("");
+  const [brokerPartners, setBrokerPartners] = useState<BrokerPartner[]>([]);
+  const [brokerPartnerId, setBrokerPartnerId] = useState("");
+  const [brokerUserId, setBrokerUserId] = useState("");
+  const [brokerReferralBusy, setBrokerReferralBusy] = useState(false);
+  const [brokerReferralMessage, setBrokerReferralMessage] = useState("");
 
   useEffect(() => {
     fetch("/api/copy/status", { cache: "no-store" })
@@ -27,6 +34,39 @@ export default function CopyPage() {
       })
       .catch(() => window.location.replace("/products?product=copy"));
   }, []);
+
+  useEffect(() => {
+    fetch("/api/copy/partner-referral", { cache: "no-store" })
+      .then(async r => {
+        const d = await r.json();
+        if (!r.ok) return;
+        setBrokerPartners(d.partners || []);
+        if (d.referral) {
+          setBrokerPartnerId(d.referral.broker_referral_partner_id || "");
+          setBrokerUserId(d.referral.broker_referral_user_id || "");
+        }
+      })
+      .catch(() => setBrokerReferralMessage("Unable to load broker partners. Please refresh and try again."));
+  }, []);
+
+  async function submitBrokerReferral() {
+    setBrokerReferralBusy(true);
+    setBrokerReferralMessage("");
+    try {
+      const r = await fetch("/api/copy/partner-referral", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ partnerId: brokerPartnerId, brokerUserId }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.message || d.error || "Could not submit broker ID.");
+      setBrokerReferralMessage(d.message || "Broker ID submitted.");
+    } catch (error) {
+      setBrokerReferralMessage(error instanceof Error ? error.message : "Could not submit broker ID.");
+    } finally {
+      setBrokerReferralBusy(false);
+    }
+  }
 
   return (
     <main className="vt-info-page">
@@ -48,6 +88,28 @@ export default function CopyPage() {
         </header>
 
         <section className="vt-info-card" style={{ marginTop: 24, border: "1px solid rgba(212,166,55,.35)" }}>
+        <section className="vt-info-card" style={{ marginTop: 24, border: "1px solid rgba(212,166,55,.35)" }}>
+          <div className="vt-label">RECOMMENDED BROKER REGISTRATION</div>
+          <h2 style={{ marginTop: 10 }}>Submit your broker User ID</h2>
+          <p>If you registered with a broker through the VaultTrades Partners page, select that broker and enter the User ID shown in the broker's client portal or report. This lets VaultTrades identify your referral. It is separate from your MT5 trading account number.</p>
+          <form onSubmit={(e) => { e.preventDefault(); void submitBrokerReferral(); }} style={{ display: "grid", gap: 12, marginTop: 14 }}>
+            <label style={{ display: "grid", gap: 6 }}>
+              <span>Recommended broker</span>
+              <select required value={brokerPartnerId} onChange={e => setBrokerPartnerId(e.target.value)} style={{ width: "100%", padding: 12, borderRadius: 8, border: "1px solid rgba(212,166,55,.35)", background: "#050812", color: "#f4f6fb" }}>
+                <option value="">Select broker</option>
+                {brokerPartners.map(partner => <option key={partner.id} value={partner.id}>{partner.name}</option>)}
+              </select>
+            </label>
+            <label style={{ display: "grid", gap: 6 }}>
+              <span>Broker User ID (not your MT5 login)</span>
+              <input required maxLength={120} value={brokerUserId} onChange={e => setBrokerUserId(e.target.value)} placeholder="Enter the User ID shown by your broker" style={{ width: "100%", padding: 12, borderRadius: 8, border: "1px solid rgba(212,166,55,.35)", background: "#050812", color: "#f4f6fb" }} />
+            </label>
+            <div><button className="vt-primary" type="submit" disabled={brokerReferralBusy || !brokerPartnerId || !brokerUserId.trim()}>{brokerReferralBusy ? "Submitting…" : "Submit Broker User ID"}</button></div>
+          </form>
+          {brokerReferralMessage && <p role="status" style={{ marginBottom: 0, marginTop: 12 }}>{brokerReferralMessage}</p>}
+          {brokerPartners.length === 0 && <p className="muted">No published broker partners are available yet. Please try again later.</p>}
+        </section>
+
           <div className="vt-label">START HERE</div>
           <h2 style={{ marginTop: 10 }}>Follow these 4 steps</h2>
           <div className="vt-info-grid" style={{ marginTop: 18 }}>
