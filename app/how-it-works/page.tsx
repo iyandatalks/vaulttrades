@@ -1,4 +1,7 @@
+import { redirect } from "next/navigation";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
+import { getCopyAccess } from "@/lib/copy-access";
 
 const steps = [
   ["01", "ANALYZE", "Open Analyzer and identify the market context, structure, liquidity and strategy conditions. The objective is to understand where a setup may exist."],
@@ -8,24 +11,29 @@ const steps = [
   ["05", "REVIEW", "Use Journal and AI Coach to record decisions, review outcomes and understand the analysis behind a setup."],
 ] as const;
 
-export default function HowItWorksPage() {
+export const dynamic = "force-dynamic";
+
+export default async function HowItWorksPage() {
+  const auth = await createClient();
+  const { data: { user } } = await auth.auth.getUser();
+  if (!user) redirect("/products?product=copy");
+
+  const access = await getCopyAccess(user.id);
+  if (!access.active) redirect("/products?product=copy");
+
   return (
     <main className="vt-info-page">
       <div className="vt-info-wrap">
         <header className="vt-info-hero">
-          <div className="vt-label">HOW VAULTTRADES WORKS</div>
-          <h1>The platform follows a trading process — not a collection of random tools.</h1>
-          <p>VaultTrades is designed so a trader can understand what to do next without needing a video walkthrough. Start with the market, use the service that matches your objective, then review the result.</p>
+          <div className="vt-label">HOW VAULTTRADES COPY WORKS</div>
+          <h1>Copy Trading access and connection workflow.</h1>
+          <p>This subscriber guide explains how an eligible VaultTrades master execution is delivered through the copy infrastructure to your connected MT5 account.</p>
         </header>
 
         <section className="vt-info-grid">
-          {steps.map(([number, title, text]) => (
-            <article className="vt-info-card" key={number}>
-              <div className="vt-number">{number}</div>
-              <h2>{title}</h2>
-              <p>{text}</p>
-            </article>
-          ))}
+          <article className="vt-info-card"><div className="vt-number">01</div><h2>Activate access</h2><p>Purchase the Copy Trading subscription or wait for an administrator to grant access to your account.</p></article>
+          <article className="vt-info-card"><div className="vt-number">02</div><h2>Connect MT5</h2><p>Open Manage MT5 Connection, generate a pairing code and enter it into the VaultTrades Copier EA.</p></article>
+          <article className="vt-info-card"><div className="vt-number">03</div><h2>Verify connection</h2><p>Return to the connection status page and confirm the follower account is online and authorized before copying trades.</p></article>
         </section>
 
         <section className="vt-connection">
@@ -38,18 +46,18 @@ export default function HowItWorksPage() {
             <div className="vt-status-row"><span className="vt-status-name">Customer trading account</span><span className="vt-status-pill">COPY</span></div>
           </article>
           <article className="vt-technical">
-            <div className="vt-label">SHARED CUSTOMER TOOLS</div>
-            <h2 style={{ margin: "10px 0 8px", fontSize: 22 }}>Journal · AI Coach · Wealth Builder</h2>
-            <p>These supporting tools are available when a customer has any active paid VaultTrades product. They remain separate from the primary product service.</p>
+            <div className="vt-label">ACCESS CONTROL</div>
+            <h2 style={{ margin: "10px 0 8px", fontSize: 22 }}>Subscription or admin grant required</h2>
+            <p>Only accounts with current Copy Trading entitlement can use the connection workflow. Broker User ID submission on the public Copy Trading page remains available to signed-in profiles without an active subscription.</p>
           </article>
         </section>
 
         <section className="vt-section" style={{ paddingLeft: 0, paddingRight: 0 }}>
           <div className="vt-start">
-            <div className="vt-label">READY TO START?</div>
-            <h2>Choose the service that matches your workflow.</h2>
-            <p>Analyzer and Copy Trading are monthly services. Founders Mentorship is a once-off purchase with a 7-day one-on-one window. Any active product also unlocks Journal, AI Coach and the Funded Account Wealth Builder to members trading the prop firms.</p>
-            <div className="vt-actions"><Link className="vt-primary" href="/products">View Products</Link><Link className="vt-secondary" href="/founders-mentorship/purchase">Founders Mentorship</Link></div>
+            <div className="vt-label">COPY TRADING CONTROLS</div>
+            <h2>Manage your MT5 connection.</h2>
+            <p>Keep your MT5 account secure and verify that access is active before expecting trades to be copied.</p>
+            <div className="vt-actions"><Link className="vt-primary" href="/copy/connect">Manage MT5 Connection</Link><Link className="vt-secondary" href="/copy">Back to Copy Trading</Link></div>
           </div>
         </section>
       </div>
