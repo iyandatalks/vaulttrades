@@ -30,6 +30,8 @@ export default function CopyConnectPage() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [selectedMt5, setSelectedMt5] = useState("");
+  const [mt5LoginInput, setMt5LoginInput] = useState("");
+  const [accountBusy, setAccountBusy] = useState(false);
 
   const load = async () => {
     const r = await fetch("/api/copy/status", { cache: "no-store" });
@@ -42,9 +44,41 @@ export default function CopyConnectPage() {
     if (!selectedMt5 && d.registeredMt5Accounts?.[0]?.mt5_login) {
       setSelectedMt5(d.registeredMt5Accounts[0].mt5_login);
     }
+    if (!mt5LoginInput && d.registeredMt5Accounts?.[0]?.mt5_login) {
+      setMt5LoginInput(d.registeredMt5Accounts[0].mt5_login);
+    }
   };
 
   useEffect(() => { void load().catch(() => window.location.replace("/products?product=copy")); }, []);
+
+  const submitMt5Account = async () => {
+    const mt5Login = mt5LoginInput.trim();
+    if (!/^\\d{4,12}$/.test(mt5Login)) {
+      setMessage("Enter a valid MT5 account number (4–12 digits).");
+      return;
+    }
+    setAccountBusy(true);
+    setMessage("");
+    try {
+      const r = await fetch("/api/copy/register-mt5", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mt5Login }),
+      });
+      const d = await r.json();
+      if (!r.ok) {
+        setMessage(d.message || d.error || "Unable to register this MT5 account.");
+        return;
+      }
+      setSelectedMt5(mt5Login);
+      setMessage(d.message || "MT5 account registered.");
+      await load();
+    } catch {
+      setMessage("Unable to register this MT5 account. Please try again.");
+    } finally {
+      setAccountBusy(false);
+    }
+  };
 
   const generate = async () => {
     setBusy(true);
@@ -92,20 +126,44 @@ export default function CopyConnectPage() {
           <div className="vt-label">MT5 REQUIREMENT</div>
           <h2 style={{ marginTop: 10 }}>Windows MT5 desktop or Windows VPS</h2>
           <p>Install your broker's MT5 desktop terminal, keep it connected, enable Algo Trading, and attach the VaultTrades Copier EA to a chart.</p>
-          <a className="vt-primary" href="/downloads/VaultTrades_Copier.ex5" download="VaultTrades_Copier.ex5" style={{ display:"inline-block", marginTop: 8 }}>
-            Download VaultTrades Copier (.ex5)
-          </a>
+          {status?.registeredMt5Accounts?.some(account => account.mt5_login === selectedMt5) ? (
+            <a className="vt-primary" href="/downloads/VaultTrades_Copier.ex5" download="VaultTrades_Copier.ex5" style={{ display:"inline-block", marginTop: 8 }}>
+              Download VaultTrades Copier (.ex5)
+            </a>
+          ) : (
+            <p className="muted" style={{ marginTop: 10 }}>Register your MT5 account below to unlock the Copier download and pairing workflow.</p>
+          )}
           <p className="muted" style={{ marginTop: 10 }}>Copier v1.22</p>
         </section>
 
         <section className="vt-info-card" style={{ marginTop: 20 }}>
-          <div className="vt-label">MT5 ACCOUNT</div>
-          <h2 style={{ marginTop: 10 }}>Select the MT5 account covered by this subscription.</h2>
-          <select value={selectedMt5} onChange={(e) => setSelectedMt5(e.target.value)} style={{ width: "100%", maxWidth: 420, padding: "12px 13px", borderRadius: 8, border: "1px solid rgba(212,166,55,.35)", background: "#050812", color: "#f4f6fb" }}>
-            <option value="">Select registered MT5 account</option>
-            {(status?.registeredMt5Accounts || []).map(account => <option key={account.mt5_login} value={account.mt5_login}>{account.mt5_login}</option>)}
-          </select>
-          <p className="muted">Each Copy Trading subscription is bound to one registered MT5 account. A second MT5 account requires a separate subscription.</p>
+          <div className="vt-label">REGISTER MT5 ACCOUNT</div>
+          <h2 style={{ marginTop: 10 }}>Submit the MT5 account covered by your access.</h2>
+          <p>Enter the numeric MT5 login shown in your broker's MT5 terminal. This registration is available only while your Copy Trading access is active.</p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", marginTop: 12 }}>
+            <input
+              inputMode="numeric"
+              autoComplete="off"
+              value={mt5LoginInput}
+              onChange={(e) => setMt5LoginInput(e.target.value.replace(/\\D/g, "").slice(0, 12))}
+              placeholder="MT5 account number"
+              aria-label="MT5 account number"
+              style={{ width: "100%", maxWidth: 300, padding: "12px 13px", borderRadius: 8, border: "1px solid rgba(212,166,55,.35)", background: "#050812", color: "#f4f6fb" }}
+            />
+            <button className="vt-primary" type="button" onClick={() => void submitMt5Account()} disabled={accountBusy || !/^\\d{4,12}$/.test(mt5LoginInput.trim())}>
+              {accountBusy ? "Submitting…" : "Submit MT5 Account"}
+            </button>
+          </div>
+          <p className="muted" style={{ marginTop: 10 }}>Each subscription is bound to one registered MT5 account. A second account requires a separate subscription.</p>
+          {(status?.registeredMt5Accounts?.length || 0) > 0 && (
+            <div style={{ marginTop: 14 }}>
+              <label htmlFor="copy-mt5-account">Registered account for pairing</label>
+              <select id="copy-mt5-account" value={selectedMt5} onChange={(e) => setSelectedMt5(e.target.value)} style={{ display: "block", width: "100%", maxWidth: 420, marginTop: 8, padding: "12px 13px", borderRadius: 8, border: "1px solid rgba(212,166,55,.35)", background: "#050812", color: "#f4f6fb" }}>
+                <option value="">Select registered MT5 account</option>
+                {(status?.registeredMt5Accounts || []).map(account => <option key={account.mt5_login} value={account.mt5_login}>{account.mt5_login}</option>)}
+              </select>
+            </div>
+          )}
         </section>
 
         <section className="vt-info-card" style={{ marginTop: 20 }}>
@@ -152,7 +210,7 @@ export default function CopyConnectPage() {
         <section className="vt-info-card" style={{ marginTop: 20 }}>
           <div className="vt-label">TESTED MT5 BROKERS</div>
           <p style={{ marginBottom: 8 }}>VaultTrades has tested the Copier in MT5 environments with:</p>
-          <p><strong>XM · Headway · [third tested broker]</strong></p>
+          <p><strong>XM · Headway · Weltrade</strong></p>
           <p className="muted">Other MT5 brokers may work, but have not necessarily been tested by VaultTrades.</p>
         </section>
 
