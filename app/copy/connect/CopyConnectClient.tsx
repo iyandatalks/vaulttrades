@@ -127,7 +127,7 @@ export default function CopyConnectPage() {
           <h2 style={{ marginTop: 10 }}>Windows MT5 desktop or Windows VPS</h2>
           <p>Install your broker's MT5 desktop terminal, keep it connected, enable Algo Trading, and attach the VaultTrades Copier EA to a chart.</p>
           {status?.registeredMt5Accounts?.some(account => account.mt5_login === selectedMt5) ? (
-            <a className="vt-primary" href="/downloads/VaultTrades_Copier.ex5" download="VaultTrades_Copier.ex5" style={{ display:"inline-block", marginTop: 8 }}>
+            <a className="vt-primary" href={`/api/copy/download?mt5Login=${encodeURIComponent(selectedMt5)}`} style={{ display:"inline-block", marginTop: 8 }}>
               Download VaultTrades Copier (.ex5)
             </a>
           ) : (
