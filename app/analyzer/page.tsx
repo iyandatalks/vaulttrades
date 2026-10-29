@@ -106,12 +106,11 @@ const DEFAULT_SYMBOLS: Record<MarketType, string[]> = {
   STOCKS: ["AAPL", "MSFT", "NVDA", "TSLA", "AMZN"],
   SYNTHETIC: ["V75", "V100", "Boom 1000", "Crash 1000"],
 };
-const PUBLIC_STRATEGY_IDS = ["fibRetracement", "ema20", "supplyDemand", "lsobr"] as const;
+const PUBLIC_STRATEGY_IDS = ["fibRetracement", "ema20", "supplyDemand"] as const;
 const PUBLIC_STRATEGY_LABELS: Record<string, string> = {
   fibRetracement: "1. VaultTrades | Auto Fib Retrace + OB",
   ema20: "2. VaultTrades | EMA20 + OB",
   supplyDemand: "3. VaultTrades | Supply and Demand",
-  lsobr: "4. VaultTrades LSOBR",
 };
 const fmt = (v: number | null | undefined) => v == null || !Number.isFinite(v) ? "—" : v.toLocaleString(undefined, { maximumFractionDigits: 5 });
 
