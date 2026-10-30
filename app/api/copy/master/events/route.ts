@@ -290,7 +290,7 @@ export async function POST(req: Request) {
 
   const { data: links, error: linksError } = await db
     .from("copy_links")
-.select("follower_id,lot_mode,lot_value,copy_followers(auth_user_id,status)")
+.select("follower_id,lot_mode,lot_value,copy_followers(auth_user_id,status,copy_enabled)")
     .eq("master_id", masterId)
     .eq("status", "active");
 
@@ -313,6 +313,15 @@ export async function POST(req: Request) {
   for (const link of links || []) {
     const follower = Array.isArray(link.copy_followers) ? link.copy_followers[0] : link.copy_followers;
     const authUserId = follower?.auth_user_id ? String(follower.auth_user_id) : "";
+    if (follower?.copy_enabled === false) {
+      console.info("[copy/master/events] follower paused copying; skipping fanout", {
+        requestId,
+        eventId: event.id,
+        followerId: link.follower_id,
+      });
+      continue;
+    }
+
     if (!authUserId) {
       console.warn("[copy/master/events] skipping follower without auth identity", {
         requestId,
