@@ -154,7 +154,27 @@ export default function ProfilePage() {
               )}
             </section>
 
-
+            {hasWhatsAppSupport && (
+              <section className="vt-info-card" style={{ marginTop: 24, textAlign: "left", border: "1px solid rgba(212,166,55,.35)" }}>
+                <div className="vt-label">PRIORITY CUSTOMER SUPPORT</div>
+                <h2 style={{ margin: "10px 0 8px", fontSize: 27 }}>WhatsApp Business Support</h2>
+                <p style={{ maxWidth: 760 }}>
+                  Direct WhatsApp support is available to customers with an active paid VaultTrades product or access granted by the VaultTrades team.
+                </p>
+                <a
+                  className="vt-primary"
+                  href="https://wa.me/27746653633?text=Hello%20VaultTrades%20Support%2C%20I%20need%20assistance%20with%20my%20account."
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ display: "inline-block", marginTop: 12 }}
+                >
+                  WhatsApp Business Support
+                </a>
+                <p className="muted" style={{ marginTop: 10, fontSize: 12 }}>
+                  Access to this support link is checked against your current VaultTrades product entitlement.
+                </p>
+              </section>
+            )}
 
           </>
         )}
