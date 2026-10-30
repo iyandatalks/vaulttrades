@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import "./globals.css";
 import AppNav from "./AppNav";
 import VaultTradesFooter from "./VaultTradesFooter";
+import SitePromotionPopup from "./SitePromotionPopup";
 
 export const metadata: Metadata = {
   title: "VaultTrades",
@@ -32,6 +33,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
         <AppNav />
         {children}
         <VaultTradesFooter />
+        <SitePromotionPopup />
       </body>
     </html>
   );
