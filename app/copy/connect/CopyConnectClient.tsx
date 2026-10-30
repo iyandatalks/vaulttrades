@@ -216,10 +216,8 @@ export default function CopyConnectPage() {
         </section>
 
         <section className="vt-info-card" style={{ marginTop: 20 }}>
-          <div className="vt-label">TESTED MT5 BROKERS</div>
-          <p style={{ marginBottom: 8 }}>VaultTrades has tested the Copier in MT5 environments with:</p>
-          <p><strong>XM · Headway · Weltrade</strong></p>
-          <p className="muted">Other MT5 brokers may work, but have not necessarily been tested by VaultTrades.</p>
+          <div className="vt-label">BROKER COMPATIBILITY</div>
+          <p>MT5 compatibility is verified against the specific broker server, account type and instrument symbol. An online heartbeat alone does not confirm successful trade execution.</p>
         </section>
 
         <p style={{ marginTop: 18 }}>
