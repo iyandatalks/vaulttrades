@@ -21,5 +21,18 @@ export async function POST(req: Request) {
   }).select("id,created_at,status").single();
 
   if (error) return NextResponse.json({ error: "SUPPORT_REQUEST_FAILED" }, { status: 500 });
+
+  await db.from("admin_inbox_notifications").insert({
+    event_type: "copier_support_request",
+    title: "New Copier support request",
+    body: `${String(body.requestType || "PAIRING_RESET")}: ${message.slice(0, 900)}`,
+    severity: "warning",
+    auth_user_id: user.id,
+    customer_email: user.email || null,
+    related_id: data.id,
+    action_href: "/admin/copy-support",
+    metadata: { request_type: String(body.requestType || "PAIRING_RESET") },
+  });
+
   return NextResponse.json({ ok: true, request: data });
 }
