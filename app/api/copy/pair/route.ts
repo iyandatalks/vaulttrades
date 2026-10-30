@@ -62,6 +62,7 @@ export async function POST(req: Request) {
       .eq("auth_user_id", user.id)
       .eq("subscription_start_at", access.startAt)
       .eq("mt5_login", mt5Login)
+      .is("revoked_at", null)
       .maybeSingle();
 
     if (existing) {
