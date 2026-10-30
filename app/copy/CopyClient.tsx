@@ -8,8 +8,6 @@ type BrokerPartner = { id: string; name: string };
 export default function CopyPage() {
   const [signedIn, setSignedIn] = useState(false);
   const [hasCopyAccess, setHasCopyAccess] = useState(false);
-  const [connected, setConnected] = useState(false);
-  const [statusText, setStatusText] = useState("");
   const [statusAccounts, setStatusAccounts] = useState<NonNullable<Status["accounts"]>>([]);
   const [statusMasters, setStatusMasters] = useState<NonNullable<Status["masters"]>>([]);
   const [statusLinks, setStatusLinks] = useState<NonNullable<Status["links"]>>([]);
@@ -26,11 +24,9 @@ export default function CopyPage() {
         if (!r.ok) return;
         setSignedIn(true);
         setHasCopyAccess(d.subscriptionActive === true);
-        setConnected(Boolean(d.connected));
         setStatusAccounts(d.accounts || (d.account ? [d.account] : []));
         setStatusMasters(d.masters || []);
         setStatusLinks(d.links || []);
-        setStatusText(d.accessUntil ? `Access until ${new Date(d.accessUntil).toLocaleDateString()}` : (d.subscriptionActive ? "Copy Trading access is active." : ""));
       })
       .catch(() => undefined);
 
