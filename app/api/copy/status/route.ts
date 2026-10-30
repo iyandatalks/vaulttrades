@@ -37,7 +37,26 @@ export async function GET() {
       follower.license_status = reason;
     }
 
-    accounts.push(follower);
+    const { data: executions } = await db
+      .from("copy_trade_executions")
+      .select("status,error_code,error_message,updated_at")
+      .eq("follower_id", follower.id)
+      .order("updated_at", { ascending: false })
+      .limit(50);
+
+    const records = executions || [];
+    accounts.push({
+      ...follower,
+      execution_summary: {
+        total: records.length,
+        executed: records.filter((item: any) => item.status === "executed").length,
+        failed: records.filter((item: any) => item.status === "failed").length,
+        pending: records.filter((item: any) => item.status === "pending").length,
+        last_error_code: records.find((item: any) => item.status === "failed")?.error_code || null,
+        last_error_message: records.find((item: any) => item.status === "failed")?.error_message || null,
+        last_updated_at: records[0]?.updated_at || null,
+      },
+    });
   }
 
   const current = accounts[0] || null;
