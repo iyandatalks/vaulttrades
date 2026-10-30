@@ -78,7 +78,7 @@ export default function SitePromotionPopup() {
             {active.cta_text}
           </a>
         </div>
-        {active.image_url ? <img className="vt-promo-image" src={active.image_url} alt="" /> : null}
+        <img className="vt-promo-image" src={active.image_url || "/vaulttrades-logo.png"} alt="" />
       </div>
       <div className="vt-promo-brand">VAULTTRADES</div>
     </aside>
