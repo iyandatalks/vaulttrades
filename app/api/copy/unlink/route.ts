@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
-import { createHash } from "crypto";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
