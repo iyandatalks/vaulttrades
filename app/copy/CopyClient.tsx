@@ -17,6 +17,7 @@ export default function CopyPage() {
   const [statusAccounts, setStatusAccounts] = useState<FollowerAccount[]>([]);
   const [copyControlBusy, setCopyControlBusy] = useState("");
   const [copyControlMessage, setCopyControlMessage] = useState("");
+  const [unlinkBusy, setUnlinkBusy] = useState("");
   const [brokerPartners, setBrokerPartners] = useState<BrokerPartner[]>([]);
   const [brokerPartnerId, setBrokerPartnerId] = useState("");
   const [brokerUserId, setBrokerUserId] = useState("");
@@ -68,6 +69,28 @@ export default function CopyPage() {
       setCopyControlMessage(error instanceof Error ? error.message : "Unable to update copy status.");
     } finally {
       setCopyControlBusy("");
+    }
+  }
+
+  async function unlinkCopier(account: FollowerAccount) {
+    const confirmed = window.confirm(`Unlink MT5 account ${account.mt_login}? Its Copier token and pairing code will be revoked and it will disappear from this list. Existing MT5 positions will not be closed.`);
+    if (!confirmed) return;
+    setUnlinkBusy(account.mt_login);
+    setCopyControlMessage("");
+    try {
+      const response = await fetch("/api/copy/unlink", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mt5Login: account.mt_login }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || result.error || "Unable to unlink Copier.");
+      setStatusAccounts(current => current.filter(item => item.mt_login !== account.mt_login));
+      setCopyControlMessage(result.message || "Copier unlinked.");
+    } catch (error) {
+      setCopyControlMessage(error instanceof Error ? error.message : "Unable to unlink Copier.");
+    } finally {
+      setUnlinkBusy("");
     }
   }
 
@@ -166,6 +189,9 @@ export default function CopyPage() {
                       <Link href="/copy/connect" className="vt-copy-action">⚙ Settings</Link>
                       <button type="button" className={enabled ? "vt-copy-stop-button" : "vt-copy-resume-button"} onClick={() => void toggleCopying(account, !enabled)} disabled={copyControlBusy === account.mt_login || (!enabled && !licenseActive)}>
                         {copyControlBusy === account.mt_login ? "Updating…" : enabled ? "■ Stop copying" : "▶ Resume copying"}
+                      </button>
+                      <button type="button" className="vt-copy-unlink-button" onClick={() => void unlinkCopier(account)} disabled={unlinkBusy === account.mt_login || copyControlBusy === account.mt_login}>
+                        {unlinkBusy === account.mt_login ? "Unlinking…" : "Unlink Copier"}
                       </button>
                     </div>
                   </div>
