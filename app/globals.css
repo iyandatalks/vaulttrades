@@ -21,3 +21,7 @@
 .vt-copy-stop-button{background:rgba(225,61,61,.14);color:#ff7777}
 .vt-copy-resume-button{background:rgba(39,214,155,.14);color:#42d9a5}
 .vt-copy-stop-button:disabled,.vt-copy-resume-button:disabled{opacity:.5;cursor:not-allowed}
+
+.vt-copy-unlink-button{border:1px solid rgba(232,92,92,.45);background:transparent;color:#ff9696;border-radius:8px;padding:9px 12px;font-size:12px;font-weight:800;cursor:pointer}
+.vt-copy-unlink-button:hover{background:rgba(225,61,61,.12)}
+.vt-copy-unlink-button:disabled{opacity:.5;cursor:not-allowed}
