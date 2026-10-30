@@ -45,6 +45,7 @@ type Scanner = {
   entryConfirmation?: boolean;
   entryConfirmationReason?: string;
   confirmationTimeframe?: string;
+  isExecutable?: boolean;
   universalValidationPassed?: boolean;
   volumeProfile?: { currentVolume: number | null; averageVolume: number | null; ratio: number | null; expansion: boolean; candleDirection: string; displacementATR: number | null };
 };
@@ -65,7 +66,7 @@ type Result = {
   strategy?: { id?: string; name?: string; category?: string };
   sourceIndicators?: { name: string; purpose: string; parameters: string; required: boolean }[];
   indicatorReadings?: { name: string; value: number | null; signal: string; reason: string; values?: Record<string, number | null> }[];
-  chart?: { candles: Candle[]; channel20?: { upper: number | null; lower: number | null; middle: number | null } };
+  chart?: { candles: Candle[]; channel20?: { upper: number | null; lower: number | null; middle: number | null }; orderBlocks?: { direction: string; top: number; bottom: number; label?: string; state?: string }[] };
   liquidityTargets?: { referencePrice: number; buySide: { price: number; source: string; touches: number; pivotTime?: string | null } | null; sellSide: { price: number; source: string; touches: number; pivotTime?: string | null } | null; definition: string; pivotLength: number; lookback: number };
   structure?: { trend?: string; support?: number | null; resistance?: number | null; latestHigh?: number | null; latestLow?: number | null };
   volatility?: { atr?: number | null; atrPct?: number | null; breakout?: string };
@@ -419,6 +420,26 @@ export default function AnalyzerPage() {
       ? "No valid trade is active. Re-analyze after new market evidence or when the invalidating condition changes."
       : "No entry trigger has fired yet. The setup remains under observation.";
   const scannerReason = scannerReasons.length ? scannerReasons : [scannerReasonFallback];
+  const marketDevelopmentStatus =
+    s?.analysisState === "ACTIVE" || s?.cycleStatus === "ACTIVE" ? "MOMENTUM ACTIVE" :
+    s?.entryConfirmation === true ? "ENTRY CONFIRMED" :
+    s?.analysisState === "ENTRY_ZONE" ? "WAITING — RETEST ZONE" :
+    s?.analysisState === "CONFIRMATION_PENDING" ? "WAITING — MOMENTUM CONFIRMATION" :
+    s?.strategyConditionsMet === true ? "WAITING — ENTRY CONFIRMATION" :
+    displayDirection && displayDirection !== "NO TRADE" ? "SETUP FORMING" :
+    "MARKET SETUP DEVELOPING";
+  const marketDevelopmentDetail = s?.entryConfirmationReason?.trim()
+    || s?.waitReason?.trim()
+    || s?.tradeReason?.trim()
+    || "The selected strategy is monitoring its own setup and confirmation conditions.";
+  const tradeStatus = tradeIsRunning || s?.isExecutable === true
+    ? "TRADE"
+    : terminalNoTrade ? "NO TRADE" : "WAIT";
+  const validationStatus = s?.entryConfirmation === true
+    ? "ENTRY CONFIRMED"
+    : s?.strategyConditionsMet === true && displayDirection && displayDirection !== "NO TRADE"
+      ? "RE-ENTRY NOT CONFIRMED"
+      : "ENTRY NOT CONFIRMED";
 
   return <main className="shell">
     <header className="header"><div className="brand-block"><img src="/vaulttrades-logo.png" alt="VaultTrades" className="logo"/><div className="tagline">Built by Traders.</div><div className="slogan">Focus, discipline, consistency.</div></div><div className="badge">AI SCANNER</div></header>
@@ -444,7 +465,7 @@ export default function AnalyzerPage() {
     <section className="card"><div className="actions"><button className="primary" type="button" disabled={loading || marketType === "SYNTHETIC"} onClick={() => void runAnalysis()}>{loading ? "Analyzing live market..." : "Analyze Live Market"}</button></div>{marketType === "SYNTHETIC" && <div className="condition-box" style={{ marginTop: 12 }}><strong>Synthetic market connection</strong><p className="muted">This route deliberately does not substitute another provider. Connect the Synthetic/Broker provider before enabling synthetic analysis.</p></div>}{error && <div className="error-box" style={{ marginTop: 12 }}><strong>Analysis Error</strong><p className="muted">{error}</p></div>}</section>
 
     {result && <>
-      <section className="card"><div className="section-label">LIVE CHART</div><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}><div><h2 className="title" style={{ marginBottom: 3 }}>{result.market?.asset}</h2><div className="muted">{result.market?.timeframe} · Current price {fmt(result.market?.currentPrice)}</div></div><div className="condition-box" style={{ padding: "10px 14px" }}><strong>Strategy: {strategyDisplayName(result.strategy?.id, result.strategy?.name)}</strong></div></div><LiveMarketChart candles={result.chart?.candles || []} channel={result.chart?.channel20} liquidityTargets={s?.liquidityTargets ?? result.liquidityTargets} orderBlock={strategy === "lsobr" ? result.strategyEngine?.orderBlock ?? null : null} /></section>
+      <section className="card"><div className="section-label">LIVE CHART</div><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}><div><h2 className="title" style={{ marginBottom: 3 }}>{result.market?.asset}</h2><div className="muted">{result.market?.timeframe} · Current price {fmt(result.market?.currentPrice)}</div></div><div className="condition-box" style={{ padding: "10px 14px" }}><strong>Strategy: {strategyDisplayName(result.strategy?.id, result.strategy?.name)}</strong></div></div><LiveMarketChart candles={result.chart?.candles || []} channel={result.chart?.channel20} liquidityTargets={s?.liquidityTargets ?? result.liquidityTargets} orderBlocks={result.chart?.orderBlocks ?? []} orderBlock={strategy === "lsobr" ? result.strategyEngine?.orderBlock ?? null : null} /></section>
 
       {strategy === "lsobr" && result.strategyEngine && <section className="card" style={{ border: "1px solid rgba(212,166,55,.4)" }}>
         <div className="section-label">LSOBR ENGINE · LIVE SOURCE STATE</div>
@@ -490,7 +511,7 @@ export default function AnalyzerPage() {
       <section className="card execution-card" style={{ border: "1px solid rgba(212,166,55,.28)", background: "linear-gradient(145deg, rgba(10,16,30,.98), rgba(5,8,18,.98))" }}>
         <div className="section-label">AI SCANNER</div>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", alignItems: "center" }}><div><h2 className="title" style={{ marginBottom: 4 }}>{scannerStatus}</h2><div className="muted">{(strategy === "lsobr" ? result.strategyEngine?.trend : s?.trend) || result.marketCondition || "Market state"} · {s?.institutionalActivity ? `Institutional activity: ${s.institutionalActivity}` : result.market?.directionalBias}</div></div><div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}><div style={{ minWidth: 135, textAlign: "center", padding: 12, borderRadius: 12, background: "rgba(212,166,55,.10)", border: "1px solid rgba(212,166,55,.35)" }}><span className="muted">QUALITY</span><div style={{ fontSize: 28, fontWeight: 900 }}>{Math.round(result.confidence ?? 0)}<span style={{ fontSize: 15 }}>/100</span></div></div><div style={{ minWidth: 135, textAlign: "center", padding: 12, borderRadius: 12, background: "rgba(45,125,255,.10)", border: "1px solid rgba(45,125,255,.35)" }}><span className="muted">PROJECTED PROBABILITY</span><div style={{ fontSize: 28, fontWeight: 900 }}>{s?.projectedProbability ?? "—"}<span style={{ fontSize: 15 }}>{s?.projectedProbability != null ? "%" : ""}</span></div></div></div></div>
-        <div style={{ marginTop: 15 }}><strong>Trend</strong><p>{s?.trendReason || result.marketStructure}</p><strong>{scannerStatus === "RUNNING" ? "Trade status" : scannerStatus === "NO TRADE" ? "Why no trade" : "Why we are waiting"}</strong>{scannerReason.length > 1 ? <ul style={{ marginTop: 8, paddingLeft: 22 }}>{scannerReason.map((reason, index) => <li key={index} style={{ marginBottom: 6 }}>{reason}</li>)}</ul> : <p>{scannerReason[0]}</p>}</div>
+        <div style={{ marginTop: 15 }}><strong>Trend</strong><p>{s?.trendReason || result.marketStructure}</p><strong>Market-development status</strong><p style={{ marginTop: 6 }}><b>{marketDevelopmentStatus}</b></p><p className="muted">{marketDevelopmentDetail}</p>{scannerReason.length > 1 ? <ul style={{ marginTop: 8, paddingLeft: 22 }}>{scannerReason.map((reason, index) => <li key={index} style={{ marginBottom: 6 }}>{reason}</li>)}</ul> : null}</div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 10, marginTop: 16, alignItems: "start" }}>
           <PriceLevel label="ENTRY" value={scannerEntry} kind="entry" />
@@ -500,13 +521,13 @@ export default function AnalyzerPage() {
         </div>
 
         <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginTop: 12 }}>
-          <div className="execution-item" style={{ minWidth: 180 }}><span>TRADE STATUS</span><strong>{scannerStatus}</strong></div>
+          <div className="execution-item" style={{ minWidth: 180 }}><span>TRADE STATUS</span><strong>{tradeStatus}</strong></div>
         </div>
       </section>
 
       <section className="card"><div className="section-label">SHARED LIQUIDITY TARGETS</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 12 }}><div className="condition-box"><strong>BUY-SIDE LIQUIDITY</strong><div style={{ fontSize: 22, fontWeight: 900, marginTop: 6 }}>{fmt((s?.liquidityTargets ?? result.liquidityTargets)?.buySide?.price)}</div><p className="muted">{(s?.liquidityTargets ?? result.liquidityTargets)?.buySide?.source?.replaceAll("_", " ") || "No confirmed target above current price"}</p></div><div className="condition-box"><strong>SELL-SIDE LIQUIDITY</strong><div style={{ fontSize: 22, fontWeight: 900, marginTop: 6 }}>{fmt((s?.liquidityTargets ?? result.liquidityTargets)?.sellSide?.price)}</div><p className="muted">{(s?.liquidityTargets ?? result.liquidityTargets)?.sellSide?.source?.replaceAll("_", " ") || "No confirmed target below current price"}</p></div><div className="condition-box"><strong>ACTIVE TRADE TARGET</strong><div style={{ fontSize: 22, fontWeight: 900, marginTop: 6 }}>{fmt(s?.opposingLiquidityTarget)}</div><p className="muted">Shared confirmed-swing liquidity reference. Entry confirmation remains strategy-specific.</p></div></div></section>\n\n
 
-      <section className="card"><div className="section-label">VALIDATION</div><div className="condition-box"><strong>{s?.entryConfirmation ? "ENTRY CONFIRMED" : "ENTRY NOT CONFIRMED"}</strong><p className="muted">{s?.entryConfirmation ? "The selected strategy has completed its required entry confirmation." : "No trade is confirmed until the strategy's required entry conditions are satisfied."}</p></div></section>
+      <section className="card"><div className="section-label">VALIDATION</div><div className="condition-box"><strong>{validationStatus}</strong><p className="muted">{s?.entryConfirmation ? "The selected strategy's required entry trigger has occurred on its confirmation timeframe." : validationStatus === "RE-ENTRY NOT CONFIRMED" ? "The market direction and setup context are established, but a fresh entry or re-entry trigger has not yet satisfied the selected strategy's rules." : "No entry is confirmed until the selected strategy's required setup and entry-trigger conditions are satisfied."}</p></div></section>
     </>}
     {scannerLoading && result && <div className="muted" style={{ textAlign: "center", padding: 10 }}>AI Scanner is profiling volume, institutional activity and projected market path…</div>}
   </main>;
