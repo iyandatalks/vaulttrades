@@ -20,7 +20,17 @@ export async function GET() {
   const { db } = auth;
   const { data, error } = await db.from("copy_support_requests").select("id,auth_user_id,request_type,message,status,created_at,resolved_at,resolved_by").order("created_at", { ascending: false }).limit(100);
   if (error) return NextResponse.json({ error: "SUPPORT_LIST_FAILED" }, { status: 500 });
-  return NextResponse.json({ requests: data || [] });
+  const userIds = Array.from(new Set((data || []).map((item: any) => item.auth_user_id).filter(Boolean)));
+  const { data: profiles } = userIds.length
+    ? await db.from("users").select("auth_user_id,email,first_name,last_name").in("auth_user_id", userIds)
+    : { data: [] };
+  const profileByUser = new Map((profiles || []).map((profile: any) => [profile.auth_user_id, profile]));
+  const requests = (data || []).map((item: any) => ({
+    ...item,
+    customer_email: profileByUser.get(item.auth_user_id)?.email || null,
+    customer_name: [profileByUser.get(item.auth_user_id)?.first_name, profileByUser.get(item.auth_user_id)?.last_name].filter(Boolean).join(" ") || null,
+  }));
+  return NextResponse.json({ requests });
 }
 
 export async function POST(req: Request) {
