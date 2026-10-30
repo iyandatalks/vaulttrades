@@ -12,7 +12,7 @@ export async function POST(req: Request) {
 
   const body = await req.json().catch(() => ({}));
   const mt5Login = String(body.mt5Login || "").trim();
-  if (!/^\\d{4,12}$/.test(mt5Login)) {
+  if (!/^\d{4,12}$/.test(mt5Login)) {
     return NextResponse.json({ error: "INVALID_MT5_LOGIN" }, { status: 400 });
   }
 
