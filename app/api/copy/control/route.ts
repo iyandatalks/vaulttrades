@@ -47,6 +47,18 @@ export async function POST(req: Request) {
 
   if (error) return NextResponse.json({ error: "COPY_CONTROL_UPDATE_FAILED" }, { status: 500 });
 
+  if (!enabled) {
+    // Do not replay queued trades when the customer later resumes copying.
+    const { error: cancelError } = await db
+      .from("copy_trade_executions")
+      .update({ status: "cancelled", updated_at: new Date().toISOString() })
+      .eq("follower_id", follower.id)
+      .eq("status", "pending");
+    if (cancelError) {
+      return NextResponse.json({ error: "COPY_STOP_QUEUE_FAILED", message: "Copying was switched off, but queued commands could not all be cleared. Contact support before resuming." }, { status: 500 });
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     mt5Login,
