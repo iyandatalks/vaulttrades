@@ -135,7 +135,7 @@ export default function CopyPage() {
             </header>
             <div className="vt-copy-summary">
               <div className="vt-copy-stat"><span>REGISTERED COPIERS</span><strong>{statusAccounts.length}</strong><small>MT5 accounts on this profile</small></div>
-              <div className="vt-copy-stat"><span>COPYING ENABLED</span><strong>{statusAccounts.filter(a => a.copy_enabled && a.license_status === "active").length}</strong><small>License active and copying switched on</small></div>
+              <div className="vt-copy-stat"><span>COPY SWITCH ON</span><strong>{statusAccounts.filter(a => a.copy_enabled && a.license_status === "active").length}</strong><small>Switch state only; execution results shown separately</small></div>
               <div className="vt-copy-stat"><span>EXECUTIONS SUCCESSFUL</span><strong>{statusAccounts.reduce((n,a) => n + (a.execution_summary?.executed || 0),0)}</strong><small>{statusAccounts.reduce((n,a) => n + (a.execution_summary?.failed || 0),0)} failed in recorded history</small></div>
             </div>
             {copyControlMessage && <div role="status" className="vt-copy-control-message">{copyControlMessage}</div>}
