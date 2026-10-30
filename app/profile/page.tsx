@@ -15,7 +15,8 @@ export default function ProfilePage() {
   const router = useRouter();
   const [email, setEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);\n  const [hasWhatsAppSupport, setHasWhatsAppSupport] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [hasWhatsAppSupport, setHasWhatsAppSupport] = useState(false);
   const [referral, setReferral] = useState<ReferralState>({ enabled: false, code: null, url: null });
 
   useEffect(() => {
@@ -33,7 +34,8 @@ export default function ProfilePage() {
 
         if (response.ok) {
           setReferral(result?.referral ?? { enabled: false, code: null, url: null });
-          setIsAdmin(result?.admin === true);\n          setHasWhatsAppSupport(result?.supportWhatsApp === true);
+          setIsAdmin(result?.admin === true);
+          setHasWhatsAppSupport(result?.supportWhatsApp === true);
         }
       }
 
