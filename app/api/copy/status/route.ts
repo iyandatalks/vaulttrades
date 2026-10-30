@@ -42,18 +42,6 @@ export async function GET() {
 
   const current = accounts[0] || null;
 
-  // Read the configured publisher accounts and the actual master-to-follower
-  // relationships. These are display-only; the Publisher/Copier execution
-  // and licensing flows remain unchanged.
-  const [{ data: masters }, { data: links }] = await Promise.all([
-    db.from("copy_masters")
-      .select("id,name,status,mt_login,broker_server,ea_version,last_heartbeat_at")
-      .order("created_at", { ascending: true }),
-    db.from("copy_links")
-      .select("id,master_id,follower_id,status,lot_mode,lot_value")
-      .in("follower_id", accounts.map((item: any) => item.id).filter(Boolean)),
-  ]);
-
   return NextResponse.json({
     connected: !!current && access.active && current.status === "online" && current.copy_enabled === true,
     subscriptionActive: access.active,
@@ -61,8 +49,6 @@ export async function GET() {
     accessReason: access.reason,
     account: current,
     accounts,
-    masters: masters || [],
-    links: links || [],
     registeredMt5Accounts: registrations || [],
     pairing: {
       available: access.active,
