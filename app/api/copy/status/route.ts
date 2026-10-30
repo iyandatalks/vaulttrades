@@ -24,6 +24,7 @@ export async function GET() {
     .from("copy_followers")
     .select("id,mt_login,broker_server,status,copy_enabled,last_heartbeat_at,ea_version,license_status,license_expires_at,license_generation,updated_at")
     .eq("auth_user_id", user.id)
+    .neq("status", "unlinked")
     .order("updated_at", { ascending: false });
 
   const accounts = [];
