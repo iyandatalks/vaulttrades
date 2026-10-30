@@ -71,6 +71,44 @@ function tradeMath(direction: Direction, entry: number | null, stop: number | nu
 function jsonText(raw: any): string {
   return raw.output?.flatMap((x: any) => x.content ?? []).filter((x: any) => x.type === "output_text").map((x: any) => x.text).join("").trim() || "";
 }
+function findActiveVisualOrderBlocks(candles: Array<{ open:number; high:number; low:number; close:number }>) {
+  const pivotLength = 3;
+  const atrAt = (end:number) => {
+    const sample = candles.slice(Math.max(0, end - 14), end + 1);
+    if (sample.length < 8) return null;
+    const ranges = sample.map((c,i) => i === 0 ? c.high-c.low : Math.max(c.high-c.low, Math.abs(c.high-sample[i-1].close), Math.abs(c.low-sample[i-1].close)));
+    return ranges.reduce((sum,value)=>sum+value,0)/ranges.length;
+  };
+  const find = (direction:"BULLISH"|"BEARISH") => {
+    for (let breakIndex = candles.length - 2; breakIndex >= Math.max(20, candles.length - 120); breakIndex--) {
+      const bar = candles[breakIndex], a = atrAt(breakIndex);
+      if (!a || a <= 0) continue;
+      const pivots:number[] = [];
+      for (let i = Math.max(pivotLength, breakIndex - 35); i < breakIndex - pivotLength; i++) {
+        let pivot = true;
+        for (let j=1;j<=pivotLength;j++) {
+          if (direction === "BULLISH" ? candles[i].high <= candles[i-j].high || candles[i].high <= candles[i+j].high : candles[i].low >= candles[i-j].low || candles[i].low >= candles[i+j].low) { pivot=false; break; }
+        }
+        if (pivot) pivots.push(direction === "BULLISH" ? candles[i].high : candles[i].low);
+      }
+      const level = direction === "BULLISH" ? Math.max(...pivots.filter(v=>v<bar.close), -Infinity) : Math.min(...pivots.filter(v=>v>bar.close), Infinity);
+      const body = Math.abs(bar.close-bar.open);
+      const broke = direction === "BULLISH" ? Number.isFinite(level) && bar.close>level && bar.close>bar.open && body>=a*0.8 : Number.isFinite(level) && bar.close<level && bar.close<bar.open && body>=a*0.8;
+      if (!broke) continue;
+      for (let originIndex = breakIndex - 1; originIndex >= Math.max(0, breakIndex - 12); originIndex--) {
+        const origin = candles[originIndex];
+        if (direction === "BULLISH" ? origin.close >= origin.open : origin.close <= origin.open) continue;
+        const later = candles.slice(originIndex + 1);
+        const invalidated = later.some(x => direction === "BULLISH" ? x.close < origin.low : x.close > origin.high);
+        const mitigated = later.some(x => x.low <= origin.high && x.high >= origin.low);
+        if (invalidated || mitigated) break;
+        return { direction, top: origin.high, bottom: origin.low, label: direction === "BULLISH" ? "ACTIVE BULLISH OB · UNMITIGATED" : "ACTIVE BEARISH OB · UNMITIGATED", state: "ACTIVE" };
+      }
+    }
+    return null;
+  };
+  return [find("BULLISH"), find("BEARISH")].filter((x): x is NonNullable<typeof x> => x !== null);
+}
 
 export async function POST(request: Request) {
   try {
@@ -166,6 +204,14 @@ export async function POST(request: Request) {
     const autoFibEngine = strategyId === "fibRetracement" ? analyzeAutoFibRetrace({
       candles: market.candles.map((c) => ({ time: new Date(c.datetime).getTime(), open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume ?? undefined })),
     }) : null;
+    const visualOrderBlocks = strategyId === "fibRetracement" && autoFibEngine
+      ? [
+          ...(autoFibEngine.orderBlocks.bullish.active && !autoFibEngine.orderBlocks.bullish.mitigated && !autoFibEngine.orderBlocks.bullish.breaker && autoFibEngine.orderBlocks.bullish.high != null && autoFibEngine.orderBlocks.bullish.low != null
+            ? [{ direction:"BULLISH", top:autoFibEngine.orderBlocks.bullish.high, bottom:autoFibEngine.orderBlocks.bullish.low, label:"ACTIVE BULLISH OB · UNMITIGATED", state:"ACTIVE" }] : []),
+          ...(autoFibEngine.orderBlocks.bearish.active && !autoFibEngine.orderBlocks.bearish.mitigated && !autoFibEngine.orderBlocks.bearish.breaker && autoFibEngine.orderBlocks.bearish.high != null && autoFibEngine.orderBlocks.bearish.low != null
+            ? [{ direction:"BEARISH", top:autoFibEngine.orderBlocks.bearish.high, bottom:autoFibEngine.orderBlocks.bearish.low, label:"ACTIVE BEARISH OB · UNMITIGATED", state:"ACTIVE" }] : []),
+        ]
+      : findActiveVisualOrderBlocks(market.candles);
     const autoFibEngineEvidence = autoFibEngine ? {
       source: "AUTO_FIB_RETRACE_DETERMINISTIC",
       state: autoFibEngine.state,
