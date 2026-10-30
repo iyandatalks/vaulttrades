@@ -10,6 +10,9 @@ export default function CopyPage() {
   const [hasCopyAccess, setHasCopyAccess] = useState(false);
   const [connected, setConnected] = useState(false);
   const [statusText, setStatusText] = useState("");
+  const [statusAccounts, setStatusAccounts] = useState<NonNullable<Status["accounts"]>>([]);
+  const [statusMasters, setStatusMasters] = useState<NonNullable<Status["masters"]>>([]);
+  const [statusLinks, setStatusLinks] = useState<NonNullable<Status["links"]>>([]);
   const [brokerPartners, setBrokerPartners] = useState<BrokerPartner[]>([]);
   const [brokerPartnerId, setBrokerPartnerId] = useState("");
   const [brokerUserId, setBrokerUserId] = useState("");
@@ -24,6 +27,9 @@ export default function CopyPage() {
         setSignedIn(true);
         setHasCopyAccess(d.subscriptionActive === true);
         setConnected(Boolean(d.connected));
+        setStatusAccounts(d.accounts || (d.account ? [d.account] : []));
+        setStatusMasters(d.masters || []);
+        setStatusLinks(d.links || []);
         setStatusText(d.accessUntil ? `Access until ${new Date(d.accessUntil).toLocaleDateString()}` : (d.subscriptionActive ? "Copy Trading access is active." : ""));
       })
       .catch(() => undefined);
@@ -99,25 +105,48 @@ export default function CopyPage() {
           </> : <p style={{ marginTop: 14 }}><Link className="vt-primary" href="/auth/login?next=/copy">Sign in or create a profile to submit your Broker User ID</Link></p>}
         </section>
 
-        {hasCopyAccess ? <>
-          <section className="vt-info-card" style={{ marginTop: 24, border: "1px solid rgba(212,166,55,.35)" }}>
-            <div className="vt-label">SUBSCRIBER ACCESS</div>
-            <h2 style={{ marginTop: 10 }}>Your Copy Trading access is active.</h2>
-            <p>{statusText || "Your Copy Trading entitlement is active."}</p>
-            <p>Manage your MT5 connection and review connection status from the subscriber controls below.</p>
-            <div className="vt-actions" style={{ justifyContent: "flex-start", marginTop: 14 }}>
-              <Link className="vt-primary" href="/copy/connect">{connected ? "Manage MT5 Connection" : "Start MT5 Connection"}</Link>
-              <Link className="vt-secondary" href="/how-it-works">How Copy Trading Works</Link>
+        {hasCopyAccess ? (
+          <section className="vt-copy-dashboard" style={{ marginTop: 26 }}>
+            <header className="vt-copy-dashboard-head">
+              <div><div className="vt-label">VAULTTRADES · LIVE COPY NETWORK</div><h2>Trade Copier</h2><p>Monitor the master publisher and MT5 accounts receiving copied trades.</p></div>
+              <div className="vt-copy-access-pill"><span /> Copy access active</div>
+            </header>
+            <div className="vt-copy-summary">
+              <div className="vt-copy-stat"><span>RECEIVING ACCOUNTS</span><strong>{statusAccounts.length}</strong><small>Registered to your profile</small></div>
+              <div className="vt-copy-stat"><span>ACTIVE COPIERS</span><strong>{statusAccounts.filter(a => a.status === "online" && a.copy_enabled && a.license_status === "active").length}</strong><small>Online and enabled</small></div>
+              <div className="vt-copy-stat"><span>ACCOUNT CONNECTIONS</span><strong>{statusAccounts.length} in use</strong><small>Based on your registered MT5 connections</small></div>
             </div>
-            <p style={{ marginTop: 12 }}><Link href="/copy/connect">View Connection Status →</Link></p>
+            {statusMasters.length === 0 ? <div className="vt-copy-empty"><strong>Master publisher is not currently reporting.</strong><p>Your Copy Trading access is active. Publisher details will appear here when the master connection is available.</p></div> :
+              statusMasters.map(master => {
+                const linked = statusAccounts.filter(account => statusLinks.some(link => link.master_id === master.id && link.follower_id === account.id));
+                const receivers = linked.length ? linked : (statusMasters.length === 1 ? statusAccounts : []);
+                const masterOnline = master.status === "online";
+                return <article className="vt-copy-master-card" key={master.id}>
+                  <div className="vt-copy-master-top"><div><div className="vt-copy-kicker">COPY FROM</div><h3>{master.name || "VaultTrades Master Publisher"}{master.mt_login ? ` — ${master.mt_login}` : ""}</h3><p>{master.broker_server || "MetaTrader 5 Publisher"}{master.ea_version ? ` · Publisher ${master.ea_version}` : ""}</p></div><span className={`vt-copy-status ${masterOnline ? "is-online" : "is-offline"}`}><i />{masterOnline ? "Publisher online" : "Publisher offline"}</span></div>
+                  <div className="vt-copy-receiver-count">{receivers.length} receiving {receivers.length === 1 ? "account" : "accounts"}</div>
+                  {receivers.length === 0 ? <div className="vt-copy-no-receivers">No receiving MT5 account is linked to this publisher yet.</div> : receivers.map(account => {
+                    const copying = account.status === "online" && account.copy_enabled === true && account.license_status === "active";
+                    const paused = account.copy_enabled === false && account.license_status === "active";
+                    const state = copying ? "Copying" : paused ? "Paused" : account.status === "online" ? (account.license_status || "Not active") : "Waiting for MT5";
+                    const link = statusLinks.find(item => item.master_id === master.id && item.follower_id === account.id);
+                    return <div className="vt-copy-follower" key={account.id}>
+                      <div className="vt-copy-branch">↳</div><div className="vt-copy-follower-main">
+                        <div className="vt-copy-follower-title">{account.broker_server || "MT5 receiving account"} — {account.mt_login}</div>
+                        <div className="vt-copy-follower-meta">MetaTrader 5{link?.lot_mode ? ` · ${link.lot_mode}` : ""}{link?.lot_value ? ` · ${link.lot_value} lot` : ""}</div>
+                        <div className="vt-copy-follower-actions"><Link href="/copy/connect" className="vt-copy-action">⚙ Settings</Link><span className="vt-copy-heartbeat">Last heartbeat: {account.last_heartbeat_at ? new Date(account.last_heartbeat_at).toLocaleString() : "Not received"}</span></div>
+                      </div><span className={`vt-copy-status ${copying ? "is-online" : paused ? "is-paused" : "is-offline"}`}><i />{state}</span>
+                    </div>;
+                  })}
+                </article>;
+              })}
+            <div className="vt-copy-dashboard-footer"><span>Copy execution is controlled by your MT5 Copier and VaultTrades license.</span><Link href="/copy/connect" className="vt-primary">Manage MT5 connection</Link></div>
+            <div className="vt-info-grid" style={{ marginTop: 18 }}>
+              <article className="vt-info-card"><div className="vt-label">COPY TRADING FLOW</div><h2>Master publisher → Receiving MT5 accounts</h2><p>VaultTrades publishes eligible master-account executions. Your Copier EA receives the instructions and places corresponding trades on your connected MT5 account.</p></article>
+              <article className="vt-info-card"><div className="vt-label">IMPORTANT</div><h2>Trading risk</h2><p>Copy Trading involves financial risk. Past trading results do not guarantee future results. Keep control of your broker account and risk exposure.</p></article>
+            </div>
           </section>
-          <section className="vt-info-grid" style={{ marginTop: 24 }}>
-            <article className="vt-info-card"><div className="vt-label">COPY TRADING FLOW</div><h2>VaultTrades master → Your MT5</h2><p>VaultTrades publishes eligible master-account executions. Your Copier EA receives the instructions and places corresponding trades on your connected MT5 account.</p></article>
-            <article className="vt-info-card"><div className="vt-label">IMPORTANT</div><h2>Trading risk</h2><p>Copy Trading involves financial risk. Past trading results do not guarantee future results. Keep control of your broker account and risk exposure.</p></article>
-          </section>
-        </> : <section className="vt-info-card" style={{ marginTop: 24 }}>
-          <div className="vt-label">SUBSCRIBER FEATURES LOCKED</div>
-          <h2 style={{ marginTop: 10 }}>MT5 connection access is not active</h2>
+        ) : <section className="vt-info-card" style={{ marginTop: 24 }}>
+          <div className="vt-label">SUBSCRIBER FEATURES LOCKED</div><h2 style={{ marginTop: 10 }}>MT5 connection access is not active</h2>
           <p>Before purchasing a Copy Trading subscription or receiving an administrator grant, you can browse this page and submit your broker User ID only. MT5 connection management, connection status and subscriber instructions are unavailable.</p>
           <Link className="vt-primary" href="/products?product=copy">Purchase Copy Trading Access</Link>
         </section>}
