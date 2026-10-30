@@ -45,16 +45,17 @@ export async function POST(req: Request) {
   if (!target?.auth_user_id) return NextResponse.json({ error: "USER_NOT_FOUND" }, { status: 404 });
 
   const now = new Date().toISOString();
-  const { data: follower } = await db.from("copy_followers").select("id").eq("auth_user_id", target.auth_user_id).maybeSingle();
+  const { data: followers } = await db.from("copy_followers").select("id").eq("auth_user_id", target.auth_user_id);
 
-  if (follower) {
+  const followerIds = (followers || []).map((item: any) => item.id);
+  if (followerIds.length) {
     await db.from("copy_followers").update({
       status: "disabled",
       copy_enabled: false,
       license_status: "revoked",
       updated_at: now,
-    }).eq("id", follower.id);
-    await db.from("copy_links").update({ status: "revoked", updated_at: now }).eq("follower_id", follower.id);
+    }).in("id", followerIds);
+    await db.from("copy_links").update({ status: "revoked", updated_at: now }).in("follower_id", followerIds);
   }
 
   await db.from("copy_pairing_codes").update({ revoked_at: now }).eq("auth_user_id", target.auth_user_id).is("revoked_at", null);
