@@ -60,6 +60,7 @@ export async function GET() {
       return NextResponse.json({
         authenticated: true,
         admin: true,
+        supportWhatsApp: true,
         access: Object.fromEntries(FEATURES.map(feature => [feature, true])),
         referral,
       });
@@ -101,7 +102,7 @@ export async function GET() {
       };
     }
 
-    return NextResponse.json({ authenticated: true, admin: false, access, referral });
+    return NextResponse.json({ authenticated: true, admin: false, supportWhatsApp: productAccess.anyPaidProduct === true, access, referral });
   } catch (error) {
     console.error("Dashboard access error", error);
     return NextResponse.json({ error: "Unable to load dashboard access." }, { status: 500 });
