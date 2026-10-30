@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-type Request = { id:string; auth_user_id:string; request_type:string; message:string; status:string; created_at:string };
+type Request = { id:string; auth_user_id:string; customer_email?:string|null; customer_name?:string|null; request_type:string; message:string; status:string; created_at:string };
 
 export default function AdminCopySupportPage() {
   const [requests, setRequests] = useState<Request[]>([]);
@@ -58,7 +58,7 @@ export default function AdminCopySupportPage() {
           {requests.length===0 ? <p>No support requests.</p> : requests.map(r => (
             <article key={r.id} style={{ padding:"14px 0", borderBottom:"1px solid rgba(255,255,255,.08)" }}>
               <strong>{r.status} · {r.request_type}</strong>
-              <div className="muted" style={{ fontSize:12 }}>{new Date(r.created_at).toLocaleString()} · {r.auth_user_id}</div>
+              <div className="muted" style={{ fontSize:12 }}>{r.customer_name ? `${r.customer_name} · ` : ""}{r.customer_email || "Email not available"} · {new Date(r.created_at).toLocaleString()}</div>
               <p>{r.message}</p>
             </article>
           ))}
