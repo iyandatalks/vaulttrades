@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import AnalyzerPushSettings from "./push-settings";
 
 export const dynamic = "force-dynamic";
@@ -8,7 +9,8 @@ export default async function AdminAnalyzerAlertsPage() {
   const auth = await createClient();
   const { data: { user } } = await auth.auth.getUser();
   if (!user) redirect("/auth/login?next=/admin/analyzer-alerts");
-  const { data: profile } = await auth.from("users").select("role")
+  const db = createServiceClient();
+  const { data: profile } = await db.from("users").select("role")
     .eq("auth_user_id", user.id).maybeSingle();
   if (profile?.role !== "admin") redirect("/");
   return <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8 text-white">
