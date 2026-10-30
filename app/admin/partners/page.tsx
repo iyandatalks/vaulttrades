@@ -82,6 +82,7 @@ export default async function AdminPartnersPage() {
           <p>Manage the brokers, prop firms, tools and referral offers that appear on the public VaultTrades Partners page.</p>
           <div className="vt-actions" style={{ justifyContent: "flex-start", marginTop: 20 }}>
             <a className="vt-primary" href="/admin/partners/add">Add Partner</a>
+            <a className="vt-secondary" href="/admin/promotions">Manage Site Popups</a>
             <a className="vt-secondary" href="/partners">View Public Partner Page</a>
           </div>
         </header>
