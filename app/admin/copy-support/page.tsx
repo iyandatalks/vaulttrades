@@ -45,6 +45,7 @@ export default function AdminCopySupportPage() {
           <div className="vt-label">ADMIN · COPY SUPPORT</div>
           <h1>Copier activation control.</h1>
           <p>Review support requests and reset one customer's Copier activation when required.</p>
+          <p><a className="vt-secondary" href="/admin/inbox">Open Admin Inbox</a></p>
         </header>
         <section className="vt-info-card">
           <div className="vt-label">RESET ACTIVATION</div>
