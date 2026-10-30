@@ -25,3 +25,15 @@
 .vt-copy-unlink-button{border:1px solid rgba(232,92,92,.45);background:transparent;color:#ff9696;border-radius:8px;padding:9px 12px;font-size:12px;font-weight:800;cursor:pointer}
 .vt-copy-unlink-button:hover{background:rgba(225,61,61,.12)}
 .vt-copy-unlink-button:disabled{opacity:.5;cursor:not-allowed}
+
+.vt-admin-inbox-item{padding:16px 2px;border-bottom:1px solid rgba(255,255,255,.09)}
+.vt-admin-inbox-item.is-unread{border-left:3px solid #d4a637;padding-left:13px}
+.vt-admin-inbox-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.vt-admin-inbox-top strong{color:#f5f6fa;font-size:14px}
+.vt-admin-inbox-item p{color:#c0c7d3;font-size:13px;line-height:1.6;margin:8px 0}
+.vt-admin-inbox-meta{color:#7f8b9f;font-size:11px}
+.vt-admin-inbox-actions{display:flex;align-items:center;gap:16px;margin-top:11px}
+.vt-copy-action-button{border:0;background:transparent;color:#d4a637;font-size:12px;font-weight:800;cursor:pointer;padding:0}
+.vt-admin-severity{font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;padding:5px 8px;border-radius:999px;background:#252a34;color:#cbd4e2}
+.vt-admin-severity.severity-warning{background:rgba(212,166,55,.14);color:#e5c16d}
+.vt-admin-severity.severity-critical{background:rgba(225,61,61,.14);color:#ff9696}
