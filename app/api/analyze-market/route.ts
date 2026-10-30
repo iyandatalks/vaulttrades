@@ -416,7 +416,7 @@ Return JSON only.`;
       strategy: { id: strategyId, name: profileStrategy.name, category: profileStrategy.category },
       sourceIndicators: profileStrategy.indicatorSpecs,
       indicatorReadings: context.selectedIndicators,
-      chart: { candles: market.candles, channel20: channel },
+      chart: { candles: market.candles, channel20: channel, orderBlocks: visualOrderBlocks },
       liquidityTargets,
       structure: { ...lockedStructure }, volatility: context.volatility,
       strategyEngine: strategyId === "lsobr" ? lsobrEngineEvidence : strategyId === "srbOb" ? srbObEngineEvidence : strategyId === "fibRetracement" ? autoFibEngineEvidence : nativeEngineOutput,
