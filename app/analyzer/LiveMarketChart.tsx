@@ -20,10 +20,12 @@ export function LiveMarketChart({ candles, channel, liquidityTargets, orderBlock
     const supplied = orderBlocks.filter((block) =>
       Number.isFinite(block.top) && Number.isFinite(block.bottom) && block.top > block.bottom
     );
-    if (supplied.length) return supplied;
-    return orderBlock && Number.isFinite(orderBlock.top) && Number.isFinite(orderBlock.bottom) && orderBlock.top > orderBlock.bottom
+    const legacy = orderBlock && Number.isFinite(orderBlock.top) && Number.isFinite(orderBlock.bottom) && orderBlock.top > orderBlock.bottom
       ? [{ ...orderBlock, label: "ACTIVE ORDER BLOCK", state: "ACTIVE" }]
       : [];
+    return [...supplied, ...legacy.filter((candidate) => !supplied.some((block) =>
+      block.direction === candidate.direction && block.top === candidate.top && block.bottom === candidate.bottom
+    ))];
   }, [orderBlocks, orderBlock]);
 
   if (!data.length) return <div className="condition-box">No live candles available.</div>;
