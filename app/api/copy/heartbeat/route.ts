@@ -85,7 +85,7 @@ export async function POST(req: Request) {
   return NextResponse.json({
     ok: true,
     allowed: true,
-    copyEnabled: true,
+    copyEnabled: follower.copy_enabled === true,
     accessUntil: access.endAt,
     licenseStatus: "active",
     licenseGeneration: follower.license_generation ?? 0,
