@@ -437,7 +437,7 @@ export default function AnalyzerPage() {
     : terminalNoTrade ? "NO TRADE" : "WAIT";
   const validationStatus = s?.entryConfirmation === true
     ? "ENTRY CONFIRMED"
-    : s?.strategyConditionsMet === true && displayDirection && displayDirection !== "NO TRADE"
+    : displayDirection && displayDirection !== "NO TRADE"
       ? "RE-ENTRY NOT CONFIRMED"
       : "ENTRY NOT CONFIRMED";
 
