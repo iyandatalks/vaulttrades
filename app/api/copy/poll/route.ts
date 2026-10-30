@@ -72,14 +72,17 @@ export async function GET(req: Request) {
   }).eq("id", follower.id);
 
   if (!follower.copy_enabled) {
+    // A customer pause is not a license failure. Return HTTP 200 so the
+    // existing MT5 EA keeps its license active while receiving no commands.
     return NextResponse.json({
-      allowed: false,
-      reason: "disabled",
+      allowed: true,
+      copyEnabled: false,
+      reason: "customer_paused",
       commands: [],
       accessUntil: access.endAt,
-      licenseStatus: "disabled",
+      licenseStatus: "active",
       licenseGeneration: follower.license_generation ?? 0,
-    }, { status: 403 });
+    }, { status: 200 });
   }
 
   const { data: commands, error } = await db
