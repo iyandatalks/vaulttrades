@@ -6,9 +6,9 @@ import { createBrowserClient } from "@supabase/ssr";
 type Account = "Personal" | "Funded";
 type Currency = "ZAR" | "USD" | "EUR" | "GBP";
 type Session = "Asia" | "London" | "New York" | "—";
-type Result = "WIN" | "LOSS" | "BREAK EVEN";
+type Result = "OPEN" | "WIN" | "LOSS" | "BREAK EVEN";
 
-type FundedJournalAccount = { id: string; firm_name: string; starting_capital: number; payout_target: number; currency: string; color: string };
+type FundedJournalAccount = { id: string; firm_name: string; starting_capital: number; payout_target: number; currency: string; color: string; program_name?: string; account_stage?: string; platform?: string; phase?: string; account_reference?: string | null };
 
 type Entry = {
   id: string;
@@ -23,6 +23,19 @@ type Entry = {
   pnl: number;
   emotion: string;
   created_at: string;
+  direction?: string | null;
+  entry?: number | null;
+  sl?: number | null;
+  tp?: number | null;
+  tp2?: number | null;
+  tp3?: number | null;
+  lot_size?: number | null;
+  risk_amount?: number | null;
+  platform?: string | null;
+  prop_firm?: string | null;
+  program_name?: string | null;
+  account_stage?: string | null;
+  trade_status?: string | null;
 };
 
 const supabase = () =>
@@ -57,6 +70,11 @@ export default function JournalClient() {
   const [firmTarget, setFirmTarget] = useState("5000");
   const [firmCurrency, setFirmCurrency] = useState("USD");
   const [firmColor, setFirmColor] = useState("#D4AF37");
+  const [firmProgram, setFirmProgram] = useState("Custom");
+  const [firmStage, setFirmStage] = useState("Funded");
+  const [firmPlatform, setFirmPlatform] = useState("MT5");
+  const [firmPhase, setFirmPhase] = useState("Phase 1");
+  const [firmReference, setFirmReference] = useState("");
   const [selectedFirmId, setSelectedFirmId] = useState("");
   const [accountError, setAccountError] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
@@ -91,7 +109,7 @@ export default function JournalClient() {
       .single();
     if (!u?.id) return;
 
-    const { data: firmRows } = await sb.from("funded_journal_accounts").select("id, firm_name, starting_capital, payout_target, currency, color").eq("user_id", u.id).order("created_at", { ascending: true });
+    const { data: firmRows } = await sb.from("funded_journal_accounts").select("id, firm_name, starting_capital, payout_target, currency, color, program_name, account_stage, platform, phase, account_reference").eq("user_id", u.id).order("created_at", { ascending: true });
     const firms = (firmRows ?? []) as FundedJournalAccount[];
     setFundedAccounts(firms);
     setSelectedFirmId((current) => current && firms.some((a) => a.id === current) ? current : (firms[0]?.id ?? ""));
@@ -99,7 +117,7 @@ export default function JournalClient() {
     const { data } = await sb
       .from("journal_entries")
       .select(
-        "id, trade_date, account_type, currency, funded_account_id, session, symbol, strategy, result, pnl, emotion, note, created_at"
+        "id, trade_date, account_type, currency, funded_account_id, session, symbol, strategy, result, pnl, emotion, note, created_at, direction, entry, sl, tp, tp2, tp3, lot_size, risk_amount, platform, prop_firm, program_name, account_stage, trade_status"
       )
       .eq("user_id", u.id)
       .order("trade_date", { ascending: false })
@@ -119,6 +137,19 @@ export default function JournalClient() {
         pnl: Number(x.pnl ?? 0),
         emotion: x.emotion ?? x.note ?? "",
         created_at: x.created_at,
+        direction: x.direction ?? x.data?.direction ?? null,
+        entry: x.entry ?? null,
+        sl: x.sl ?? null,
+        tp: x.tp ?? null,
+        tp2: x.tp2 ?? null,
+        tp3: x.tp3 ?? null,
+        lot_size: x.lot_size ?? x.data?.lot_size ?? null,
+        risk_amount: x.risk_amount ?? x.data?.risk_amount ?? null,
+        platform: x.platform ?? x.data?.platform ?? null,
+        prop_firm: x.prop_firm ?? x.data?.firm ?? null,
+        program_name: x.program_name ?? x.data?.program ?? null,
+        account_stage: x.account_stage ?? x.data?.stage ?? null,
+        trade_status: x.trade_status ?? (x.result === "OPEN" ? "OPEN" : "CLOSED"),
       })) as Entry[]
     );
   };
@@ -133,11 +164,11 @@ export default function JournalClient() {
     const sb = supabase();
     const { data: u } = await sb.from("users").select("id").eq("auth_user_id", userId).single();
     if (!u?.id) { setAccountError("Your user profile could not be loaded. Please sign in again."); return; }
-    const { data, error } = await sb.from("funded_journal_accounts").insert({ user_id: u.id, firm_name: firmName.trim(), starting_capital: Number(firmCapital), payout_target: Number(firmTarget), currency: firmCurrency, color: firmColor }).select("id").single();
+    const { data, error } = await sb.from("funded_journal_accounts").insert({ user_id: u.id, firm_name: firmName.trim(), starting_capital: Number(firmCapital), payout_target: Number(firmTarget), currency: firmCurrency, color: firmColor, program_name: firmProgram, account_stage: firmStage, platform: firmPlatform, phase: firmStage === "Evaluation" ? firmPhase : null, account_reference: firmReference.trim() || null }).select("id").single();
     if (error || !data?.id) { setAccountError(error?.message ?? "Could not save this prop firm."); return; }
     setSelectedFirmId(data.id);
     setForm((f) => ({ ...f, account: "Funded", currency: "USD", fundedAccountId: data.id }));
-    setFirmName(""); setFirmCapital("100000"); setFirmTarget("5000");
+    setFirmName(""); setFirmCapital("100000"); setFirmTarget("5000"); setFirmProgram("Custom"); setFirmStage("Funded"); setFirmPlatform("MT5"); setFirmPhase("Phase 1"); setFirmReference("");
     await load();
   };
 
@@ -340,6 +371,11 @@ export default function JournalClient() {
           <label className="muted">Prop firm name<input className="coach-question" value={firmName} onChange={(e) => setFirmName(e.target.value)} placeholder="e.g. Blue Guardian" /></label>
           <label className="muted">Starting capital<input className="coach-question" type="number" min="0" step="0.01" value={firmCapital} onChange={(e) => setFirmCapital(e.target.value)} /></label>
           <label className="muted">Payout profit target<input className="coach-question" type="number" min="0" step="0.01" value={firmTarget} onChange={(e) => setFirmTarget(e.target.value)} /></label>
+          <label className="muted">Programme<select value={firmProgram} onChange={(e) => setFirmProgram(e.target.value)}>{["Custom","Instant Funding","Instant Prime","1-Step FLASH","1-Step NOVA","2-Step PRO v2","1-Step GOAT","2-Step GOAT","3-Step GOAT","Instant Premium","Instant Daily","ONE","Turbo","Sprint","Executive","1-Step Legacy","1-Step Swift","1-Step Flagship","2-Step Legacy","2-Step Swift","2-Step Flagship","Equity Edge Instant"].map((p) => <option key={p}>{p}</option>)}</select></label>
+          <label className="muted">Account stage<select value={firmStage} onChange={(e) => setFirmStage(e.target.value)}><option>Evaluation</option><option>Funded</option></select></label>
+          <label className="muted">Platform<select value={firmPlatform} onChange={(e) => setFirmPlatform(e.target.value)}><option>MT5</option><option>MatchTrader</option></select></label>
+          {firmStage === "Evaluation" && <label className="muted">Evaluation phase<select value={firmPhase} onChange={(e) => setFirmPhase(e.target.value)}><option>Phase 1</option><option>Phase 2</option><option>Phase 3</option></select></label>}
+          <label className="muted">Account reference<input className="coach-question" value={firmReference} onChange={(e) => setFirmReference(e.target.value)} placeholder="Optional account ID / nickname" /></label>
           <label className="muted">Currency<select value={firmCurrency} onChange={(e) => setFirmCurrency(e.target.value)}>{["USD","ZAR","EUR","GBP"].map((c) => <option key={c}>{c}</option>)}</select></label>
           <label className="muted">Identify with a colour<input type="color" value={firmColor} onChange={(e) => setFirmColor(e.target.value)} /></label>
         </div>
@@ -359,7 +395,7 @@ export default function JournalClient() {
             const symbol = firm.currency === "ZAR" ? "R" : firm.currency === "EUR" ? "€" : firm.currency === "GBP" ? "£" : "$";
             return <div key={firm.id} className="condition-box" style={{ borderTop: "4px solid " + firm.color, cursor: "pointer" }} onClick={() => { setSelectedFirmId(firm.id); setStatsAccount(firm.id); setForm((f) => ({ ...f, account: "Funded", currency: "USD", fundedAccountId: firm.id })); }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}><strong>{firm.firm_name}</strong><span style={{ background: firm.color, width: 12, height: 12, borderRadius: 99, display: "inline-block" }} /></div>
-              <div className="muted" style={{ marginTop: 8 }}>Starting capital</div><strong>{symbol}{Number(firm.starting_capital).toFixed(2)}</strong>
+              <div className="muted" style={{ marginTop: 6 }}>{firm.program_name ?? "Custom"} · {firm.account_stage ?? "Funded"} · {firm.platform ?? "MT5"}{firm.phase ? " · "+firm.phase : ""}</div><div className="muted" style={{ marginTop: 8 }}>Starting capital</div><strong>{symbol}{Number(firm.starting_capital).toFixed(2)}</strong>
               <div className="muted" style={{ marginTop: 8 }}>Current balance</div><div style={{ fontSize: 22, fontWeight: 700 }}>{symbol}{balance.toFixed(2)}</div>
               <div className="muted" style={{ marginTop: 8 }}>Net P&amp;L · {firmTrades.length} trades</div><strong>{symbol}{pnl.toFixed(2)}</strong>
               <div className="muted" style={{ marginTop: 8 }}>Target: {symbol}{target.toFixed(2)} · Remaining: {symbol}{remaining.toFixed(2)}</div>
@@ -454,6 +490,7 @@ export default function JournalClient() {
           <label className="muted">
             Result
             <select value={form.result} onChange={(e) => set("result", e.target.value)}>
+              <option>OPEN</option>
               <option>WIN</option>
               <option>LOSS</option>
               <option>BREAK EVEN</option>
@@ -631,6 +668,11 @@ export default function JournalClient() {
                     "Session",
                     "Instrument",
                     "Strategy",
+                    "Side",
+                    "Entry / SL",
+                    "Take profits",
+                    "Lots / Risk",
+                    "Platform",
                     "Result",
                     "P&L",
                     "Emotion",
@@ -650,6 +692,11 @@ export default function JournalClient() {
                     <td style={{ padding: 8 }}>{e.session}</td>
                     <td style={{ padding: 8 }}>{e.symbol}</td>
                     <td style={{ padding: 8 }}>{e.strategy}</td>
+                    <td style={{ padding: 8 }}>{e.direction ?? "—"}</td>
+                    <td style={{ padding: 8, whiteSpace: "nowrap" }}>{e.entry != null ? e.entry : "—"}{e.sl != null ? " / "+e.sl : ""}</td>
+                    <td style={{ padding: 8, whiteSpace: "nowrap" }}>{[e.tp,e.tp2,e.tp3].filter((v) => v != null).join(" / ") || "—"}</td>
+                    <td style={{ padding: 8, whiteSpace: "nowrap" }}>{e.lot_size != null ? e.lot_size : "—"}{e.risk_amount != null ? " · $"+Number(e.risk_amount).toFixed(2) : ""}</td>
+                    <td style={{ padding: 8 }}>{e.platform ?? "—"}</td>
                     <td style={{ padding: 8 }}>{e.result}</td>
                     <td style={{ padding: 8 }}>
                       {currencySymbol(e.currency)}{e.pnl.toFixed(2)}
