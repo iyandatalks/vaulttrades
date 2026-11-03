@@ -39,9 +39,9 @@ export const SOURCE_INDICATORS: Record<StrategyId, readonly SourceIndicatorSpec[
     { name: "EMA", purpose: "EMA20 confirmation and bias context", parameters: "EMA 20", required: true },
   ],
   autoFibRetrace: [
-    { name: "EMA", purpose: "DXY moving-average confluence", parameters: "DXY MA enabled by default; EMA type default, length 50", required: false },
+    { name: "EMA", purpose: "Optional Silver/XAGUSD trend confluence", parameters: "50-period EMA by default; SMA selectable; 0.05% neutral band", required: false },
     { name: "ATR", purpose: "Order-block/projection confirmation and distance constraints", parameters: "OB ATR length 14; projection ATR length 14", required: true },
-    { name: "Volume", purpose: "Order-block institutional-volume confirmation and DXY volume spike", parameters: "OB volume length 20; volume factor 1.5", required: false },
+    { name: "Volume", purpose: "Order-block institutional-volume confirmation and direction-aligned Silver volume expansion", parameters: "OB volume length 20; Silver volume factor 1.5", required: false },
   ],
   adaptiveExecution: [
     { name: "EMA", purpose: "Trend hierarchy", parameters: "EMA 20, 50, 100, 200", required: true },
