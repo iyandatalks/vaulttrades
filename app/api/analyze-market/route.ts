@@ -234,7 +234,7 @@ export async function POST(request: Request) {
       sellConfluence: autoFibEngine.sellConfluence,
       confluenceBreakdown: autoFibEngine.confluenceBreakdown,
       silver: autoFibEngine.silver,
-      silverDataAvailable: silverMarket !== null,
+      silverDataAvailable: Boolean(silverMarket && silverMarket.candles.length >= 2),
       evidence: autoFibEngine.evidence,
       missingConditions: autoFibEngine.missingConditions,
       liquidityTarget: null,
