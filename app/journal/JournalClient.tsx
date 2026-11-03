@@ -117,7 +117,7 @@ export default function JournalClient() {
     const { data } = await sb
       .from("journal_entries")
       .select(
-        "id, trade_date, account_type, currency, funded_account_id, session, symbol, strategy, result, pnl, emotion, note, created_at, direction, entry, sl, tp, tp2, tp3, lot_size, risk_amount, platform, prop_firm, program_name, account_stage, trade_status"
+        "id, trade_date, account_type, currency, funded_account_id, session, symbol, strategy, result, pnl, emotion, note, created_at, direction, entry, sl, tp, tp2, tp3, lot_size, risk_amount, platform, prop_firm, program_name, account_stage, trade_status, data"
       )
       .eq("user_id", u.id)
       .order("trade_date", { ascending: false })
@@ -198,6 +198,7 @@ export default function JournalClient() {
       symbol: form.symbol.trim(),
       strategy: form.strategy.trim() || "Other",
       result: form.result,
+      trade_status: form.result === "OPEN" ? "OPEN" : "CLOSED",
       pnl,
       total: pnl,
       emotion: form.emotion.trim(),
