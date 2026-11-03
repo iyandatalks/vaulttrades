@@ -149,6 +149,11 @@ export async function POST(request: Request) {
 
     const market = await getTwelveDataTimeSeries({ symbol, timeframe, outputsize: 250 });
     if (market.candles.length < 40) return Response.json({ error: "Not enough live market history was returned for this symbol/timeframe." }, { status: 422 });
+    // Silver is fetched only for the Auto Fib strategy on Gold instruments; all other Analyzer requests retain their existing provider-call count.
+    const isGoldInstrument = /XAU|GOLD/.test(symbol.replace(/[^A-Z]/g, ""));
+    const silverMarket = strategyId === "fibRetracement" && isGoldInstrument
+      ? await getTwelveDataTimeSeries({ symbol: "XAG/USD", timeframe, outputsize: 250 }).catch(() => null)
+      : null;
 
     const selectedIndicators = profileStrategy.defaultIndicators;
     const context = buildAnalyzerMarketContext(market.candles, market.symbol, timeframe, selectedIndicators);
@@ -203,6 +208,7 @@ export async function POST(request: Request) {
 
     const autoFibEngine = strategyId === "fibRetracement" ? analyzeAutoFibRetrace({
       candles: market.candles.map((c) => ({ time: new Date(c.datetime).getTime(), open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume ?? undefined })),
+      silverCandles: silverMarket?.candles.map((c) => ({ time: new Date(c.datetime).getTime(), open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume ?? undefined })),
     }) : null;
     const visualOrderBlocks = strategyId === "fibRetracement" && autoFibEngine
       ? [
@@ -224,6 +230,11 @@ export async function POST(request: Request) {
       rangeLow: autoFibEngine.buy.low ?? autoFibEngine.sell.low,
       fibLevel: autoFibEngine.buy.flipPrice ?? autoFibEngine.sell.flipPrice,
       score: Math.max(autoFibEngine.buyConfluence, autoFibEngine.sellConfluence),
+      buyConfluence: autoFibEngine.buyConfluence,
+      sellConfluence: autoFibEngine.sellConfluence,
+      confluenceBreakdown: autoFibEngine.confluenceBreakdown,
+      silver: autoFibEngine.silver,
+      silverDataAvailable: silverMarket !== null,
       evidence: autoFibEngine.evidence,
       missingConditions: autoFibEngine.missingConditions,
       liquidityTarget: null,
