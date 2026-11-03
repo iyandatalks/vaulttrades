@@ -273,6 +273,9 @@ The selected confirmation timeframe is the timeframe used to confirm the trade. 
 
 ENTRY CONFIRMATION FOR THIS STRATEGY
 ${profile.entryConfirmationRule}
+
+AUTO FIB DETERMINISTIC CONFLUENCE AUTHORITY
+When strategyId is fibRetracement, use prior.strategyEngine.buyConfluence, prior.strategyEngine.sellConfluence, prior.strategyEngine.confluenceBreakdown and prior.strategyEngine.silver as the authoritative deterministic score and Silver evidence from the live analysis request. Do not recompute or replace this score from the candle-only sourceFib fallback, because that fallback does not contain the Silver feed. Do not infer Silver conditions when silverDataAvailable is false.
 Allowed confirmation timeframes for this selection: ${allowedConfirmationTimeframes.join(" or ")}
 
 ENTRY CONFIRMATION OUTPUT RULE
@@ -539,7 +542,7 @@ Return JSON only. Preserve strategy-defined levels and distinguish strategy setu
       stopHit: lifecycle.stopHit,
       cycleStatus: lifecycle.status,
       projectionReason: fallback?.reason ?? "Selected strategy projection preserved.",
-      sourceFib: sourceFib ? { state: sourceFib.state, confidence: sourceFib.confidence } : null,
+      sourceFib: sourceFib ? { state: prior?.strategyEngine?.state ?? sourceFib.state, confidence: finite(prior?.strategyEngine?.score) ? prior.strategyEngine.score : sourceFib.confidence } : null,
       fibEntryLevel: strategyId === "fibRetracement" ? (direction === "BUY" ? fibBuyLevel : fibSellLevel) : null,
       allowedFibEntryPercentages: strategyId === "fibRetracement" ? [82, 78.6, 68.1, 61.8] : [],
       volumeProfile: volume,
