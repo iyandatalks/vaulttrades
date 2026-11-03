@@ -95,7 +95,7 @@ type Result = {
   educationalNote?: string;
   qualityChecks?: { smcStrongCount?: number; rrValid?: boolean; slDistanceValid?: boolean; entryDistanceValid?: boolean; universalTradeGate?: boolean };
   scanner?: Scanner;
-  strategyEngine?: { source?: string; state?: string; signal?: string; direction?: string; trend?: string; sweptLiquidity?: number | null; rejectionExtreme?: number | null; sweepTime?: string | null; mssTime?: string | null; confirmationTime?: string | null; entry?: number | null; stopLoss?: number | null; finalTp?: number | null; rangeHigh?: number | null; rangeLow?: number | null; window?: string | null; fibLevel?: number; score?: number; breakoutPrice?: number | null; breakoutTime?: string | null; breakoutDirection?: "BUY" | "SELL" | null; confluence?: { macroTrend: string; fastTrend: string; rsi: number | null; rsiAligned: boolean | null; volumeRatio: number | null; volumeGood: boolean; rangeSize: number; rangeAtrRatio: number | null; longScore: number; shortScore: number; dxy: string; silver: string; gate: string }; evidence?: string[]; missingConditions?: string[]; liquidityTarget?: number | null; orderBlock?: { direction: string; top: number; bottom: number } | null; riskReward?: number | null; invalidation?: string; ema20?: number | null; slowEMA?: number | null; atr?: number | null; bullStructure?: boolean; bearStructure?: boolean; bullTouch?: boolean; bearTouch?: boolean; bullReject?: boolean; bearReject?: boolean; bullMABreak?: boolean; bearMABreak?: boolean; utBull?: boolean; utBear?: boolean; smiBull?: boolean; smiBear?: boolean; confirmation?: { long: number; short: number } };
+  strategyEngine?: { source?: string; state?: string; signal?: string; direction?: string; buyConfluence?: number; sellConfluence?: number; silverDataAvailable?: boolean; silver?: { close: number | null; ma: number | null; maSlope: string; flow: string; structure: string; volumeExpansion: boolean; flowSupportsBuy: boolean; flowSupportsSell: boolean; structureSupportsBuy: boolean; structureSupportsSell: boolean; volumeSupportsBuy: boolean; volumeSupportsSell: boolean }; confluenceBreakdown?: { buy: Record<string, { available: boolean; passed: boolean; points: number; weight: number }>; sell: Record<string, { available: boolean; passed: boolean; points: number; weight: number }>; buyPenalty: number; sellPenalty: number }; trend?: string; sweptLiquidity?: number | null; rejectionExtreme?: number | null; sweepTime?: string | null; mssTime?: string | null; confirmationTime?: string | null; entry?: number | null; stopLoss?: number | null; finalTp?: number | null; rangeHigh?: number | null; rangeLow?: number | null; window?: string | null; fibLevel?: number; score?: number; breakoutPrice?: number | null; breakoutTime?: string | null; breakoutDirection?: "BUY" | "SELL" | null; confluence?: { macroTrend: string; fastTrend: string; rsi: number | null; rsiAligned: boolean | null; volumeRatio: number | null; volumeGood: boolean; rangeSize: number; rangeAtrRatio: number | null; longScore: number; shortScore: number; dxy: string; silver: string; gate: string }; evidence?: string[]; missingConditions?: string[]; liquidityTarget?: number | null; orderBlock?: { direction: string; top: number; bottom: number } | null; riskReward?: number | null; invalidation?: string; ema20?: number | null; slowEMA?: number | null; atr?: number | null; bullStructure?: boolean; bearStructure?: boolean; bullTouch?: boolean; bearTouch?: boolean; bullReject?: boolean; bearReject?: boolean; bullMABreak?: boolean; bearMABreak?: boolean; utBull?: boolean; utBear?: boolean; smiBull?: boolean; smiBear?: boolean; confirmation?: { long: number; short: number } };
 };
 
 const TIMEFRAMES: Timeframe[] = ["1m", "5m", "15m", "30m", "1H", "4H", "1D", "1W", "1M"];
@@ -487,6 +487,24 @@ export default function AnalyzerPage() {
           <p className="muted">Sweep: {result.strategyEngine.sweepTime || "Not confirmed"} · MSS: {result.strategyEngine.mssTime || "Not confirmed"} · OB exit close: {result.strategyEngine.confirmationTime || "Not confirmed"}</p>
           <p className="muted">DXY / Silver 61.8% Fib confluence: not provided by the current market-data feed; not counted as confirmation.</p>
           <p className="muted">Invalidation: {result.strategyEngine.invalidation || "No active setup."}</p>
+        </div>
+      </section>}
+      {strategy === "fibRetracement" && result.strategyEngine && <section className="card" style={{ border: "1px solid rgba(212,166,55,.4)" }}>
+        <div className="section-label">AUTO FIB + OB · LIVE CONFLUENCE</div>
+        <h2 className="title">Weighted score · BUY {result.strategyEngine.buyConfluence ?? 0}/100 · SELL {result.strategyEngine.sellConfluence ?? 0}/100</h2>
+        <p className="muted">Silver flow is inverse to Gold. Falling Silver supports Gold BUY; rising Silver supports Gold SELL. Missing inputs are excluded from the score denominator.</p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10, marginTop: 14 }}>
+          <PriceLevel label="SILVER / XAGUSD" value={result.strategyEngine.silver?.close ?? null} kind="orange" />
+          <PriceLevel label="SILVER MA(50)" value={result.strategyEngine.silver?.ma ?? null} kind="orange" />
+          <PriceLevel label="BUY CONFLUENCE" value={result.strategyEngine.buyConfluence ?? null} kind="entry" />
+          <PriceLevel label="SELL CONFLUENCE" value={result.strategyEngine.sellConfluence ?? null} kind="sl" />
+        </div>
+        <div className="condition-box" style={{ marginTop: 12 }}>
+          <strong>Silver evidence</strong>
+          <p className="muted">Feed: {result.strategyEngine.silverDataAvailable ? "XAG/USD live data loaded" : "Unavailable — Silver components excluded"} · Flow: {result.strategyEngine.silver?.flow ?? "UNAVAILABLE"} · MA slope: {result.strategyEngine.silver?.maSlope ?? "UNAVAILABLE"} · Structure: {result.strategyEngine.silver?.structure ?? "UNAVAILABLE"} · Volume expansion: {result.strategyEngine.silver?.volumeExpansion ? "YES" : "NO"}</p>
+          <strong>Weighted components</strong>
+          <p className="muted">{Object.entries(result.strategyEngine.confluenceBreakdown?.buy ?? {}).map(([name, item]) => `${name}: ${item.points}/${item.weight}${item.available ? "" : " (unavailable)"}`).join(" · ") || "Component breakdown unavailable."}</p>
+          <p className="muted">Opposing Silver-flow penalty: BUY −{result.strategyEngine.confluenceBreakdown?.buyPenalty ?? 0} · SELL −{result.strategyEngine.confluenceBreakdown?.sellPenalty ?? 0}</p>
         </div>
       </section>}
       {strategy === "ema20" && result.strategyEngine && <section className="card" style={{ border: "1px solid rgba(212,166,55,.4)" }}>
