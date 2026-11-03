@@ -14,7 +14,7 @@ const firmPrograms:Record<Firm,AccountType[]>={
  "Custom":["Instant Funding","1-Step NOVA","2-Step PRO v2"]
 };
 const supabase=()=>createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!,process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
-type JournalAccount={id:string;firm_name:string;starting_capital:number;payout_target:number;currency:string;color:string;program_name?:string;account_stage?:string;platform?:string;phase?:string};
+type JournalAccount={id:string;firm_name:string;starting_capital:number;payout_target:number;currency:string;color:string;program_name?:string;account_stage?:string;platform?:string;phase?:string;account_reference?:string|null};
 type Stage = "Evaluation" | "Funded";
 type Platform = "MT5" | "MatchTrader";
 const num=(v:string)=>{const n=Number(v);return Number.isFinite(n)?n:0};
