@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type Props = { initialEntry?: number | null; initialStop?: number | null; initialTp1?: number | null; initialTp2?: number | null; symbol?: string };
 type AccountType = "Instant Prime" | "Instant Funding" | "1-Step FLASH" | "1-Step NOVA" | "2-Step PRO v2";
@@ -14,6 +14,7 @@ const clamp=(v:number,min=0,max=100)=>Math.min(max,Math.max(min,v));
 type FieldProps = {label:string;value:number;set:(v:number)=>void;step?:string};
 function Field({label,value,set,step="any"}:FieldProps){
  const [text,setText]=useState(String(value));
+ useEffect(()=>setText(String(value)),[value]);
  return <label style={{display:"block",minWidth:0}}>
   <span style={{color:"#aeb5c6",fontSize:10,fontWeight:800,letterSpacing:".07em"}}>{label}</span>
   <input type="number" step={step} value={text} onChange={e=>{setText(e.target.value);if(e.target.value!==""&&Number.isFinite(Number(e.target.value)))set(Number(e.target.value));}} onBlur={()=>{if(text==="")setText(String(value));}} style={{width:"100%",boxSizing:"border-box",marginTop:6,padding:"10px 11px",borderRadius:8,border:"1px solid rgba(212,166,55,.28)",background:"#050812",color:"#f4f6fb"}}/>
@@ -51,12 +52,16 @@ export default function RiskManager({initialEntry=null,initialStop=null,initialT
  const [entry,setEntry]=useState(initialEntry??0),[sl,setSl]=useState(initialStop??0),[tp1,setTp1]=useState(initialTp1??0),[tp2,setTp2]=useState(initialTp2??0);
  const [valuePerMove,setValuePerMove]=useState(100),[marginPerLot,setMarginPerLot]=useState(1000),[lotStep,setLotStep]=useState(.01),[maxOpenLots,setMaxOpenLots]=useState(20);
  const [withdrawal,setWithdrawal]=useState(0);
+ const [payoutNumber,setPayoutNumber]=useState(1);
+ const [largestWinningDay,setLargestWinningDay]=useState(0);
+ const [largestLosingDay,setLargestLosingDay]=useState(0);
+ const [totalNetProfit,setTotalNetProfit]=useState(0);
  const selected=rules[accountType];
  const isNova=accountType==="1-Step NOVA";
  const effectiveDaily=selected.daily===null?null:(isNova&&stage==="Evaluation"?null:selected.daily);
  const effectiveMax=isNova&&stage==="Evaluation"?6:selected.max;
  const effectiveTarget=isNova&&stage==="Funded"?null:(accountType==="2-Step PRO v2"&&phase==="Phase 2"?5:selected.target);
- const effectiveSplit=selected.split;
+ const effectiveSplit=accountType==="Instant Funding"?Math.min(60+(payoutNumber-1)*10,90):accountType==="Instant Prime"?Math.min(80+(payoutNumber-1)*10,100):selected.split;
  const calc=useMemo(()=>{
   const dailyAllowance=effectiveDaily===null?Infinity:Math.max(0,dailyReference)*effectiveDaily/100;
   const dailyRemaining=effectiveDaily===null?Infinity:Math.max(0,dailyAllowance-Math.max(0,dailyUsed));
@@ -73,7 +78,8 @@ export default function RiskManager({initialEntry=null,initialStop=null,initialT
   const loss=lots*riskLot,used=lots*marginPerLot;
   const r1=distance>0?Math.abs(tp1-entry)/distance:0,r2=distance>0?Math.abs(tp2-entry)/distance:0;
   const dailyBreach=effectiveDaily===null?null:dailyReference*(1-effectiveDaily/100);
-  const maxBreach=selected.drawdown==="static"?account*(1-effectiveMax/100):highWater-account*effectiveMax/100;
+  const trailingLocked=selected.drawdown==="trailing"&&(highWater>=account*(1+effectiveMax/100)||withdrawal>0);
+  const maxBreach=selected.drawdown==="static"?account*(1-effectiveMax/100):(trailingLocked?account:highWater-account*effectiveMax/100);
   const dailyTarget=account*dailyTargetPct/100;
   const monthlyTarget=account*monthlyProfitGoal/100;
   const payoutGross=Math.max(0,withdrawal),traderShare=payoutGross*effectiveSplit/100,companyShare=payoutGross-traderShare;
@@ -82,10 +88,20 @@ export default function RiskManager({initialEntry=null,initialStop=null,initialT
   const minPayout=account*selected.minPayout/100;
   const targetAmount=effectiveTarget===null?null:account*effectiveTarget/100;
   const targetProgress=targetAmount&&targetAmount>0?clamp(netProfit/targetAmount*100):0;
-  return{dailyAllowance,dailyRemaining,personalStop,personalRemaining,budget,distance,riskLot,riskLots,marginLots,lots,loss,used,marginAfter:Math.max(0,margin-used),riskAccount:account?loss/account*100:0,r1,r2,dailyBreach,maxBreach,dailyTarget,monthlyTarget,payoutGross,traderShare,companyShare,balanceAfter,netProfit,minPayout,targetAmount,targetProgress,valid:account>0&&margin>=0&&entry>0&&distance>0&&budget>0&&lots>0};
- },[account,margin,dailyReference,dailyUsed,highWater,equity,riskPct,personalDailyStop,dailyTargetPct,monthlyProfitGoal,monthlyDays,entry,sl,tp1,tp2,valuePerMove,marginPerLot,lotStep,maxOpenLots,effectiveDaily,effectiveMax,selected.drawdown,selected.minPayout,selected.split,withdrawal,effectiveTarget]);
+  const payoutCycleProfit=Math.max(0,totalNetProfit);
+  const consistencyScore=payoutCycleProfit>0?Math.max(0,largestWinningDay)/payoutCycleProfit*100:null;
+  const essScore=payoutCycleProfit>0?(Math.max(0,largestWinningDay)+Math.abs(largestLosingDay))/payoutCycleProfit*100:null;
+  const consistencyRequired=selected.consistency!==null&&stage==="Funded";
+  const essRequired=selected.ess!==null&&stage==="Funded";
+  const stabilityScore=consistencyRequired?consistencyScore:essRequired?essScore:null;
+  const stabilityLimit=consistencyRequired?selected.consistency:essRequired?selected.ess:null;
+  const stabilityEligible=stabilityScore!==null&&stabilityLimit!==null?stabilityScore<=stabilityLimit:null;
+  const payoutFloorAfterRequest=selected.drawdown==="static"?maxBreach:(withdrawal>0?account:maxBreach);
+  const retainedCushion=balanceAfter-payoutFloorAfterRequest;
+  return{dailyAllowance,dailyRemaining,personalStop,personalRemaining,budget,distance,riskLot,riskLots,marginLots,lots,loss,used,marginAfter:Math.max(0,margin-used),riskAccount:account?loss/account*100:0,r1,r2,dailyBreach,maxBreach,dailyTarget,monthlyTarget,payoutGross,traderShare,companyShare,balanceAfter,netProfit,minPayout,targetAmount,targetProgress,trailingLocked,payoutCycleProfit,consistencyScore,essScore,consistencyRequired,essRequired,stabilityScore,stabilityLimit,stabilityEligible,payoutFloorAfterRequest,retainedCushion,valid:account>0&&margin>=0&&entry>0&&distance>0&&budget>0&&lots>0};
+ },[account,margin,dailyReference,dailyUsed,highWater,equity,riskPct,personalDailyStop,dailyTargetPct,monthlyProfitGoal,monthlyDays,entry,sl,tp1,tp2,valuePerMove,marginPerLot,lotStep,maxOpenLots,effectiveDaily,effectiveMax,selected.drawdown,selected.minPayout,selected.split,withdrawal,effectiveTarget,totalNetProfit,largestWinningDay,largestLosingDay,stage]);
  const setAccountPreset=(v:string)=>{const n=Number(v);if(Number.isFinite(n)&&n>0){setAccount(n);setMargin(n);setDailyReference(n);setHighWater(n);setEquity(n);}};
- const setAccountKind=(v:string)=>{const t=v as AccountType;setAccountType(t);setStage(t==="Instant Funding"||t==="Instant Prime"?"Funded":"Evaluation");setPhase("Phase 1");};
+ const setAccountKind=(v:string)=>{const t=v as AccountType;setAccountType(t);setStage(t==="Instant Funding"||t==="Instant Prime"?"Funded":"Evaluation");setPhase("Phase 1");if(t==="1-Step NOVA")setAccountPreset("100000");else if(t==="Instant Funding")setAccountPreset("5000");};
  const moneyOrUnlimited=(v:number)=>Number.isFinite(v)?money(v):"No firm daily limit";
  return <section className="card" style={{border:"1px solid rgba(212,166,55,.32)",background:"linear-gradient(145deg,rgba(10,16,30,.98),rgba(5,8,18,.98))"}}>
   <div className="section-label">VAULTTRADES RISK MANAGER</div>
@@ -99,7 +115,7 @@ export default function RiskManager({initialEntry=null,initialStop=null,initialT
   </div>
   <div style={{marginTop:13,padding:12,borderRadius:9,background:"rgba(212,166,55,.06)",border:"1px solid rgba(212,166,55,.22)"}}><strong style={{color:"#d4a637",fontSize:12}}>SELECTED PROGRAM RULES</strong><p className="muted" style={{margin:"7px 0 0",fontSize:12}}>{selected.note}</p><div style={{display:"flex",gap:16,flexWrap:"wrap",marginTop:9,fontSize:12}}><span>Daily loss: <b>{effectiveDaily===null?"None":effectiveDaily+"%"}</b></span><span>Max drawdown: <b>{effectiveMax}% {selected.drawdown}</b></span><span>Profit split: <b>{effectiveSplit}% trader</b></span><span>Minimum payout: <b>{selected.minPayout}%</b></span></div></div>
   <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:11,marginTop:15}}>
-   <Field label="ACCOUNT BALANCE ($)" value={account} set={setAccount}/>
+   <Field label="INITIAL ACCOUNT SIZE ($)" value={account} set={setAccount}/>
    <Field label="CURRENT EQUITY ($)" value={equity} set={setEquity}/>
    <Field label="AVAILABLE MARGIN ($)" value={margin} set={setMargin}/>
    <Field label="DAILY REFERENCE BALANCE / EQUITY ($)" value={dailyReference} set={setDailyReference}/>
@@ -111,7 +127,7 @@ export default function RiskManager({initialEntry=null,initialStop=null,initialT
   <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:9,marginTop:16}}>{[["FIRM DAILY LOSS ALLOWANCE",effectiveDaily===null?"No firm daily limit":money(calc.dailyAllowance)],["FIRM DAILY LOSS REMAINING",effectiveDaily===null?"No firm daily limit":money(calc.dailyRemaining)],["YOUR DAILY STOP REMAINING",money(calc.personalRemaining)],["MAX DRAWDOWN BREACH LEVEL",money(calc.maxBreach)],["RECOMMENDED RISK BUDGET",money(calc.budget)],["RECOMMENDED LOT SIZE",fmt(calc.lots,2)],["PROJECTED LOSS AT SL",money(calc.loss)],["MARGIN REQUIRED",money(calc.used)]].map(([label,value])=><div key={label} style={stat}><div style={{color:"#aeb5c6",fontSize:9,fontWeight:900,letterSpacing:".07em"}}>{label}</div><div style={{fontSize:19,fontWeight:950,marginTop:5,overflowWrap:"anywhere"}}>{value}</div></div>)}</div>
   <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:9,marginTop:12}}><div className="condition-box"><strong>Daily loss boundary</strong><p className="muted" style={{marginBottom:0}}>{calc.dailyBreach===null?"No firm daily loss boundary in this stage.":money(calc.dailyBreach)+" based on the reference value entered."}</p></div><div className="condition-box"><strong>Personal daily target</strong><p className="muted" style={{marginBottom:0}}>{money(calc.dailyTarget)} gross profit target.</p></div><div className="condition-box"><strong>Monthly gross target</strong><p className="muted" style={{marginBottom:0}}>{money(calc.monthlyTarget)} over {monthlyDays} trading days · approx. {money(monthlyDays>0?calc.monthlyTarget/monthlyDays:0)} per day.</p></div><div className="condition-box"><strong>Projected R:R</strong><p className="muted" style={{marginBottom:0}}>TP1 {fmt(calc.r1)}R · TP2 {fmt(calc.r2)}R.</p></div></div>
   {calc.targetAmount!==null&&<div style={{marginTop:12,padding:12,borderRadius:9,border:"1px solid rgba(212,166,55,.25)"}}><strong>Evaluation target progress</strong><p className="muted" style={{margin:"5px 0"}}>{money(calc.netProfit)} profit against {money(calc.targetAmount)} target ({fmt(calc.targetProgress)}%). Remaining: {money(Math.max(0,calc.targetAmount-calc.netProfit))}.</p><div style={{height:7,background:"#20283a",borderRadius:9,overflow:"hidden"}}><div style={{height:"100%",width:calc.targetProgress+"%",background:"#d4a637"}}/></div></div>}
-  <div style={{marginTop:16,...panel}}><strong style={{color:"#d4a637"}}>PAYOUT & RETAINED BALANCE PLANNER</strong><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:11,marginTop:11}}><Field label="GROSS PROFIT WITHDRAWAL REQUEST ($)" value={withdrawal} set={setWithdrawal}/><div style={stat}><div style={{color:"#aeb5c6",fontSize:9,fontWeight:900}}>MINIMUM PAYOUT AMOUNT</div><div style={{fontSize:19,fontWeight:900,marginTop:5}}>{money(calc.minPayout)}</div></div><div style={stat}><div style={{color:"#aeb5c6",fontSize:9,fontWeight:900}}>YOUR ESTIMATED SHARE</div><div style={{fontSize:19,fontWeight:900,marginTop:5}}>{money(calc.traderShare)}</div></div><div style={stat}><div style={{color:"#aeb5c6",fontSize:9,fontWeight:900}}>FIRM SHARE</div><div style={{fontSize:19,fontWeight:900,marginTop:5}}>{money(calc.companyShare)}</div></div><div style={stat}><div style={{color:"#aeb5c6",fontSize:9,fontWeight:900}}>BALANCE AFTER GROSS WITHDRAWAL</div><div style={{fontSize:19,fontWeight:900,marginTop:5}}>{money(calc.balanceAfter)}</div></div></div><p className="muted" style={{fontSize:11,marginBottom:0}}>Payout eligibility is subject to the firm's payout cycle, consistency / ESS requirements, minimum payout, verification and any account-specific conditions. The gross withdrawal entered is deducted from account equity; the trader share is the estimated cash paid to you.</p></div>
+  <div style={{marginTop:16,...panel}}><strong style={{color:"#d4a637"}}>PAYOUT & RETAINED BALANCE PLANNER</strong><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:11,marginTop:11}}><Field label="PAYOUT NUMBER (IN THIS ACCOUNT)" value={payoutNumber} set={setPayoutNumber} step="1"/><Field label="GROSS PROFIT WITHDRAWAL REQUEST ($)" value={withdrawal} set={setWithdrawal}/><Field label="LARGEST WINNING DAY ($)" value={largestWinningDay} set={setLargestWinningDay}/><Field label="LARGEST LOSING DAY ($)" value={largestLosingDay} set={setLargestLosingDay}/><Field label="TOTAL NET PROFIT THIS PAYOUT CYCLE ($)" value={totalNetProfit} set={setTotalNetProfit}/><div style={stat}><div style={{color:"#aeb5c6",fontSize:9,fontWeight:900}}>MINIMUM PAYOUT AMOUNT</div><div style={{fontSize:19,fontWeight:900,marginTop:5}}>{money(calc.minPayout)}</div></div><div style={stat}><div style={{color:"#aeb5c6",fontSize:9,fontWeight:900}}>YOUR ESTIMATED SHARE</div><div style={{fontSize:19,fontWeight:900,marginTop:5}}>{money(calc.traderShare)}</div></div><div style={stat}><div style={{color:"#aeb5c6",fontSize:9,fontWeight:900}}>FIRM SHARE</div><div style={{fontSize:19,fontWeight:900,marginTop:5}}>{money(calc.companyShare)}</div></div><div style={stat}><div style={{color:"#aeb5c6",fontSize:9,fontWeight:900}}>BALANCE AFTER GROSS WITHDRAWAL</div><div style={{fontSize:19,fontWeight:900,marginTop:5}}>{money(calc.balanceAfter)}</div></div><div style={stat}><div style={{color:"#aeb5c6",fontSize:9,fontWeight:900}}>RETAINED CUSHION ABOVE BREACH FLOOR</div><div style={{fontSize:19,fontWeight:900,marginTop:5}}>{money(calc.retainedCushion)}</div></div><div style={stat}><div style={{color:"#aeb5c6",fontSize:9,fontWeight:900}}>PAYOUT CYCLE / PAYOUT FREQUENCY</div><div style={{fontSize:19,fontWeight:900,marginTop:5}}>{selected.payoutDays} days</div></div></div>{(calc.consistencyRequired||calc.essRequired)&&<div style={{marginTop:12,padding:12,borderRadius:9,border:"1px solid rgba(212,166,55,.25)"}}><strong>{calc.consistencyRequired?"15% CONSISTENCY CHECK":"20% EQUITY STABILITY SCORE (ESS)"}</strong><p className="muted" style={{margin:"6px 0"}}>{calc.stabilityScore===null?"Enter your payout-cycle net profit and largest winning/losing days to calculate the score.":"Current score: "+fmt(calc.stabilityScore)+"% · Required: "+calc.stabilityLimit+"% or lower."}</p><p style={{margin:0,fontWeight:800,color:calc.stabilityEligible===null?"#d4a637":calc.stabilityEligible?"#35c98a":"#f0a34a"}}>{calc.stabilityEligible===null?"AWAITING INPUT":calc.stabilityEligible?"SCORE WITHIN PAYOUT LIMIT":"CONTINUE TRADING TO IMPROVE SCORE"}</p></div>}<p className="muted" style={{fontSize:11,marginBottom:0}}>Payout eligibility is subject to the firm's payout cycle, consistency / ESS requirements, minimum payout, verification and any account-specific conditions. The gross withdrawal entered is deducted from account equity; the trader share is the estimated cash paid to you. Instant Funding and Instant Prime profit splits step up by payout number as shown by the selected payout number.</p></div>
   <div style={{marginTop:14,padding:13,borderRadius:9,border:calc.valid?"1px solid rgba(40,200,110,.45)":"1px solid rgba(255,165,45,.45)",background:calc.valid?"rgba(40,200,110,.07)":"rgba(255,165,45,.07)"}}><strong>{calc.valid?("SIZE AVAILABLE: "+fmt(calc.lots,2)+" LOTS"):"ENTER VALID ACCOUNT, MARGIN, ENTRY AND STOP VALUES"}</strong><p className="muted" style={{margin:"6px 0 0"}}>{calc.valid?("A stop hit is approximately "+money(calc.loss)+". The size is constrained by your per-trade risk, remaining personal daily stop, firm daily-loss room, margin and open-lot cap."):"This calculator estimates position size only; it does not place trades."}</p></div>
   <p className="muted" style={{marginTop:13,fontSize:11,lineHeight:1.6}}>Important: MT5 and MatchTrader can use different symbol contract sizes, tick values, margin requirements and volume steps. Enter the actual instrument specifications shown by your platform; the selected platform does not automatically assume identical XAUUSD contract specifications. Firm rules can change. Confirm the current rule set in your trader dashboard before trading. This calculator is a planning aid, not a guarantee against breaches.</p>
  </section>;
