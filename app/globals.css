@@ -37,3 +37,5 @@
 .vt-admin-severity{font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;padding:5px 8px;border-radius:999px;background:#252a34;color:#cbd4e2}
 .vt-admin-severity.severity-warning{background:rgba(212,166,55,.14);color:#e5c16d}
 .vt-admin-severity.severity-critical{background:rgba(225,61,61,.14);color:#ff9696}
+
+.vt-whatsapp-contact svg{width:18px;height:18px;flex:none;margin-right:8px}.vt-whatsapp-contact:hover{border-color:#25d366;color:#25d366}
