@@ -328,7 +328,7 @@ export default function JournalClient() {
     setForm({
       tradeDate: e.trade_date,
       account: e.account_type,
-      currency: e.account_type === "Funded" ? "USD" : e.currency,
+      currency: e.account_type === "Funded" ? ((fundedAccounts.find((account) => account.id === e.funded_account_id)?.currency as Currency) ?? "USD") : e.currency,
       session: e.session,
       symbol: e.symbol,
       strategy: e.strategy,
@@ -782,7 +782,7 @@ export default function JournalClient() {
                 {entries.map((e) => (
                   <tr key={e.id}>
                     <td style={{ padding: 8 }}>{e.trade_date}</td>
-                    <td style={{ padding: 8, borderLeft: e.funded_account_id ? "3px solid " + (fundedAccounts.find((a) => a.id === e.funded_account_id)?.color ?? "#D4AF37") : undefined }}>{e.funded_account_id ? fundedAccounts.find((a) => a.id === e.funded_account_id) ? `${fundedAccounts.find((a) => a.id === e.funded_account_id)?.firm_name} · ${fundedAccounts.find((a) => a.id === e.funded_account_id)?.program_name ?? "Custom"} · ${fundedAccounts.find((a) => a.id === e.funded_account_id)?.account_stage ?? "Funded"}` : "Funded account" : e.account_type + " · " + e.currency}</td>
+                    <td style={{ padding: 8, borderLeft: e.funded_account_id ? "3px solid " + (fundedAccounts.find((a) => a.id === e.funded_account_id)?.color ?? "#D4AF37") : undefined }}>{e.funded_account_id && fundedAccounts.find((a) => a.id === e.funded_account_id) ? `${fundedAccounts.find((a) => a.id === e.funded_account_id)?.firm_name} · ${fundedAccounts.find((a) => a.id === e.funded_account_id)?.program_name ?? "Custom"} · ${fundedAccounts.find((a) => a.id === e.funded_account_id)?.account_stage ?? "Funded"}` : e.prop_firm ? `${e.prop_firm} · ${e.program_name ?? "Custom"} · ${e.account_stage ?? "Funded"}` : e.account_type + " · " + e.currency}</td>
                     <td style={{ padding: 8 }}>{e.session}</td>
                     <td style={{ padding: 8 }}>{e.symbol}</td>
                     <td style={{ padding: 8 }}>{e.strategy}</td>
