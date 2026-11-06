@@ -74,7 +74,7 @@ export default function PortfolioGoalOverview({ accounts, entries }: Props) {
     const remainingZar = Math.max(0, targetZar - pnlZar);
     const convertedRows = rows.every((row) => row.account.currency === "ZAR" || rates[row.account.currency]);
     const progress = targetZar > 0 ? Math.max(0, Math.min(100, pnlZar / targetZar * 100)) : 0;
-    return { capitalZar, pnlZar, targetZar, remainingZar, progress, convertedRows };
+    return { capitalZar, pnlZar, currentValueZar: capitalZar + pnlZar, targetZar, remainingZar, progress, convertedRows };
   }, [rows, rates]);
 
   if (!accounts.length) return null;
@@ -123,6 +123,11 @@ export default function PortfolioGoalOverview({ accounts, entries }: Props) {
             <div className="muted" style={{ fontSize: 11 }}>ZAR equivalent</div>
           </div>
           <div className="condition-box">
+            <div className="muted" style={{ fontSize: 12 }}>Current portfolio value</div>
+            <div style={{ fontSize: 20, fontWeight: 750, marginTop: 5 }}>{totals.convertedRows ? (totals.currentValueZar < 0 ? "−" : "") + money(totals.currentValueZar, "ZAR") : "—"}</div>
+            <div className="muted" style={{ fontSize: 11 }}>Starting capital + realised P&amp;L</div>
+          </div>
+          <div className="condition-box">
             <div className="muted" style={{ fontSize: 12 }}>Accounts in portfolio</div>
             <div style={{ fontSize: 20, fontWeight: 750, marginTop: 5 }}>{accounts.length}</div>
             <div className="muted" style={{ fontSize: 11 }}>Separate account goals</div>
@@ -147,6 +152,8 @@ export default function PortfolioGoalOverview({ accounts, entries }: Props) {
             const zarPnl = converted(pnl, account.currency, rates);
             const zarTarget = converted(target, account.currency, rates);
             const zarRemaining = converted(remaining, account.currency, rates);
+            const accountValue = (Number(account.starting_capital) || 0) + pnl;
+            const zarAccountValue = converted(accountValue, account.currency, rates);
             return (
               <div key={account.id} className="condition-box" style={{ borderTop: "3px solid " + (account.color || "#D4AF37") }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
@@ -165,12 +172,15 @@ export default function PortfolioGoalOverview({ accounts, entries }: Props) {
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginTop: 6, fontSize: 12 }}>
                   <span className="muted">Still to go</span><strong>{money(remaining, account.currency)}</strong>
                 </div>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginTop: 6, fontSize: 12 }}>
+                  <span className="muted">Current account value</span><strong>{money(accountValue, account.currency)}</strong>
+                </div>
                 <div style={{ height: 7, background: "rgba(127,127,127,.22)", borderRadius: 99, overflow: "hidden", marginTop: 10 }}>
                   <div style={{ height: "100%", width: progress + "%", background: account.color || "#D4AF37", borderRadius: 99 }} />
                 </div>
                 <div className="muted" style={{ fontSize: 11, marginTop: 9 }}>
                   {zarPnl != null && zarTarget != null && zarRemaining != null
-                    ? "ZAR: " + (zarPnl < 0 ? "−" : "") + money(zarPnl, "ZAR") + " achieved · " + money(zarRemaining, "ZAR") + " outstanding"
+                    ? "ZAR: " + (zarPnl < 0 ? "−" : "") + money(zarPnl, "ZAR") + " achieved · " + money(zarRemaining, "ZAR") + " outstanding · value " + (zarAccountValue != null ? money(zarAccountValue, "ZAR") : "—")
                     : "ZAR conversion unavailable"}
                 </div>
                 <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>{trades} closed journal {trades === 1 ? "trade" : "trades"} · {money(Number(account.starting_capital) || 0, account.currency)} starting capital</div>
