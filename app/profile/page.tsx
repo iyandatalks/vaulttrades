@@ -105,7 +105,7 @@ export default function ProfilePage() {
 
             <section className="vt-info-card" style={{ marginTop: 24, textAlign: "left" }}>
               <div className="vt-label">REFERRAL</div>
-              <h2 style={{ margin: "10px 0 8px", fontSize: 27 }}>VaultTrades Referral</h2>
+              <h2 style={{ margin: "10px 0 8px", fontSize: 27 }}>VaultTrades Referral</h2>\n              <p style={{ maxWidth: 760 }}>Discover how the referral programme works, explore an illustrative earnings calculator and learn how qualifying purchases are attributed.</p>\n              <Link className="vt-primary" href="/referral-program" style={{ display: "inline-block", marginTop: 10 }}>Explore Referral Programme →</Link>
               {referral.enabled && referral.url ? (
                 <>
                   <p style={{ maxWidth: 760 }}>
