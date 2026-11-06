@@ -36,6 +36,9 @@ type Entry = {
   program_name?: string | null;
   account_stage?: string | null;
   trade_status?: string | null;
+  timeframe?: string | null; risk_percent?: number | null;
+  account_reference?: string | null; phase?: string | null;
+  journal_source?: string | null; data?: Record<string, any> | null;
 };
 
 const supabase = () =>
@@ -76,6 +79,7 @@ export default function JournalClient() {
   const [firmPhase, setFirmPhase] = useState("Phase 1");
   const [firmReference, setFirmReference] = useState("");
   const [selectedFirmId, setSelectedFirmId] = useState("");
+  const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
   const [accountError, setAccountError] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -117,7 +121,7 @@ export default function JournalClient() {
     const { data } = await sb
       .from("journal_entries")
       .select(
-        "id, trade_date, account_type, currency, funded_account_id, session, symbol, strategy, result, pnl, emotion, note, created_at, direction, entry, sl, tp, tp2, tp3, lot_size, risk_amount, platform, prop_firm, program_name, account_stage, trade_status, data"
+        "id, trade_date, account_type, currency, funded_account_id, session, symbol, strategy, result, pnl, emotion, note, created_at, direction, entry, sl, tp, tp2, tp3, lot_size, risk_amount, risk_percent, platform, prop_firm, program_name, account_stage, trade_status, timeframe, journal_source, data"
       )
       .eq("user_id", u.id)
       .order("trade_date", { ascending: false })
@@ -150,6 +154,12 @@ export default function JournalClient() {
         program_name: x.program_name ?? x.data?.program ?? null,
         account_stage: x.account_stage ?? x.data?.stage ?? null,
         trade_status: x.trade_status ?? (x.result === "OPEN" ? "OPEN" : "CLOSED"),
+        timeframe: x.timeframe ?? x.data?.timeframe ?? null,
+        risk_percent: x.risk_percent ?? x.data?.risk_percent ?? null,
+        account_reference: x.data?.account_reference ?? null,
+        phase: x.data?.phase ?? null,
+        journal_source: x.journal_source ?? x.data?.source ?? null,
+        data: x.data ?? {},
       })) as Entry[]
     );
   };
@@ -172,6 +182,74 @@ export default function JournalClient() {
     await load();
   };
 
+  const resetAccountEditor = () => {
+    setEditingAccountId(null);
+    setFirmName(""); setFirmCapital("100000"); setFirmTarget("5000");
+    setFirmCurrency("USD"); setFirmColor("#D4AF37"); setFirmProgram("Custom");
+    setFirmStage("Funded"); setFirmPlatform("MT5"); setFirmPhase("Phase 1"); setFirmReference("");
+    setAccountError("");
+  };
+  const editFundedAccount = (account: FundedJournalAccount) => {
+    setEditingAccountId(account.id); setFirmName(account.firm_name);
+    setFirmCapital(String(account.starting_capital)); setFirmTarget(String(account.payout_target));
+    setFirmCurrency(account.currency || "USD"); setFirmColor(account.color || "#D4AF37");
+    setFirmProgram(account.program_name || "Custom"); setFirmStage(account.account_stage || "Funded");
+    setFirmPlatform(account.platform || "MT5"); setFirmPhase(account.phase || "Phase 1");
+    setFirmReference(account.account_reference || ""); setSelectedFirmId(account.id);
+    setForm((v) => ({ ...v, account: "Funded", fundedAccountId: account.id }));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  const saveFundedAccount = async () => {
+    setAccountError("");
+    if (!userId || !firmName.trim() || !(Number(firmCapital) > 0) || !(Number(firmTarget) >= 0)) {
+      setAccountError("Enter a prop firm name, a valid starting capital, and a payout target."); return;
+    }
+    const sb = supabase();
+    const { data: u } = await sb.from("users").select("id").eq("auth_user_id", userId).single();
+    if (!u?.id) { setAccountError("Your user profile could not be loaded. Please sign in again."); return; }
+    const payload = {
+      firm_name: firmName.trim(), starting_capital: Number(firmCapital), payout_target: Number(firmTarget),
+      currency: firmCurrency, color: firmColor, program_name: firmProgram, account_stage: firmStage,
+      platform: firmPlatform, phase: firmStage === "Evaluation" ? firmPhase : null,
+      account_reference: firmReference.trim() || null,
+    };
+    if (editingAccountId) {
+      const { error } = await sb.from("funded_journal_accounts").update(payload).eq("id", editingAccountId).eq("user_id", u.id);
+      if (error) { setAccountError(error.message); return; }
+    } else {
+      const { data, error } = await sb.from("funded_journal_accounts").insert({ ...payload, user_id: u.id }).select("id").single();
+      if (error || !data?.id) { setAccountError(error?.message ?? "Could not save this prop firm."); return; }
+      setSelectedFirmId(data.id);
+      setForm((v) => ({ ...v, account: "Funded", currency: firmCurrency as Currency, fundedAccountId: data.id }));
+    }
+    resetAccountEditor(); await load();
+  };
+  const deleteFundedAccount = async (account: FundedJournalAccount) => {
+    if (!userId || !window.confirm("Remove " + account.firm_name + " from your saved accounts? Existing Journal trades will be retained with the firm and programme details saved as historical information.")) return;
+    const sb = supabase();
+    const { data: u } = await sb.from("users").select("id").eq("auth_user_id", userId).single();
+    if (!u?.id) { setAccountError("Your user profile could not be loaded."); return; }
+    const { data: linked, error: linkedError } = await sb.from("journal_entries").select("id, data")
+      .eq("user_id", u.id).eq("funded_account_id", account.id);
+    if (linkedError) { setAccountError(linkedError.message); return; }
+    for (const trade of linked ?? []) {
+      const snapshot = { ...(trade.data && typeof trade.data === "object" ? trade.data : {}),
+        firm: account.firm_name, program: account.program_name ?? "Custom",
+        stage: account.account_stage ?? "Funded", phase: account.phase ?? null,
+        platform: account.platform ?? "MT5", account_reference: account.account_reference ?? null,
+        account_size: account.starting_capital, account_currency: account.currency, account_removed: true };
+      const { error } = await sb.from("journal_entries").update({
+        funded_account_id: null, prop_firm: account.firm_name, program_name: account.program_name ?? "Custom",
+        account_stage: account.account_stage ?? "Funded", platform: account.platform ?? "MT5", data: snapshot,
+      }).eq("id", trade.id).eq("user_id", u.id);
+      if (error) { setAccountError("Could not safely preserve linked trade history: " + error.message); return; }
+    }
+    const { error } = await sb.from("funded_journal_accounts").delete().eq("id", account.id).eq("user_id", u.id);
+    if (error) { setAccountError(error.message); return; }
+    if (selectedFirmId === account.id) setSelectedFirmId("");
+    if (editingAccountId === account.id) resetAccountEditor();
+    await load();
+  };
   const save = async () => {
     if (!userId) return;
     const sb = supabase();
@@ -185,6 +263,7 @@ export default function JournalClient() {
     const pnl = Number(form.pnl || 0);
     if (!Number.isFinite(pnl)) return;
 
+    const existingEntry = editingId ? entries.find((entry) => entry.id === editingId) : undefined;
     const payload = {
       user_id: u.id,
       email: (await sb.auth.getUser()).data.user?.email ?? null,
@@ -203,10 +282,17 @@ export default function JournalClient() {
       total: pnl,
       emotion: form.emotion.trim(),
       note: form.emotion.trim(),
-      data: {
-        account: form.account,
-        currency: form.account === "Funded" ? ((fundedAccounts.find((a) => a.id === (form.fundedAccountId || selectedFirmId))?.currency as Currency) ?? "USD") : form.currency,
-      },
+      direction: existingEntry?.direction ?? null,
+      entry: existingEntry?.entry ?? null, sl: existingEntry?.sl ?? null,
+      tp: existingEntry?.tp ?? null, tp2: existingEntry?.tp2 ?? null, tp3: existingEntry?.tp3 ?? null,
+      lot_size: existingEntry?.lot_size ?? null, risk_amount: existingEntry?.risk_amount ?? null,
+      risk_percent: existingEntry?.risk_percent ?? null, platform: existingEntry?.platform ?? null,
+      prop_firm: existingEntry?.prop_firm ?? null, program_name: existingEntry?.program_name ?? null,
+      account_stage: existingEntry?.account_stage ?? null, timeframe: existingEntry?.timeframe ?? null,
+      journal_source: existingEntry?.journal_source ?? null,
+      data: { ...(existingEntry?.data ?? {}), account: form.account,
+        currency: form.account === "Funded" ? ((fundedAccounts.find((a) => a.id === (form.fundedAccountId || selectedFirmId))?.currency as Currency) ?? "USD") : form.currency },
+      
     };
 
     if (editingId) {
@@ -381,8 +467,9 @@ export default function JournalClient() {
           <label className="muted">Identify with a colour<input type="color" value={firmColor} onChange={(e) => setFirmColor(e.target.value)} /></label>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 12, flexWrap: "wrap" }}>
-          <button className="primary" onClick={() => void createFundedAccount()}>Add Prop Firm Account</button>
-          <span className="muted">Saved once. Select it whenever you record a daily trade.</span>
+          <button className="primary" onClick={() => void saveFundedAccount()}>{editingAccountId ? "Update Account" : "Add Prop Firm Account"}</button>
+          {editingAccountId && <button className="secondary" onClick={resetAccountEditor}>Cancel Edit</button>}
+          <span className="muted">{editingAccountId ? "Changes update this saved account." : "Saved once. Select it whenever you record a daily trade."}</span>
         </div>
         {accountError && <div className="condition-box" style={{ marginTop: 10, borderColor: "#dc2626" }}>{accountError}</div>}
         {fundedAccounts.length > 0 && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12, marginTop: 16 }}>
@@ -401,7 +488,11 @@ export default function JournalClient() {
               <div className="muted" style={{ marginTop: 8 }}>Net P&amp;L · {firmTrades.length} trades</div><strong>{symbol}{pnl.toFixed(2)}</strong>
               <div className="muted" style={{ marginTop: 8 }}>Target: {symbol}{target.toFixed(2)} · Remaining: {symbol}{remaining.toFixed(2)}</div>
               <div style={{ height: 7, background: "rgba(127,127,127,.2)", borderRadius: 99, overflow: "hidden", marginTop: 8 }}><div style={{ height: "100%", width: progress + "%", background: firm.color }} /></div>
-              <button className="secondary" style={{ marginTop: 12 }} onClick={(event) => { event.stopPropagation(); setSelectedFirmId(firm.id); setStatsAccount(firm.id); setForm((f) => ({ ...f, account: "Funded", currency: "USD", fundedAccountId: firm.id })); }}>Open this journal</button>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+                <button className="secondary" onClick={(event) => { event.stopPropagation(); setSelectedFirmId(firm.id); setStatsAccount(firm.id); setForm((f) => ({ ...f, account: "Funded", currency: firm.currency as Currency, fundedAccountId: firm.id })); }}>Open Journal</button>
+                <button className="secondary" onClick={(event) => { event.stopPropagation(); editFundedAccount(firm); }}>Edit Account</button>
+                <button className="secondary" onClick={(event) => { event.stopPropagation(); void deleteFundedAccount(firm); }}>Remove Account</button>
+              </div>
             </div>;
           })}
         </div>}
@@ -673,7 +764,9 @@ export default function JournalClient() {
                     "Entry / SL",
                     "Take profits",
                     "Lots / Risk",
-                    "Platform",
+                    "Risk %",
+                    "Platform / Phase",
+                    "Source",
                     "Result",
                     "P&L",
                     "Emotion",
@@ -697,7 +790,9 @@ export default function JournalClient() {
                     <td style={{ padding: 8, whiteSpace: "nowrap" }}>{e.entry != null ? e.entry : "—"}{e.sl != null ? " / "+e.sl : ""}</td>
                     <td style={{ padding: 8, whiteSpace: "nowrap" }}>{[e.tp,e.tp2,e.tp3].filter((v) => v != null).join(" / ") || "—"}</td>
                     <td style={{ padding: 8, whiteSpace: "nowrap" }}>{e.lot_size != null ? e.lot_size : "—"}{e.risk_amount != null ? " · $"+Number(e.risk_amount).toFixed(2) : ""}</td>
-                    <td style={{ padding: 8 }}>{e.platform ?? "—"}</td>
+                    <td style={{ padding: 8 }}>{e.risk_percent != null ? Number(e.risk_percent).toFixed(2)+"%" : "—"}</td>
+                    <td style={{ padding: 8 }}>{e.platform ?? "—"}{e.phase ? " · "+e.phase : ""}{e.account_reference ? <div className="muted">Ref: {e.account_reference}</div> : null}</td>
+                    <td style={{ padding: 8 }}>{e.journal_source === "risk_manager" || e.journal_source === "Risk Manager" ? "Risk Manager" : "Manual"}</td>
                     <td style={{ padding: 8 }}>{e.result}</td>
                     <td style={{ padding: 8 }}>
                       {currencySymbol(e.currency)}{e.pnl.toFixed(2)}
