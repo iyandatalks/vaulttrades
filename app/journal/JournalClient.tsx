@@ -38,7 +38,9 @@ type Entry = {
   trade_status?: string | null;
   timeframe?: string | null; risk_percent?: number | null;
   account_reference?: string | null; phase?: string | null;
-  journal_source?: string | null; data?: Record<string, any> | null;
+  journal_source?: string | null;
+  account_size?: number | null; rr_tp1?: number | null; rr_tp2?: number | null;
+  data?: Record<string, any> | null;
 };
 
 const supabase = () =>
@@ -159,6 +161,9 @@ export default function JournalClient() {
         account_reference: x.data?.account_reference ?? null,
         phase: x.data?.phase ?? null,
         journal_source: x.journal_source ?? x.data?.source ?? null,
+        account_size: x.data?.account_size ?? null,
+        rr_tp1: x.data?.rr_tp1 ?? null,
+        rr_tp2: x.data?.rr_tp2 ?? null,
         data: x.data ?? {},
       })) as Entry[]
     );
@@ -788,7 +793,7 @@ export default function JournalClient() {
                     <td style={{ padding: 8 }}>{e.strategy}</td>
                     <td style={{ padding: 8 }}>{e.direction ?? "—"}</td>
                     <td style={{ padding: 8, whiteSpace: "nowrap" }}>{e.entry != null ? e.entry : "—"}{e.sl != null ? " / "+e.sl : ""}</td>
-                    <td style={{ padding: 8, whiteSpace: "nowrap" }}>{[e.tp,e.tp2,e.tp3].filter((v) => v != null).join(" / ") || "—"}</td>
+                    <td style={{ padding: 8, whiteSpace: "nowrap" }}>{[e.tp,e.tp2,e.tp3].filter((v) => v != null).join(" / ") || "—"}{e.rr_tp1 != null || e.rr_tp2 != null ? <div className="muted">RR: {e.rr_tp1 != null ? Number(e.rr_tp1).toFixed(2)+"R" : "—"} / {e.rr_tp2 != null ? Number(e.rr_tp2).toFixed(2)+"R" : "—"}</div> : null}</td>
                     <td style={{ padding: 8, whiteSpace: "nowrap" }}>{e.lot_size != null ? e.lot_size : "—"}{e.risk_amount != null ? " · $"+Number(e.risk_amount).toFixed(2) : ""}</td>
                     <td style={{ padding: 8 }}>{e.risk_percent != null ? Number(e.risk_percent).toFixed(2)+"%" : "—"}</td>
                     <td style={{ padding: 8 }}>{e.platform ?? "—"}{e.phase ? " · "+e.phase : ""}{e.account_reference ? <div className="muted">Ref: {e.account_reference}</div> : null}</td>
