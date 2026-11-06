@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
+import PortfolioGoalOverview from "./PortfolioGoalOverview";
 
 type Account = "Personal" | "Funded";
 type Currency = "ZAR" | "USD" | "EUR" | "GBP";
@@ -455,6 +456,7 @@ export default function JournalClient() {
 
   return (
     <main className="shell">
+      <PortfolioGoalOverview accounts={fundedAccounts} entries={entries} />
       <section className="card">
         <div className="section-label">FUNDED PROP FIRM SETUP</div>
         <h2 style={{ marginTop: 4 }}>Add each funded account once</h2>
