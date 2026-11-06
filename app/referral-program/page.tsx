@@ -55,7 +55,7 @@ export default function ReferralProgramPage() {
           </div>
           <div className="vt-referral-visual" aria-label="Illustrative referral growth calculator preview">
             <div className="vt-referral-orbit vt-orbit-one" /><div className="vt-referral-orbit vt-orbit-two" />
-            <div className="vt-referral-visual-card"><div className="vt-referral-visual-label">ILLUSTRATIVE POTENTIAL</div><div className="vt-referral-visual-amount">{money(estimate)}</div><div className="vt-referral-visual-caption">Estimated commission scenario</div><div className="vt-referral-bars"><i /><i /><i /><i /><i /><i /><i /><i /></div><div className="vt-referral-visual-foot"><span>{referrals} qualifying purchases assumed</span><span>20% example rate</span></div></div>
+            <div className="vt-referral-visual-card"><div className="vt-referral-visual-label">POTENTIAL EARNINGS</div><div className="vt-referral-visual-amount">{money(estimate)}</div><div className="vt-referral-visual-caption">Estimated commission scenario</div><div className="vt-referral-bars"><i /><i /><i /><i /><i /><i /><i /><i /></div><div className="vt-referral-visual-foot"><span>{referrals} qualifying purchases assumed</span><span>20% example rate</span></div></div>
             <div className="vt-referral-floating">YOUR NETWORK CAN GROW</div>
           </div>
         </div>
