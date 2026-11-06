@@ -48,7 +48,7 @@ export async function middleware(request: NextRequest) {
   if (!user) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/auth/login";
-    loginUrl.searchParams.set("next", pathname);
+    loginUrl.searchParams.set("next", pathname + request.nextUrl.search);
     return NextResponse.redirect(loginUrl);
   }
 
