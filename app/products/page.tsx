@@ -38,7 +38,7 @@ export default function ProductsPage() {
         </header>
         <section className="vt-info-grid">
           {products.map(([number, title, price, description, checkout, checkoutLabel, productHref, feature]) => (
-            <article className="vt-info-card" key={title}>
+            <article className="vt-info-card" id={feature} key={title}>
               <div className="vt-number">{number}</div>
               <h2>{title}</h2>
               <p style={{ color: "#d4a637", fontWeight: 900, fontSize: 24, margin: "12px 0" }}>{price}</p>
