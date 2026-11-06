@@ -1,9 +1,15 @@
 import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export default async function ReferralRedirectPage({ params }: { params: Promise<{ code: string }> }) {
   const { code: rawCode } = await params;
   const code = decodeURIComponent(rawCode || "").trim().toUpperCase();
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) redirect("/profile");
+
   if (!code) redirect("/auth/register");
 
   const admin = createAdminClient();
@@ -15,5 +21,5 @@ export default async function ReferralRedirectPage({ params }: { params: Promise
 
   if (!referrer) redirect("/auth/register");
 
-  redirect("/auth/register?ref=" + encodeURIComponent(code));
+  redirect("/auth/register?ref=" + encodeURIComponent(code) + "&next=%2Fprofile");
 }
