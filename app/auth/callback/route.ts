@@ -9,7 +9,7 @@ export async function GET(request: Request) {
   const cookieNext = request.headers.get("cookie")?.match(/(?:^|; )vaulttrades_auth_next=([^;]+)/)?.[1];
   const decodedCookieNext = cookieNext ? decodeURIComponent(cookieNext) : "";
   const nextCandidate = requestedNext || decodedCookieNext || "/profile";
-  const next = nextCandidate.startsWith("/") ? nextCandidate : "/profile";
+  const next = nextCandidate.startsWith("/") && !nextCandidate.startsWith("//") ? nextCandidate : "/profile";
 
   if (!code) {
     return NextResponse.redirect(new URL("/auth/login?error=missing_confirmation_code&next=" + encodeURIComponent(next), url.origin));
@@ -23,24 +23,24 @@ export async function GET(request: Request) {
   }
 
   const referralCookie = request.headers.get("cookie")?.match(/(?:^|; )vaulttrades_referral_code=([^;]+)/)?.[1];
-  const referralCode = referralCookie ? decodeURIComponent(referralCookie).trim().toUpperCase() : "";
+  const { data: { user } } = await supabase.auth.getUser();
+  const metadataCode = typeof user?.user_metadata?.referred_by === "string" ? user.user_metadata.referred_by : "";
+  const referralCode = (referralCookie ? decodeURIComponent(referralCookie) : metadataCode).trim().toUpperCase();
 
-  if (referralCode) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const admin = createAdminClient();
-      const { data: referrer } = await admin
+  if (referralCode && user) {
+    const admin = createAdminClient();
+    const [{ data: referrer }, { data: profile }] = await Promise.all([
+      admin.from("users").select("id").eq("referral_code", referralCode).maybeSingle(),
+      admin.from("users").select("id,referred_by").eq("auth_user_id", user.id).maybeSingle(),
+    ]);
+
+    // Attribute only a new, valid referral. Never overwrite an existing referrer or allow self-referral.
+    if (referrer && profile && referrer.id !== profile.id && !profile.referred_by) {
+      await admin
         .from("users")
-        .select("referral_code")
-        .eq("referral_code", referralCode)
-        .maybeSingle();
-
-      if (referrer) {
-        await admin
-          .from("users")
-          .update({ referred_by: referralCode })
-          .eq("auth_user_id", user.id);
-      }
+        .update({ referred_by: referralCode })
+        .eq("auth_user_id", user.id)
+        .is("referred_by", null);
     }
   }
 
