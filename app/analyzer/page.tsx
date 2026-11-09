@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ANALYZER_STRATEGIES, ANALYZER_STRATEGY_MAP } from "../../lib/strategies/analyzerProfiles";
 import { LiveMarketChart } from "./LiveMarketChart";
 
-type Timeframe = "1m" | "5m" | "15m" | "30m" | "1H" | "4H" | "1D" | "1W" | "1M";
+type Timeframe = "1m" | "5m" | "10m" | "15m" | "30m" | "1H" | "4H" | "1D" | "1W" | "1M";
 type MarketType = "FOREX" | "INDICES" | "CRYPTO" | "STOCKS" | "SYNTHETIC";
 type Candle = { datetime: string; open: number; high: number; low: number; close: number; volume: number | null };
 type Scanner = {
@@ -98,7 +98,7 @@ type Result = {
   strategyEngine?: { source?: string; state?: string; signal?: string; direction?: string; buyConfluence?: number; sellConfluence?: number; silverDataAvailable?: boolean; silver?: { close: number | null; ma: number | null; maSlope: string; flow: string; structure: string; volumeExpansion: boolean; flowSupportsBuy: boolean; flowSupportsSell: boolean; structureSupportsBuy: boolean; structureSupportsSell: boolean; volumeSupportsBuy: boolean; volumeSupportsSell: boolean }; confluenceBreakdown?: { buy: Record<string, { available: boolean; passed: boolean; points: number; weight: number }>; sell: Record<string, { available: boolean; passed: boolean; points: number; weight: number }>; buyPenalty: number; sellPenalty: number }; trend?: string; sweptLiquidity?: number | null; rejectionExtreme?: number | null; sweepTime?: string | null; mssTime?: string | null; confirmationTime?: string | null; entry?: number | null; stopLoss?: number | null; finalTp?: number | null; rangeHigh?: number | null; rangeLow?: number | null; window?: string | null; fibLevel?: number; score?: number; breakoutPrice?: number | null; breakoutTime?: string | null; breakoutDirection?: "BUY" | "SELL" | null; confluence?: { macroTrend: string; fastTrend: string; rsi: number | null; rsiAligned: boolean | null; volumeRatio: number | null; volumeGood: boolean; rangeSize: number; rangeAtrRatio: number | null; longScore: number; shortScore: number; dxy: string; silver: string; gate: string }; evidence?: string[]; missingConditions?: string[]; liquidityTarget?: number | null; orderBlock?: { direction: string; top: number; bottom: number } | null; riskReward?: number | null; invalidation?: string; ema20?: number | null; slowEMA?: number | null; atr?: number | null; bullStructure?: boolean; bearStructure?: boolean; bullTouch?: boolean; bearTouch?: boolean; bullReject?: boolean; bearReject?: boolean; bullMABreak?: boolean; bearMABreak?: boolean; utBull?: boolean; utBear?: boolean; smiBull?: boolean; smiBear?: boolean; confirmation?: { long: number; short: number } };
 };
 
-const TIMEFRAMES: Timeframe[] = ["1m", "5m", "15m", "30m", "1H", "4H", "1D", "1W", "1M"];
+const TIMEFRAMES: Timeframe[] = ["1m", "5m", "10m", "15m", "30m", "1H", "4H", "1D", "1W", "1M"];
 const MARKET_TYPES: MarketType[] = ["FOREX", "INDICES", "CRYPTO", "STOCKS", "SYNTHETIC"];
 const DEFAULT_SYMBOLS: Record<MarketType, string[]> = {
   FOREX: ["XAU/USD", "EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD"],
@@ -322,7 +322,7 @@ export default function AnalyzerPage() {
       if (!res.ok) throw new Error(data.error || "Unable to analyze live market data.");
       setResult(data);
       const candles = Array.isArray(data.chart?.candles) ? data.chart.candles : [];
-      if (candles.length >= 30 && strategy !== "srbOb" && strategy !== "lsobr") {
+      if (candles.length >= 30 && strategy !== "srbOb" && strategy !== "lsobr" && strategy !== "ema20") {
         setScannerLoading(true);
         try {
           const scannerRes = await fetch("/api/ai-scanner", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
@@ -403,9 +403,9 @@ export default function AnalyzerPage() {
   const rawLifecycleState = String(((strategy === "srbOb" || strategy === "lsobr") ? srbState : s?.cycleStatus || s?.analysisState || s?.statusMessage) ?? "").toUpperCase();
   const tradeIsRunning = s?.cycleStatus === "ACTIVE" || rawLifecycleState === "TRADE OPEN" || rawLifecycleState === "RUNNING" || (s?.actualEntry != null && s?.cycleStatus !== "COMPLETED");
   const pendingSourceStates = ["WAITING", "BUILDING", "INCOMPLETE RANGE", "ARMED", "LIMIT WAIT", "FIB RETEST DETECTED", "SETUP", "DEVELOPING", "WATCHING", "ENTRY READY"];
-  const terminalNoTrade = ["CANCELLED", "CANCELED", "EXPIRED", "REJECTED", "INVALIDATED", "COMPLETED", "STOP HIT", "TARGET HIT", "NO TRADE"].includes(rawLifecycleState)
+  const terminalNoTrade = ["CANCELLED", "CANCELED", "EXPIRED", "REJECTED", "INVALIDATED", "COMPLETED", "STOP HIT", "TARGET HIT", "SL_HIT", "TP_HIT", "NO TRADE"].includes(rawLifecycleState)
     || ((strategy === "lsobr" ? (rawLifecycleState === "ENTRY READY" && result?.decision === "NO TRADE") || ["REJECTED", "CANCELLED", "CANCELED", "EXPIRED", "INVALIDATED", "NO TRADE"].includes(rawLifecycleState) : strategy === "srbOb" ? ["REJECTED", "CANCELLED", "CANCELED", "EXPIRED", "INVALIDATED", "NO TRADE"].includes(rawLifecycleState) : result?.decision === "NO TRADE" && !tradeIsRunning && !s?.waitReason && !s?.statusMessage));
-  const scannerStatus = tradeIsRunning ? "RUNNING" : terminalNoTrade ? "NO TRADE" : "WAITING";
+  const scannerStatus = tradeIsRunning ? "TRADE ACTIVE" : s?.cycleStatus === "TP_HIT" ? "TRADE COMPLETED" : terminalNoTrade ? "NO TRADE" : "WAIT";
   const scannerEntry = (strategy === "srbOb" || strategy === "lsobr") ? result?.strategyEngine?.entry : (actualEntry ?? projectedEntry);
   const scannerStop = (strategy === "srbOb" || strategy === "lsobr") ? result?.strategyEngine?.stopLoss : projectedSL;
   const scannerTp1 = (strategy === "srbOb" || strategy === "lsobr") ? result?.strategyEngine?.finalTp : projectedTp1;
@@ -421,7 +421,9 @@ export default function AnalyzerPage() {
       : "No entry trigger has fired yet. The setup remains under observation.";
   const scannerReason = scannerReasons.length ? scannerReasons : [scannerReasonFallback];
   const marketDevelopmentStatus =
-    s?.analysisState === "ACTIVE" || s?.cycleStatus === "ACTIVE" ? "MOMENTUM ACTIVE" :
+    s?.cycleStatus === "SL_HIT" ? "NO TRADE — DAILY OPPORTUNITY USED" :
+    s?.cycleStatus === "TP_HIT" ? "TRADE COMPLETED" :
+    s?.analysisState === "ACTIVE" || s?.cycleStatus === "ACTIVE" ? "TRADE ACTIVE" :
     s?.entryConfirmation === true ? "ENTRY CONFIRMED" :
     s?.analysisState === "ENTRY_ZONE" ? "WAITING — RETEST ZONE" :
     s?.analysisState === "CONFIRMATION_PENDING" ? "WAITING — MOMENTUM CONFIRMATION" :
@@ -433,8 +435,8 @@ export default function AnalyzerPage() {
     || s?.tradeReason?.trim()
     || "The selected strategy is monitoring its own setup and confirmation conditions.";
   const tradeStatus = tradeIsRunning || s?.isExecutable === true
-    ? "TRADE"
-    : terminalNoTrade ? "NO TRADE" : "WAIT";
+    ? "TRADE ACTIVE"
+    : s?.cycleStatus === "TP_HIT" ? "TRADE COMPLETED" : terminalNoTrade ? "NO TRADE" : "WAIT";
   const validationStatus = s?.entryConfirmation === true
     ? "ENTRY CONFIRMED"
     : displayDirection && displayDirection !== "NO TRADE"
@@ -447,7 +449,7 @@ export default function AnalyzerPage() {
     <section className="card">
       <div className="section-label">LIVE MARKET</div>
       <h1 className="title">Analyze the market, not a screenshot</h1>
-      <p className="muted">Select the market, timeframe and strategy. The selected strategy remains the source of truth; Analyzer Rules 1–6 remain the universal validation layer. AI Scanner adds institutional-volume profiling, directional context and projected trade levels without replacing either.</p>
+      <p className="muted">Select the market, timeframe and strategy. EMA20 + OB uses its deterministic Pine-equivalent rules and mandatory Order Block qualification. Other strategies retain their existing Analyzer validation and AI Scanner layers.</p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12, marginTop: 18 }}>
         <label className="muted">Market<select value={marketType} disabled={loading} onChange={e => changeMarket(e.target.value as MarketType)} style={{ width: "100%", marginTop: 7, padding: 13, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}>{MARKET_TYPES.map(m => <option key={m} value={m}>{m === "SYNTHETIC" ? "Synthetic indices" : m.charAt(0) + m.slice(1).toLowerCase()}</option>)}</select></label>
         <label className="muted">Symbol<input value={symbol} disabled={loading || marketType === "SYNTHETIC"} onChange={e => setSymbol(e.target.value)} list="symbols" placeholder="e.g. XAU/USD" style={{ width: "100%", marginTop: 7, padding: 13, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}/><datalist id="symbols">{DEFAULT_SYMBOLS[marketType].map(s => <option key={s} value={s}/>)}</datalist></label>
@@ -459,7 +461,7 @@ export default function AnalyzerPage() {
       <div className="section-label">STRATEGY</div>
       <h2 className="title">Choose the strategy first</h2>
       <select value={strategy} disabled={loading} onChange={e => { setStrategy(e.target.value); setResult(null); setLockedTrade(null); }} style={{ width: "100%", marginTop: 14, padding: 14, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}>{PUBLIC_STRATEGY_IDS.map(id => <option key={id} value={id}>{PUBLIC_STRATEGY_LABELS[id]}</option>)}</select>
-      <div className="condition-box" style={{ marginTop: 14 }}><strong>{strategyDisplayName(strategy)}</strong><p className="muted">{strategy === "fibRetracement" ? "Institutional liquidity and structure, prior order blocks, CHOCH-based projection, and timeframe-adjusted Fibonacci retracement levels (61.8%, 68.1%, 78.6%, 88%). The Fib level alone never confirms an entry." : strategy === "ema20" ? "Independent EMA20 pullback strategy using EMA20 and EMA105 context, persistent swing structure, EMA touch/rejection, rejection break, and UT Bot OR SMI confirmation. Uses its own source-defined stop and target rules." : strategy === "supplyDemand" ? "Independent supply and demand zone strategy. Zone reach, reaction, hold and flip are validated separately." : strategy === "lsobr" ? "Liquidity sweep → fixed pre-existing order-block rejection → confirmed MSS → completed close out of the OB. Entry is allowed only between the fixed OB and swept liquidity; stop is beyond the OB and target is the next valid opposing liquidity pool. No SRB opening-window conditions apply." : strategy === "srbOb" ? "Independent session-range breakout and order-block strategy. Breakouts arm a wick-anchored Fibonacci pullback; the breakout candle is not an entry." : "Strategy-specific rules are loaded from the selected strategy profile."}</p><p className="muted">Analyzer Rules 1–6 remain the universal validation layer. Only the selected strategy supplies the primary setup logic and trade levels.</p></div>
+      <div className="condition-box" style={{ marginTop: 14 }}><strong>{strategyDisplayName(strategy)}</strong><p className="muted">{strategy === "fibRetracement" ? "Institutional liquidity and structure, prior order blocks, CHOCH-based projection, and timeframe-adjusted Fibonacci retracement levels (61.8%, 68.1%, 78.6%, 88%). The Fib level alone never confirms an entry." : strategy === "ema20" ? "Pine-equivalent EMA20 pullback and confirmation sequence, plus a mandatory pre-existing unmitigated displacement Order Block. One qualified trade per timeframe per SAST day; the original Entry, SL and TP remain locked until the trade closes." : strategy === "supplyDemand" ? "Independent supply and demand zone strategy. Zone reach, reaction, hold and flip are validated separately." : strategy === "lsobr" ? "Liquidity sweep → fixed pre-existing order-block rejection → confirmed MSS → completed close out of the OB. Entry is allowed only between the fixed OB and swept liquidity; stop is beyond the OB and target is the next valid opposing liquidity pool. No SRB opening-window conditions apply." : strategy === "srbOb" ? "Independent session-range breakout and order-block strategy. Breakouts arm a wick-anchored Fibonacci pullback; the breakout candle is not an entry." : "Strategy-specific rules are loaded from the selected strategy profile."}</p><p className="muted">EMA20 + OB is validated by its own source rules, mandatory Order Block and daily lifecycle. Other strategies retain their existing universal validation layer.</p></div>
     </section>
 
     <section className="card"><div className="actions"><button className="primary" type="button" disabled={loading || marketType === "SYNTHETIC"} onClick={() => void runAnalysis()}>{loading ? "Analyzing live market..." : "Analyze Live Market"}</button></div>{marketType === "SYNTHETIC" && <div className="condition-box" style={{ marginTop: 12 }}><strong>Synthetic market connection</strong><p className="muted">This route deliberately does not substitute another provider. Connect the Synthetic/Broker provider before enabling synthetic analysis.</p></div>}{error && <div className="error-box" style={{ marginTop: 12 }}><strong>Analysis Error</strong><p className="muted">{error}</p></div>}</section>
@@ -510,7 +512,7 @@ export default function AnalyzerPage() {
       {strategy === "ema20" && result.strategyEngine && <section className="card" style={{ border: "1px solid rgba(212,166,55,.4)" }}>
         <div className="section-label">EMA20 + OB ENGINE · LIVE SOURCE STATE</div>
         <h2 className="title">{result.strategyEngine.state || "WAITING"} · {result.strategyEngine.signal || "NO TRADE"}</h2>
-        <p className="muted">Source-native EMA20 logic: persistent confirmed structure → EMA20 pullback/rejection → break of rejection boundary → UT Bot or SMI confirmation. No new signal means no entry is fabricated.</p>
+        <p className="muted">Pine-equivalent sequence: persistent confirmed structure → EMA20 pullback/rejection → rejection-boundary break → UT Bot or SMI confirmation. A pre-existing unmitigated displacement OB must also qualify. The daily 00:00–10:45 SAST entry window and one-trade-per-timeframe limit are enforced; open trades remain managed after the window.</p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: 10, marginTop: 14 }}>
           <PriceLevel label="EMA20" value={result.strategyEngine.ema20} kind="orange" />
           <PriceLevel label="SLOW EMA CONTEXT" value={result.strategyEngine.slowEMA} kind="orange" />
@@ -518,6 +520,8 @@ export default function AnalyzerPage() {
           <PriceLevel label="SOURCE ENTRY" value={result.strategyEngine.entry} kind="entry" />
           <PriceLevel label="SOURCE STOP" value={result.strategyEngine.stopLoss} kind="sl" />
           <PriceLevel label="SOURCE TARGET" value={result.strategyEngine.finalTp} kind="tp" />
+          <PriceLevel label="OB TOP" value={result.strategyEngine.orderBlock?.top ?? null} kind="orange" />
+          <PriceLevel label="OB BOTTOM" value={result.strategyEngine.orderBlock?.bottom ?? null} kind="orange" />
         </div>
         <div className="condition-box" style={{ marginTop: 12 }}>
           <strong>Confirmation score · Long {result.strategyEngine.confirmation?.long ?? 0}/2 · Short {result.strategyEngine.confirmation?.short ?? 0}/2</strong>
