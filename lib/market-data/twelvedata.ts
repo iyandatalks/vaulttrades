@@ -5,7 +5,7 @@ export type MarketInstrument = { symbol: string; name: string; type: string; exc
 export type MarketDataSnapshot = { provider: "twelvedata"; symbol: string; interval: TwelveDataInterval; candles: MarketDataCandle[]; currentPrice: number | null; currentPriceTimestamp: string | null; fetchedAt: string };
 
 const BASE_URL = "https://api.twelvedata.com";
-const INTERVALS: Record<string, TwelveDataInterval> = { "1m": "1min", "5m": "5min", "10m": "10min", "15m": "15min", "30m": "30min", "1H": "1h", "4H": "4h", "1D": "1day", "1W": "1week", "1M": "1month" };
+const INTERVALS: Record<string, TwelveDataInterval> = { "1m": "1min", "5m": "5min", "15m": "15min", "30m": "30min", "1H": "1h", "4H": "4h", "1D": "1day", "1W": "1week", "1M": "1month" };
 export function toTwelveDataInterval(timeframe: string): TwelveDataInterval | null { return INTERVALS[timeframe] ?? null; }
 function finiteNumber(value: unknown): number | null { const number = typeof value === "number" ? value : Number(value); return Number.isFinite(number) ? number : null; }
 
@@ -68,8 +68,11 @@ export async function getTwelveDataInstruments(marketType: "FOREX" | "INDICES" |
 }
 
 export async function getTwelveDataTimeSeries({ symbol, timeframe, outputsize = 120 }: { symbol: string; timeframe: string; outputsize?: number }): Promise<MarketDataSnapshot> {
-  const interval = toTwelveDataInterval(timeframe);
+  const interval = timeframe === "10m" ? "10min" : toTwelveDataInterval(timeframe);
   if (!interval) throw new Error(`Unsupported Twelve Data timeframe: ${timeframe}`);
+  // Twelve Data has no native 10-minute interval. Build completed M10 bars
+  // from consecutive M5 bars so the Analyzer never requests an unsupported interval.
+  const requestInterval = timeframe === "10m" ? "5min" : interval;
   const requestedSymbol = symbol.trim().toUpperCase();
   if (!requestedSymbol) throw new Error("A market symbol is required.");
 
@@ -87,13 +90,40 @@ export async function getTwelveDataTimeSeries({ symbol, timeframe, outputsize = 
     normalizedSymbol = resolved;
   }
 
-  const payload = await twelveDataJson("time_series", { symbol: normalizedSymbol, interval, outputsize: String(Math.min(Math.max(outputsize, 20), 5000)), format: "JSON" });
+  const requestSize = timeframe === "10m" ? Math.min(Math.max(outputsize * 2, 20), 5000) : Math.min(Math.max(outputsize, 20), 5000);
+  const payload = await twelveDataJson("time_series", { symbol: normalizedSymbol, interval: requestInterval, outputsize: String(requestSize), format: "JSON" });
   const values = Array.isArray(payload?.values) ? payload.values : [];
-  const candles: MarketDataCandle[] = values
+  const baseCandles: MarketDataCandle[] = values
     .map((row: Record<string, unknown>) => ({ datetime: String(row.datetime ?? ""), open: finiteNumber(row.open), high: finiteNumber(row.high), low: finiteNumber(row.low), close: finiteNumber(row.close), volume: finiteNumber(row.volume) }))
     .filter((row: MarketDataCandle) => Boolean(row.datetime) && row.open !== null && row.high !== null && row.low !== null && row.close !== null)
     .map((row: MarketDataCandle) => ({ ...row, open: row.open as number, high: row.high as number, low: row.low as number, close: row.close as number }))
     .sort((a: MarketDataCandle, b: MarketDataCandle) => { const aTime = Date.parse(a.datetime); const bTime = Date.parse(b.datetime); if (Number.isFinite(aTime) && Number.isFinite(bTime)) return aTime - bTime; return a.datetime.localeCompare(b.datetime); });
+  let candles = baseCandles;
+  if (timeframe === "10m") {
+    const buckets = new Map<number, MarketDataCandle[]>();
+    for (const candle of baseCandles) {
+      const timestamp = Date.parse(candle.datetime.includes("T") ? candle.datetime : candle.datetime.replace(" ", "T") + "Z");
+      if (!Number.isFinite(timestamp)) continue;
+      const key = Math.floor(timestamp / 600_000);
+      const group = buckets.get(key) ?? [];
+      group.push(candle);
+      buckets.set(key, group);
+    }
+    candles = Array.from(buckets.entries()).sort((a, b) => a[0] - b[0]).flatMap(([, group]) => {
+      if (group.length !== 2) return [];
+      const firstTime = Date.parse(group[0].datetime.includes("T") ? group[0].datetime : group[0].datetime.replace(" ", "T") + "Z");
+      const secondTime = Date.parse(group[1].datetime.includes("T") ? group[1].datetime : group[1].datetime.replace(" ", "T") + "Z");
+      if (secondTime - firstTime !== 300_000) return [];
+      return [{
+        datetime: group[0].datetime,
+        open: group[0].open,
+        high: Math.max(group[0].high, group[1].high),
+        low: Math.min(group[0].low, group[1].low),
+        close: group[1].close,
+        volume: group[0].volume == null || group[1].volume == null ? null : group[0].volume + group[1].volume,
+      }];
+    }).slice(-outputsize);
+  }
   const live = await getTwelveDataLatestPrice(normalizedSymbol);
   const latestClose = candles.at(-1)?.close ?? null;
   return { provider: "twelvedata", symbol: normalizedSymbol, interval, candles, currentPrice: live.price ?? latestClose, currentPriceTimestamp: live.timestamp, fetchedAt: new Date().toISOString() };
