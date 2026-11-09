@@ -135,6 +135,7 @@ function findOrderBlockForRejection(
 export function evaluateEma20Analyzer(
   candles: MarketDataCandle[],
   timeframe: string,
+  livePrice: number | null = null,
 ): Ema20AnalyzerLifecycle & { engine: Ema20EngineBar | null } {
   const bars = runEma20Engine(candles);
   if (!bars.length) {
@@ -220,6 +221,16 @@ export function evaluateEma20Analyzer(
       orderBlock, sourceBar: bar, status: "TRADE ACTIVE",
     };
     lastCompletedToday = null;
+  }
+
+  if (active && livePrice != null && Number.isFinite(livePrice)) {
+    const liveStopHit = active.direction === "BUY" ? livePrice <= active.stopLoss : livePrice >= active.stopLoss;
+    const liveTargetHit = active.direction === "BUY" ? livePrice >= active.target : livePrice <= active.target;
+    if (liveStopHit || liveTargetHit) {
+      active.status = liveStopHit ? "SL HIT" : "TP HIT";
+      lastCompletedToday = active;
+      active = null;
+    }
   }
 
   if (active) {
