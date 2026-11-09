@@ -166,6 +166,7 @@ export function evaluateEma20Analyzer(
     const candle = candles[index];
     const time = sastParts(candle.datetime, timeframe);
     if (!time) continue;
+    if (currentSastDay && time.date !== currentSastDay) lastCompletedToday = null;
     currentSastDay = time.date;
 
     // Existing positions are managed outside the morning entry window.
@@ -177,7 +178,7 @@ export function evaluateEma20Analyzer(
         // Conservative OHLC handling: if both levels print in one candle,
         // count the stop first rather than assuming an unobservable intrabar path.
         active.status = slHit ? "SL HIT" : "TP HIT";
-        if (active.entryDay === time.date) lastCompletedToday = active;
+        lastCompletedToday = active;
         active = null;
         closedThisBar = true;
       }
@@ -227,15 +228,19 @@ export function evaluateEma20Analyzer(
     };
   }
 
-  if (lastEntryDay === currentSastDay && lastCompletedToday) {
+  if (lastCompletedToday) {
     return {
       state: lastCompletedToday.status, direction: lastCompletedToday.direction,
       entry: lastCompletedToday.entry, stopLoss: lastCompletedToday.stopLoss,
       target: lastCompletedToday.target, entryTime: lastCompletedToday.entryTime,
       entryDay: lastCompletedToday.entryDay, orderBlock: lastCompletedToday.orderBlock,
       reason: lastCompletedToday.status === "SL HIT"
-        ? "Today's EMA20 + OB trade hit its original stop loss. NO TRADE for the remainder of this timeframe's SAST day."
-        : "Today's EMA20 + OB trade reached its original target. No second trade is permitted on this timeframe today.",
+        ? (lastCompletedToday.entryDay === currentSastDay
+          ? "Today's EMA20 + OB trade hit its original stop loss. NO TRADE for the remainder of this timeframe's SAST day."
+          : "The prior EMA20 + OB trade hit its original stop loss today. A fresh signal may still qualify within today's 00:00–10:45 SAST window.")
+        : (lastCompletedToday.entryDay === currentSastDay
+          ? "Today's EMA20 + OB trade reached its original target. No second trade is permitted on this timeframe today."
+          : "The prior EMA20 + OB trade reached its original target today. A fresh signal may still qualify within today's 00:00–10:45 SAST window."),
       sourceBar: lastCompletedToday.sourceBar, engine: bars.at(-1) ?? null,
     };
   }
