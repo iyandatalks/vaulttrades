@@ -228,8 +228,8 @@ export async function POST(request: Request) {
           ...(autoFibEngine.orderBlocks.bearish.active && !autoFibEngine.orderBlocks.bearish.mitigated && !autoFibEngine.orderBlocks.bearish.breaker && autoFibEngine.orderBlocks.bearish.high != null && autoFibEngine.orderBlocks.bearish.low != null
             ? [{ direction:"BEARISH", top:autoFibEngine.orderBlocks.bearish.high, bottom:autoFibEngine.orderBlocks.bearish.low, label:"ACTIVE BEARISH OB · UNMITIGATED", state:"ACTIVE" }] : []),
         ]
-      : strategyId === "ema20" && ema20Engine?.orderBlock
-        ? [{ direction: ema20Engine.orderBlock.direction, top: ema20Engine.orderBlock.top, bottom: ema20Engine.orderBlock.bottom, label: ema20Engine.orderBlock.label, state: ema20Engine.orderBlock.state }]
+      : strategyId === "ema20"
+        ? (ema20Engine?.orderBlock ? [{ direction: ema20Engine.orderBlock.direction, top: ema20Engine.orderBlock.top, bottom: ema20Engine.orderBlock.bottom, label: ema20Engine.orderBlock.label, state: ema20Engine.orderBlock.state }] : [])
         : findActiveVisualOrderBlocks(market.candles);
     const autoFibEngineEvidence = autoFibEngine ? {
       source: "AUTO_FIB_RETRACE_DETERMINISTIC",
