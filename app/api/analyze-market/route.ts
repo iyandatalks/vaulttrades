@@ -20,6 +20,23 @@ type Direction = "BUY" | "SELL" | "NO TRADE";
 const validTimeframe = (value: unknown): value is Timeframe => typeof value === "string" && TIMEFRAMES.includes(value as Timeframe);
 const validMarket = (value: unknown): value is MarketType => typeof value === "string" && MARKETS.includes(value as MarketType);
 const clean = (value: unknown) => typeof value === "string" ? value.trim() : "";
+const EMA20_TIMEFRAME_MINUTES: Record<string, number> = {
+  "1m": 1, "5m": 5, "10m": 10, "15m": 15, "30m": 30,
+  "1H": 60, "4H": 240, "1D": 1440, "1W": 10080, "1M": 43200,
+};
+
+function completedEma20Candles(candles: Array<{ datetime: string }>, timeframe: string) {
+  const minutes = EMA20_TIMEFRAME_MINUTES[timeframe];
+  if (!minutes) return [];
+  const now = Date.now();
+  return candles.filter(candle => {
+    const normalized = candle.datetime.includes("T") ? candle.datetime : candle.datetime.replace(" ", "T");
+    const hasExplicitTimezone = /(?:Z|[+-]\\d{2}:?\\d{2})$/i.test(normalized);
+    const openedAt = Date.parse(hasExplicitTimezone ? normalized : normalized + "Z");
+    return Number.isFinite(openedAt) && openedAt + minutes * 60_000 <= now;
+  });
+}
+
 
 function calculateChannel(candles: Array<{ high: number; low: number; close: number }>, length = 20) {
   if (candles.length < length) return { upper: null, lower: null, middle: null };
@@ -169,7 +186,10 @@ export async function POST(request: Request) {
 
     // EMA20 is the first live strategy wired to a deterministic Pine-equivalent engine.
     // The engine is authoritative for strategy state and native Entry/SL/TP. The Analyzer is downstream.
-    const ema20Engine = strategyId === "ema20" ? evaluateEma20Analyzer(market.candles, timeframe, liveCurrentPrice) : null;
+    // Pine strategies execute on confirmed bar close. Exclude the still-forming provider candle
+    // and do not use a mid-bar quote to declare a Pine stop/target exit.
+    const ema20Candles = strategyId === "ema20" ? completedEma20Candles(market.candles, timeframe) : [];
+    const ema20Engine = strategyId === "ema20" ? evaluateEma20Analyzer(ema20Candles, timeframe) : null;
     const ema20Bar = ema20Engine?.engine ?? null;
     const ema20EngineEvidence = ema20Engine ? {
       source: "EMA20_MORNING_TRADES_PINE_V6",
