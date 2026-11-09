@@ -10,11 +10,11 @@ const UNIVERSAL_ANALYZER_RULES = [
   "RULE 1 — VISUAL CHART ANALYSIS: Describe market structure, visible support/resistance and recent price action from actual evidence.",
   "RULE 1 — CHOPPY MARKET RULE: More than 5 consecutive inside bars OR materially conflicting signals across 3 or more visible timeframes means NO TRADE.",
   "RULE 2 — SMC DETECTION: Score BOS, CHoCH, Order Block, Fair Value Gap, Liquidity Sweep and Displacement from 1–10 when visible and explain the evidence.",
-  "RULE 2 — SMC CONFLUENCE GATE: A NEW BUY or SELL requires at least 2 SMC signals scored >=7. Otherwise the final decision MUST be NO TRADE.",
+  "RULE 2 — SMC CONFLUENCE GATE: Apply the two-SMC-signal threshold only when the selected strategy profile explicitly requires it; never impose it on a deterministic strategy with its own mandatory qualification rules.",
   "RULE 3 — SESSION & CONFLUENCE: Identify London, New York or Asian session when time permits; state higher-timeframe alignment, visible news/fundamental context and risk-on/risk-off sentiment without inventing unavailable news.",
   "RULE 3 — SESSION GATES: Asian trades require confluence >=9/10 AND a visible/known major news event; London/NY overlap is preferred; pre-London 07:00–08:00 GMT is acceptable only for an exceptional setup.",
-  "RULE 4 — PRICE LEVEL VALIDATION: Entry within 0.5% of current price when visible; SL at least 0.1% from entry; TP at least 2x SL distance; validate direction geometrically.",
-  "RULE 4 — R:R MATH: BUY risk = Entry - SL and reward = TP - Entry. SELL risk = SL - Entry and reward = Entry - TP. R:R = reward / risk and must be >=2.0.",
+  "RULE 4 — PRICE LEVEL VALIDATION: Validate entry proximity, SL/TP geometry and minimum R:R using the selected strategy source; do not impose generic percentages or a generic 2R threshold on source-defined risk models.",
+  "RULE 4 — R:R MATH: BUY risk = Entry - SL and reward = TP - Entry. SELL risk = SL - Entry and reward = Entry - TP. R:R = reward / risk and must meet the selected strategy source minimum.",
   "RULE 4 — RISK: Maximum account risk is 1.5%. If equity/position-size inputs are unavailable, mark sizing unverified.",
   "RULE 4 — SIGNAL TYPES: BUY/SELL means the strategy lifecycle AND all applicable universal gates passed. DEVELOPING/WAITING are not confirmed entries.",
   "RULE 5 — CONFIDENCE: 90–100 perfect/multiple strong confluences; 80–89 strong; 70–79 decent; 60–69 marginal; 50–59 weak; 30–49 poor; 10–29 very poor/image quality too low.",
@@ -57,17 +57,19 @@ export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
   profile("proprietaryFlow", "Proprietary Flow", "MY CUSTOM STRATEGIES", ["714Observing"], ["observation window", "locked bias", "support/resistance", "liquidity event", "rejection", "displacement", "EMA20 confirmation"], ["Use the 714 observation source as authority.", "Source indicators are ATR-based observation/displacement geometry and EMA20 confirmation.", "Observation, bias lock, execution level and final qualification remain separate. Bullish market bias maps to SELL and bearish bias maps to BUY."]),
   profile(
     "ema20",
-    "EMA20 Pullback Morning Engine",
+    "VaultTrades | EMA20 + OB",
     "MY CUSTOM STRATEGIES",
     ["ema20"],
-    ["persistent market structure state", "EMA20 touch", "rejection", "break", "UT Bot OR SMI confirmation", "locked entry"],
+    ["persistent market structure state", "EMA20 touch", "rejection", "break", "UT Bot OR SMI confirmation", "pre-existing unmitigated displacement OB", "SAST morning window", "one trade per timeframe per day", "locked trade lifecycle"],
     [
       "Use EMA20_Pullback_Morning_Engine_M15_StructureState_Fix_v3 exactly.",
       "EMA20 = 20, Slow EMA Context = 105, ATR = 14, EMA20 touch tolerance = 0.20 ATR, ATR stop multiplier = 2.23, risk/reward = 1.81, pivot length = 3 and confirmation window = 3.",
       "Confirmed HH/HL or LH/LL structure is persistent state. A later EMA20 pullback/rejection may use that already-confirmed structure; structure confirmation and EMA20 touch do NOT have to occur on the same candle.",
       "EMA105 is context only. UT Bot and SMI are alternative confirmations: at least one must confirm; both are not simultaneously mandatory.",
       "Entry remains: EMA20 rejection -> rejection high/low break -> UT Bot OR SMI confirmation. Do not create BUY/SELL from EMA position alone.",
-      "For the selected analyzer timeframe, that timeframe is the EMA entry engine. Higher timeframes provide context and must not form a sequential confirmation queue."
+      "For the selected analyzer timeframe, that timeframe is the independent EMA entry engine. Higher timeframes do not gate the selected timeframe. New signals are allowed only from 00:00 through 10:45 Africa/Johannesburg time; the first qualified entry consumes that timeframe daily allowance for both directions.",
+      "Require a pre-existing displacement Order Block aligned with the EMA20 rejection: the OB must precede the rejection, remain uninvalidated, and be first revisited by the qualifying rejection candle. This is an additional mandatory Analyzer qualification; it does not replace or reorder the Pine EMA20 conditions.",
+      "Once entered, keep the original Entry/SL/TP locked. Manage the open trade beyond the morning window; SL ends the timeframe daily opportunity, TP completes the trade, and no new entry may be chased."
     ]
   ),
   profile("killZone", "Killer Zone", "MY CUSTOM STRATEGIES", ["killZone"], ["Asian range", "London liquidity sweep", "MSS", "FVG", "FVG retracement", "50% FVG/CE", "entry"], ["Use the London Kill Zone sequence: Asian High/Low -> London sweep -> MSS -> FVG -> retracement -> entry.", "The source is structural/SMC and does not require a generic EMA/ATR/ADX/RVOL/VWAP indicator set. Auto indicator selection is therefore empty.", "Never output BUY/SELL from a sweep alone."]),
