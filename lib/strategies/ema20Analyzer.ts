@@ -199,6 +199,10 @@ export function evaluateEma20Analyzer(
     if (rejectionIndex == null) continue;
     const orderBlock = findOrderBlockForRejection(candles, rejectionIndex, direction);
     if (!orderBlock) continue;
+    const obInvalidatedAfterRejection = candles.slice(rejectionIndex + 1, index + 1).some(candle =>
+      direction === "BUY" ? candle.close < orderBlock.bottom : candle.close > orderBlock.top
+    );
+    if (obInvalidatedAfterRejection) continue;
 
     const entry = direction === "BUY" ? bar.longEntry : bar.shortEntry;
     const stopLoss = direction === "BUY" ? bar.longSL : bar.shortSL;
