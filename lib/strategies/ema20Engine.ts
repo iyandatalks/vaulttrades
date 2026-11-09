@@ -145,7 +145,7 @@ export function runEma20Engine(candles: MarketDataCandle[], input: Ema20EngineCo
     //====================================================
     // A confirmed HH/HL or LH/LL becomes persistent context.
     // The EMA20 pullback/rejection may occur on a later candle.
-    // This mirrors EMA20_Pullback_Morning_Engine_M15_StructureState_Fix_v3.
+    // This mirrors the supplied EMA20 Morning Trades Pine v6 persistent structure-state logic.
     if ((ph !== null && higherHigh) || (pl !== null && higherLow)) {
       structureState = 1;
     } else if ((ph !== null && lowerHigh) || (pl !== null && lowerLow)) {
