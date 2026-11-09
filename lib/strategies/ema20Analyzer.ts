@@ -1,16 +1,6 @@
 import { runEma20Engine, type Ema20EngineBar } from "./ema20Engine";
 import type { MarketDataCandle } from "../market-data/twelvedata";
 
-export type Ema20OrderBlock = {
-  direction: "BULLISH" | "BEARISH";
-  top: number;
-  bottom: number;
-  originTime: string;
-  rejectionTime: string;
-  label: string;
-  state: "ACTIVE" | "INVALIDATED";
-};
-
 export type Ema20AnalyzerLifecycle = {
   state: "WAITING" | "TRADE ACTIVE" | "SL HIT" | "TP HIT";
   direction: "BUY" | "SELL" | "NO TRADE";
@@ -19,19 +9,20 @@ export type Ema20AnalyzerLifecycle = {
   target: number | null;
   entryTime: string | null;
   entryDay: string | null;
-  orderBlock: Ema20OrderBlock | null;
   reason: string;
   sourceBar: Ema20EngineBar | null;
 };
 
 const TF_MINUTES: Record<string, number> = {
-  "1m": 1, "5m": 5, "10m": 10, "15m": 15, "30m": 30,
-  "1H": 60, "4H": 240, "1D": 1440, "1W": 10080, "1M": 43200,
+  "1m": 1, "M1": 1, "5m": 5, "M5": 5, "10m": 10, "M10": 10,
+  "15m": 15, "M15": 15, "30m": 30, "M30": 30,
+  "1H": 60, "H1": 60, "4H": 240, "H4": 240, "1D": 1440, "D1": 1440,
 };
 
 function sastParts(datetime: string, timeframe: string) {
-  const raw = datetime.includes("T") ? datetime : datetime.replace(" ", "T") + "Z";
-  const opened = new Date(raw);
+  const normalized = datetime.includes("T") ? datetime : datetime.replace(" ", "T");
+  const hasExplicitTimezone = /(?:Z|[+-]\\d{2}:?\\d{2})$/i.test(normalized);
+  const opened = new Date(hasExplicitTimezone ? normalized : normalized + "Z");
   if (!Number.isFinite(opened.getTime())) return null;
   const close = new Date(opened.getTime() + (TF_MINUTES[timeframe] ?? 0) * 60_000);
   const parts = new Intl.DateTimeFormat("en-GB", {
@@ -47,91 +38,6 @@ function sastParts(datetime: string, timeframe: string) {
   };
 }
 
-function atrAt(candles: MarketDataCandle[], index: number, length = 14) {
-  const start = Math.max(0, index - length + 1);
-  const sample = candles.slice(start, index + 1);
-  if (sample.length < Math.min(length, 8)) return null;
-  const ranges = sample.map((candle, offset) => {
-    const previous = sample[offset - 1];
-    return previous
-      ? Math.max(candle.high - candle.low, Math.abs(candle.high - previous.close), Math.abs(candle.low - previous.close))
-      : candle.high - candle.low;
-  });
-  return ranges.reduce((sum, value) => sum + value, 0) / ranges.length;
-}
-
-/**
- * Finds a pre-existing displacement OB which is first revisited by the stored
- * EMA20 rejection candle. The zone is fixed to the origin candle's wick range.
- * A close through the far edge, or an earlier mitigation before the rejection,
- * disqualifies the block.
- */
-function findOrderBlockForRejection(
-  candles: MarketDataCandle[],
-  rejectionIndex: number,
-  direction: "BUY" | "SELL",
-): Ema20OrderBlock | null {
-  const rejection = candles[rejectionIndex];
-  if (!rejection) return null;
-  const bullish = direction === "BUY";
-  const rejectionTouches: (origin: MarketDataCandle) => boolean = origin =>
-    rejection.low <= origin.high && rejection.high >= origin.low;
-  const start = Math.max(8, rejectionIndex - 60);
-
-  for (let originIndex = rejectionIndex - 2; originIndex >= start; originIndex--) {
-    const origin = candles[originIndex];
-    const oppositeOrigin = bullish ? origin.close < origin.open : origin.close > origin.open;
-    if (!oppositeOrigin) continue;
-
-    const lastImpulse = Math.min(rejectionIndex - 1, originIndex + 4);
-    for (let impulseIndex = originIndex + 1; impulseIndex <= lastImpulse; impulseIndex++) {
-      const impulse = candles[impulseIndex];
-      const impulseAtr = atrAt(candles, impulseIndex);
-      if (!impulseAtr || impulseAtr <= 0) continue;
-      const body = Math.abs(impulse.close - impulse.open);
-      const directionalImpulse = bullish
-        ? impulse.close > impulse.open && body >= impulseAtr * 0.8
-        : impulse.close < impulse.open && body >= impulseAtr * 0.8;
-      if (!directionalImpulse) continue;
-
-      const prior = candles.slice(Math.max(0, originIndex - 8), originIndex);
-      if (prior.length < 3) continue;
-      const structureBreak = bullish
-        ? impulse.close > Math.max(...prior.map(candle => candle.high))
-        : impulse.close < Math.min(...prior.map(candle => candle.low));
-      if (!structureBreak) continue;
-
-      let invalidatedOrPreviouslyMitigated = false;
-      for (let index = impulseIndex + 1; index < rejectionIndex; index++) {
-        const candle = candles[index];
-        const invalidated = bullish ? candle.close < origin.low : candle.close > origin.high;
-        const mitigated = candle.low <= origin.high && candle.high >= origin.low;
-        if (invalidated || mitigated) {
-          invalidatedOrPreviouslyMitigated = true;
-          break;
-        }
-      }
-      if (invalidatedOrPreviouslyMitigated || !rejectionTouches(origin)) continue;
-
-      const rejectionQualifies = bullish
-        ? rejection.close > rejection.open && rejection.close > origin.low
-        : rejection.close < rejection.open && rejection.close < origin.high;
-      if (!rejectionQualifies) continue;
-
-      return {
-        direction: bullish ? "BULLISH" : "BEARISH",
-        top: origin.high,
-        bottom: origin.low,
-        originTime: origin.datetime,
-        rejectionTime: rejection.datetime,
-        label: bullish ? "EMA20 · BULLISH DISPLACEMENT OB" : "EMA20 · BEARISH DISPLACEMENT OB",
-        state: "ACTIVE",
-      };
-    }
-  }
-  return null;
-}
-
 type Ema20TradeRecord = {
   direction: "BUY" | "SELL";
   entry: number;
@@ -139,10 +45,40 @@ type Ema20TradeRecord = {
   target: number;
   entryTime: string;
   entryDay: string;
-  orderBlock: Ema20OrderBlock;
   sourceBar: Ema20EngineBar;
   status: "TRADE ACTIVE" | "SL HIT" | "TP HIT";
 };
+
+/**
+ * Mirrors the Pine strategy's bracket exits on completed OHLC bars.
+ * TradingView's broker emulator walks from the open toward the nearer
+ * extreme first when both stop and target are touched in one candle.
+ */
+function pineBracketExit(
+  candle: MarketDataCandle,
+  trade: Ema20TradeRecord,
+): "SL HIT" | "TP HIT" | null {
+  const buy = trade.direction === "BUY";
+  const stopTouched = buy ? candle.low <= trade.stopLoss : candle.high >= trade.stopLoss;
+  const targetTouched = buy ? candle.high >= trade.target : candle.low <= trade.target;
+  if (!stopTouched && !targetTouched) return null;
+
+  // A gap through an exit level is filled at the bar open by the emulator.
+  if (buy) {
+    if (candle.open <= trade.stopLoss) return "SL HIT";
+    if (candle.open >= trade.target) return "TP HIT";
+  } else {
+    if (candle.open >= trade.stopLoss) return "SL HIT";
+    if (candle.open <= trade.target) return "TP HIT";
+  }
+
+  if (stopTouched && targetTouched) {
+    const highFirst = Math.abs(candle.open - candle.high) < Math.abs(candle.open - candle.low);
+    if (buy) return highFirst ? "TP HIT" : "SL HIT";
+    return highFirst ? "SL HIT" : "TP HIT";
+  }
+  return stopTouched ? "SL HIT" : "TP HIT";
+}
 
 export function evaluateEma20Analyzer(
   candles: MarketDataCandle[],
@@ -153,8 +89,8 @@ export function evaluateEma20Analyzer(
   if (!bars.length) {
     return {
       state: "WAITING", direction: "NO TRADE", entry: null, stopLoss: null, target: null,
-      entryTime: null, entryDay: null, orderBlock: null,
-      reason: "Waiting for sufficient completed candles to evaluate EMA20 and Order Block conditions.",
+      entryTime: null, entryDay: null,
+      reason: "WAIT — waiting for enough completed candles to calculate the Pine EMA20, structure, ATR, UT Bot and SMI series.",
       sourceBar: null, engine: null,
     };
   }
@@ -172,59 +108,45 @@ export function evaluateEma20Analyzer(
     if (currentSastDay && time.date !== currentSastDay) lastCompletedToday = null;
     currentSastDay = time.date;
 
-    // Existing positions are managed outside the morning entry window.
+    // Existing Pine positions remain managed after the morning entry window.
     let closedThisBar = false;
     if (active && index > active.sourceBar.index) {
-      const slHit = active.direction === "BUY" ? candle.low <= active.stopLoss : candle.high >= active.stopLoss;
-      const tpHit = active.direction === "BUY" ? candle.high >= active.target : candle.low <= active.target;
-      if (slHit || tpHit) {
-        // Conservative OHLC handling: if both levels print in one candle,
-        // count the stop first rather than assuming an unobservable intrabar path.
-        active.status = slHit ? "SL HIT" : "TP HIT";
+      const exit = pineBracketExit(candle, active);
+      if (exit) {
+        active.status = exit;
         lastCompletedToday = active;
         active = null;
         closedThisBar = true;
       }
     }
 
+    // Pine: newLong/newShort, morningSignalWindow, canTradeToday,
+    // and strategy.position_size == 0 must all permit the entry.
     const isNewSignal = bar.newLong || bar.newShort;
     if (!isNewSignal || active || closedThisBar || lastEntryDay === time.date) continue;
     if (time.minuteOfDay < 0 || time.minuteOfDay > 645) continue;
 
     const direction = bar.newLong ? "BUY" : "SELL";
-    let rejectionIndex: number | null = null;
-    for (let candidate = index - 1; candidate >= Math.max(0, index - 3); candidate--) {
-      if (direction === "BUY" ? bars[candidate].bullReject : bars[candidate].bearReject) {
-        rejectionIndex = candidate;
-        break;
-      }
-    }
-    if (rejectionIndex == null) continue;
-    const orderBlock = findOrderBlockForRejection(candles, rejectionIndex, direction);
-    if (!orderBlock) continue;
-    const obInvalidatedAfterRejection = candles.slice(rejectionIndex + 1, index + 1).some(candle =>
-      direction === "BUY" ? candle.close < orderBlock.bottom : candle.close > orderBlock.top
-    );
-    if (obInvalidatedAfterRejection) continue;
-
     const entry = direction === "BUY" ? bar.longEntry : bar.shortEntry;
     const stopLoss = direction === "BUY" ? bar.longSL : bar.shortSL;
     const target = direction === "BUY" ? bar.longTP : bar.shortTP;
     if (entry == null || stopLoss == null || target == null) continue;
+
     const geometryValid = direction === "BUY"
       ? stopLoss < entry && target > entry
       : stopLoss > entry && target < entry;
     if (!geometryValid) continue;
 
-    // The Pine script's first authorized entry consumes the whole SAST day.
+    // The first accepted entry consumes this timeframe's SAST day for both sides.
     lastEntryDay = time.date;
     active = {
       direction, entry, stopLoss, target, entryTime: candle.datetime, entryDay: time.date,
-      orderBlock, sourceBar: bar, status: "TRADE ACTIVE",
+      sourceBar: bar, status: "TRADE ACTIVE",
     };
     lastCompletedToday = null;
   }
 
+  // Live quote management supplements completed-bar history for the current candle.
   if (active && livePrice != null && Number.isFinite(livePrice)) {
     const liveStopHit = active.direction === "BUY" ? livePrice <= active.stopLoss : livePrice >= active.stopLoss;
     const liveTargetHit = active.direction === "BUY" ? livePrice >= active.target : livePrice <= active.target;
@@ -239,35 +161,36 @@ export function evaluateEma20Analyzer(
     return {
       state: "TRADE ACTIVE", direction: active.direction, entry: active.entry,
       stopLoss: active.stopLoss, target: active.target, entryTime: active.entryTime,
-      entryDay: active.entryDay, orderBlock: active.orderBlock,
-      reason: "EMA20 structure, pullback/rejection, rejection break, UT Bot or SMI confirmation, and a pre-existing unmitigated Order Block all qualified. Original trade levels remain locked.",
+      entryDay: active.entryDay,
+      reason: "Pine entry sequence confirmed. Original Entry, ATR(14) × 2.23 Stop Loss and 1:1.81 Target remain locked while the position is open.",
       sourceBar: active.sourceBar, engine: bars.at(-1) ?? null,
     };
   }
 
   if (lastCompletedToday) {
+    const sameDay = lastCompletedToday.entryDay === currentSastDay;
     return {
       state: lastCompletedToday.status, direction: lastCompletedToday.direction,
       entry: lastCompletedToday.entry, stopLoss: lastCompletedToday.stopLoss,
       target: lastCompletedToday.target, entryTime: lastCompletedToday.entryTime,
-      entryDay: lastCompletedToday.entryDay, orderBlock: lastCompletedToday.orderBlock,
+      entryDay: lastCompletedToday.entryDay,
       reason: lastCompletedToday.status === "SL HIT"
-        ? (lastCompletedToday.entryDay === currentSastDay
-          ? "Today's EMA20 + OB trade hit its original stop loss. NO TRADE for the remainder of this timeframe's SAST day."
-          : "The prior EMA20 + OB trade hit its original stop loss today. A fresh signal may still qualify within today's 00:00–10:45 SAST window.")
-        : (lastCompletedToday.entryDay === currentSastDay
-          ? "Today's EMA20 + OB trade reached its original target. No second trade is permitted on this timeframe today."
-          : "The prior EMA20 + OB trade reached its original target today. A fresh signal may still qualify within today's 00:00–10:45 SAST window."),
+        ? (sameDay
+          ? "Today's Pine EMA20 trade hit its original stop loss. NO TRADE for the remainder of this timeframe's SAST day."
+          : "The prior Pine EMA20 trade hit its original stop loss today. A fresh Pine signal may still qualify within today's 00:00–10:45 SAST window.")
+        : (sameDay
+          ? "Today's Pine EMA20 trade reached its original target. No second trade is permitted on this timeframe today."
+          : "The prior Pine EMA20 trade reached its original target today. A fresh Pine signal may still qualify within today's 00:00–10:45 SAST window."),
       sourceBar: lastCompletedToday.sourceBar, engine: bars.at(-1) ?? null,
     };
   }
 
   return {
     state: "WAITING", direction: "NO TRADE", entry: null, stopLoss: null, target: null,
-    entryTime: null, entryDay: null, orderBlock: null,
+    entryTime: null, entryDay: null,
     reason: lastEntryDay === currentSastDay
-      ? "Today's EMA20 opportunity has already been consumed. NO TRADE for the remainder of this timeframe's SAST day."
-      : "WAIT — no EMA20 signal has qualified with a pre-existing, unmitigated Order Block during the 00:00–10:45 SAST signal window.",
+      ? "Today's Pine EMA20 opportunity has already been consumed. NO TRADE for the remainder of this timeframe's SAST day."
+      : "WAIT — no Pine EMA20 entry sequence has qualified during the 00:00–10:45 SAST signal window.",
     sourceBar: null, engine: bars.at(-1) ?? null,
   };
 }
