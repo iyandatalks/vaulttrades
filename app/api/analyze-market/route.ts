@@ -145,7 +145,7 @@ export async function POST(request: Request) {
     const providerRoute = getMarketProviderRoute(marketType);
     if (!providerRoute.available) return Response.json({ error: providerRoute.reason || "Market data is unavailable." }, { status: 503 });
     const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) return Response.json({ error: "OpenAI API key is not configured." }, { status: 500 });
+    if (!apiKey && strategyId !== "ema20") return Response.json({ error: "OpenAI API key is not configured." }, { status: 500 });
 
     const market = await getTwelveDataTimeSeries({ symbol, timeframe, outputsize: strategyId === "ema20" ? 5000 : 250 });
     if (market.candles.length < 40) return Response.json({ error: "Not enough live market history was returned for this symbol/timeframe." }, { status: 422 });
@@ -363,20 +363,51 @@ Return JSON only.`;
       required: ["direction","decision","confidence","marketCondition","directionalBias","session","higherTimeframe","marketStructure","support","resistance","recentPriceAction","setup","confirmedConditions","missingConditions","bos","choch","orderBlock","fvg","liquiditySweep","displacement","pipeline","nextZone","invalidation","entry","stopLoss","tp1","tp2","finalTp","nextAction","educationalNote"]
     };
 
-    const response = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: "gpt-4.1-mini", input: [{ role: "user", content: [{ type: "input_text", text: prompt }] }], max_output_tokens: 6000, text: { format: { type: "json_schema", name: "vaulttrades_live_market_analysis", strict: true, schema } } })
-    });
+    let ai: any;
+    if (strategyId === "ema20") {
+      ai = {
+        direction: ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.direction : "NO TRADE",
+        decision: ema20Engine?.state === "TRADE ACTIVE" ? "TRADE" : "NO TRADE",
+        confidence: ema20Engine?.state === "TRADE ACTIVE" ? 80 : 45,
+        marketCondition: context.structure.trend ?? "Live market structure",
+        directionalBias: ema20Engine?.direction ?? "NEUTRAL",
+        session: "SAST morning signal window",
+        higherTimeframe: "Higher timeframes are independent strategy instances; they do not gate the selected timeframe.",
+        marketStructure: context.structure.trend ?? "Structure evaluated from selected timeframe candles.",
+        support: priceLevels.support,
+        resistance: priceLevels.resistance,
+        recentPriceAction: "Deterministic EMA20 engine evaluated the completed candle sequence.",
+        setup: ema20Engine?.reason ?? "WAIT — no qualifying EMA20 + OB setup.",
+        confirmedConditions: ema20EngineEvidence?.evidence ?? [],
+        missingConditions: ema20EngineEvidence?.missingConditions ?? [],
+        bos: 5, choch: 5, orderBlock: ema20Engine?.orderBlock ? 8 : 3, fvg: 5, liquiditySweep: 5, displacement: 5,
+        pipeline: ema20EngineEvidence?.evidence ?? [],
+        nextZone: ema20Engine?.orderBlock ? "Qualified EMA20 Order Block" : "Wait for a pre-existing displacement Order Block",
+        invalidation: ema20EngineEvidence?.invalidation ?? "",
+        entry: ema20Engine?.entry ?? null,
+        stopLoss: ema20Engine?.stopLoss ?? null,
+        tp1: ema20Engine?.target ?? null,
+        tp2: ema20Engine?.target ?? null,
+        finalTp: ema20Engine?.target ?? null,
+        nextAction: ema20Engine?.reason ?? "WAIT",
+        educationalNote: "EMA20 uses the Pine Script structure/pullback/rejection/confirmation sequence plus the mandatory pre-existing unmitigated Order Block qualification.",
+      };
+    } else {
+      const response = await fetch("https://api.openai.com/v1/responses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({ model: "gpt-4.1-mini", input: [{ role: "user", content: [{ type: "input_text", text: prompt }] }], max_output_tokens: 6000, text: { format: { type: "json_schema", name: "vaulttrades_live_market_analysis", strict: true, schema } } })
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      return Response.json({ error: `Analyzer model request failed: ${errorText.slice(0, 300)}` }, { status: 502 });
+      if (!response.ok) {
+        const errorText = await response.text();
+        return Response.json({ error: `Analyzer model request failed: ${errorText.slice(0, 300)}` }, { status: 502 });
+      }
+      const raw = await response.json();
+      const text = jsonText(raw);
+      if (!text) return Response.json({ error: "The analyzer returned no structured result." }, { status: 502 });
+      ai = JSON.parse(text);
     }
-    const raw = await response.json();
-    const text = jsonText(raw);
-    if (!text) return Response.json({ error: "The analyzer returned no structured result." }, { status: 502 });
-    const ai = JSON.parse(text);
 
     const engineDirection: Direction = ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.direction : "NO TRADE";
     const direction = strategyId === "ema20" ? engineDirection : strategyId === "srbOb" ? (srbObEngine?.direction ?? "NO TRADE") : strategyId === "lsobr" ? (lsobrEngine?.direction ?? "NO TRADE") : ai.direction as Direction;
