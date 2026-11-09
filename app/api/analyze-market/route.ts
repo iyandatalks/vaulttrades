@@ -31,7 +31,7 @@ function completedEma20Candles(candles: MarketDataCandle[], timeframe: string) {
   const now = Date.now();
   return candles.filter(candle => {
     const normalized = candle.datetime.includes("T") ? candle.datetime : candle.datetime.replace(" ", "T");
-    const hasExplicitTimezone = /(?:Z|[+-]\\d{2}:?\\d{2})$/i.test(normalized);
+    const hasExplicitTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(normalized);
     const openedAt = Date.parse(hasExplicitTimezone ? normalized : normalized + "Z");
     return Number.isFinite(openedAt) && openedAt + minutes * 60_000 <= now;
   });
