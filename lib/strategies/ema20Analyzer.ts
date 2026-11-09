@@ -132,6 +132,18 @@ function findOrderBlockForRejection(
   return null;
 }
 
+type Ema20TradeRecord = {
+  direction: "BUY" | "SELL";
+  entry: number;
+  stopLoss: number;
+  target: number;
+  entryTime: string;
+  entryDay: string;
+  orderBlock: Ema20OrderBlock;
+  sourceBar: Ema20EngineBar;
+  status: "TRADE ACTIVE" | "SL HIT" | "TP HIT";
+};
+
 export function evaluateEma20Analyzer(
   candles: MarketDataCandle[],
   timeframe: string,
@@ -148,18 +160,8 @@ export function evaluateEma20Analyzer(
   }
 
   let lastEntryDay: string | null = null;
-  let active: {
-    direction: "BUY" | "SELL";
-    entry: number;
-    stopLoss: number;
-    target: number;
-    entryTime: string;
-    entryDay: string;
-    orderBlock: Ema20OrderBlock;
-    sourceBar: Ema20EngineBar;
-    status: "TRADE ACTIVE" | "SL HIT" | "TP HIT";
-  } | null = null;
-  let lastCompletedToday: typeof active = null;
+  let active: Ema20TradeRecord | null = null;
+  let lastCompletedToday: Ema20TradeRecord | null = null;
   let currentSastDay = "";
 
   for (let index = 0; index < bars.length; index++) {
