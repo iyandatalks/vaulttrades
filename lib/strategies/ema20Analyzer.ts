@@ -21,7 +21,7 @@ const TF_MINUTES: Record<string, number> = {
 
 function sastParts(datetime: string, timeframe: string) {
   const normalized = datetime.includes("T") ? datetime : datetime.replace(" ", "T");
-  const hasExplicitTimezone = /(?:Z|[+-]\\d{2}:?\\d{2})$/i.test(normalized);
+  const hasExplicitTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(normalized);
   const opened = new Date(hasExplicitTimezone ? normalized : normalized + "Z");
   if (!Number.isFinite(opened.getTime())) return null;
   const close = new Date(opened.getTime() + (TF_MINUTES[timeframe] ?? 0) * 60_000);
