@@ -110,7 +110,7 @@ const DEFAULT_SYMBOLS: Record<MarketType, string[]> = {
 const PUBLIC_STRATEGY_IDS = ["fibRetracement", "ema20", "supplyDemand"] as const;
 const PUBLIC_STRATEGY_LABELS: Record<string, string> = {
   fibRetracement: "1. VaultTrades | Auto Fib Retrace + OB",
-  ema20: "2. VaultTrades | EMA20 + OB",
+  ema20: "2. VaultTrades | EMA20",
   supplyDemand: "3. VaultTrades | Supply and Demand",
 };
 const fmt = (v: number | null | undefined) => v == null || !Number.isFinite(v) ? "—" : v.toLocaleString(undefined, { maximumFractionDigits: 5 });
@@ -449,7 +449,7 @@ export default function AnalyzerPage() {
     <section className="card">
       <div className="section-label">LIVE MARKET</div>
       <h1 className="title">Analyze the market, not a screenshot</h1>
-      <p className="muted">Select the market, timeframe and strategy. EMA20 + OB uses its deterministic Pine-equivalent rules and mandatory Order Block qualification. Other strategies retain their existing Analyzer validation and AI Scanner layers.</p>
+      <p className="muted">Select the market, timeframe and strategy. EMA20 follows the supplied Pine v6 signal conditions and native price calculations without additional Order Block or generic confluence gates. Other strategies retain their existing Analyzer validation and AI Scanner layers.</p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12, marginTop: 18 }}>
         <label className="muted">Market<select value={marketType} disabled={loading} onChange={e => changeMarket(e.target.value as MarketType)} style={{ width: "100%", marginTop: 7, padding: 13, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}>{MARKET_TYPES.map(m => <option key={m} value={m}>{m === "SYNTHETIC" ? "Synthetic indices" : m.charAt(0) + m.slice(1).toLowerCase()}</option>)}</select></label>
         <label className="muted">Symbol<input value={symbol} disabled={loading || marketType === "SYNTHETIC"} onChange={e => setSymbol(e.target.value)} list="symbols" placeholder="e.g. XAU/USD" style={{ width: "100%", marginTop: 7, padding: 13, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}/><datalist id="symbols">{DEFAULT_SYMBOLS[marketType].map(s => <option key={s} value={s}/>)}</datalist></label>
@@ -461,7 +461,7 @@ export default function AnalyzerPage() {
       <div className="section-label">STRATEGY</div>
       <h2 className="title">Choose the strategy first</h2>
       <select value={strategy} disabled={loading} onChange={e => { setStrategy(e.target.value); setResult(null); setLockedTrade(null); }} style={{ width: "100%", marginTop: 14, padding: 14, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}>{PUBLIC_STRATEGY_IDS.map(id => <option key={id} value={id}>{PUBLIC_STRATEGY_LABELS[id]}</option>)}</select>
-      <div className="condition-box" style={{ marginTop: 14 }}><strong>{strategyDisplayName(strategy)}</strong><p className="muted">{strategy === "fibRetracement" ? "Institutional liquidity and structure, prior order blocks, CHOCH-based projection, and timeframe-adjusted Fibonacci retracement levels (61.8%, 68.1%, 78.6%, 88%). The Fib level alone never confirms an entry." : strategy === "ema20" ? "Pine-equivalent EMA20 pullback and confirmation sequence, plus a mandatory pre-existing unmitigated displacement Order Block. One qualified trade per timeframe per SAST day; the original Entry, SL and TP remain locked until the trade closes." : strategy === "supplyDemand" ? "Independent supply and demand zone strategy. Zone reach, reaction, hold and flip are validated separately." : strategy === "lsobr" ? "Liquidity sweep → fixed pre-existing order-block rejection → confirmed MSS → completed close out of the OB. Entry is allowed only between the fixed OB and swept liquidity; stop is beyond the OB and target is the next valid opposing liquidity pool. No SRB opening-window conditions apply." : strategy === "srbOb" ? "Independent session-range breakout and order-block strategy. Breakouts arm a wick-anchored Fibonacci pullback; the breakout candle is not an entry." : "Strategy-specific rules are loaded from the selected strategy profile."}</p><p className="muted">EMA20 + OB is validated by its own source rules, mandatory Order Block and daily lifecycle. Other strategies retain their existing universal validation layer.</p></div>
+      <div className="condition-box" style={{ marginTop: 14 }}><strong>{strategyDisplayName(strategy)}</strong><p className="muted">{strategy === "fibRetracement" ? "Institutional liquidity and structure, prior order blocks, CHOCH-based projection, and timeframe-adjusted Fibonacci retracement levels (61.8%, 68.1%, 78.6%, 88%). The Fib level alone never confirms an entry." : strategy === "ema20" ? "Pine v6 EMA20 pullback and confirmation sequence: persistent structure → EMA20 touch/rejection → rejection high/low break → UT Bot OR SMI confirmation. One accepted trade per timeframe per SAST day; the original Entry, SL and TP remain locked until the trade closes." : strategy === "supplyDemand" ? "Independent supply and demand zone strategy. Zone reach, reaction, hold and flip are validated separately." : strategy === "lsobr" ? "Liquidity sweep → fixed pre-existing order-block rejection → confirmed MSS → completed close out of the OB. Entry is allowed only between the fixed OB and swept liquidity; stop is beyond the OB and target is the next valid opposing liquidity pool. No SRB opening-window conditions apply." : strategy === "srbOb" ? "Independent session-range breakout and order-block strategy. Breakouts arm a wick-anchored Fibonacci pullback; the breakout candle is not an entry." : "Strategy-specific rules are loaded from the selected strategy profile."}</p><p className="muted">EMA20 is validated by its Pine-defined signal sequence and daily trade lifecycle only. No extra Order Block or generic SMC qualification is applied. Other strategies retain their existing universal validation layer.</p></div>
     </section>
 
     <section className="card"><div className="actions"><button className="primary" type="button" disabled={loading || marketType === "SYNTHETIC"} onClick={() => void runAnalysis()}>{loading ? "Analyzing live market..." : "Analyze Live Market"}</button></div>{marketType === "SYNTHETIC" && <div className="condition-box" style={{ marginTop: 12 }}><strong>Synthetic market connection</strong><p className="muted">This route deliberately does not substitute another provider. Connect the Synthetic/Broker provider before enabling synthetic analysis.</p></div>}{error && <div className="error-box" style={{ marginTop: 12 }}><strong>Analysis Error</strong><p className="muted">{error}</p></div>}</section>
@@ -510,9 +510,9 @@ export default function AnalyzerPage() {
         </div>
       </section>}
       {strategy === "ema20" && result.strategyEngine && <section className="card" style={{ border: "1px solid rgba(212,166,55,.4)" }}>
-        <div className="section-label">EMA20 + OB ENGINE · LIVE SOURCE STATE</div>
+        <div className="section-label">EMA20 ENGINE · PINE SOURCE STATE</div>
         <h2 className="title">{result.strategyEngine.state || "WAITING"} · {result.strategyEngine.signal || "NO TRADE"}</h2>
-        <p className="muted">Pine-equivalent sequence: persistent confirmed structure → EMA20 pullback/rejection → rejection-boundary break → UT Bot or SMI confirmation. A pre-existing unmitigated displacement OB must also qualify. The daily 00:00–10:45 SAST entry window and one-trade-per-timeframe limit are enforced; open trades remain managed after the window.</p>
+        <p className="muted">Pine v6 sequence: confirmed HH/HL or LH/LL structure → EMA20 touch/rejection → close beyond the stored rejection high/low within the confirmation window → UT Bot OR SMI confirmation. New entries are allowed from 00:00–10:45 SAST using bar close time; one accepted trade per timeframe per SAST day. Open trades remain managed after the window.</p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: 10, marginTop: 14 }}>
           <PriceLevel label="EMA20" value={result.strategyEngine.ema20} kind="orange" />
           <PriceLevel label="SLOW EMA CONTEXT" value={result.strategyEngine.slowEMA} kind="orange" />
@@ -520,8 +520,6 @@ export default function AnalyzerPage() {
           <PriceLevel label="SOURCE ENTRY" value={result.strategyEngine.entry} kind="entry" />
           <PriceLevel label="SOURCE STOP" value={result.strategyEngine.stopLoss} kind="sl" />
           <PriceLevel label="SOURCE TARGET" value={result.strategyEngine.finalTp} kind="tp" />
-          <PriceLevel label="OB TOP" value={result.strategyEngine.orderBlock?.top ?? null} kind="orange" />
-          <PriceLevel label="OB BOTTOM" value={result.strategyEngine.orderBlock?.bottom ?? null} kind="orange" />
         </div>
         <div className="condition-box" style={{ marginTop: 12 }}>
           <strong>Confirmation score · Long {result.strategyEngine.confirmation?.long ?? 0}/2 · Short {result.strategyEngine.confirmation?.short ?? 0}/2</strong>
