@@ -2,7 +2,7 @@ import { createClient } from "../../../lib/supabase/server";
 import { ANALYZER_STRATEGY_MAP } from "../../../lib/strategies/analyzerProfiles";
 import { getStrategyRules, type StrategyId } from "../../../lib/strategies";
 import { buildAnalyzerMarketContext } from "../../../lib/market-data/indicators";
-import { getTwelveDataTimeSeries } from "../../../lib/market-data/twelvedata";
+import { getTwelveDataTimeSeries, type MarketDataCandle } from "../../../lib/market-data/twelvedata";
 import { getMarketProviderRoute, type MarketType } from "../../../lib/market-data/provider";
 import { evaluateEma20Analyzer } from "../../../lib/strategies/ema20Analyzer";
 import { evaluateSrbOb } from "../../../lib/strategies/srbObEngine";
@@ -25,7 +25,7 @@ const EMA20_TIMEFRAME_MINUTES: Record<string, number> = {
   "1H": 60, "4H": 240, "1D": 1440, "1W": 10080, "1M": 43200,
 };
 
-function completedEma20Candles(candles: Array<{ datetime: string }>, timeframe: string) {
+function completedEma20Candles(candles: MarketDataCandle[], timeframe: string) {
   const minutes = EMA20_TIMEFRAME_MINUTES[timeframe];
   if (!minutes) return [];
   const now = Date.now();
