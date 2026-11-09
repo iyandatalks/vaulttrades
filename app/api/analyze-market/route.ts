@@ -172,7 +172,7 @@ export async function POST(request: Request) {
     const ema20Engine = strategyId === "ema20" ? evaluateEma20Analyzer(market.candles, timeframe, liveCurrentPrice) : null;
     const ema20Bar = ema20Engine?.engine ?? null;
     const ema20EngineEvidence = ema20Engine ? {
-      source: "PINE_SCRIPT_PLUS_REQUIRED_OB",
+      source: "EMA20_MORNING_TRADES_PINE_V6",
       state: ema20Engine.state,
       signal: ema20Engine.direction,
       entry: ema20Engine.entry,
@@ -180,7 +180,6 @@ export async function POST(request: Request) {
       finalTp: ema20Engine.target,
       entryTime: ema20Engine.entryTime,
       entryDay: ema20Engine.entryDay,
-      orderBlock: ema20Engine.orderBlock,
       ema20: ema20Bar?.ema20 ?? null,
       slowEMA: ema20Bar?.slowEMA ?? null,
       atr: ema20Bar?.atr ?? null,
@@ -211,10 +210,9 @@ export async function POST(request: Request) {
         ema20Bar?.utBear ? "UT Bot bearish" : "",
         ema20Bar?.smiBull ? "SMI bullish" : "",
         ema20Bar?.smiBear ? "SMI bearish" : "",
-        ema20Engine.orderBlock ? ema20Engine.orderBlock.direction + " pre-existing displacement OB qualified" : "",
       ].filter(Boolean),
       missingConditions: ema20Engine.state === "WAITING" ? [ema20Engine.reason] : [],
-      invalidation: ema20Engine.state === "SL HIT" ? "The original stop loss was reached; no second EMA20 trade is permitted on this timeframe today." : "The fixed Order Block is invalidated by a close through its far edge.",
+      invalidation: ema20Engine.state === "SL HIT" ? "The original stop loss was reached; no second EMA20 trade is permitted on this timeframe today." : "The stored rejection is invalidated by a close through its opposite extreme or expires after the configured confirmation window.",
     } : null;
 
     const autoFibEngine = strategyId === "fibRetracement" ? analyzeAutoFibRetrace({
@@ -229,7 +227,7 @@ export async function POST(request: Request) {
             ? [{ direction:"BEARISH", top:autoFibEngine.orderBlocks.bearish.high, bottom:autoFibEngine.orderBlocks.bearish.low, label:"ACTIVE BEARISH OB · UNMITIGATED", state:"ACTIVE" }] : []),
         ]
       : strategyId === "ema20"
-        ? (ema20Engine?.orderBlock ? [{ direction: ema20Engine.orderBlock.direction, top: ema20Engine.orderBlock.top, bottom: ema20Engine.orderBlock.bottom, label: ema20Engine.orderBlock.label, state: ema20Engine.orderBlock.state }] : [])
+        ? []
         : findActiveVisualOrderBlocks(market.candles);
     const autoFibEngineEvidence = autoFibEngine ? {
       source: "AUTO_FIB_RETRACE_DETERMINISTIC",
@@ -377,12 +375,12 @@ Return JSON only.`;
         support: priceLevels.support,
         resistance: priceLevels.resistance,
         recentPriceAction: "Deterministic EMA20 engine evaluated the completed candle sequence.",
-        setup: ema20Engine?.reason ?? "WAIT — no qualifying EMA20 + OB setup.",
+        setup: ema20Engine?.reason ?? "WAIT — no Pine-defined EMA20 entry sequence has qualified.",
         confirmedConditions: ema20EngineEvidence?.evidence ?? [],
         missingConditions: ema20EngineEvidence?.missingConditions ?? [],
-        bos: 5, choch: 5, orderBlock: ema20Engine?.orderBlock ? 8 : 3, fvg: 5, liquiditySweep: 5, displacement: 5,
+        bos: 5, choch: 5, orderBlock: 1, fvg: 5, liquiditySweep: 5, displacement: 5,
         pipeline: ema20EngineEvidence?.evidence ?? [],
-        nextZone: ema20Engine?.orderBlock ? "Qualified EMA20 Order Block" : "Wait for a pre-existing displacement Order Block",
+        nextZone: ema20Bar?.bullReject ? "Bullish rejection high" : ema20Bar?.bearReject ? "Bearish rejection low" : "Wait for the next Pine-defined EMA20 pullback/rejection",
         invalidation: ema20EngineEvidence?.invalidation ?? "",
         entry: ema20Engine?.entry ?? null,
         stopLoss: ema20Engine?.stopLoss ?? null,
@@ -390,7 +388,7 @@ Return JSON only.`;
         tp2: ema20Engine?.target ?? null,
         finalTp: ema20Engine?.target ?? null,
         nextAction: ema20Engine?.reason ?? "WAIT",
-        educationalNote: "EMA20 uses the Pine Script structure/pullback/rejection/confirmation sequence plus the mandatory pre-existing unmitigated Order Block qualification.",
+        educationalNote: "EMA20 follows the supplied Pine v6 structure, EMA20 pullback/rejection, rejection-break, UT Bot OR SMI confirmation, SAST window and native ATR/RR calculations. No additional OB or generic confluence gate is applied.",
       };
     } else {
       const response = await fetch("https://api.openai.com/v1/responses", {
@@ -446,7 +444,6 @@ Return JSON only.`;
       smiBull: ema20Bar?.smiBull ?? false,
       smiBear: ema20Bar?.smiBear ?? false,
       confirmation: { long: ema20Bar?.longConfirmationScore ?? 0, short: ema20Bar?.shortConfirmationScore ?? 0 },
-      orderBlock: ema20Engine?.orderBlock ?? null,
       entryTime: ema20Engine?.entryTime ?? null,
       entryDay: ema20Engine?.entryDay ?? null,
       lifecycleReason: ema20Engine?.reason ?? "",
@@ -467,7 +464,7 @@ Return JSON only.`;
       scanner: strategyId === "ema20" ? {
         projectedDirection: ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.direction : "NO TRADE",
         analysisState: ema20Engine?.state === "TRADE ACTIVE" ? "ACTIVE" : ema20Engine?.state === "SL HIT" ? "NO TRADE" : ema20Engine?.state === "TP HIT" ? "COMPLETED" : "WAITING",
-        statusMessage: ema20Engine?.reason ?? "WAIT — awaiting a valid EMA20 + OB signal.",
+        statusMessage: ema20Engine?.reason ?? "WAIT — awaiting a valid Pine EMA20 signal.",
         cycleStatus: ema20Engine?.state === "TRADE ACTIVE" ? "ACTIVE" : ema20Engine?.state === "SL HIT" ? "SL_HIT" : ema20Engine?.state === "TP HIT" ? "TP_HIT" : "WAITING",
         actualEntry: ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.entry : null,
         projectedEntry: ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.entry : null,
@@ -481,7 +478,6 @@ Return JSON only.`;
         isExecutable: ema20Engine?.state === "TRADE ACTIVE",
         waitReason: ema20Engine?.reason ?? "",
         tradeReason: ema20Engine?.reason ?? "",
-        orderBlock: ema20Engine?.orderBlock ?? null,
       } : undefined,
       decision: finalDirection === "NO TRADE" ? "NO TRADE" : "TRADE", direction: finalDirection,
       confidence: finalDirection === "NO TRADE" ? Math.min(Number(ai.confidence) || 0, 69) : Number(ai.confidence) || 0,
