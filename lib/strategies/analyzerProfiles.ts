@@ -57,19 +57,19 @@ export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
   profile("proprietaryFlow", "Proprietary Flow", "MY CUSTOM STRATEGIES", ["714Observing"], ["observation window", "locked bias", "support/resistance", "liquidity event", "rejection", "displacement", "EMA20 confirmation"], ["Use the 714 observation source as authority.", "Source indicators are ATR-based observation/displacement geometry and EMA20 confirmation.", "Observation, bias lock, execution level and final qualification remain separate. Bullish market bias maps to SELL and bearish bias maps to BUY."]),
   profile(
     "ema20",
-    "VaultTrades | EMA20 + OB",
+    "VaultTrades | EMA20",
     "MY CUSTOM STRATEGIES",
     ["ema20"],
-    ["persistent market structure state", "EMA20 touch", "rejection", "break", "UT Bot OR SMI confirmation", "pre-existing unmitigated displacement OB", "SAST morning window", "one trade per timeframe per day", "locked trade lifecycle"],
+    ["persistent market structure state", "EMA20 touch", "rejection", "rejection high/low break", "UT Bot OR SMI confirmation", "SAST morning window", "one trade per timeframe per day", "locked trade lifecycle"],
     [
-      "Use EMA20_Pullback_Morning_Engine_M15_StructureState_Fix_v3 exactly.",
+      "Translate the supplied EMA20 Morning Trades Pine v6 source as the sole authority for EMA20 signal conditions and native price levels.",
       "EMA20 = 20, Slow EMA Context = 105, ATR = 14, EMA20 touch tolerance = 0.20 ATR, ATR stop multiplier = 2.23, risk/reward = 1.81, pivot length = 3 and confirmation window = 3.",
       "Confirmed HH/HL or LH/LL structure is persistent state. A later EMA20 pullback/rejection may use that already-confirmed structure; structure confirmation and EMA20 touch do NOT have to occur on the same candle.",
       "EMA105 is context only. UT Bot and SMI are alternative confirmations: at least one must confirm; both are not simultaneously mandatory.",
-      "Entry remains: EMA20 rejection -> rejection high/low break -> UT Bot OR SMI confirmation. Do not create BUY/SELL from EMA position alone.",
-      "For the selected analyzer timeframe, that timeframe is the independent EMA entry engine. Higher timeframes do not gate the selected timeframe. New signals are allowed only from 00:00 through 10:45 Africa/Johannesburg time; the first qualified entry consumes that timeframe daily allowance for both directions.",
-      "Require a pre-existing displacement Order Block aligned with the EMA20 rejection: the OB must precede the rejection, remain uninvalidated, and be first revisited by the qualifying rejection candle. This is an additional mandatory Analyzer qualification; it does not replace or reorder the Pine EMA20 conditions.",
-      "Once entered, keep the original Entry/SL/TP locked. Manage the open trade beyond the morning window; SL ends the timeframe daily opportunity, TP completes the trade, and no new entry may be chased."
+      "Entry remains exactly: EMA20 rejection -> close beyond the stored rejection high/low within the configured confirmation window -> UT Bot OR SMI confirmation. Do not create BUY/SELL from EMA position alone.",
+      "For the selected analyzer timeframe, that timeframe is the independent EMA entry engine. Higher timeframes do not gate the selected timeframe. New signals are allowed only from 00:00 through 10:45 Africa/Johannesburg time using the candle close time; the first accepted entry consumes that timeframe daily allowance for both directions.",
+      "Do not add Order Block, FVG, liquidity, SMC score, generic confluence or other confirmation requirements that are absent from the EMA20 Pine source.",
+      "Use Pine-native entry at the signal candle close, ATR(14) × 2.23 stop loss and 1:1.81 target. Once entered, keep the original Entry/SL/TP locked and manage the open trade beyond the morning window."
     ]
   ),
   profile("killZone", "Killer Zone", "MY CUSTOM STRATEGIES", ["killZone"], ["Asian range", "London liquidity sweep", "MSS", "FVG", "FVG retracement", "50% FVG/CE", "entry"], ["Use the London Kill Zone sequence: Asian High/Low -> London sweep -> MSS -> FVG -> retracement -> entry.", "The source is structural/SMC and does not require a generic EMA/ATR/ADX/RVOL/VWAP indicator set. Auto indicator selection is therefore empty.", "Never output BUY/SELL from a sweep alone."]),
