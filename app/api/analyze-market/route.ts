@@ -4,7 +4,7 @@ import { getStrategyRules, type StrategyId } from "../../../lib/strategies";
 import { buildAnalyzerMarketContext } from "../../../lib/market-data/indicators";
 import { getTwelveDataTimeSeries } from "../../../lib/market-data/twelvedata";
 import { getMarketProviderRoute, type MarketType } from "../../../lib/market-data/provider";
-import { evaluateEma20 } from "../../../lib/strategies/ema20Engine";
+import { evaluateEma20Analyzer } from "../../../lib/strategies/ema20Analyzer";
 import { evaluateSrbOb } from "../../../lib/strategies/srbObEngine";
 import { evaluateLsObr } from "../../../lib/strategies/lsobrEngine";
 import { analyzeAutoFibRetrace } from "../../../lib/strategies/autoFibRetrace";
@@ -12,7 +12,7 @@ import { resolveLiquidityTargets } from "../../../lib/market-data/liquidityTarge
 
 export const runtime = "nodejs";
 
-const TIMEFRAMES = ["1m", "5m", "15m", "30m", "1H", "4H", "1D", "1W", "1M"] as const;
+const TIMEFRAMES = ["1m", "5m", "10m", "15m", "30m", "1H", "4H", "1D", "1W", "1M"] as const;
 type Timeframe = (typeof TIMEFRAMES)[number];
 const MARKETS: MarketType[] = ["FOREX", "INDICES", "CRYPTO", "STOCKS", "SYNTHETIC"];
 type Direction = "BUY" | "SELL" | "NO TRADE";
@@ -147,7 +147,7 @@ export async function POST(request: Request) {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) return Response.json({ error: "OpenAI API key is not configured." }, { status: 500 });
 
-    const market = await getTwelveDataTimeSeries({ symbol, timeframe, outputsize: 250 });
+    const market = await getTwelveDataTimeSeries({ symbol, timeframe, outputsize: strategyId === "ema20" ? 5000 : 250 });
     if (market.candles.length < 40) return Response.json({ error: "Not enough live market history was returned for this symbol/timeframe." }, { status: 422 });
     // Silver is fetched only for the Auto Fib strategy on Gold instruments; all other Analyzer requests retain their existing provider-call count.
     const isGoldInstrument = /XAU|GOLD/.test(symbol.replace(/[^A-Z]/g, ""));
@@ -169,41 +169,52 @@ export async function POST(request: Request) {
 
     // EMA20 is the first live strategy wired to a deterministic Pine-equivalent engine.
     // The engine is authoritative for strategy state and native Entry/SL/TP. The Analyzer is downstream.
-    const ema20Engine = strategyId === "ema20" ? evaluateEma20(market.candles) : null;
+    const ema20Engine = strategyId === "ema20" ? evaluateEma20Analyzer(market.candles, timeframe) : null;
+    const ema20Bar = ema20Engine?.engine ?? null;
     const ema20EngineEvidence = ema20Engine ? {
-      source: "PINE_SCRIPT",
-      state: ema20Engine.newLong ? "NEW_LONG" : ema20Engine.newShort ? "NEW_SHORT" : ema20Engine.longSignal ? "LONG_ACTIVE" : ema20Engine.shortSignal ? "SHORT_ACTIVE" : ema20Engine.bullActive ? "BULL_REJECTION_ACTIVE" : ema20Engine.bearActive ? "BEAR_REJECTION_ACTIVE" : "WAITING",
-      bullStructure: ema20Engine.bullStructure,
-      bearStructure: ema20Engine.bearStructure,
-      bullTouch: ema20Engine.bullTouch,
-      bearTouch: ema20Engine.bearTouch,
-      bullReject: ema20Engine.bullReject,
-      bearReject: ema20Engine.bearReject,
-      bullActive: ema20Engine.bullActive,
-      bearActive: ema20Engine.bearActive,
-      bullMABreak: ema20Engine.bullMABreak,
-      bearMABreak: ema20Engine.bearMABreak,
-      utBull: ema20Engine.utBull,
-      utBear: ema20Engine.utBear,
-      smiBull: ema20Engine.smiBull,
-      smiBear: ema20Engine.smiBear,
-      longConfirmationScore: ema20Engine.longConfirmationScore,
-      shortConfirmationScore: ema20Engine.shortConfirmationScore,
-      longSignal: ema20Engine.longSignal,
-      shortSignal: ema20Engine.shortSignal,
-      newLong: ema20Engine.newLong,
-      newShort: ema20Engine.newShort,
-      longEntry: ema20Engine.longEntry,
-      longSL: ema20Engine.longSL,
-      longTP: ema20Engine.longTP,
-      shortEntry: ema20Engine.shortEntry,
-      shortSL: ema20Engine.shortSL,
-      shortTP: ema20Engine.shortTP,
-      atr: ema20Engine.atr,
-      atrSLMultiplier: 2.23,
-      riskReward: 1.81,
-      bias0600: ema20Engine.bias0600,
-      latestCandle: ema20Engine.datetime,
+      source: "PINE_SCRIPT_PLUS_REQUIRED_OB",
+      state: ema20Engine.state,
+      signal: ema20Engine.direction,
+      entry: ema20Engine.entry,
+      stopLoss: ema20Engine.stopLoss,
+      finalTp: ema20Engine.target,
+      entryTime: ema20Engine.entryTime,
+      entryDay: ema20Engine.entryDay,
+      orderBlock: ema20Engine.orderBlock,
+      ema20: ema20Bar?.ema20 ?? null,
+      slowEMA: ema20Bar?.slowEMA ?? null,
+      atr: ema20Bar?.atr ?? null,
+      bullStructure: ema20Bar?.bullStructure ?? false,
+      bearStructure: ema20Bar?.bearStructure ?? false,
+      bullTouch: ema20Bar?.bullTouch ?? false,
+      bearTouch: ema20Bar?.bearTouch ?? false,
+      bullReject: ema20Bar?.bullReject ?? false,
+      bearReject: ema20Bar?.bearReject ?? false,
+      bullMABreak: ema20Bar?.bullMABreak ?? false,
+      bearMABreak: ema20Bar?.bearMABreak ?? false,
+      utBull: ema20Bar?.utBull ?? false,
+      utBear: ema20Bar?.utBear ?? false,
+      smiBull: ema20Bar?.smiBull ?? false,
+      smiBear: ema20Bar?.smiBear ?? false,
+      newLong: ema20Bar?.newLong ?? false,
+      newShort: ema20Bar?.newShort ?? false,
+      confirmation: { long: ema20Bar?.longConfirmationScore ?? 0, short: ema20Bar?.shortConfirmationScore ?? 0 },
+      reason: ema20Engine.reason,
+      evidence: [
+        ema20Bar?.bullStructure ? "Persistent bullish HH/HL structure" : "",
+        ema20Bar?.bearStructure ? "Persistent bearish LH/LL structure" : "",
+        ema20Bar?.bullTouch ? "Price touched EMA20 bullish tolerance" : "",
+        ema20Bar?.bearTouch ? "Price touched EMA20 bearish tolerance" : "",
+        ema20Bar?.bullMABreak ? "Bullish rejection high broken" : "",
+        ema20Bar?.bearMABreak ? "Bearish rejection low broken" : "",
+        ema20Bar?.utBull ? "UT Bot bullish" : "",
+        ema20Bar?.utBear ? "UT Bot bearish" : "",
+        ema20Bar?.smiBull ? "SMI bullish" : "",
+        ema20Bar?.smiBear ? "SMI bearish" : "",
+        ema20Engine.orderBlock ? ema20Engine.orderBlock.direction + " pre-existing displacement OB qualified" : "",
+      ].filter(Boolean),
+      missingConditions: ema20Engine.state === "WAITING" ? [ema20Engine.reason] : [],
+      invalidation: ema20Engine.state === "SL HIT" ? "The original stop loss was reached; no second EMA20 trade is permitted on this timeframe today." : "The fixed Order Block is invalidated by a close through its far edge.",
     } : null;
 
     const autoFibEngine = strategyId === "fibRetracement" ? analyzeAutoFibRetrace({
@@ -365,17 +376,17 @@ Return JSON only.`;
     if (!text) return Response.json({ error: "The analyzer returned no structured result." }, { status: 502 });
     const ai = JSON.parse(text);
 
-    const engineDirection: Direction = ema20Engine?.newLong ? "BUY" : ema20Engine?.newShort ? "SELL" : "NO TRADE";
+    const engineDirection: Direction = ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.direction : "NO TRADE";
     const direction = strategyId === "ema20" ? engineDirection : strategyId === "srbOb" ? (srbObEngine?.direction ?? "NO TRADE") : strategyId === "lsobr" ? (lsobrEngine?.direction ?? "NO TRADE") : ai.direction as Direction;
-    const entry = strategyId === "ema20" ? (ema20Engine?.newLong ? ema20Engine.longEntry : ema20Engine?.newShort ? ema20Engine.shortEntry : null) : strategyId === "srbOb" ? (srbObEngine?.entry ?? null) : strategyId === "lsobr" ? (lsobrEngine?.entry ?? null) : (typeof ai.entry === "number" ? ai.entry : null);
-    const stopLoss = strategyId === "ema20" ? (ema20Engine?.newLong ? ema20Engine.longSL : ema20Engine?.newShort ? ema20Engine.shortSL : null) : strategyId === "srbOb" ? (srbObEngine?.stopLoss ?? null) : strategyId === "lsobr" ? (lsobrEngine?.stopLoss ?? null) : (typeof ai.stopLoss === "number" ? ai.stopLoss : null);
-    const finalTp = strategyId === "ema20" ? (ema20Engine?.newLong ? ema20Engine.longTP : ema20Engine?.newShort ? ema20Engine.shortTP : null) : strategyId === "srbOb" ? (srbObEngine?.finalTp ?? null) : strategyId === "lsobr" ? (lsobrEngine?.finalTp ?? null) : (typeof ai.finalTp === "number" ? ai.finalTp : typeof ai.tp2 === "number" ? ai.tp2 : null);
+    const entry = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.entry : null) : strategyId === "srbOb" ? (srbObEngine?.entry ?? null) : strategyId === "lsobr" ? (lsobrEngine?.entry ?? null) : (typeof ai.entry === "number" ? ai.entry : null);
+    const stopLoss = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.stopLoss : null) : strategyId === "srbOb" ? (srbObEngine?.stopLoss ?? null) : strategyId === "lsobr" ? (lsobrEngine?.stopLoss ?? null) : (typeof ai.stopLoss === "number" ? ai.stopLoss : null);
+    const finalTp = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.target : null) : strategyId === "srbOb" ? (srbObEngine?.finalTp ?? null) : strategyId === "lsobr" ? (lsobrEngine?.finalTp ?? null) : (typeof ai.finalTp === "number" ? ai.finalTp : typeof ai.tp2 === "number" ? ai.tp2 : null);
     const minimumRR = strategyId === "ema20" ? 1.81 : strategyId === "srbOb" ? 0.1 : 2;
     const math = tradeMath(direction, entry, stopLoss, finalTp, liveCurrentPrice, minimumRR);
     const strongSmc = [ai.bos, ai.choch, ai.orderBlock, ai.fvg, ai.liquiditySweep, ai.displacement].filter((x: unknown) => typeof x === "number" && x >= 7).length;
     const smcGate = strongSmc >= 2;
-    const analyzerTradeGate = direction !== "NO TRADE" && math.valid && (strategyId === "ema20" ? smcGate : smcGate);
-    const finalDirection: Direction = strategyId === "srbOb" ? (srbObEngine?.direction ?? "NO TRADE") : strategyId === "lsobr" ? (lsobrEngine?.state === "ENTRY READY" && analyzerTradeGate ? (lsobrEngine.direction as Direction) : "NO TRADE") : analyzerTradeGate && ai.decision === "TRADE" ? direction : "NO TRADE";
+    const analyzerTradeGate = direction !== "NO TRADE" && math.valid && (strategyId === "ema20" || smcGate);
+    const finalDirection: Direction = strategyId === "ema20" ? (analyzerTradeGate ? direction : "NO TRADE") : strategyId === "srbOb" ? (srbObEngine?.direction ?? "NO TRADE") : strategyId === "lsobr" ? (lsobrEngine?.state === "ENTRY READY" && analyzerTradeGate ? (lsobrEngine.direction as Direction) : "NO TRADE") : analyzerTradeGate && ai.decision === "TRADE" ? direction : "NO TRADE";
 
     const nativeEngineOutput = strategyId === "ema20" ? {
       state: ema20EngineEvidence?.state,
