@@ -169,7 +169,7 @@ export async function POST(request: Request) {
 
     // EMA20 is the first live strategy wired to a deterministic Pine-equivalent engine.
     // The engine is authoritative for strategy state and native Entry/SL/TP. The Analyzer is downstream.
-    const ema20Engine = strategyId === "ema20" ? evaluateEma20Analyzer(market.candles, timeframe) : null;
+    const ema20Engine = strategyId === "ema20" ? evaluateEma20Analyzer(market.candles, timeframe, liveCurrentPrice) : null;
     const ema20Bar = ema20Engine?.engine ?? null;
     const ema20EngineEvidence = ema20Engine ? {
       source: "PINE_SCRIPT_PLUS_REQUIRED_OB",
