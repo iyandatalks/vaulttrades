@@ -17,6 +17,7 @@ const TF_MINUTES: Record<string, number> = {
   "1m": 1, "M1": 1, "5m": 5, "M5": 5, "10m": 10, "M10": 10,
   "15m": 15, "M15": 15, "30m": 30, "M30": 30,
   "1H": 60, "H1": 60, "4H": 240, "H4": 240, "1D": 1440, "D1": 1440,
+  "1W": 10080, "1M": 43200,
 };
 
 function sastParts(datetime: string, timeframe: string) {
