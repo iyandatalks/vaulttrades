@@ -169,7 +169,8 @@ export function evaluateEma20Analyzer(
     currentSastDay = time.date;
 
     // Existing positions are managed outside the morning entry window.
-    if (active && index > bar.index - (bar.index - bars.findIndex(x => x.index === x.index))) {
+    let closedThisBar = false;
+    if (active && index > active.sourceBar.index) {
       const slHit = active.direction === "BUY" ? candle.low <= active.stopLoss : candle.high >= active.stopLoss;
       const tpHit = active.direction === "BUY" ? candle.high >= active.target : candle.low <= active.target;
       if (slHit || tpHit) {
@@ -178,16 +179,23 @@ export function evaluateEma20Analyzer(
         active.status = slHit ? "SL HIT" : "TP HIT";
         if (active.entryDay === time.date) lastCompletedToday = active;
         active = null;
+        closedThisBar = true;
       }
     }
 
     const isNewSignal = bar.newLong || bar.newShort;
-    if (!isNewSignal || active || lastEntryDay === time.date) continue;
+    if (!isNewSignal || active || closedThisBar || lastEntryDay === time.date) continue;
     if (time.minuteOfDay < 0 || time.minuteOfDay > 645) continue;
 
     const direction = bar.newLong ? "BUY" : "SELL";
-    const rejectionIndex = direction === "BUY" ? bar.bullRejectBar : bar.bearRejectBar;
-    if (rejectionIndex == null || rejectionIndex < 0) continue;
+    let rejectionIndex: number | null = null;
+    for (let candidate = index - 1; candidate >= Math.max(0, index - 3); candidate--) {
+      if (direction === "BUY" ? bars[candidate].bullReject : bars[candidate].bearReject) {
+        rejectionIndex = candidate;
+        break;
+      }
+    }
+    if (rejectionIndex == null) continue;
     const orderBlock = findOrderBlockForRejection(candles, rejectionIndex, direction);
     if (!orderBlock) continue;
 
