@@ -58,14 +58,14 @@ function derivePriceLevels(candles: Array<{ high: number; low: number; close: nu
   return { support, resistance };
 }
 
-function tradeMath(direction: Direction, entry: number | null, stop: number | null, tp: number | null, current: number | null, minimumRR = 2) {
+function tradeMath(direction: Direction, entry: number | null, stop: number | null, tp: number | null, current: number | null, minimumRR = 2, minimumSlPct = 0.1, maximumEntryDistancePct = 0.5) {
   if (direction === "NO TRADE" || entry === null || stop === null || tp === null) return { valid: false, rr: null, risk: null, reward: null, slPct: null, entryDistancePct: null };
   const risk = direction === "BUY" ? entry - stop : stop - entry;
   const reward = direction === "BUY" ? tp - entry : entry - tp;
   const rr = risk > 0 ? reward / risk : null;
   const slPct = entry !== 0 ? Math.abs(entry - stop) / Math.abs(entry) * 100 : null;
   const entryDistancePct = current !== null && current !== 0 ? Math.abs(entry - current) / Math.abs(current) * 100 : null;
-  return { valid: risk > 0 && reward > 0 && rr !== null && rr >= minimumRR && (slPct === null || slPct >= 0.1) && (entryDistancePct === null || entryDistancePct <= 0.5), rr, risk, reward, slPct, entryDistancePct };
+  return { valid: risk > 0 && reward > 0 && rr !== null && rr >= minimumRR && (slPct === null || slPct >= minimumSlPct) && (entryDistancePct === null || entryDistancePct <= maximumEntryDistancePct), rr, risk, reward, slPct, entryDistancePct };
 }
 
 function jsonText(raw: any): string {
@@ -384,7 +384,7 @@ Return JSON only.`;
     const stopLoss = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.stopLoss : null) : strategyId === "srbOb" ? (srbObEngine?.stopLoss ?? null) : strategyId === "lsobr" ? (lsobrEngine?.stopLoss ?? null) : (typeof ai.stopLoss === "number" ? ai.stopLoss : null);
     const finalTp = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.target : null) : strategyId === "srbOb" ? (srbObEngine?.finalTp ?? null) : strategyId === "lsobr" ? (lsobrEngine?.finalTp ?? null) : (typeof ai.finalTp === "number" ? ai.finalTp : typeof ai.tp2 === "number" ? ai.tp2 : null);
     const minimumRR = strategyId === "ema20" ? 1.81 : strategyId === "srbOb" ? 0.1 : 2;
-    const math = tradeMath(direction, entry, stopLoss, finalTp, liveCurrentPrice, minimumRR);
+    const math = tradeMath(direction, entry, stopLoss, finalTp, liveCurrentPrice, minimumRR, strategyId === "ema20" ? 0 : 0.1, strategyId === "ema20" ? Number.POSITIVE_INFINITY : 0.5);
     const strongSmc = [ai.bos, ai.choch, ai.orderBlock, ai.fvg, ai.liquiditySweep, ai.displacement].filter((x: unknown) => typeof x === "number" && x >= 7).length;
     const smcGate = strongSmc >= 2;
     const analyzerTradeGate = direction !== "NO TRADE" && math.valid && (strategyId === "ema20" || smcGate);
@@ -456,14 +456,14 @@ Return JSON only.`;
       confidence: finalDirection === "NO TRADE" ? Math.min(Number(ai.confidence) || 0, 69) : Number(ai.confidence) || 0,
       setup: ai.setup, marketCondition: ai.marketCondition, marketStructure: ai.marketStructure, recentPriceAction: ai.recentPriceAction,
       confirmedConditions: ai.confirmedConditions,
-      missingConditions: [...(strategyId === "lsobr" ? [...(lsobrEngine?.missingConditions ?? []), ...(!analyzerTradeGate && lsobrEngine?.state === "ENTRY READY" ? ["Universal Analyzer Rules 1–6 did not validate the LSOBR entry."] : [])] : strategyId === "srbOb" ? (srbObEngine?.missingConditions ?? []) : ai.missingConditions), ...(strategyId === "ema20" && !ema20Engine?.newLong && !ema20Engine?.newShort ? ["EMA20 Pine-equivalent engine: no newLong/newShort transition on the latest live candle."] : []), ...(strategyId !== "ema20" && strongSmc < 2 ? ["Analyzer SMC confluence gate: fewer than two SMC signals scored 7 or higher."] : []), ...(!math.valid && direction !== "NO TRADE" ? [math.rr !== null && math.rr < minimumRR ? `Strategy price validation: R:R is below the selected strategy minimum of 1:${minimumRR}.` : "Strategy price validation: entry/SL/TP geometry did not pass all applicable gates."] : [])],
+      missingConditions: [...(strategyId === "lsobr" ? [...(lsobrEngine?.missingConditions ?? []), ...(!analyzerTradeGate && lsobrEngine?.state === "ENTRY READY" ? ["Universal Analyzer Rules 1–6 did not validate the LSOBR entry."] : [])] : strategyId === "srbOb" ? (srbObEngine?.missingConditions ?? []) : ai.missingConditions), ...(strategyId === "ema20" && ema20Engine?.state === "WAITING" ? [ema20Engine.reason] : []), ...(strategyId !== "ema20" && strongSmc < 2 ? ["Analyzer SMC confluence gate: fewer than two SMC signals scored 7 or higher."] : []), ...(!math.valid && direction !== "NO TRADE" ? [math.rr !== null && math.rr < minimumRR ? `Strategy price validation: R:R is below the selected strategy minimum of 1:${minimumRR}.` : "Strategy price validation: entry/SL/TP geometry did not pass all applicable gates."] : [])],
       smcScores: { BOS: ai.bos, CHoCH: ai.choch, OrderBlock: ai.orderBlock, FVG: ai.fvg, LiquiditySweep: ai.liquiditySweep, Displacement: ai.displacement },
       pipeline: ai.pipeline, nextZone: ai.nextZone, invalidation: ai.invalidation,
       entry: strategyId === "lsobr" ? (lsobrEngine?.entry ?? null) : finalDirection === "NO TRADE" ? null : entry, stopLoss: strategyId === "lsobr" ? (lsobrEngine?.stopLoss ?? null) : finalDirection === "NO TRADE" ? null : stopLoss,
       tp1: strategyId === "lsobr" ? (lsobrEngine?.finalTp ?? null) : finalDirection === "NO TRADE" ? null : strategyId === "ema20" ? finalTp : ai.tp1, tp2: strategyId === "lsobr" ? null : finalDirection === "NO TRADE" ? null : strategyId === "ema20" ? finalTp : ai.tp2, finalTp: strategyId === "lsobr" ? (lsobrEngine?.finalTp ?? null) : finalDirection === "NO TRADE" ? null : finalTp,
       rr: strategyId === "lsobr" ? (lsobrEngine?.riskReward ?? null) : finalDirection === "NO TRADE" ? (srbObEngine?.riskReward ?? null) : math.rr, slDistancePct: finalDirection === "NO TRADE" ? null : math.slPct, entryDistancePct: finalDirection === "NO TRADE" ? null : math.entryDistancePct,
       nextAction: strategyId === "lsobr" ? (lsobrEngine?.missingConditions[0] ?? (lsobrEngine?.state === "ENTRY READY" ? "LSOBR sequence confirmed; verify universal Analyzer gates before treating it as a trade." : lsobrEngine?.state ?? "Wait for the next LSOBR condition.")) : strategyId === "srbOb" ? (srbObEngine?.missingConditions[0] ?? srbObEngine?.state ?? "Monitor the selected SRB window.") : ai.nextAction, educationalNote: strategyId === "lsobr" ? "LSOBR requires a liquidity sweep, fixed pre-existing OB rejection, MSS and a confirmed close out of the OB. No SRB opening-window rules are used." : strategyId === "srbOb" ? "SRB & OB uses its own deterministic session-range, Fibonacci pullback and opposing-order-block rules. Confirm the chart state before acting." : ai.educationalNote,
-      qualityChecks: { smcStrongCount: strongSmc, rrValid: math.rr !== null && math.rr >= minimumRR, slDistanceValid: math.slPct === null || math.slPct >= 0.1, entryDistanceValid: math.entryDistancePct === null || math.entryDistancePct <= 0.5, universalTradeGate: analyzerTradeGate },
+      qualityChecks: { smcStrongCount: strongSmc, rrValid: math.rr !== null && math.rr >= minimumRR, slDistanceValid: math.slPct === null || math.slPct >= (strategyId === "ema20" ? 0 : 0.1), entryDistanceValid: math.entryDistancePct === null || math.entryDistancePct <= (strategyId === "ema20" ? Number.POSITIVE_INFINITY : 0.5), universalTradeGate: analyzerTradeGate },
     });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Live market analysis failed." }, { status: 500 });
