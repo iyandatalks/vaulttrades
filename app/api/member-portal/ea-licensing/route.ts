@@ -89,7 +89,7 @@ export async function POST(request: Request) {
     broker_server: brokerServer || null,
     mt5_login: mt5Login,
     product_code: productCode,
-  }).select("id,product_code,status,submitted_at").single();
+  }).select("id,broker_name,broker_server,mt5_login,product_code,status,admin_notes,submitted_at,license_generated_at").single();
 
   if (error) {
     if (error.code === "23505") return NextResponse.json({ error: "A request for this EA, MT5 account and membership is already active." }, { status: 409 });
