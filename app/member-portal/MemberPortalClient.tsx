@@ -289,7 +289,7 @@ export default function MemberPortalClient({
           <h2>Position sizing</h2>
           <ul><li><strong>Auto risk sizing:</strong> the default mode calculates volume from account equity, the configured risk percentage, stop distance and broker volume rules.</li><li><strong>Risk percentage:</strong> default 1.0% of equity in Auto mode.</li><li><strong>Fixed lot:</strong> default 0.10 and used only when Fixed sizing is selected.</li><li><strong>Broker minimum volume:</strong> if the requested fixed lot is below the broker minimum, the order may be raised to the minimum. That can make the actual risk larger than intended.</li></ul>
           <h2>Strategy parameters</h2>
-          <ul><li>EMA 20 and ATR 14.</li><li>UT Bot ATR period 10, sensitivity 1.0.</li><li>SMI settings 7, 2, 2.</li><li>Pivot length 3 and confirmation bars 3.</li><li>EMA touch threshold 0.20 ATR.</li><li>Stop-loss distance 2.23 ATR; take-profit distance 1.81 times the stop distance.</li></ul>
+          <ul><li>EMA 20 and ATR 14.</li><li>UT Bot ATR period 10, sensitivity 1.0.</li><li>SMI settings 7, 2, 2.</li><li>Pivot length 3 and confirmation bars 3.</li><li>EMA touch threshold 0.20 ATR.</li><li>Stop-loss distance 2.23 ATR; take-profit distance 1.81 times the stop distance.</li><li>Scan timer: one second. The strategy evaluates completed bars.</li><li>Spread guard default: 0 points, which means the spread guard is off.</li></ul>
           <p className="vt-member-note">Do not change inputs casually. Use the supplied product defaults unless you understand the effect and have tested the change on a demo account.</p>
         </>;
       case "broker-detection":
@@ -314,10 +314,10 @@ export default function MemberPortalClient({
       case "execution":
         return <>
           <Eyebrow>ORDER LIFECYCLE</Eyebrow><h1>From signal to filled order.</h1>
-          <ol><li>The EA completes the strategy checks on a closed candle.</li><li>It verifies the account, symbol, trading permissions, available history, position state and volume rules.</li><li>It calculates the requested volume using Auto risk or Fixed lot mode.</li><li>It sends a market order and attaches the stop-loss and take-profit levels.</li><li>When the broker confirms the fill, the position is managed by its broker-side SL and TP.</li></ol>
+          <ol><li>The EA completes the strategy checks on a closed candle.</li><li>It verifies the account, symbol, trading permissions, available history, position state and volume rules.</li><li>It calculates the requested volume using Auto risk or Fixed lot mode.</li><li>It sends a market order with the configured execution deviation and attaches the stop-loss and take-profit levels.</li><li>When the broker confirms the fill, the position is managed by its broker-side SL and TP.</li></ol>
           <h2>Stop-loss and take-profit</h2>
           <ul><li>Buy stop-loss: entry minus 2.23 ATR; sell stop-loss: entry plus 2.23 ATR.</li><li>Take-profit is set at 1.81 times the stop distance.</li><li>The EA does not use trailing stops, averaging, martingale or hedging.</li><li>After a position closes, the EA waits for another valid setup.</li></ul>
-          <p className="vt-member-note">A successful order response does not guarantee the exact requested fill price. Slippage, gaps, spread changes and broker execution rules can affect the actual result.</p>
+          <p className="vt-member-note">The standard Nexus magic number is based on 6111100 plus the chart timeframe value; Nexus Plus uses a separate magic-number base. A successful MT5 order response (retcode 10009, DONE) indicates the order was accepted. Other retcodes should be checked in the Experts and Journal tabs. A successful order response does not guarantee the exact requested fill price: slippage, gaps, spread changes and broker execution rules can affect the actual result.</p>
         </>;
       case "timeframes":
         return <>
