@@ -29,6 +29,7 @@ const sections = [
   { id: "community", label: "Join the Community", group: "GET STARTED" },
   { id: "broker", label: "Recommended Broker — XM", group: "GET STARTED" },
   { id: "mt5", label: "Open Your MT5 Account", group: "GET STARTED" },
+  { id: "before-install", label: "Before You Install", group: "EA LICENSING" },
   { id: "licensing", label: "Submit Your MT5 Number", group: "EA LICENSING" },
   { id: "generation", label: "Personalised EA Generation", group: "EA LICENSING" },
   { id: "download", label: "EA Download", group: "EA LICENSING" },
@@ -255,13 +256,24 @@ export default function MemberPortalClient({
           </div>)}</div> : <div className="vt-member-pending"><strong>Your personalised EA is not ready yet.</strong><span>Once your MT5 request is approved and the licensed file is uploaded, the download will appear here.</span></div>}
           <h2>Before installing</h2><ul><li>Confirm that the EA name and build match your membership.</li><li>Use the installation guide for that exact product.</li><li>Keep the downloaded file private and do not redistribute it.</li></ul>
         </>;
+      case "before-install":
+        return <>
+          <Eyebrow>PRE-INSTALLATION CHECKLIST</Eyebrow><h1>Before you install.</h1>
+          <ul><li>Your VaultTrades membership is active and the personalised EA download is available.</li><li>You have the correct MT5 account open in the terminal.</li><li>MetaTrader 5 is connected to the broker and receiving live quotes.</li><li>The instrument you want to trade is visible in Market Watch.</li><li>At least 500 bars of history are available on the timeframe you intend to use.</li><li>Your account permits automated trading and you understand the selected risk-sizing mode.</li><li>You have the installation guide for the exact build you downloaded.</li></ul>
+          <p className="vt-member-note">Do not attach a file licensed to another MT5 account. Do not share your trading password with VaultTrades or anyone assisting with installation.</p>
+        </>;
       case "installation":
         return <>
-          <Eyebrow>INSTALLATION</Eyebrow><h1>Install and attach your EA.</h1>
-          <p className="vt-member-lead">Use the installation guide supplied for your exact EA build. The Nexus and Nexus Plus builds have different operating behaviour, so do not substitute one guide for the other.</p>
-          <h2>MetaTrader 5 preparation</h2><ol><li>Install and open MetaTrader 5 for your broker account.</li><li>Sign in to the correct trading account.</li><li>Open File → Open Data Folder.</li><li>Copy the licensed EA and any required support files into the exact folders specified by the supplied installation guide.</li><li>Compile the source in MetaEditor only if your download includes source files and the guide instructs you to compile.</li><li>Refresh the Navigator, attach the EA to the specified chart and enable Algo Trading.</li><li>Check the Experts tab for startup and permission messages.</li></ol>
-          <div className="vt-member-pending"><strong>Use the supplied product guide for exact file paths and settings.</strong><span>Do not guess file locations, change EA inputs or assume that the Nexus and Nexus Plus installation packages are interchangeable.</span></div>
-          <p className="vt-member-note">The terminal must remain running for a locally hosted EA to operate. A VPS is an optional way to keep the terminal running remotely.</p>
+          <Eyebrow>INSTALLATION · STANDARD NEXUS</Eyebrow><h1>Install and attach VaultTrades Nexus.</h1>
+          <p className="vt-member-lead">These steps follow the supplied Nexus v1.04 installation guide. Use the separate Nexus Plus page if you are installing the no-window build.</p>
+          <h2>Required files and folders</h2>
+          <ul><li><strong>EA source:</strong> <code>MQL5\\Experts\\Advisors\\VaultTrades_Nexus_v1_01.mq5</code></li><li><strong>Broker compatibility helper:</strong> <code>MQL5\\Include\\VaultTrades\\BrokerCompat.mqh</code></li></ul>
+          <h2>Copy or compile the EA</h2>
+          <ol><li>In MT5, choose File → Open Data Folder.</li><li>Open the MQL5 folder.</li><li>Place the EA source or compiled EA file in <code>Experts\\Advisors</code>.</li><li>Place <code>BrokerCompat.mqh</code> in <code>Include\\VaultTrades</code>, creating the VaultTrades folder if required.</li><li>If your download contains only a compiled <code>.ex5</code> file, copy it into Advisors and skip the compile steps.</li><li>If your download contains <code>.mq5</code> source, press F4 to open MetaEditor, open the Nexus source and press F7 to compile. The supplied guide expects zero errors and zero warnings.</li><li>Return to MT5 and refresh Expert Advisors in the Navigator.</li></ol>
+          <h2>Attach to your chart</h2>
+          <ol><li>Open the intended instrument chart.</li><li>Select H4 for the primary Nexus setup or M15 for the secondary setup.</li><li>Drag VaultTrades Nexus from Navigator → Expert Advisors onto the chart.</li><li>In the Common tab, allow Algo Trading. Confirm the main MT5 Algo Trading toolbar switch is enabled.</li><li>Click OK and confirm the EA is running. Check the Experts tab for startup messages and account/symbol detection.</li></ol>
+          <p className="vt-member-note">Do not attach Nexus Plus using this standard Nexus guide. Nexus Plus has an additional core-file dependency and its own H1 recommendation.</p>
+          <p>The MT5 terminal must remain running and connected for a locally hosted EA to operate. A VPS is an optional way to keep the terminal running remotely.</p>
         </>;
       case "understanding":
         return <>
