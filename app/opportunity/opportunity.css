@@ -64,3 +64,14 @@
 .vto-capital-separation p{margin-top:8px}
 @media(max-width:850px){.vto-membership-grid{grid-template-columns:1fr 1fr}.vto-membership-card:last-child{grid-column:1/-1}.vto-holding-grid{grid-template-columns:1fr}}
 @media(max-width:620px){.vto-membership{padding:68px 0}.vto-membership-grid{grid-template-columns:1fr}.vto-membership-card:last-child{grid-column:auto}.vto-membership-card{min-height:245px}.vto-website-option{align-items:flex-start;flex-direction:column}.vto-website-option strong{font-size:27px}}
+
+/* Opportunity growth narrative */
+.vto-growth-story{background:radial-gradient(circle at 88% 30%,rgba(212,166,55,.075),transparent 38%),#0b111c}
+.vto-growth-routine{display:grid;grid-template-columns:190px 1fr;gap:30px;align-items:center;margin-top:38px;padding:28px;border:1px solid rgba(212,166,55,.25);border-radius:13px;background:linear-gradient(120deg,rgba(212,166,55,.08),rgba(255,255,255,.018))}
+.vto-growth-time{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:145px;border-right:1px solid rgba(212,166,55,.25);padding-right:24px}
+.vto-growth-time strong{font-size:65px;line-height:.95;letter-spacing:-.07em;color:var(--vto-gold)}
+.vto-growth-time span{margin-top:8px;font-size:10px;font-weight:950;letter-spacing:.2em}
+.vto-growth-time small{max-width:145px;margin-top:9px;color:var(--vto-muted);font-size:10px;line-height:1.55;text-align:center}
+.vto-growth-routine h3{margin:11px 0 8px;font-size:21px;line-height:1.25}
+.vto-growth-routine p{margin:0;color:var(--vto-muted);font-size:12px;line-height:1.8}
+@media(max-width:620px){.vto-growth-routine{grid-template-columns:1fr;padding:22px}.vto-growth-time{border-right:0;border-bottom:1px solid rgba(212,166,55,.25);padding:0 0 20px;min-height:auto}.vto-growth-time small{max-width:220px}.vto-growth-routine h3{font-size:18px}}
