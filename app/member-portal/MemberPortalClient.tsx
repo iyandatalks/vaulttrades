@@ -44,7 +44,11 @@ const sections = [
   { id: "vps", label: "Optional 24/7 VPS", group: "AUTOMATION" },
   { id: "daily", label: "Your Daily Trading Routine", group: "AUTOMATION" },
   { id: "trading-room", label: "Morning Trading Room", group: "LEARNING & SUPPORT" },
-  { id: "mentorship", label: "Optional Trading Mentorship", group: "LEARNING & SUPPORT" },
+  { id: "mentorship", label: "Seven-Day Mentorship Programme", group: "LEARNING & SUPPORT" },
+  { id: "scaling", label: "Scaling & KPI Development", group: "LEARNING & SUPPORT" },
+  { id: "vortex-manual", label: "Vortex User Manual", group: "EA LICENSING" },
+  { id: "vortex-install", label: "Vortex Installation Guide", group: "EA LICENSING" },
+  { id: "resources", label: "Additional Resources & Partners", group: "MEMBER TOOLS" },
   { id: "business", label: "Understand Your Business", group: "BUILD YOUR BUSINESS" },
   { id: "referrals", label: "Your Referral Link", group: "BUILD YOUR BUSINESS" },
   { id: "website", label: "Your Personal Website", group: "BUILD YOUR BUSINESS" },
@@ -362,8 +366,10 @@ export default function MemberPortalClient({
           <Eyebrow>OPTIONAL REMOTE HOSTING</Eyebrow><h1>Keep your EA running with a VPS.</h1>
           <p className="vt-member-lead">A Virtual Private Server (VPS) is a remote computer that can keep MetaTrader 5 and your EA running when your personal computer is switched off or your home internet connection is interrupted.</p>
           <h2>Why members may choose a VPS</h2><ul><li>MetaTrader 5 can remain online independently of your home computer.</li><li>It can reduce interruptions caused by local power, internet or travel.</li><li>You can access the remote desktop to check the terminal when needed.</li></ul>
-          {vpsRegistrationUrl ? <a className="vt-member-button" href={vpsRegistrationUrl} target="_blank" rel="noreferrer">View VPS subscription option ↗</a> : <div className="vt-member-pending"><strong>VPS subscription link pending</strong><span>The recommended VPS subscription link will be published here when configured.</span></div>}
-          <p className="vt-member-note">VPS hosting is optional and may involve a separate recurring fee. It does not guarantee uninterrupted service, trade execution or profits. You remain responsible for monitoring your account and EA.</p>
+          <h2>Choose how you want to run MT5</h2>
+          <ol><li><strong>Your own computer:</strong> install MT5 locally and keep the computer, terminal and internet connection running while the EA is expected to operate.</li><li><strong>A VPS provider:</strong> rent a remote Windows environment, install MT5 there, sign in to your broker account and attach your licensed EA.</li><li><strong>Another MT5-compatible setup:</strong> you may choose a different provider if it meets your broker, operating-system and terminal requirements.</li></ol>
+          {vpsRegistrationUrl ? <a className="vt-member-button" href={vpsRegistrationUrl} target="_blank" rel="noreferrer">View recommended VPS partner ↗</a> : <div className="vt-member-pending"><strong>Recommended VPS partner link is being finalised</strong><span>You can still choose your own VPS provider or run MT5 locally. The partner link will be added when the affiliate arrangement is confirmed.</span></div>}
+          <p className="vt-member-note">A VPS is optional and normally carries a separate recurring subscription. Compare Windows support, memory, CPU, location, latency to your broker server, support and cancellation terms. A VPS does not guarantee uninterrupted service, successful execution or profits.</p>
         </>;
       case "daily":
         return <>
@@ -381,11 +387,70 @@ export default function MemberPortalClient({
         </>;
       case "mentorship":
         return <>
-          <Eyebrow>OPTIONAL LEARNING</Eyebrow><h1>Learn the basics of trading.</h1>
-          <p className="vt-member-lead">Members who want to understand manual trading, market structure, risk and trade management can explore optional mentorship.</p>
-          <p>Mentorship is not compulsory for using the EA. It is for members who want additional education and a clearer understanding of the decisions involved in trading.</p>
-          <a className="vt-member-button" href="/founders-mentorship">Explore mentorship</a>
-          <p className="vt-member-note">Session availability, format and any additional fees should be checked on the mentorship page before booking.</p>
+          <Eyebrow>SEVEN-DAY LEARNING PROGRAMME</Eyebrow><h1>Build your trading knowledge with mentorship.</h1>
+          <p className="vt-member-lead">The seven-day mentorship programme is a guided learning resource for members who want to develop their understanding of trading, market structure, risk management and trade execution. Review the topics and arrange your learning around the available booking options.</p>
+          <h2>How to use the programme</h2>
+          <ol><li>Open the programme and review the topics covered.</li><li>Choose the sessions or topics you want to focus on.</li><li>Where booking options permit, arrange sessions individually or group suitable sessions together.</li><li>Use the supplied slides and learning material to support each topic.</li><li>Apply the concepts on a demo account before changing a live trading routine.</li></ol>
+          <a className="vt-member-button" href="/founders-mentorship">Open the seven-day mentorship programme ↗</a>
+          <h2>One-on-one mentorship entitlement</h2>
+          {hasVortex ? <p>Your VaultTrades Vortex plan includes one-on-one mentorship. Use the booking process made available for your Vortex entitlement, or contact the VaultTrades team through the member community if the booking option is not displayed for your account.</p> : <div className="vt-member-pending"><strong>One-on-one mentorship is a Vortex plan benefit</strong><span>This benefit is not included in your current membership. You can still review the separately available mentorship programme and its terms.</span></div>}
+          <p className="vt-member-note">Confirm session availability, booking conditions and any separately payable programme fee before booking. A booking is not confirmed until you receive confirmation. Mentorship is education, not a promise of trading results.</p>
+        </>;
+      case "scaling":
+        return <>
+          <Eyebrow>PAID SCALING RESOURCES</Eyebrow><h1>Scaling and KPI development.</h1>
+          <p className="vt-member-lead">This module explains how to approach structured growth using the programmes and resources VaultTrades has selected and worked with. It is a learning pathway, not a guarantee of funding, account approval, payouts, trading returns or KPI achievement.</p>
+          {plusOrVortex ? <>
+            <h2>Work through the scaling process</h2>
+            <ol><li><strong>Understand the KPI:</strong> identify the target, measurement period, rules and evidence required by the programme.</li><li><strong>Choose a suitable programme:</strong> compare current account types, fees, restrictions, drawdown rules and payout conditions.</li><li><strong>Prepare an operating plan:</strong> define risk limits, trading schedule, instruments and contingency rules before starting.</li><li><strong>Monitor progress:</strong> record performance, drawdown, consistency and rule compliance, not only headline profit.</li><li><strong>Review before scaling:</strong> increase exposure only when programme rules, results and risk capacity support the decision.</li><li><strong>Repeat with discipline:</strong> retain records and review setbacks without assuming previous results will repeat.</li></ol>
+            <h2>Recommended programmes and resources</h2><p>Use the app's partner directory for current provider destinations. Check each provider's latest terms and rules before purchasing or applying.</p>
+            <a className="vt-member-button" href="/partners">Explore recommended partners and programmes ↗</a>
+            <h2>KPI and account tools</h2>
+            <div className="vt-member-tool-list">
+              <Tool title="Funded Account Wealth Builder" description="Organise account targets, progress and outstanding milestones." href="/funded-account-wealth-builder" unlocked={hasVortex} />
+              <Tool title="Risk Manager" description="Calculate risk and position size before executing a plan." href="/risk-manager" unlocked={hasVortex} />
+              <Tool title="Trading Journal" description="Record trades and review consistency, execution and drawdown." href="/journal" unlocked={plusOrVortex} />
+            </div>
+          </> : <div className="vt-member-pending"><strong>Scaling resources are included with Nexus Plus and Vortex</strong><span>Your current Nexus membership does not include this paid scaling module.</span><a className="vt-member-tool-link" href="/plans">Compare membership plans ↗</a></div>}
+          <p className="vt-member-note">Provider terms, programme rules, fees, eligibility and availability can change. Each provider is a separate business and controls its own decisions. Results vary and no outcome is guaranteed.</p>
+        </>;
+      case "vortex-manual":
+        return <>
+          <Eyebrow>VAULTTRADES VORTEX v1.01 · USER MANUAL</Eyebrow><h1>Understand how Vortex operates.</h1>
+          <p className="vt-member-lead">Vortex is an automated gold-trading EA. It uses M5 market data regardless of the chart period on which it is attached. It is selective and session-bound; long periods without a trade are normal.</p>
+          <h2>Operating principles</h2><ul><li>Uses completed M5 bars and configured New York Silver Bullet session windows.</li><li>One position at a time per symbol.</li><li>No grid trading, averaging into losing positions or stop-loss removal.</li><li>No guaranteed daily trade or profit.</li></ul>
+          <h2>Trade lifecycle</h2><ol><li><strong>Initialisation:</strong> reads account and broker gold specifications, prints the Vortex verdict and displays <code>Status: READY</code>. This confirms initialisation, not profitability.</li><li><strong>Session filter:</strong> outside permitted windows, closed M5 bars are skipped with <code>OUTSIDE SILVER BULLET WINDOW</code>.</li><li><strong>Setup:</strong> evaluates completed impulse, retracement, confirmed retest and the minimum confluence score. Statuses may include <code>SETUP DEVELOPING</code> and <code>WAITING FOR VALID FIB SETUP</code>.</li><li><strong>Sizing:</strong> calculates volume and exit model from equity, risk, stop distance and broker volume constraints.</li><li><strong>Execution:</strong> checks spread, minimum stop distance, margin and permissions before sending a market order with SL attached.</li><li><strong>Management:</strong> uses supported partial exits or closes the full position at TP1 if broker minimum volume prevents five-way splitting.</li><li><strong>Completion:</strong> after the position closes, the panel returns to <code>Position: FLAT</code>.</li></ol>
+          <h2>Chart panel</h2><p>Displays status, symbol/timeframe, sizing/volume, position, signal time and take-profit model.</p>
+          <h2>Key settings</h2><ul><li>Position sizing: Auto by default; Fixed is optional.</li><li>Auto risk per trade: default 1% of equity; valid range is greater than 0 and no more than 10%.</li><li>Fixed lot: default 0.05.</li><li>Gold symbol: leave blank for broker resolution or enter the exact tradable broker symbol.</li><li>Spread limit: 0 disables the spread guard.</li><li>Close fully at TP1: optional Fixed-mode behaviour; Auto chooses the supported exit model.</li><li>Minimum confluence score: default 60/100.</li><li>Maximum bars from Fib touch to confirmed retest: default 8.</li></ul>
+          <h2>Automatic sizing and broker minimums</h2><p>Auto sizing uses equity, risk percentage, stop distance and broker contract/volume specifications. Actual volume can differ across brokers. If the broker minimum forces actual risk above target, the EA should log a warning. Do not treat that minimum as a safe workaround; reduce risk or do not take the trade.</p>
+          <h2>Five-way exit model</h2><p>Five partial exits are supported only when total volume is at least five times the broker's minimum volume. For a 0.10 minimum, at least 0.50 lots are required. Below that threshold, the full position closes at TP1 instead of attempting invalid partial orders.</p>
+          <h2>Experts tab messages</h2><p>Look for <code>VaultTrades account |</code>, <code>Vortex verdict |</code>, <code>Vortex sizing |</code>, <code>Vortex volume plan |</code>, <code>Vortex signal |</code>, <code>Vortex skipped |</code>, <code>no trade opened:</code>, <code>execution blocked:</code>, <code>order rejected retcode=</code> and <code>Vortex near-miss</code>.</p>
+          <h2>Historical test results supplied with v1.01</h2><p>User-supplied historical backtest figures, not independently verified live results or a forecast. Gold M5, M1 OHLC model, 5 January 2024 to 10 November 2026.</p>
+          <div className="vt-member-table-wrap"><table className="vt-member-table"><thead><tr><th>Test</th><th>Trades</th><th>Win rate</th><th>Profit factor</th><th>Max drawdown</th></tr></thead><tbody><tr><td>A · Auto 1%, mixed exit</td><td>55</td><td>41.8%</td><td>1.012</td><td>8.85%</td></tr><tr><td>B · Fixed 0.50, five targets</td><td>97</td><td>54.6%</td><td>0.573</td><td>101.29% · account wiped</td></tr><tr><td>C · Auto 1%, five targets</td><td>109</td><td>54.1%</td><td>0.865</td><td>13.21%</td></tr><tr><td>D · Fixed 0.10, full close TP1</td><td>75</td><td>50.7%</td><td>1.217</td><td>11.99%</td></tr></tbody></table></div>
+          <p>The default test was approximately breakeven, not evidence of a reliable edge. The fixed 0.50-lot test wiped the test account. The reported default run included six consecutive losses. Backtest outcomes do not guarantee future performance.</p>
+          <h2>Limitations and safety</h2><ul><li>Gold-focused, M5 decision data and one position at a time per symbol.</li><li>Session-bound; no-trade periods are expected.</li><li>Broker contract specifications and execution conditions affect sizing and fills.</li><li>Stop-loss execution is not guaranteed at the requested price during gaps or slippage.</li><li>Test on demo first and size conservatively enough to withstand losing streaks.</li></ul>
+        </>;
+      case "vortex-install":
+        return <>
+          <Eyebrow>VAULTTRADES VORTEX v1.01 · INSTALLATION GUIDE</Eyebrow><h1>Install and attach Vortex.</h1>
+          <p className="vt-member-lead">This guide covers the compiled Vortex <code>.ex5</code> file. A source package is only needed if VaultTrades specifically supplies one.</p>
+          <h2>Before you start</h2><ul><li>MT5 is installed and signed in to the correct broker account.</li><li>Your broker offers a tradable gold instrument.</li><li>Algo Trading is available for your account.</li><li>Your account has sufficient funds for the risk settings you intend to use.</li></ul>
+          <h2>Install the compiled EA</h2><ol><li>In MT5 choose File → Open Data Folder.</li><li>Open <code>MQL5\\Experts\\Advisors\\</code>.</li><li>Copy <code>VaultTrades_Vortex_v1_01.ex5</code> into that folder.</li><li>Return to MT5, right-click Expert Advisors in Navigator and choose Refresh.</li><li>Find VaultTrades Vortex in Navigator.</li></ol>
+          <h2>If source files are supplied</h2><p>Copy <code>BrokerCompat.mqh</code> and <code>StructureEngine.mqh</code> into <code>MQL5\\Include\\VaultTrades\\</code>, then place the <code>.mq5</code> source in <code>MQL5\\Experts\\Advisors\\</code>. Open MetaEditor, compile with F7 and confirm zero errors and zero warnings. If the package is incomplete, contact support rather than inventing missing helper files.</p>
+          <h2>Attach to a gold chart</h2><ol><li>Open your broker's gold chart. Any chart period can be used; M5 is recommended for visual monitoring.</li><li>Drag VaultTrades Vortex onto the chart.</li><li>In Common, allow Algo Trading. Confirm the main MT5 Algo Trading toolbar switch is enabled.</li><li>Leave defaults unchanged for the initial demo test, then click OK.</li><li>Check the status indicator and Experts tab.</li></ol>
+          <h2>Verify initialisation</h2><p>The Experts tab should print account information, monitoring symbol, Vortex verdict and initialisation messages. The chart should show <code>Status: READY</code>. The verdict confirms account reading, gold symbol resolution, sizing calculation and exit-model selection. It is not a signal and not proof of profitability.</p>
+          <h2>Troubleshooting</h2><ul><li><strong>Missing from Navigator:</strong> check the folder and refresh Navigator.</li><li><strong>Grey/crossed smiley:</strong> enable Algo Trading in EA Common and the terminal toolbar.</li><li><strong>No usable broker specifications:</strong> select the broker's tradable gold listing in Market Watch or enter its exact symbol if the input is available.</li><li><strong>Not tradable:</strong> symbol may be disabled, close-only or outside broker hours; check with broker.</li><li><strong>No verdict:</strong> check attachment and permissions, then inspect Experts and Journal.</li><li><strong>Different symbol in verdict:</strong> confirm that the automatically resolved alias is the intended gold instrument.</li><li><strong>Trading not allowed:</strong> check account-level automated trading permission with broker.</li></ul>
+          <h2>Update or remove</h2><p>To update, detach the EA, replace the EX5 and attach the new build. An EA detached from a chart cannot continue managing positions, so review open positions first. To remove Vortex, review open positions, detach the EA and delete the file from Experts\\Advisors.</p>
+          <p className="vt-member-note">Use one Vortex instance per gold symbol. Start on demo, verify the account and symbol, and understand the risk settings before considering live use.</p>
+        </>;
+      case "resources":
+        return <>
+          <Eyebrow>VAULTTRADES RESOURCE DIRECTORY</Eyebrow><h1>Additional resources and partners.</h1>
+          <p className="vt-member-lead">The partner directory is maintained inside the VaultTrades app. Use it as the current source for broker, prop-firm, tool and product destinations instead of relying on old copied links.</p>
+          <a className="vt-member-button" href="/partners">Open Partners, Products & Tools ↗</a>
+          <h2>What you will find</h2><ul><li><strong>Recommended brokers:</strong> registration destinations and referral information where published.</li><li><strong>Prop firms:</strong> providers to review when researching funded-account programmes.</li><li><strong>Trading tools:</strong> resources for planning, journaling and risk awareness.</li><li><strong>VaultTrades products:</strong> links to products and services included with eligible memberships.</li></ul>
+          <h2>Use the directory responsibly</h2><ul><li>Review current provider fees, terms, restrictions and eligibility.</li><li>Check that a link opens the intended provider before submitting personal information or payment.</li><li>Partners are separate businesses and control their own products, approvals, support and payment processes.</li><li>Some referrals may generate a small once-off commission for VaultTrades; referral relationships do not change provider terms.</li></ul>
+          <p className="vt-member-note">The directory is the source for current app-managed links. If a resource is not listed or its link is unavailable, contact VaultTrades rather than using an unverified destination.</p>
         </>;
       case "business":
         return <>
