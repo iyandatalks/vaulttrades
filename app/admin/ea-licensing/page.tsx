@@ -1,4 +1,4 @@
-"use client";
+"use client";\n\nimport "./admin-ea-licensing.css";
 
 import { useCallback, useEffect, useState } from "react";
 
