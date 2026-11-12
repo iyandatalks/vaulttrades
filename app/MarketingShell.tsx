@@ -8,7 +8,7 @@ import SitePromotionPopup from "./SitePromotionPopup";
 
 export default function MarketingShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const isProspectFunnel = ["/start", "/opportunity", "/plans"].some(
+  const isProspectFunnel = ["/start", "/opportunity", "/plans", "/privacy-policy"].some(
     (path) => pathname === path || pathname.startsWith(`${path}/`)
   );
 
