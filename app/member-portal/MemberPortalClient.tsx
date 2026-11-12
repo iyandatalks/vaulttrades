@@ -8,6 +8,7 @@ type Plan = "nexus" | "nexus_plus" | "vortex";
 
 type LicensingRequest = { id: string; broker_name: string; broker_server: string | null; mt5_login: string; product_code: string; status: string; admin_notes: string | null; submitted_at: string; license_generated_at: string | null };
 type WebsiteRequest = { id: string; domain_preference: string; preferred_name_1: string | null; preferred_name_2: string | null; preferred_name_3: string | null; custom_domain: string | null; status: string; admin_notes: string | null; assigned_domain: string | null; submitted_at: string };
+type MemberNotification = { id: string; title: string; body: string; action_href: string; notification_type: string; created_at: string; read_at: string | null };
 
 type Props = {
   plan: Plan;
@@ -16,12 +17,14 @@ type Props = {
   referralUrl: string | null;
   licensingRequests: LicensingRequest[];
   websiteRequests: WebsiteRequest[];
+  memberNotifications: MemberNotification[];
   xmRegistrationUrl: string;
   vpsRegistrationUrl: string;
 };
 
 const sections = [
   { id: "welcome", label: "Welcome to VaultTrades", group: "START HERE" },
+  { id: "notifications", label: "Member Notifications", group: "START HERE" },
   { id: "community", label: "Join the Community", group: "GET STARTED" },
   { id: "broker", label: "Recommended Broker — XM", group: "GET STARTED" },
   { id: "mt5", label: "Open Your MT5 Account", group: "GET STARTED" },
@@ -48,7 +51,7 @@ const planNames: Record<Plan, string> = {
 };
 
 export default function MemberPortalClient({
-  plan, isAdmin, memberEmail, referralUrl, licensingRequests, websiteRequests, xmRegistrationUrl, vpsRegistrationUrl,
+  plan, isAdmin, memberEmail, referralUrl, licensingRequests, websiteRequests, memberNotifications, xmRegistrationUrl, vpsRegistrationUrl,
 }: Props) {
   const [active, setActive] = useState<string>("welcome");
   const [copied, setCopied] = useState(false);
@@ -59,6 +62,7 @@ export default function MemberPortalClient({
   const [submitting, setSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState("");
   const [websiteRequestRows, setWebsiteRequestRows] = useState<WebsiteRequest[]>(websiteRequests);
+  const [notifications] = useState<MemberNotification[]>(memberNotifications);
   const [domainPreference, setDomainPreference] = useState<"vaulttrades_subdomain" | "custom_domain">("vaulttrades_subdomain");
   const [preferredNames, setPreferredNames] = useState(["", "", ""]);
   const [customDomain, setCustomDomain] = useState("");
@@ -160,6 +164,16 @@ export default function MemberPortalClient({
             <li><strong>Learn and build.</strong> Use the community, optional mentorship and your referral resources.</li>
           </ol>
           <p className="vt-member-note">Some links and request forms are being connected to the member administration workflow. Where a link is not yet published, this guide will be updated rather than sending you to an unverified destination.</p>
+        </>;
+      case "notifications":
+        return <>
+          <Eyebrow>MEMBER UPDATES</Eyebrow><h1>Your notifications.</h1>
+          <p className="vt-member-lead">Important updates about your EA licensing and optional website setup appear here.</p>
+          {notifications.length ? <div className="vt-member-notifications">{notifications.map(notification => <div className={notification.read_at ? "vt-member-notification read" : "vt-member-notification"} key={notification.id}>
+            <div><strong>{notification.title}</strong><small>{new Date(notification.created_at).toLocaleString()}</small></div>
+            <p>{notification.body}</p>
+            {notification.action_href && <Link href={notification.action_href} className="vt-member-tool-link">Open related section ↗</Link>}
+          </div>)}</div> : <div className="vt-member-pending"><strong>No new notifications.</strong><span>Updates will appear here when VaultTrades changes your licensing or website request status.</span></div>}
         </>;
       case "community":
         return <>
