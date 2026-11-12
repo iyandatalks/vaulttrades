@@ -95,6 +95,11 @@ export default function ProfilePage() {
                     <Link className="vt-primary" href="/admin/community-testimonials" style={{ display: "inline-block", marginTop: 8 }}>Review Submissions →</Link>
                   </article>
                   <article className="vt-info-card">
+                    <h3>EA Licensing Queue</h3>
+                    <p className="muted">Review member MT5 submissions, generate personalised EA files and release private downloads.</p>
+                    <Link className="vt-primary" href="/admin/ea-licensing" style={{ display: "inline-block", marginTop: 8 }}>Open Licensing Queue →</Link>
+                  </article>
+                  <article className="vt-info-card">
                     <h3>Manage Partners</h3>
                     <p className="muted">Manage the partner catalogue and public partner page.</p>
                     <Link className="vt-primary" href="/admin/partners" style={{ display: "inline-block", marginTop: 8 }}>Open Partner Management →</Link>
