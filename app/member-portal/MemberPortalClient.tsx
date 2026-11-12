@@ -48,7 +48,7 @@ const planNames: Record<Plan, string> = {
 };
 
 export default function MemberPortalClient({
-  plan, isAdmin, memberEmail, referralUrl, licensingRequests, xmRegistrationUrl, vpsRegistrationUrl,
+  plan, isAdmin, memberEmail, referralUrl, licensingRequests, websiteRequests, xmRegistrationUrl, vpsRegistrationUrl,
 }: Props) {
   const [active, setActive] = useState<string>("welcome");
   const [copied, setCopied] = useState(false);
