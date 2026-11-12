@@ -31,3 +31,36 @@
 .vto-results-note{max-width:850px;margin:18px 0 0}
 @media(max-width:1000px){.vto-pillars{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:620px){.vto-pillars{grid-template-columns:1fr}.vto-results{padding:68px 0}.vto-results-track{grid-auto-columns:minmax(82%,1fr)}.vto-result-visual{height:190px}}
+
+
+/* Membership pricing and realistic trading journey */
+.vto-membership{padding:94px 0;background:linear-gradient(145deg,rgba(212,166,55,.07),transparent 48%),#080d17;border-top:1px solid rgba(212,166,55,.16);border-bottom:1px solid rgba(212,166,55,.16)}
+.vto-membership .vto-section-heading{max-width:760px}
+.vto-membership-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:36px}
+.vto-membership-card{min-height:280px;padding:27px;border:1px solid rgba(212,166,55,.25);border-radius:13px;background:linear-gradient(155deg,#121b2b,#090e18);display:flex;flex-direction:column}
+.vto-membership-featured{border-color:rgba(212,166,55,.75);box-shadow:inset 0 0 0 1px rgba(212,166,55,.12)}
+.vto-plan-label{color:var(--vto-gold);font-size:9px;font-weight:950;letter-spacing:.16em}
+.vto-membership-card h3{min-height:44px;margin:19px 0 8px;font-size:18px;line-height:1.35}
+.vto-price{font-size:38px;font-weight:950;letter-spacing:-.05em;color:#fff}
+.vto-price small,.vto-website-option strong small{font-size:10px;letter-spacing:.1em;color:var(--vto-gold)}
+.vto-membership-card p,.vto-website-option p{color:var(--vto-muted);font-size:12px;line-height:1.75}
+.vto-plan-link{margin-top:auto;padding-top:20px;color:var(--vto-gold);font-size:10px;font-weight:950;letter-spacing:.1em}
+.vto-plan-link span{padding-left:8px;font-size:15px}
+.vto-website-option{display:flex;justify-content:space-between;align-items:center;gap:25px;margin-top:18px;padding:24px 27px;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(255,255,255,.025)}
+.vto-website-option h3{margin:9px 0 4px;font-size:16px}
+.vto-website-option p{max-width:690px;margin:0}
+.vto-website-option strong{white-space:nowrap;font-size:30px;color:#fff}
+.vto-price-note{margin:16px 0 0;color:#858e9f;font-size:10px;line-height:1.7}
+.vto-holding-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;margin-top:36px}
+.vto-holding-grid article{padding:22px;border:1px solid rgba(212,166,55,.22);border-radius:10px;background:rgba(255,255,255,.025)}
+.vto-holding-grid span{display:block;color:var(--vto-gold);font-size:9px;font-weight:950;letter-spacing:.13em}
+.vto-holding-grid strong{display:block;margin:13px 0 5px;font-size:21px}
+.vto-holding-grid p{margin:0;color:var(--vto-muted);font-size:11px;line-height:1.7}
+.vto-build-horizon{margin-top:30px;padding:27px;border-left:2px solid var(--vto-gold);background:rgba(212,166,55,.055)}
+.vto-build-horizon h3{margin:12px 0 8px;font-size:20px}
+.vto-build-horizon p,.vto-capital-separation p{max-width:900px;margin:0;color:var(--vto-muted);font-size:12px;line-height:1.8}
+.vto-capital-separation{margin-top:20px;padding-top:20px;border-top:1px solid rgba(255,255,255,.1)}
+.vto-capital-separation b{font-size:12px;letter-spacing:.08em}
+.vto-capital-separation p{margin-top:8px}
+@media(max-width:850px){.vto-membership-grid{grid-template-columns:1fr 1fr}.vto-membership-card:last-child{grid-column:1/-1}.vto-holding-grid{grid-template-columns:1fr}}
+@media(max-width:620px){.vto-membership{padding:68px 0}.vto-membership-grid{grid-template-columns:1fr}.vto-membership-card:last-child{grid-column:auto}.vto-membership-card{min-height:245px}.vto-website-option{align-items:flex-start;flex-direction:column}.vto-website-option strong{font-size:27px}}
