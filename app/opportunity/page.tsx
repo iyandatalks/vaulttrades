@@ -193,6 +193,20 @@ export default function OpportunityPage() {
       </section>
 
 
+      <section className="vto-dark-band">
+        <div className="vto-container vto-split">
+          <div>
+            <div className="vto-kicker">IMPORTANT DETAILS</div>
+            <h2>Understand the terms<br /><span>before you decide.</span></h2>
+          </div>
+          <div>
+            <p>Membership fees are once-off. Trading capital is separate and must be deposited with a broker recommended in your selected module. Trading involves risk, and losses are possible. Trading results and business commissions are not guaranteed.</p>
+            <p>Eligible members may earn a 100% commission on a qualifying membership sale they personally refer, subject to the final reseller terms. This is a membership-sale commission, not a guarantee of trading profit.</p>
+            <p><strong>Optional personal website:</strong> A personal website is optional and separate from membership. A personal subdomain, such as yourname.vaulttradesve.com, may be available. The once-off setup fee and any annual hosting or maintenance charges will be confirmed before purchase.</p>
+          </div>
+        </div>
+      </section>
+
       <section className="vto-container vto-section vto-faq">
         <div className="vto-section-heading"><div className="vto-kicker">CLEAR ANSWERS BEFORE YOU DECIDE</div><h2>Frequently asked questions.</h2></div>
         <div className="vto-faq-list">{faqs.map(([question, answer]) => (<details key={question}><summary>{question}<span>+</span></summary><p>{answer}</p></details>))}</div>
@@ -270,7 +284,7 @@ function getEvidenceGallery() {
     if (!fs.existsSync(absolute)) return [];
     return fs.readdirSync(absolute, { withFileTypes: true })
       .filter((entry: import("node:fs").Dirent) =>
-        entry.isFile() && /\\.(png|jpe?g|webp|avif)$/i.test(entry.name)
+        entry.isFile() && /\.(png|jpe?g|webp|avif)$/i.test(entry.name)
       )
       .sort((a: import("node:fs").Dirent, b: import("node:fs").Dirent) => a.name.localeCompare(b.name))
       .map((entry: import("node:fs").Dirent) => ({
