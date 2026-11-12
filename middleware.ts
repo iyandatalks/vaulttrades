@@ -25,6 +25,7 @@ const adminOnlyPaths = [
   "/plans",
   "/membership",
   "/member-portal",
+  "/api/marketing-leads",
 ];
 
 export async function middleware(request: NextRequest) {
@@ -117,6 +118,7 @@ export const config = {
     "/plans/:path*",
     "/membership/:path*",
     "/member-portal/:path*",
+    "/api/marketing-leads",
     "/analyzer/:path*",
     "/scanner-automation/:path*",
     "/automated-trader/:path*",
