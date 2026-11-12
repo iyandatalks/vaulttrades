@@ -8,7 +8,6 @@ const tabs = [
   { href: "/", label: "Home" },
   { href: "/dashboard", label: "Dashboard" },
   { href: "/start", label: "Lead Generation", adminOnly: true },
-  { href: "/opportunity", label: "Opportunity", adminOnly: true },
   { href: "/plans", label: "Plans", adminOnly: true },
   { href: "/member-portal", label: "Knowledge Base", adminOnly: true },
   { href: "/subscription?promo=1", label: "Products" },
