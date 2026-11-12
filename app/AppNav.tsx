@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const tabs = [
   { href: "/", label: "Home" },
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/member-portal", label: "Knowledge Base" },
   { href: "/opportunity", label: "Opportunity" },
   { href: "/subscription?promo=1", label: "Products" },
   { href: "/partners", label: "Partners" },
@@ -41,7 +42,6 @@ export default function AppNav() {
           ))}
         </div>
       </div>
-
       <div className="vt-nav-inner">
         <Link href="/" className="vt-nav-brand">VAULTTRADES</Link>
         <div className="vt-nav-links">
