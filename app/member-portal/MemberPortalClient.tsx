@@ -182,7 +182,7 @@ export default function MemberPortalClient({
           <a className="vt-member-button" href="/vaulttrades-community">Open VaultTrades Community</a>
           <h2>What to look out for</h2>
           <ul><li>Important product and member announcements.</li><li>Updates when a Google Meet trading-room session is scheduled.</li><li>Support guidance and notices about changes to the installation process.</li><li>Links to relevant learning sessions and resources.</li></ul>
-          <p className="vt-member-note">Check the community announcements for the current meeting link and session time. Do not rely on an old meeting link or assume that a session is running unless it has been announced.</p>
+          <p className="vt-member-note">Check the community announcements for the current Google Meet link and session details. Daily trade updates and alerts, when published, will be shared through the relevant trading channel. Do not rely on an old meeting link or assume that a session is running unless it has been announced.</p>
         </>;
       case "broker":
         return <>
@@ -272,8 +272,8 @@ export default function MemberPortalClient({
       case "trading-room":
         return <>
           <Eyebrow>COMMUNITY LEARNING</Eyebrow><h1>Morning trading room.</h1>
-          <p className="vt-member-lead">The optional Google Meet room is for members who want to follow market discussion and explore additional trading opportunities beyond the EA's automated activity.</p>
-          <p>Meeting links and the current session schedule will be posted in the community announcements. Check the latest announcement before joining.</p>
+          <p className="vt-member-lead">The optional Google Meet room is for members who want to follow market discussion and explore additional trading opportunities beyond the EA's automated activity. The planned morning session is 06:00–07:00 South African time; the community announcement will confirm each session and provide the current Meet link.</p>
+          <p>Meeting links and session updates will be posted in the community announcements. Check the latest announcement before joining.</p>
           <ul><li>Participation is optional.</li><li>The EA may already have taken trades before a live discussion begins.</li><li>Room discussions are educational and do not require you to place a trade.</li><li>Any manual trade remains your own decision and responsibility.</li></ul>
           <a className="vt-member-button" href="/vaulttrades-community">Check community announcements</a>
         </>;
