@@ -393,7 +393,7 @@ export default function MemberPortalClient({
           <ol><li>Open the programme and review the topics covered.</li><li>Choose the sessions or topics you want to focus on.</li><li>Where booking options permit, arrange sessions individually or group suitable sessions together.</li><li>Use the supplied slides and learning material to support each topic.</li><li>Apply the concepts on a demo account before changing a live trading routine.</li></ol>
           <a className="vt-member-button" href="/founders-mentorship">Open the seven-day mentorship programme ↗</a>
           <h2>One-on-one mentorship entitlement</h2>
-          {hasVortex ? <p>Your VaultTrades Vortex plan includes one-on-one mentorship. Use the booking process made available for your Vortex entitlement, or contact the VaultTrades team through the member community if the booking option is not displayed for your account.</p> : <div className="vt-member-pending"><strong>One-on-one mentorship is a Vortex plan benefit</strong><span>This benefit is not included in your current membership. You can still review the separately available mentorship programme and its terms.</span></div>}
+          {hasVortex ? <p>Your VaultTrades Vortex plan includes one-on-one mentorship. Contact the VaultTrades team through the member community to arrange your included session. The existing Founders Mentorship page is a separately access-controlled programme, so do not purchase that programme merely to use your Vortex one-on-one entitlement.</p> : <div className="vt-member-pending"><strong>One-on-one mentorship is a Vortex plan benefit</strong><span>This benefit is not included in your current membership. You can still review the separately available mentorship programme and its terms.</span></div>}
           <p className="vt-member-note">Confirm session availability, booking conditions and any separately payable programme fee before booking. A booking is not confirmed until you receive confirmation. Mentorship is education, not a promise of trading results.</p>
         </>;
       case "scaling":
@@ -415,6 +415,7 @@ export default function MemberPortalClient({
           <p className="vt-member-note">Provider terms, programme rules, fees, eligibility and availability can change. Each provider is a separate business and controls its own decisions. Results vary and no outcome is guaranteed.</p>
         </>;
       case "vortex-manual":
+        if (!hasVortex) return <><Eyebrow>VORTEX MEMBERSHIP CONTENT</Eyebrow><h1>Vortex user manual.</h1><div className="vt-member-pending"><strong>VaultTrades Vortex membership required</strong><span>This product manual is available to Vortex members. Review the membership plans to see the Vortex package.</span><a className="vt-member-tool-link" href="/plans">View membership plans ↗</a></div></>;
         return <>
           <Eyebrow>VAULTTRADES VORTEX v1.01 · USER MANUAL</Eyebrow><h1>Understand how Vortex operates.</h1>
           <p className="vt-member-lead">Vortex is an automated gold-trading EA. It uses M5 market data regardless of the chart period on which it is attached. It is selective and session-bound; long periods without a trade are normal.</p>
@@ -431,6 +432,7 @@ export default function MemberPortalClient({
           <h2>Limitations and safety</h2><ul><li>Gold-focused, M5 decision data and one position at a time per symbol.</li><li>Session-bound; no-trade periods are expected.</li><li>Broker contract specifications and execution conditions affect sizing and fills.</li><li>Stop-loss execution is not guaranteed at the requested price during gaps or slippage.</li><li>Test on demo first and size conservatively enough to withstand losing streaks.</li></ul>
         </>;
       case "vortex-install":
+        if (!hasVortex) return <><Eyebrow>VORTEX MEMBERSHIP CONTENT</Eyebrow><h1>Vortex installation guide.</h1><div className="vt-member-pending"><strong>VaultTrades Vortex membership required</strong><span>This installation guide is available to Vortex members.</span><a className="vt-member-tool-link" href="/plans">View membership plans ↗</a></div></>;
         return <>
           <Eyebrow>VAULTTRADES VORTEX v1.01 · INSTALLATION GUIDE</Eyebrow><h1>Install and attach Vortex.</h1>
           <p className="vt-member-lead">This guide covers the compiled Vortex <code>.ex5</code> file. A source package is only needed if VaultTrades specifically supplies one.</p>
