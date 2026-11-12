@@ -89,6 +89,45 @@ export default function OpportunityPage() {
         </div>
       </section>
 
+
+      <section className="vto-membership" id="membership-investment">
+        <div className="vto-container">
+          <div className="vto-section-heading">
+            <div className="vto-kicker">CHOOSE YOUR STARTING POINT</div>
+            <h2>One ecosystem.<br /><span>Three ways to join.</span></h2>
+            <p>Choose the VaultTrades programme that matches the level of access you want to begin with. Your membership purchase is separate from any money you choose to allocate to a personal trading account.</p>
+          </div>
+          <div className="vto-membership-grid">
+            <article className="vto-membership-card">
+              <span className="vto-plan-label">PLAN 01</span>
+              <h3>VaultTrades Nexus</h3>
+              <div className="vto-price">$150 <small>USD</small></div>
+              <p>Your starting point in the VaultTrades trading ecosystem.</p>
+              <Link href="/plans" className="vto-plan-link">VIEW PLAN DETAILS <span>→</span></Link>
+            </article>
+            <article className="vto-membership-card vto-membership-featured">
+              <span className="vto-plan-label">PLAN 02</span>
+              <h3>VaultTrades Nexus Plus</h3>
+              <div className="vto-price">$250 <small>USD</small></div>
+              <p>An expanded pathway for members looking for broader trading access and tools.</p>
+              <Link href="/plans" className="vto-plan-link">VIEW PLAN DETAILS <span>→</span></Link>
+            </article>
+            <article className="vto-membership-card">
+              <span className="vto-plan-label">PLAN 03</span>
+              <h3>VaultTrades Nexus Vortex</h3>
+              <div className="vto-price">$550 <small>USD</small></div>
+              <p>A broader VaultTrades pathway for members ready to explore the wider ecosystem.</p>
+              <Link href="/plans" className="vto-plan-link">VIEW PLAN DETAILS <span>→</span></Link>
+            </article>
+          </div>
+          <div className="vto-website-option">
+            <div><span className="vto-plan-label">OPTIONAL ADD-ON</span><h3>Your own VaultTrades website</h3><p>A separate website option for members who want an individual online referral channel. It is not included in the membership prices above.</p></div>
+            <strong>$150 <small>USD</small></strong>
+          </div>
+          <p className="vto-price-note">All prices shown are programme joining prices in US dollars. Trading capital, broker charges and any optional website purchase are separate.</p>
+        </div>
+      </section>
+
       <section className="vto-dark-band">
         <div className="vto-container vto-split">
           <div>
@@ -105,11 +144,27 @@ export default function OpportunityPage() {
       </section>
 
       <section className="vto-capital">
-        <div className="vto-container vto-capital-grid">
-          <div><div className="vto-kicker">DISCIPLINE BEFORE EXPECTATION</div><h2>Understand the potential.<br /><span>Respect the risk.</span></h2></div>
-          <div>
-            <p>Personal trading and business commissions are separate activities. Trading outcomes depend on market conditions and carry the risk of loss. Automated execution does not remove that risk or create a guaranteed daily income.</p>
-            <p>Any additional commission opportunity depends on the relevant membership, qualifying activity and applicable terms. The aim is to build knowledge and a process that can be developed over time—not to promise quick or effortless income.</p>
+        <div className="vto-container">
+          <div className="vto-capital-grid">
+            <div><div className="vto-kicker">A TRADING APPROACH THAT CAN FIT REAL LIFE</div><h2>Different rhythms.<br /><span>One disciplined process.</span></h2></div>
+            <div>
+              <p>Not everyone approaches the market in the same way. Some trading approaches may hold a position for several hours—often around three to five hours. Others may hold positions for roughly two days, while a longer-term approach may keep a position open for about a week.</p>
+              <p>These are broad illustrations, not fixed holding periods or promises. Actual trade duration depends on the market, the setup and the strategy rules. Automated execution can follow defined conditions, but it does not remove the need for setup, oversight and regular review.</p>
+            </div>
+          </div>
+          <div className="vto-holding-grid">
+            <article><span>SHORTER-TERM</span><strong>Several hours</strong><p>Illustratively around 3–5 hours, depending on the trade.</p></article>
+            <article><span> MULTI-DAY</span><strong>About two days</strong><p>A position may remain open across more than one session.</p></article>
+            <article><span>LONGER-TERM</span><strong>About a week</strong><p>A longer holding period where the setup and market conditions allow.</p></article>
+          </div>
+          <div className="vto-build-horizon">
+            <div className="vto-kicker">BUILD OVER A REALISTIC HORIZON</div>
+            <h3>Think in months. Learn, implement, review and improve.</h3>
+            <p>The first three to six months can be treated as a development and evaluation period: understand the system, configure it correctly, build a routine, observe performance and review decisions. It is a period for learning and assessment—not a promised timeframe for reaching a particular return.</p>
+          </div>
+          <div className="vto-capital-separation">
+            <b>Keep the numbers separate</b>
+            <p>Your VaultTrades joining fee pays for programme access. Trading capital is money you separately choose to place in your trading account. Any trading outcome depends on the capital used, actual execution and market performance. Membership fees are not trading capital, and a historical win rate is not a percentage return on investment.</p>
           </div>
         </div>
       </section>
