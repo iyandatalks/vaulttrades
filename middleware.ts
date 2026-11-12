@@ -17,6 +17,16 @@ const featureProtectedPaths: Record<string, string> = {
 
 const authenticatedPaths = ["/profile", "/subscription"];
 
+// Temporary launch gate: keep the complete lead-to-membership journey private
+// until its end-to-end flow, checkout and member activation have been verified.
+const adminOnlyPaths = [
+  "/start",
+  "/opportunity",
+  "/plans",
+  "/membership",
+  "/member-portal",
+];
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
   const supabase = createServerClient(
@@ -39,13 +49,17 @@ export async function middleware(request: NextRequest) {
     return NextResponse.rewrite(url);
   }
 
+  const isAdminOnly = adminOnlyPaths.some(path => pathname === path || pathname.startsWith(`${path}/"));
   const isPaidProtected = paidProtectedPaths.some(path => pathname === path || pathname.startsWith(`${path}/`));
   const matchedFeaturePath = Object.keys(featureProtectedPaths).find(path => pathname === path || pathname.startsWith(`${path}/`));
   const isFeatureProtected = Boolean(matchedFeaturePath);
   const isAuthenticatedOnly = authenticatedPaths.some(path => pathname === path || pathname.startsWith(`${path}/`));
-  if (!isPaidProtected && !isFeatureProtected && !isAuthenticatedOnly) return response;
 
+  if (!isAdminOnly && !isPaidProtected && !isFeatureProtected && !isAuthenticatedOnly) return response;
+
+  // Return not-found rather than exposing an unfinished module or its existence.
   if (!user) {
+    if (isAdminOnly) return new NextResponse(null, { status: 404 });
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/auth/login";
     loginUrl.searchParams.set("next", pathname + request.nextUrl.search);
@@ -61,6 +75,10 @@ export async function middleware(request: NextRequest) {
     .maybeSingle();
 
   const isAdmin = !profileError && profile?.role === "admin";
+
+  if (isAdminOnly) {
+    return isAdmin ? response : new NextResponse(null, { status: 404 });
+  }
 
   if (isFeatureProtected && matchedFeaturePath) {
     if (isAdmin) return response;
@@ -94,6 +112,11 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     "/api/ai-scanner",
+    "/start/:path*",
+    "/opportunity/:path*",
+    "/plans/:path*",
+    "/membership/:path*",
+    "/member-portal/:path*",
     "/analyzer/:path*",
     "/scanner-automation/:path*",
     "/automated-trader/:path*",
