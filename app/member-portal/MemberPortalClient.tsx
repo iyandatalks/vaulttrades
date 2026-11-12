@@ -13,6 +13,7 @@ type Props = {
   isAdmin: boolean;
   memberEmail: string;
   referralUrl: string | null;
+  licensingRequests: LicensingRequest[];
   xmRegistrationUrl: string;
   vpsRegistrationUrl: string;
 };
@@ -45,7 +46,7 @@ const planNames: Record<Plan, string> = {
 };
 
 export default function MemberPortalClient({
-  plan, isAdmin, memberEmail, referralUrl, xmRegistrationUrl, vpsRegistrationUrl,
+  plan, isAdmin, memberEmail, referralUrl, licensingRequests, xmRegistrationUrl, vpsRegistrationUrl,
 }: Props) {
   const [active, setActive] = useState<string>("welcome");
   const [copied, setCopied] = useState(false);
