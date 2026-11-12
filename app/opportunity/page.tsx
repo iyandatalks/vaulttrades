@@ -87,18 +87,20 @@ export default function OpportunityPage() {
             <h2>Results and <span>certificates.</span></h2>
             <p>Explore the original VaultTrades trading records and certificates.</p>
           </div>
-          {evidenceGallery.length > 0 ? (
-            <div className="vto-evidence-gallery">
-              {evidenceGallery.map((item) => (
-                <a className="vto-evidence-item" href={item.src} target="_blank" rel="noreferrer" key={item.src}>
-                  <img src={item.src} alt={item.title} loading="lazy" />
-                  <div className="vto-evidence-caption"><span>{item.category}</span><strong>{item.title}</strong></div>
-                </a>
-              ))}
-            </div>
-          ) : (
-            <div className="vto-gallery-empty" aria-live="polite">Original certificates and trading-result images will appear here when added to the evidence gallery.</div>
-          )}
+          <div className="vto-evidence-groups">
+            <EvidenceCarousel
+              title="TRADE CERTIFICATES"
+              description="A moving selection of the original trade records, shown as examples of the trading process."
+              items={evidenceGallery.trades}
+              emptyMessage="Trade certificates will appear here when the original records are available."
+            />
+            <EvidenceCarousel
+              title="CHALLENGE & FUNDED-PROFILE CERTIFICATES"
+              description="Examples of challenge milestones and profile progress, kept separate from individual trade records."
+              items={evidenceGallery.certificates}
+              emptyMessage="Challenge and funded-profile certificates will appear here when those records are uploaded."
+            />
+          </div>
           <p className="vto-results-note">The final certificate gallery will display the original trade records with their actual dates and context. Historical examples are not a forecast or guarantee of future performance.</p>
         </div>
       </section>
@@ -210,26 +212,78 @@ export default function OpportunityPage() {
 }
 
 
+function EvidenceCarousel({
+  title,
+  description,
+  items,
+  emptyMessage,
+}: {
+  title: string;
+  description: string;
+  items: { title: string; src: string }[];
+  emptyMessage: string;
+}) {
+  if (!items.length) {
+    return (
+      <section className="vto-evidence-group">
+        <div className="vto-evidence-group-heading">
+          <h3>{title}</h3>
+          <p>{description}</p>
+        </div>
+        <div className="vto-gallery-empty">{emptyMessage}</div>
+      </section>
+    );
+  }
+
+  const loopItems = [...items, ...items];
+  return (
+    <section className="vto-evidence-group">
+      <div className="vto-evidence-group-heading">
+        <h3>{title}</h3>
+        <p>{description}</p>
+      </div>
+      <div
+        className="vto-evidence-marquee"
+        aria-label={title}
+        onContextMenu={(event) => event.preventDefault()}
+        onDragStart={(event) => event.preventDefault()}
+      >
+        <div className="vto-evidence-track">
+          {loopItems.map((item, index) => (
+            <div className="vto-evidence-item" key={`${item.src}-${index}`}>
+              <div className="vto-evidence-image-wrap">
+                <img src={item.src} alt={item.title} loading="lazy" draggable={false} />
+                <span className="vto-evidence-watermark" aria-hidden="true">VAULTTRADES</span>
+              </div>
+              <div className="vto-evidence-caption"><strong>{item.title}</strong></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function getEvidenceGallery() {
-  const folders = [
-    ["Certificates", "public/images/marketing/certificates"],
-    ["Challenge progress", "public/images/marketing/challenge-progress"],
-    ["Profit plans", "public/images/marketing/profit-plans/01-small-capital"],
-    ["Profit plans", "public/images/marketing/profit-plans/02-medium-capital"],
-    ["Profit plans", "public/images/marketing/profit-plans/03-large-capital"],
-    ["Trading results", "public/images/marketing/trading-results"],
-  ];
-  const allowed = new Set([".png", ".jpg", ".jpeg", ".webp", ".avif"]);
-  return folders.flatMap(([category, folder]) => {
-    const absolute = path.join(process.cwd(), folder);
+  const readFolder = (folders: string[]) => folders.flatMap((folder) => {
+    const absolute = path.join(process.cwd(), "public", folder);
     if (!fs.existsSync(absolute)) return [];
     return fs.readdirSync(absolute, { withFileTypes: true })
-      .filter((entry: import("node:fs").Dirent) => entry.isFile() && allowed.has(path.extname(entry.name).toLowerCase()))
+      .filter((entry: import("node:fs").Dirent) =>
+        entry.isFile() && /\\.(png|jpe?g|webp|avif)$/i.test(entry.name)
+      )
       .sort((a: import("node:fs").Dirent, b: import("node:fs").Dirent) => a.name.localeCompare(b.name))
       .map((entry: import("node:fs").Dirent) => ({
-        category,
         title: path.basename(entry.name, path.extname(entry.name)).replace(/[-_]+/g, " "),
         src: "/" + path.relative("public", path.join(absolute, entry.name)).split(path.sep).join("/"),
       }));
   });
+
+  return {
+    trades: readFolder(["images/marketing/trading-results"]),
+    certificates: readFolder([
+      "images/marketing/certificates",
+      "images/marketing/challenge-progress",
+    ]),
+  };
 }
