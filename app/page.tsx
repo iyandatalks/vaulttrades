@@ -27,7 +27,8 @@ export default function HomePage() {
         <h1>One workspace for a more disciplined trading process.</h1>
         <p>Explore the VaultTrades Winning Strategy and Analyzer, supported by mentorship, MT5 copy trading and tools designed to strengthen your trading process.</p>
         <div className="vt-actions">
-          <Link className="vt-primary" href="/products">View Products</Link>
+          <Link className="vt-primary" href="/opportunity">Explore Opportunity</Link>
+          <Link className="vt-secondary" href="/products">View Products</Link>
           <Link className="vt-secondary" href="/analyzer">Open Analyzer</Link>
           <Link className="vt-secondary" href="/referral-program">Referral Programme</Link>
           <a className="vt-secondary vt-whatsapp-contact" href="https://wa.me/27746653633?text=Hello%20VaultTrades%20Admin%2C%20I%20would%20like%20assistance%20with%20joining." target="_blank" rel="noopener noreferrer" aria-label="Contact VaultTrades Admin on WhatsApp">
