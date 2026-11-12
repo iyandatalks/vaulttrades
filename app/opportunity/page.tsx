@@ -1,7 +1,5 @@
 import "./opportunity.css";
 
-"use client";
-
 import Link from "next/link";
 
 const pillars = [
