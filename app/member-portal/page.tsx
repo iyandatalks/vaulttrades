@@ -100,6 +100,11 @@ export default async function MemberPortalPage() {
     .eq("user_id", profile.id)
     .order("submitted_at", { ascending: false });
 
+  const { data: websiteRequests } = await db.from("member_website_requests")
+    .select("id,domain_preference,preferred_name_1,preferred_name_2,preferred_name_3,custom_domain,status,admin_notes,assigned_domain,submitted_at")
+    .eq("user_id", profile.id)
+    .order("submitted_at", { ascending: false });
+
   return (
     <MemberPortalClient
       plan={plan ?? "vortex"}
@@ -107,6 +112,7 @@ export default async function MemberPortalPage() {
       memberEmail={profile.email ?? user.email ?? ""}
       referralUrl={referralUrl}
       licensingRequests={licensingRequests ?? []}
+      websiteRequests={websiteRequests ?? []}
       xmRegistrationUrl={process.env.NEXT_PUBLIC_XM_AFFILIATE_URL ?? ""}
       vpsRegistrationUrl={process.env.NEXT_PUBLIC_VPS_PARTNER_URL ?? ""}
     />
