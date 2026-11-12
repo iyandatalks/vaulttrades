@@ -7,8 +7,10 @@ import { useEffect, useState } from "react";
 const tabs = [
   { href: "/", label: "Home" },
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/member-portal", label: "Knowledge Base" },
-  { href: "/opportunity", label: "Opportunity" },
+  { href: "/start", label: "Lead Generation", adminOnly: true },
+  { href: "/opportunity", label: "Opportunity", adminOnly: true },
+  { href: "/plans", label: "Plans", adminOnly: true },
+  { href: "/member-portal", label: "Knowledge Base", adminOnly: true },
   { href: "/subscription?promo=1", label: "Products" },
   { href: "/partners", label: "Partners" },
   { href: "/how-it-works", label: "How It Works" },
@@ -30,15 +32,17 @@ const promoItems = [
 
 export default function AppNav() {
   const pathname = usePathname();
-  const [memberAccess, setMemberAccess] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
   useEffect(() => {
     let active = true;
     fetch("/api/member-portal/access", { cache: "no-store" })
-      .then(response => response.ok ? response.json() : { hasMembership: false })
-      .then(data => { if (active) setMemberAccess(Boolean(data.hasMembership)); })
-      .catch(() => { if (active) setMemberAccess(false); });
+      .then(response => response.ok ? response.json() : { isAdmin: false })
+      .then(data => { if (active) setIsAdmin(data.isAdmin === true); })
+      .catch(() => { if (active) setIsAdmin(false); });
     return () => { active = false; };
   }, []);
+
   return (
     <nav className="vt-nav" aria-label="VaultTrades navigation">
       <Link href="/subscription?product=analyzer_monthly" style={{ position:"fixed", top:8, left:"50%", transform:"translateX(-50%)", zIndex:1000, background:"#dc2626", color:"#fff", padding:"7px 16px", borderRadius:999, fontSize:12, fontWeight:950, letterSpacing:".06em", textDecoration:"none", boxShadow:"0 8px 24px rgba(0,0,0,.35)", whiteSpace:"nowrap" }}>50% DISCOUNT · CODE VAULT50</Link>
@@ -55,7 +59,7 @@ export default function AppNav() {
       <div className="vt-nav-inner">
         <Link href="/" className="vt-nav-brand">VAULTTRADES</Link>
         <div className="vt-nav-links">
-          {tabs.filter(tab => tab.href !== "/member-portal" || memberAccess).map((tab) => {
+          {tabs.filter(tab => !tab.adminOnly || isAdmin).map((tab) => {
             const tabPath = tab.href.split("?")[0];
             const active = pathname === tabPath || (tabPath !== "/" && pathname.startsWith(tabPath));
             return <Link key={tab.href} href={tab.href} className={"vt-nav-link" + (active ? " active" : "")}>{tab.label}</Link>;
