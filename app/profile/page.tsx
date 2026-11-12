@@ -99,6 +99,11 @@ export default function ProfilePage() {
                     <p className="muted">Manage the partner catalogue and public partner page.</p>
                     <Link className="vt-primary" href="/admin/partners" style={{ display: "inline-block", marginTop: 8 }}>Open Partner Management →</Link>
                   </article>
+                  <article className="vt-info-card">
+                    <h3>Revenue Model</h3>
+                    <p className="muted">Private notes on reseller commissions, product revenue, website services and payment settlement.</p>
+                    <Link className="vt-primary" href="/admin/revenue-model" style={{ display: "inline-block", marginTop: 8 }}>Open Revenue Model →</Link>
+                  </article>
                 </div>
               </section>
             )}
