@@ -6,7 +6,7 @@ import Link from "next/link";
 
 type Plan = "nexus" | "nexus_plus" | "vortex";
 
-type LicensingRequest = { id: string; broker_name: string; broker_server: string | null; mt5_login: string; product_code: string; status: string; admin_notes: string | null; submitted_at: string; license_generated_at: string | null };
+type LicensingRequest = { id: string; broker_name: string; broker_server: string | null; mt5_login: string; product_code: string; status: string; admin_notes: string | null; submitted_at: string; license_generated_at: string | null };\ntype WebsiteRequest = { id: string; domain_preference: string; preferred_name_1: string | null; preferred_name_2: string | null; preferred_name_3: string | null; custom_domain: string | null; status: string; admin_notes: string | null; assigned_domain: string | null; submitted_at: string };
 
 type Props = {
   plan: Plan;
@@ -14,6 +14,7 @@ type Props = {
   memberEmail: string;
   referralUrl: string | null;
   licensingRequests: LicensingRequest[];
+  websiteRequests: WebsiteRequest[];
   xmRegistrationUrl: string;
   vpsRegistrationUrl: string;
 };
@@ -55,7 +56,7 @@ export default function MemberPortalClient({
   const [brokerServer, setBrokerServer] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<"nexus" | "nexus_plus" | "vortex">(plan);
   const [submitting, setSubmitting] = useState(false);
-  const [submitMessage, setSubmitMessage] = useState("");
+  const [submitMessage, setSubmitMessage] = useState("");\n  const [websiteRequestRows, setWebsiteRequestRows] = useState<WebsiteRequest[]>(websiteRequests);\n  const [domainPreference, setDomainPreference] = useState<"vaulttrades_subdomain" | "custom_domain">("vaulttrades_subdomain");\n  const [preferredNames, setPreferredNames] = useState(["", "", ""]);\n  const [customDomain, setCustomDomain] = useState("");\n  const [websiteSubmitting, setWebsiteSubmitting] = useState(false);\n  const [websiteMessage, setWebsiteMessage] = useState("");
   const groups = useMemo(() => {
     const result: { group: string; items: typeof sections[number][] }[] = [];
     for (const item of sections) {
@@ -99,6 +100,31 @@ export default function MemberPortalClient({
     : plan === "nexus_plus"
       ? [{ value: "nexus", label: "VaultTrades Nexus" }, { value: "nexus_plus", label: "VaultTrades Nexus Plus" }]
       : [{ value: "nexus", label: "VaultTrades Nexus" }, { value: "nexus_plus", label: "VaultTrades Nexus Plus" }, { value: "vortex", label: "VaultTrades Vortex" }];
+
+  async function submitWebsiteRequest(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setWebsiteSubmitting(true);
+    setWebsiteMessage("");
+    try {
+      const response = await fetch("/api/member-portal/website-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          domainPreference,
+          preferredName1: preferredNames[0],
+          preferredName2: preferredNames[1],
+          preferredName3: preferredNames[2],
+          customDomain,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Unable to submit your website request.");
+      setWebsiteRequestRows(current => [data.request, ...current]);
+      setWebsiteMessage(data.message || "Your website request has been submitted.");
+    } catch (error) {
+      setWebsiteMessage(error instanceof Error ? error.message : "Unable to submit your website request.");
+    } finally { setWebsiteSubmitting(false); }
+  }
 
   const plusOrVortex = plan === "nexus_plus" || plan === "vortex";
   const hasVortex = plan === "vortex";
@@ -260,7 +286,31 @@ export default function MemberPortalClient({
           <p className="vt-member-lead">A personal website can give you a branded place to introduce VaultTrades and share your referral link. It is optional and separate from your membership.</p>
           <h2>Choose your domain route</h2><ul><li><strong>VaultTrades subdomain:</strong> a name such as yourname.vaulttradesve.com, subject to availability and approval.</li><li><strong>Your own domain:</strong> a domain you purchase and own, such as yourname.com, which can be connected to the website.</li></ul>
           <div className="vt-member-highlight"><strong>Website setup</strong><span>$39 once-off setup fee</span><small>Any annual hosting, maintenance or domain charges will be confirmed separately before you commit.</small></div>
-          <h2>Subdomain preferences</h2><p>When the website request form is enabled, you will be asked to provide three preferred subdomain names in order of preference. VaultTrades will check availability before confirming the assigned name.</p>
+          <h2>Submit your website preferences</h2>
+          <form className="vt-member-form" onSubmit={submitWebsiteRequest}>
+            <label>Website option
+              <select value={domainPreference} onChange={event => setDomainPreference(event.target.value as "vaulttrades_subdomain" | "custom_domain")}>
+                <option value="vaulttrades_subdomain">VaultTrades subdomain</option>
+                <option value="custom_domain">I already own a custom domain</option>
+              </select>
+            </label>
+            {domainPreference === "vaulttrades_subdomain" ? <div className="vt-member-domain-choices">
+              {preferredNames.map((value, index) => <label key={index}>Preferred subdomain {index + 1}
+                <input required minLength={3} maxLength={30} pattern="[a-z0-9][a-z0-9-]{1,28}[a-z0-9]" value={value} onChange={event => setPreferredNames(current => current.map((name, i) => i === index ? event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") : name))} placeholder={index === 0 ? "firstchoice" : index === 1 ? "secondchoice" : "thirdchoice"} />
+              </label>)}
+              <p className="vt-member-form-note">Use 3–30 lowercase letters, numbers or hyphens. We will check all three choices and confirm which name is available.</p>
+            </div> : <label>Your custom domain
+              <input required value={customDomain} onChange={event => setCustomDomain(event.target.value.toLowerCase().trim())} placeholder="yourname.com" />
+            </label>}
+            <button className="vt-member-button" type="submit" disabled={websiteSubmitting}>{websiteSubmitting ? "Submitting…" : "Submit website preferences"}</button>
+            {websiteMessage && <p className="vt-member-submit-message" role="status">{websiteMessage}</p>}
+          </form>
+          <h2>Your website request status</h2>
+          {websiteRequestRows.length ? <div className="vt-member-request-list">{websiteRequestRows.map(request => <div className="vt-member-request" key={request.id}>
+            <div><strong>{request.domain_preference === "vaulttrades_subdomain" ? "VaultTrades subdomain" : "Custom domain"}</strong><small>{request.assigned_domain || request.custom_domain || [request.preferred_name_1, request.preferred_name_2, request.preferred_name_3].filter(Boolean).join(" · ")}</small></div>
+            <span className={"vt-member-request-status " + request.status}>{request.status.replace("_", " ")}</span>
+            {request.admin_notes && <p className="vt-member-note">{request.admin_notes}</p>}
+          </div>)}</div> : <p className="vt-member-note">No website setup request has been submitted. This service is optional.</p>}
           <p className="vt-member-note">Do not purchase a custom domain until you have checked the spelling and availability. Website setup is not automatically included in the membership price.</p>
         </>;
       case "tools":
