@@ -105,6 +105,12 @@ export default async function MemberPortalPage() {
     .eq("user_id", profile.id)
     .order("submitted_at", { ascending: false });
 
+  const { data: memberNotifications } = await db.from("copy_profile_notifications")
+    .select("id,title,body,action_href,notification_type,created_at,read_at")
+    .eq("auth_user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(30);
+
   return (
     <MemberPortalClient
       plan={plan ?? "vortex"}
@@ -113,6 +119,7 @@ export default async function MemberPortalPage() {
       referralUrl={referralUrl}
       licensingRequests={licensingRequests ?? []}
       websiteRequests={websiteRequests ?? []}
+      memberNotifications={memberNotifications ?? []}
       xmRegistrationUrl={process.env.NEXT_PUBLIC_XM_AFFILIATE_URL ?? ""}
       vpsRegistrationUrl={process.env.NEXT_PUBLIC_VPS_PARTNER_URL ?? ""}
     />
