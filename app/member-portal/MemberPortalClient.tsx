@@ -221,7 +221,7 @@ export default function MemberPortalClient({
               </select>
             </label>
             <label>MT5 account number
-              <input required inputMode="numeric" pattern="[0-9]{4,12}" minLength={4} maxLength={12} value={mt5Login} onChange={event => setMt5Login(event.target.value.replace(/\\D/g, "").slice(0, 12))} placeholder="Enter your MT5 login number" />
+              <input required inputMode="numeric" pattern="[0-9]{4,12}" minLength={4} maxLength={12} value={mt5Login} onChange={event => setMt5Login(event.target.value.replace(/\D/g, "").slice(0, 12))} placeholder="Enter your MT5 login number" />
             </label>
             <label>Broker server (optional)
               <input value={brokerServer} onChange={event => setBrokerServer(event.target.value)} maxLength={120} placeholder="For example, XM server name shown in MT5" />
@@ -267,9 +267,9 @@ export default function MemberPortalClient({
           <Eyebrow>INSTALLATION · STANDARD NEXUS</Eyebrow><h1>Install and attach VaultTrades Nexus.</h1>
           <p className="vt-member-lead">These steps follow the supplied Nexus v1.04 installation guide. Use the separate Nexus Plus page if you are installing the no-window build.</p>
           <h2>Required files and folders</h2>
-          <ul><li><strong>EA source:</strong> <code>MQL5\\Experts\\Advisors\\VaultTrades_Nexus_v1_01.mq5</code></li><li><strong>Broker compatibility helper:</strong> <code>MQL5\\Include\\VaultTrades\\BrokerCompat.mqh</code></li></ul>
+          <ul><li><strong>EA source:</strong> <code>MQL5\Experts\Advisors\VaultTrades_Nexus_v1_01.mq5</code></li><li><strong>Broker compatibility helper:</strong> <code>MQL5\Include\VaultTrades\BrokerCompat.mqh</code></li></ul>
           <h2>Copy or compile the EA</h2>
-          <ol><li>In MT5, choose File → Open Data Folder.</li><li>Open the MQL5 folder.</li><li>Place the EA source or compiled EA file in <code>Experts\\Advisors</code>.</li><li>Place <code>BrokerCompat.mqh</code> in <code>Include\\VaultTrades</code>, creating the VaultTrades folder if required.</li><li>If your download contains only a compiled <code>.ex5</code> file, copy it into Advisors and skip the compile steps.</li><li>If your download contains <code>.mq5</code> source, press F4 to open MetaEditor, open the Nexus source and press F7 to compile. The supplied guide expects zero errors and zero warnings.</li><li>Return to MT5 and refresh Expert Advisors in the Navigator.</li></ol>
+          <ol><li>In MT5, choose File → Open Data Folder.</li><li>Open the MQL5 folder.</li><li>Place the EA source or compiled EA file in <code>Experts\Advisors</code>.</li><li>Place <code>BrokerCompat.mqh</code> in <code>Include\VaultTrades</code>, creating the VaultTrades folder if required.</li><li>If your download contains only a compiled <code>.ex5</code> file, copy it into Advisors and skip the compile steps.</li><li>If your download contains <code>.mq5</code> source, press F4 to open MetaEditor, open the Nexus source and press F7 to compile. The supplied guide expects zero errors and zero warnings.</li><li>Return to MT5 and refresh Expert Advisors in the Navigator.</li></ol>
           <h2>Attach to your chart</h2>
           <ol><li>Open the intended instrument chart.</li><li>Select H4 for the primary Nexus setup or M15 for the secondary setup.</li><li>Drag VaultTrades Nexus from Navigator → Expert Advisors onto the chart.</li><li>In the Common tab, allow Algo Trading. Confirm the main MT5 Algo Trading toolbar switch is enabled.</li><li>Click OK and confirm the EA is running. Check the Experts tab for startup messages and account/symbol detection.</li></ol>
           <p className="vt-member-note">Do not attach Nexus Plus using this standard Nexus guide. Nexus Plus has an additional core-file dependency and its own H1 recommendation.</p>
@@ -353,7 +353,7 @@ export default function MemberPortalClient({
           <Eyebrow>ALTERNATIVE BUILD</Eyebrow><h1>VaultTrades Nexus Plus.</h1>
           <p className="vt-member-lead">Nexus Plus is an alternative no-window build, not simply an upgrade to the standard Nexus. It uses the Nexus core strategy while removing the standard 02:00–10:45 South African trading window.</p>
           <h2>Important installation differences</h2>
-          <ul><li>Plus evaluates every completed candle throughout all hours.</li><li>Attach Plus to H1; H1 is the recommended timeframe for this build.</li><li>The Plus source wrapper depends on the Nexus core source file remaining in the specified Advisors folder.</li><li>Compile the Plus source file only, following the supplied Plus guide. The compiled EX5 is self-contained after compilation.</li><li>Plus uses a separate magic-number base and journal prefix from standard Nexus.</li></ul>
+          <ul><li><strong>Plus source:</strong> <code>VaultTrades_Nexus_Plus_v1_01.mq5</code>.</li><li><strong>Required Nexus core source:</strong> <code>VaultTrades_Nexus_v1_01.mq5</code>, kept in the Advisors folder.</li><li><strong>Broker helper:</strong> <code>MQL5\\Include\\VaultTrades\\BrokerCompat.mqh</code>.</li><li>Plus evaluates every completed candle throughout all hours.</li><li>Attach Plus to H1; H1 is the recommended timeframe for this build.</li><li>Compile the Plus source file only, following the supplied Plus guide. The compiled EX5 is self-contained after compilation.</li><li>Plus uses a separate magic-number base and journal prefix from standard Nexus.</li></ul>
           <p>Do not delete, rename or move the Nexus core source while compiling the Plus build. If both builds are run, avoid attaching both to the same instrument and timeframe unless that behaviour is intentional and understood.</p>
           <p className="vt-member-note">The supplied tests recommend Nexus Plus on H1 only. It is an alternative for broader trading-hour coverage, not a universal performance upgrade.</p>
         </>;
