@@ -87,3 +87,13 @@
 .vto-gallery-empty{padding:32px;border:1px dashed rgba(212,166,55,.35);border-radius:12px;color:var(--vto-muted);font-size:13px;text-align:center}
 @media(max-width:850px){.vto-evidence-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.vto-evidence-gallery{grid-template-columns:1fr}.vto-evidence-item img{height:240px}}
+
+/* Floating original-record gallery, positioned directly below the hero callouts. */
+.vto-results-float{position:relative;z-index:4;max-width:1160px;margin:-42px auto 0;padding:30px 28px 34px;border:1px solid rgba(212,166,55,.35);border-radius:16px;background:linear-gradient(145deg,rgba(15,23,37,.98),rgba(6,10,19,.98));box-shadow:0 22px 65px rgba(0,0,0,.42)}
+.vto-results-float .vto-section-heading{margin-bottom:22px}
+.vto-results-float .vto-section-heading h2{font-size:clamp(27px,3.5vw,38px);margin:10px 0}
+.vto-results-float .vto-evidence-gallery{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.vto-results-float .vto-evidence-item img{height:175px}
+.vto-results-float .vto-gallery-empty{padding:20px}
+@media(max-width:850px){.vto-results-float{margin:-28px 18px 0;padding:25px 20px}.vto-results-float .vto-evidence-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.vto-results-float{margin:-18px 12px 0;padding:22px 16px}.vto-results-float .vto-evidence-gallery{grid-template-columns:1fr}.vto-results-float .vto-evidence-item img{height:210px}}
