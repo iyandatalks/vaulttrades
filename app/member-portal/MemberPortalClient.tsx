@@ -1,12 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { ReactNode } from "react";
+import type { ReactNode, FormEvent } from "react";
 import Link from "next/link";
 
 type Plan = "nexus" | "nexus_plus" | "vortex";
 
-type Props = {
+type LicensingRequest = { id: string; broker_name: string; broker_server: string | null; mt5_login: string; product_code: string; status: string; admin_notes: string | null; submitted_at: string; license_generated_at: string | null };\n\ntype Props = {
   plan: Plan;
   isAdmin: boolean;
   memberEmail: string;
@@ -46,7 +46,7 @@ export default function MemberPortalClient({
   plan, isAdmin, memberEmail, referralUrl, xmRegistrationUrl, vpsRegistrationUrl,
 }: Props) {
   const [active, setActive] = useState<string>("welcome");
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState(false);\n  const [requests, setRequests] = useState<LicensingRequest[]>(licensingRequests);\n  const [mt5Login, setMt5Login] = useState("");\n  const [brokerServer, setBrokerServer] = useState("");\n  const [selectedProduct, setSelectedProduct] = useState<"nexus" | "nexus_plus" | "vortex">(plan);\n  const [submitting, setSubmitting] = useState(false);\n  const [submitMessage, setSubmitMessage] = useState("");
   const groups = useMemo(() => {
     const result: { group: string; items: typeof sections[number][] }[] = [];
     for (const item of sections) {
@@ -64,7 +64,7 @@ export default function MemberPortalClient({
     window.setTimeout(() => setCopied(false), 1800);
   }
 
-  const plusOrVortex = plan === "nexus_plus" || plan === "vortex";
+  async function submitLicensingRequest(event: FormEvent<HTMLFormElement>) {\n    event.preventDefault();\n    setSubmitting(true);\n    setSubmitMessage("");\n    try {\n      const response = await fetch("/api/member-portal/ea-licensing", {\n        method: "POST",\n        headers: { "Content-Type": "application/json" },\n        body: JSON.stringify({ mt5Login, brokerServer, productCode: selectedProduct }),\n      });\n      const data = await response.json().catch(() => ({}));\n      if (!response.ok) throw new Error(data.error || "Unable to submit your MT5 number.");\n      setRequests(current => [data.request, ...current]);\n      setMt5Login("");\n      setBrokerServer("");\n      setSubmitMessage(data.message || "Your licensing request has been submitted.");\n    } catch (error) {\n      setSubmitMessage(error instanceof Error ? error.message : "Unable to submit your request.");\n    } finally { setSubmitting(false); }\n  }\n\n  const allowedEaProducts = plan === "nexus"\n    ? [{ value: "nexus", label: "VaultTrades Nexus" }]\n    : plan === "nexus_plus"\n      ? [{ value: "nexus", label: "VaultTrades Nexus" }, { value: "nexus_plus", label: "VaultTrades Nexus Plus" }]\n      : [{ value: "nexus", label: "VaultTrades Nexus" }, { value: "nexus_plus", label: "VaultTrades Nexus Plus" }, { value: "vortex", label: "VaultTrades Vortex" }];\n\n  const plusOrVortex = plan === "nexus_plus" || plan === "vortex";
   const hasVortex = plan === "vortex";
 
   function renderContent() {
@@ -121,10 +121,31 @@ export default function MemberPortalClient({
         return <>
           <Eyebrow>PERSONALISED LICENSING</Eyebrow><h1>Submit your MT5 account number.</h1>
           <p className="vt-member-lead">Your EA is generated for the MT5 account number you submit. It is not a shared, ready-made download that every member receives.</p>
-          <h2>What you will submit</h2>
-          <ul><li>Your broker name (XM for this recommended route).</li><li>Your MT5 trading account number.</li><li>The product/build covered by your membership, where a selection is required.</li></ul>
-          <div className="vt-member-pending"><strong>MT5 submission form is being connected.</strong><span>When the request form is enabled, submit the account number here. The request will be recorded for the VaultTrades licensing team.</span></div>
-          <p className="vt-member-note">Never enter your broker password, email password, PayPal password or remote-computer password into the MT5 licensing form.</p>
+          <h2>Submit your licensing request</h2>
+          <form className="vt-member-form" onSubmit={submitLicensingRequest}>
+            <label>EA product
+              <select value={selectedProduct} onChange={event => setSelectedProduct(event.target.value as "nexus" | "nexus_plus" | "vortex")}>
+                {allowedEaProducts.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+            </label>
+            <label>MT5 account number
+              <input required inputMode="numeric" pattern="[0-9]{4,12}" minLength={4} maxLength={12} value={mt5Login} onChange={event => setMt5Login(event.target.value.replace(/\\D/g, "").slice(0, 12))} placeholder="Enter your MT5 login number" />
+            </label>
+            <label>Broker server (optional)
+              <input value={brokerServer} onChange={event => setBrokerServer(event.target.value)} maxLength={120} placeholder="For example, XM server name shown in MT5" />
+            </label>
+            <p className="vt-member-form-note">Broker: XM. Submit the MT5 account number only. Do not submit your trading password, investor password or one-time security code.</p>
+            <button className="vt-member-button" type="submit" disabled={submitting}>{submitting ? "Submitting…" : "Submit MT5 number"}</button>
+            {submitMessage && <p className="vt-member-submit-message" role="status">{submitMessage}</p>}
+          </form>
+          <h2>Your licensing requests</h2>
+          {requests.length ? <div className="vt-member-request-list">{requests.map(request => <div className="vt-member-request" key={request.id}>
+            <div><strong>{request.product_code === "nexus" ? "VaultTrades Nexus" : request.product_code === "nexus_plus" ? "VaultTrades Nexus Plus" : "VaultTrades Vortex"}</strong><small>MT5 {request.mt5_login} · {request.broker_name} · {new Date(request.submitted_at).toLocaleString()}</small></div>
+            <span className={"vt-member-request-status " + request.status}>{request.status.replace("_", " ")}</span>
+            {request.status === "ready" && <a className="vt-member-tool-link" href={`/api/member-portal/ea-licensing/${request.id}/download`}>Download EA ↗</a>}
+            {request.status === "rejected" && request.admin_notes && <p className="vt-member-note">{request.admin_notes}</p>}
+          </div>)}</div> : <p className="vt-member-note">You have not submitted an MT5 licensing request yet.</p>}
+          <p className="vt-member-note">Allow 24–48 hours after VaultTrades receives the correct MT5 number. The personalised file will appear in your download area once licensing is complete.</p>
         </>;
       case "generation":
         return <>
@@ -137,7 +158,10 @@ export default function MemberPortalClient({
         return <>
           <Eyebrow>YOUR EA FILE</Eyebrow><h1>Download when your licence is ready.</h1>
           <p className="vt-member-lead">The download area will display the EA file generated for your approved MT5 account. It will become available after the licensing team marks the build as ready.</p>
-          <div className="vt-member-pending"><strong>No generic EA download is provided here.</strong><span>Wait for your personalised file to show as available in the portal. Do not use an EA file licensed to another person's MT5 account.</span></div>
+          {requests.some(request => request.status === "ready") ? <div className="vt-member-request-list">{requests.filter(request => request.status === "ready").map(request => <div className="vt-member-request" key={request.id}>
+            <div><strong>{request.product_code === "nexus" ? "VaultTrades Nexus" : request.product_code === "nexus_plus" ? "VaultTrades Nexus Plus" : "VaultTrades Vortex"}</strong><small>MT5 {request.mt5_login} · Licensed {request.license_generated_at ? new Date(request.license_generated_at).toLocaleString() : ""}</small></div>
+            <a className="vt-member-button" href={`/api/member-portal/ea-licensing/${request.id}/download`}>Download EA</a>
+          </div>)}</div> : <div className="vt-member-pending"><strong>Your personalised EA is not ready yet.</strong><span>Once your MT5 request is approved and the licensed file is uploaded, the download will appear here.</span></div>}
           <h2>Before installing</h2><ul><li>Confirm that the EA name and build match your membership.</li><li>Use the installation guide for that exact product.</li><li>Keep the downloaded file private and do not redistribute it.</li></ul>
         </>;
       case "installation":
