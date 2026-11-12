@@ -1,5 +1,7 @@
 import "./opportunity.css";
 import Link from "next/link";
+import fs from "node:fs";
+import path from "node:path";
 
 const stages = [
   ["01", "PREPARE", "Understand the market environment, set your priorities and wait for conditions that fit a defined plan."],
@@ -209,8 +211,6 @@ export default function OpportunityPage() {
 
 
 function getEvidenceGallery() {
-  const fs = require("node:fs") as typeof import("node:fs");
-  const path = require("node:path") as typeof import("node:path");
   const folders = [
     ["Certificates", "public/images/marketing/certificates"],
     ["Challenge progress", "public/images/marketing/challenge-progress"],
