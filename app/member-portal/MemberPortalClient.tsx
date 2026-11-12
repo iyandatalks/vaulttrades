@@ -24,6 +24,7 @@ type Props = {
 
 const sections = [
   { id: "welcome", label: "Welcome to VaultTrades", group: "START HERE" },
+  { id: "understanding", label: "Understanding the Nexus EA", group: "START HERE" },
   { id: "notifications", label: "Member Notifications", group: "START HERE" },
   { id: "community", label: "Join the Community", group: "GET STARTED" },
   { id: "broker", label: "Recommended Broker — XM", group: "GET STARTED" },
@@ -32,6 +33,13 @@ const sections = [
   { id: "generation", label: "Personalised EA Generation", group: "EA LICENSING" },
   { id: "download", label: "EA Download", group: "EA LICENSING" },
   { id: "installation", label: "Installation Guide", group: "EA LICENSING" },
+  { id: "ea-settings", label: "Understanding EA Settings", group: "EA LICENSING" },
+  { id: "broker-detection", label: "Broker & Instrument Detection", group: "EA LICENSING" },
+  { id: "signals", label: "Understanding Trading Signals", group: "EA OPERATION" },
+  { id: "execution", label: "From Signal to Filled Order", group: "EA OPERATION" },
+  { id: "timeframes", label: "Recommended Timeframes", group: "EA OPERATION" },
+  { id: "troubleshooting", label: "Troubleshooting", group: "SUPPORT" },
+  { id: "nexus-plus", label: "Nexus Plus Alternative Build", group: "EA OPERATION" },
   { id: "vps", label: "Optional 24/7 VPS", group: "AUTOMATION" },
   { id: "daily", label: "Your Daily Trading Routine", group: "AUTOMATION" },
   { id: "trading-room", label: "Morning Trading Room", group: "LEARNING & SUPPORT" },
@@ -254,6 +262,88 @@ export default function MemberPortalClient({
           <h2>MetaTrader 5 preparation</h2><ol><li>Install and open MetaTrader 5 for your broker account.</li><li>Sign in to the correct trading account.</li><li>Open File → Open Data Folder.</li><li>Copy the licensed EA and any required support files into the exact folders specified by the supplied installation guide.</li><li>Compile the source in MetaEditor only if your download includes source files and the guide instructs you to compile.</li><li>Refresh the Navigator, attach the EA to the specified chart and enable Algo Trading.</li><li>Check the Experts tab for startup and permission messages.</li></ol>
           <div className="vt-member-pending"><strong>Use the supplied product guide for exact file paths and settings.</strong><span>Do not guess file locations, change EA inputs or assume that the Nexus and Nexus Plus installation packages are interchangeable.</span></div>
           <p className="vt-member-note">The terminal must remain running for a locally hosted EA to operate. A VPS is an optional way to keep the terminal running remotely.</p>
+        </>;
+      case "understanding":
+        return <>
+          <Eyebrow>PRODUCT OVERVIEW</Eyebrow><h1>Understanding the VaultTrades Nexus EA.</h1>
+          <p className="vt-member-lead">VaultTrades Nexus is a native MetaTrader 5 implementation of the EMA20 Morning Trades strategy. It runs on the chart timeframe you select and evaluates completed candles rather than reacting to an unfinished candle.</p>
+          <h2>How it operates</h2>
+          <ul><li>One EA instance is attached to one chart and trades that chart's instrument.</li><li>The chart timeframe is the strategy timeframe for that instance.</li><li>It checks its strategy conditions on closed bars using a one-second scan timer.</li><li>It can hold one position at a time for that chart instance. After the position closes, a later qualifying setup may be considered.</li><li>Stop-loss and take-profit are attached to the order when it fills.</li></ul>
+          <p className="vt-member-note">The EA does not guarantee a trade every day. It waits when its conditions are not met or when account, broker or trading-window checks prevent execution.</p>
+        </>;
+      case "ea-settings":
+        return <>
+          <Eyebrow>INPUTS & CONFIGURATION</Eyebrow><h1>Understanding EA settings.</h1>
+          <h2>Position sizing</h2>
+          <ul><li><strong>Auto risk sizing:</strong> the default mode calculates volume from account equity, the configured risk percentage, stop distance and broker volume rules.</li><li><strong>Risk percentage:</strong> default 1.0% of equity in Auto mode.</li><li><strong>Fixed lot:</strong> default 0.10 and used only when Fixed sizing is selected.</li><li><strong>Broker minimum volume:</strong> if the requested fixed lot is below the broker minimum, the order may be raised to the minimum. That can make the actual risk larger than intended.</li></ul>
+          <h2>Strategy parameters</h2>
+          <ul><li>EMA 20 and ATR 14.</li><li>UT Bot ATR period 10, sensitivity 1.0.</li><li>SMI settings 7, 2, 2.</li><li>Pivot length 3 and confirmation bars 3.</li><li>EMA touch threshold 0.20 ATR.</li><li>Stop-loss distance 2.23 ATR; take-profit distance 1.81 times the stop distance.</li></ul>
+          <p className="vt-member-note">Do not change inputs casually. Use the supplied product defaults unless you understand the effect and have tested the change on a demo account.</p>
+        </>;
+      case "broker-detection":
+        return <>
+          <Eyebrow>BROKER COMPATIBILITY</Eyebrow><h1>Broker and instrument detection.</h1>
+          <p className="vt-member-lead">The EA reads the chart instrument and resolves it to a tradable listing available on the connected broker account. Brokers may use different suffixes or aliases for the same underlying instrument.</p>
+          <h2>Examples of broker symbol differences</h2>
+          <ul><li>EURUSD may appear as EURUSDmicro or another broker-specific suffix.</li><li>Gold may be listed as XAUUSD, GOLD or a broker-specific variant.</li><li>Other suffixes can include forms such as .a, # or _ECN.</li></ul>
+          <h2>Important checks</h2>
+          <ol><li>Open the exact instrument you intend to trade in Market Watch.</li><li>Attach one EA instance to that instrument's chart.</li><li>Allow MT5 to load sufficient history; the manual specifies at least 500 bars on the selected timeframe.</li><li>Read the EA startup message in the Experts tab to confirm the resolved symbol and account permissions.</li></ol>
+          <p className="vt-member-note">One chart instance covers one instrument. Symbol auto-detection does not mean one chart trades every instrument in your account. If a broker listing cannot be resolved or traded, the EA should report that in its logs rather than silently switching to an unrelated instrument.</p>
+        </>;
+      case "signals":
+        return <>
+          <Eyebrow>STRATEGY CONDITIONS</Eyebrow><h1>Understanding your trading signals.</h1>
+          <p className="vt-member-lead">Nexus evaluates a combination of trend, pullback, candle and momentum conditions. A signal is considered only after the relevant candle has closed and the required confirmation checks agree.</p>
+          <h2>Signal checks</h2>
+          <ol><li>Market structure and EMA direction must support the trade direction.</li><li>Price must touch or approach EMA20 within the 0.20 ATR threshold.</li><li>A rejection candle and displacement condition must be present.</li><li>The required EMA break condition must be met.</li><li>UT Bot and SMI direction must agree.</li><li>The three-bar confirmation requirement must pass.</li><li>The completed signal candle must fall within the build's permitted trading window.</li></ol>
+          <p>For the standard Nexus build, the signal-close window is 02:00–10:45 South African time. Signals outside that window are skipped. Nexus Plus is the alternative no-window build and evaluates every closed bar throughout the day.</p>
+          <p className="vt-member-note">The strategy checks closed candles. It does not enter simply because price moves intrabar or because a chart briefly appears to point in one direction.</p>
+        </>;
+      case "execution":
+        return <>
+          <Eyebrow>ORDER LIFECYCLE</Eyebrow><h1>From signal to filled order.</h1>
+          <ol><li>The EA completes the strategy checks on a closed candle.</li><li>It verifies the account, symbol, trading permissions, available history, position state and volume rules.</li><li>It calculates the requested volume using Auto risk or Fixed lot mode.</li><li>It sends a market order and attaches the stop-loss and take-profit levels.</li><li>When the broker confirms the fill, the position is managed by its broker-side SL and TP.</li></ol>
+          <h2>Stop-loss and take-profit</h2>
+          <ul><li>Buy stop-loss: entry minus 2.23 ATR; sell stop-loss: entry plus 2.23 ATR.</li><li>Take-profit is set at 1.81 times the stop distance.</li><li>The EA does not use trailing stops, averaging, martingale or hedging.</li><li>After a position closes, the EA waits for another valid setup.</li></ul>
+          <p className="vt-member-note">A successful order response does not guarantee the exact requested fill price. Slippage, gaps, spread changes and broker execution rules can affect the actual result.</p>
+        </>;
+      case "timeframes":
+        return <>
+          <Eyebrow>TIMEFRAME SELECTION</Eyebrow><h1>Recommended timeframes.</h1>
+          <h2>VaultTrades Nexus — windowed build</h2>
+          <p><strong>Primary:</strong> H4. <strong>Secondary:</strong> M15. M30 and H1 were acceptable but marginal in the supplied test sample. M5 is not recommended.</p>
+          <div className="vt-member-table-wrap"><table className="vt-member-table"><thead><tr><th>Timeframe</th><th>Trades</th><th>Win rate</th><th>Guidance</th></tr></thead><tbody>
+            <tr><td>H4</td><td>36 long-window trades</td><td>50.0%</td><td>Primary timeframe</td></tr>
+            <tr><td>M15</td><td>58</td><td>41.4%</td><td>Secondary timeframe</td></tr>
+            <tr><td>H1</td><td>103 long-window trades</td><td>40.8%</td><td>Marginal / acceptable</td></tr>
+            <tr><td>M30</td><td>23</td><td>39.1%</td><td>Marginal</td></tr>
+            <tr><td>M5</td><td>109</td><td>37.6%</td><td>Not recommended</td></tr>
+          </tbody></table></div>
+          <h2>VaultTrades Nexus Plus — no-window build</h2>
+          <p>H1 is the recommended timeframe for Nexus Plus. It evaluates every closed bar across all hours. The supplied long-window H1 sample showed 41.9% wins over 272 trades; H4 and M15 had weaker risk characteristics in the supplied comparisons.</p>
+          <p className="vt-member-note">These are historical test samples supplied with the product manuals, not independently verified live results or a forecast. Small samples, especially the two-trade Nexus H4 short sample, should not be treated as reliable evidence of future performance. Backtests do not guarantee future results.</p>
+        </>;
+      case "troubleshooting":
+        return <>
+          <Eyebrow>SUPPORT & DIAGNOSTICS</Eyebrow><h1>Troubleshooting.</h1>
+          <div className="vt-member-faq">
+            <details><summary>The EA does not open trades.</summary><p>Check that Algo Trading is enabled, the account permits automated trading, the EA is attached to the intended chart, the symbol is tradable and the required strategy conditions have occurred on a completed candle. Nexus signals outside 02:00–10:45 South African time are skipped.</p></details>
+            <details><summary>The EA icon is grey or inactive.</summary><p>Check the toolbar Algo Trading switch, the EA's Common tab permission and Tools → Options → Expert Advisors. Confirm the broker account also permits automated trading.</p></details>
+            <details><summary>No bar or signal information appears.</summary><p>Confirm the terminal has loaded at least 500 bars for the selected timeframe and that new quotes/history are arriving. Check Market Watch and the Experts tab.</p></details>
+            <details><summary>The EA says the volume is too small or refuses sizing.</summary><p>Review the broker's minimum lot, lot step, contract specification and available margin. If the broker minimum forces a larger volume, the resulting risk may exceed the configured percentage.</p></details>
+            <details><summary>The instrument is not available.</summary><p>Check the broker's exact symbol in Market Watch and read the resolved symbol in the startup log. Do not substitute a different instrument just because its name looks similar.</p></details>
+            <details><summary>The order was rejected.</summary><p>Read the Experts and Journal tabs for the broker retcode and reason. Common causes include disabled trading, insufficient margin, invalid volume, market closure or symbol restrictions.</p></details>
+            <details><summary>Will the EA run if I close my computer?</summary><p>Not when it is running locally. Your computer and MT5 terminal must remain on and connected. An optional VPS can host the terminal remotely.</p></details>
+          </div>
+        </>;
+      case "nexus-plus":
+        return <>
+          <Eyebrow>ALTERNATIVE BUILD</Eyebrow><h1>VaultTrades Nexus Plus.</h1>
+          <p className="vt-member-lead">Nexus Plus is an alternative no-window build, not simply an upgrade to the standard Nexus. It uses the Nexus core strategy while removing the standard 02:00–10:45 South African trading window.</p>
+          <h2>Important installation differences</h2>
+          <ul><li>Plus evaluates every completed candle throughout all hours.</li><li>Attach Plus to H1; H1 is the recommended timeframe for this build.</li><li>The Plus source wrapper depends on the Nexus core source file remaining in the specified Advisors folder.</li><li>Compile the Plus source file only, following the supplied Plus guide. The compiled EX5 is self-contained after compilation.</li><li>Plus uses a separate magic-number base and journal prefix from standard Nexus.</li></ul>
+          <p>Do not delete, rename or move the Nexus core source while compiling the Plus build. If both builds are run, avoid attaching both to the same instrument and timeframe unless that behaviour is intentional and understood.</p>
+          <p className="vt-member-note">The supplied tests recommend Nexus Plus on H1 only. It is an alternative for broader trading-hour coverage, not a universal performance upgrade.</p>
         </>;
       case "vps":
         return <>
