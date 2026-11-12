@@ -1,7 +1,5 @@
 import "./opportunity.css";
 import Link from "next/link";
-import fs from "node:fs";
-import path from "node:path";
 
 const stages = [
   ["01", "PREPARE", "Understand the market environment, set your priorities and wait for conditions that fit a defined plan."],
@@ -79,6 +77,30 @@ export default function OpportunityPage() {
           <div><span>02</span><strong>A BUSINESS<br />YOU CAN BUILD</strong></div>
         </div>
       </section>
+
+      <section className="vto-results vto-results-float" id="results-gallery">
+        <div className="vto-container">
+          <div className="vto-section-heading">
+            <div className="vto-kicker">REAL TRADING RECORDS</div>
+            <h2>Results and <span>certificates.</span></h2>
+            <p>Explore the original VaultTrades trading records and certificates.</p>
+          </div>
+          {evidenceGallery.length > 0 ? (
+            <div className="vto-evidence-gallery">
+              {evidenceGallery.map((item) => (
+                <a className="vto-evidence-item" href={item.src} target="_blank" rel="noreferrer" key={item.src}>
+                  <img src={item.src} alt={item.title} loading="lazy" />
+                  <div className="vto-evidence-caption"><span>{item.category}</span><strong>{item.title}</strong></div>
+                </a>
+              ))}
+            </div>
+          ) : (
+            <div className="vto-gallery-empty" aria-live="polite">Original certificates and trading-result images will appear here when added to the evidence gallery.</div>
+          )}
+          <p className="vto-results-note">The final certificate gallery will display the original trade records with their actual dates and context. Historical examples are not a forecast or guarantee of future performance.</p>
+        </div>
+      </section>
+
 
       <section className="vto-intro vto-container" id="the-opportunity">
         <div className="vto-kicker">A DIFFERENT WAY TO THINK ABOUT YOUR NEXT MOVE</div>
@@ -166,28 +188,6 @@ export default function OpportunityPage() {
         </div>
       </section>
 
-      <section className="vto-results" id="results-gallery">
-        <div className="vto-container">
-          <div className="vto-section-heading">
-            <div className="vto-kicker">REAL TRADING RECORDS</div>
-            <h2>Results and <span>certificates.</span></h2>
-            <p>Explore the original VaultTrades trading records and certificates.</p>
-          </div>
-          {evidenceGallery.length > 0 ? (
-            <div className="vto-evidence-gallery">
-              {evidenceGallery.map((item) => (
-                <a className="vto-evidence-item" href={item.src} target="_blank" rel="noreferrer" key={item.src}>
-                  <img src={item.src} alt={item.title} loading="lazy" />
-                  <div className="vto-evidence-caption"><span>{item.category}</span><strong>{item.title}</strong></div>
-                </a>
-              ))}
-            </div>
-          ) : (
-            <div className="vto-gallery-empty" aria-live="polite">Original certificates and trading-result images will appear here when added to the evidence gallery.</div>
-          )}
-          <p className="vto-results-note">Historical examples are not a forecast or guarantee of future performance.</p>
-        </div>
-      </section>
 
       <section className="vto-container vto-section vto-faq">
         <div className="vto-section-heading"><div className="vto-kicker">CLEAR ANSWERS BEFORE YOU DECIDE</div><h2>Frequently asked questions.</h2></div>
@@ -205,4 +205,31 @@ export default function OpportunityPage() {
       </section>
     </main>
   );
+}
+
+
+function getEvidenceGallery() {
+  const fs = require("node:fs") as typeof import("node:fs");
+  const path = require("node:path") as typeof import("node:path");
+  const folders = [
+    ["Certificates", "public/images/marketing/certificates"],
+    ["Challenge progress", "public/images/marketing/challenge-progress"],
+    ["Profit plans", "public/images/marketing/profit-plans/01-small-capital"],
+    ["Profit plans", "public/images/marketing/profit-plans/02-medium-capital"],
+    ["Profit plans", "public/images/marketing/profit-plans/03-large-capital"],
+    ["Trading results", "public/images/marketing/trading-results"],
+  ];
+  const allowed = new Set([".png", ".jpg", ".jpeg", ".webp", ".avif"]);
+  return folders.flatMap(([category, folder]) => {
+    const absolute = path.join(process.cwd(), folder);
+    if (!fs.existsSync(absolute)) return [];
+    return fs.readdirSync(absolute, { withFileTypes: true })
+      .filter((entry: import("node:fs").Dirent) => entry.isFile() && allowed.has(path.extname(entry.name).toLowerCase()))
+      .sort((a: import("node:fs").Dirent, b: import("node:fs").Dirent) => a.name.localeCompare(b.name))
+      .map((entry: import("node:fs").Dirent) => ({
+        category,
+        title: path.basename(entry.name, path.extname(entry.name)).replace(/[-_]+/g, " "),
+        src: "/" + path.relative("public", path.join(absolute, entry.name)).split(path.sep).join("/"),
+      }));
+  });
 }
