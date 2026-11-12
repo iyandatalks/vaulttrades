@@ -6,7 +6,9 @@ import Link from "next/link";
 
 type Plan = "nexus" | "nexus_plus" | "vortex";
 
-type LicensingRequest = { id: string; broker_name: string; broker_server: string | null; mt5_login: string; product_code: string; status: string; admin_notes: string | null; submitted_at: string; license_generated_at: string | null };\n\ntype Props = {
+type LicensingRequest = { id: string; broker_name: string; broker_server: string | null; mt5_login: string; product_code: string; status: string; admin_notes: string | null; submitted_at: string; license_generated_at: string | null };
+
+type Props = {
   plan: Plan;
   isAdmin: boolean;
   memberEmail: string;
@@ -46,7 +48,13 @@ export default function MemberPortalClient({
   plan, isAdmin, memberEmail, referralUrl, xmRegistrationUrl, vpsRegistrationUrl,
 }: Props) {
   const [active, setActive] = useState<string>("welcome");
-  const [copied, setCopied] = useState(false);\n  const [requests, setRequests] = useState<LicensingRequest[]>(licensingRequests);\n  const [mt5Login, setMt5Login] = useState("");\n  const [brokerServer, setBrokerServer] = useState("");\n  const [selectedProduct, setSelectedProduct] = useState<"nexus" | "nexus_plus" | "vortex">(plan);\n  const [submitting, setSubmitting] = useState(false);\n  const [submitMessage, setSubmitMessage] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [requests, setRequests] = useState<LicensingRequest[]>(licensingRequests);
+  const [mt5Login, setMt5Login] = useState("");
+  const [brokerServer, setBrokerServer] = useState("");
+  const [selectedProduct, setSelectedProduct] = useState<"nexus" | "nexus_plus" | "vortex">(plan);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState("");
   const groups = useMemo(() => {
     const result: { group: string; items: typeof sections[number][] }[] = [];
     for (const item of sections) {
@@ -64,7 +72,34 @@ export default function MemberPortalClient({
     window.setTimeout(() => setCopied(false), 1800);
   }
 
-  async function submitLicensingRequest(event: FormEvent<HTMLFormElement>) {\n    event.preventDefault();\n    setSubmitting(true);\n    setSubmitMessage("");\n    try {\n      const response = await fetch("/api/member-portal/ea-licensing", {\n        method: "POST",\n        headers: { "Content-Type": "application/json" },\n        body: JSON.stringify({ mt5Login, brokerServer, productCode: selectedProduct }),\n      });\n      const data = await response.json().catch(() => ({}));\n      if (!response.ok) throw new Error(data.error || "Unable to submit your MT5 number.");\n      setRequests(current => [data.request, ...current]);\n      setMt5Login("");\n      setBrokerServer("");\n      setSubmitMessage(data.message || "Your licensing request has been submitted.");\n    } catch (error) {\n      setSubmitMessage(error instanceof Error ? error.message : "Unable to submit your request.");\n    } finally { setSubmitting(false); }\n  }\n\n  const allowedEaProducts = plan === "nexus"\n    ? [{ value: "nexus", label: "VaultTrades Nexus" }]\n    : plan === "nexus_plus"\n      ? [{ value: "nexus", label: "VaultTrades Nexus" }, { value: "nexus_plus", label: "VaultTrades Nexus Plus" }]\n      : [{ value: "nexus", label: "VaultTrades Nexus" }, { value: "nexus_plus", label: "VaultTrades Nexus Plus" }, { value: "vortex", label: "VaultTrades Vortex" }];\n\n  const plusOrVortex = plan === "nexus_plus" || plan === "vortex";
+  async function submitLicensingRequest(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmitting(true);
+    setSubmitMessage("");
+    try {
+      const response = await fetch("/api/member-portal/ea-licensing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mt5Login, brokerServer, productCode: selectedProduct }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Unable to submit your MT5 number.");
+      setRequests(current => [data.request, ...current]);
+      setMt5Login("");
+      setBrokerServer("");
+      setSubmitMessage(data.message || "Your licensing request has been submitted.");
+    } catch (error) {
+      setSubmitMessage(error instanceof Error ? error.message : "Unable to submit your request.");
+    } finally { setSubmitting(false); }
+  }
+
+  const allowedEaProducts = plan === "nexus"
+    ? [{ value: "nexus", label: "VaultTrades Nexus" }]
+    : plan === "nexus_plus"
+      ? [{ value: "nexus", label: "VaultTrades Nexus" }, { value: "nexus_plus", label: "VaultTrades Nexus Plus" }]
+      : [{ value: "nexus", label: "VaultTrades Nexus" }, { value: "nexus_plus", label: "VaultTrades Nexus Plus" }, { value: "vortex", label: "VaultTrades Vortex" }];
+
+  const plusOrVortex = plan === "nexus_plus" || plan === "vortex";
   const hasVortex = plan === "vortex";
 
   function renderContent() {
