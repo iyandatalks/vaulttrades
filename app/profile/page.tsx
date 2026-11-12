@@ -100,6 +100,11 @@ export default function ProfilePage() {
                     <Link className="vt-primary" href="/admin/ea-licensing" style={{ display: "inline-block", marginTop: 8 }}>Open Licensing Queue →</Link>
                   </article>
                   <article className="vt-info-card">
+                    <h3>Website Requests</h3>
+                    <p className="muted">Review member subdomain preferences and custom-domain setup requests.</p>
+                    <Link className="vt-primary" href="/admin/website-requests" style={{ display: "inline-block", marginTop: 8 }}>Open Website Requests →</Link>
+                  </article>
+                  <article className="vt-info-card">
                     <h3>Manage Partners</h3>
                     <p className="muted">Manage the partner catalogue and public partner page.</p>
                     <Link className="vt-primary" href="/admin/partners" style={{ display: "inline-block", marginTop: 8 }}>Open Partner Management →</Link>
