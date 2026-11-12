@@ -7,11 +7,11 @@ const membershipCodes = ["nexus", "vaulttrades_nexus", "nexus_plus", "vaulttrade
 export async function GET() {
   const auth = await createClient();
   const { data: { user } } = await auth.auth.getUser();
-  if (!user) return NextResponse.json({ hasMembership: false }, { status: 200 });
+  if (!user) return NextResponse.json({ hasMembership: false, isAdmin: false }, { status: 200 });
   const db = createAdminClient();
   const { data: profile } = await db.from("users").select("id,role").eq("auth_user_id", user.id).maybeSingle();
-  if (!profile) return NextResponse.json({ hasMembership: false }, { status: 200 });
-  if (profile.role === "admin") return NextResponse.json({ hasMembership: true, plan: "vortex" });
+  if (!profile) return NextResponse.json({ hasMembership: false, isAdmin: false }, { status: 200 });
+  if (profile.role === "admin") return NextResponse.json({ hasMembership: true, isAdmin: true, plan: "vortex" });
   const { data: licenses } = await db.from("product_licenses")
     .select("entitlement_code,status,start_at,end_at")
     .eq("user_id", profile.id)
@@ -27,5 +27,5 @@ export async function GET() {
   const plan = codes.has("vortex") || codes.has("vaulttrades_vortex") ? "vortex"
     : codes.has("nexus_plus") || codes.has("vaulttrades_nexus_plus") ? "nexus_plus"
     : codes.has("nexus") || codes.has("vaulttrades_nexus") ? "nexus" : null;
-  return NextResponse.json({ hasMembership: Boolean(plan), plan });
+  return NextResponse.json({ hasMembership: Boolean(plan), isAdmin: false, plan });
 }
