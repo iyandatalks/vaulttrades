@@ -27,7 +27,7 @@ export default function HomePage() {
         <h1>One workspace for a more disciplined trading process.</h1>
         <p>Explore the VaultTrades Winning Strategy and Analyzer, supported by mentorship, MT5 copy trading and tools designed to strengthen your trading process.</p>
         <div className="vt-actions">
-          <Link className="vt-primary" href="/opportunity">Explore Opportunity</Link>
+          <Link className="vt-primary" href="/start">Explore the Opportunity</Link>
           <Link className="vt-secondary" href="/products">View Products</Link>
           <Link className="vt-secondary" href="/analyzer">Open Analyzer</Link>
           <Link className="vt-secondary" href="/referral-program">Referral Programme</Link>
@@ -43,10 +43,7 @@ export default function HomePage() {
 
       <section className="vt-section">
         <div className="vt-section-head">
-          <div>
-            <div className="vt-label">YOUR VAULTTRADES WORKFLOW</div>
-            <h2>Products and supporting tools with defined roles</h2>
-          </div>
+          <div><div className="vt-label">YOUR VAULTTRADES WORKFLOW</div><h2>Products and supporting tools with defined roles</h2></div>
           <Link className="vt-text-link" href="/how-it-works">View the full process →</Link>
         </div>
         <div className="vt-workflow">{workflow.map(([number, title, text]) => <article className="vt-workflow-card" key={number}><span>{number}</span><h3>{title}</h3><p>{text}</p></article>)}</div>
@@ -56,14 +53,13 @@ export default function HomePage() {
         <div className="vt-label">VAULTTRADES PRODUCTS & TOOLS</div>
         <h2>Start with the strategy. Build with the Analyzer.</h2>
         <p className="vt-section-intro">The Winning Strategy is available at no charge to registered VaultTrades Community members. Analyzer is a separate paid product with its own pricing and purchase path. Other products and supporting tools remain available below.</p>
-        <div className="vt-products">{products.map((product, index) => <article className={`vt-product-card ${product.featured ? "vt-product-card-featured" : ""}`} key={product.title}><div className="vt-product-mark" /><div className="vt-product-title">{product.title}</div><p>{product.text}</p><Link href={product.href}>{product.action} →</Link></article>)}</div>
+        <div className="vt-products">{products.map((product) => <article className={`vt-product-card ${product.featured ? "vt-product-card-featured" : ""}`} key={product.title}><div className="vt-product-mark" /><div className="vt-product-title">{product.title}</div><p>{product.text}</p><Link href={product.href}>{product.action} →</Link></article>)}</div>
       </section>
 
       <section className="vt-section vt-start">
-        <div className="vt-label">GET STARTED</div>
-        <h2>Choose your VaultTrades service.</h2>
+        <div className="vt-label">GET STARTED</div><h2>Choose your VaultTrades service.</h2>
         <p>Analyzer and Copy Trading are paid services. The Winning Strategy is available to registered VaultTrades Community members. Customers with any active paid product receive access to shared tools according to their product entitlement.</p>
-        <div className="vt-actions"><Link className="vt-primary" href="/products">View Products</Link><Link className="vt-secondary" href="/winning-strategy">Explore Winning Strategy</Link></div>
+        <div className="vt-actions"><Link className="vt-primary" href="/start">Explore the Opportunity</Link><Link className="vt-secondary" href="/winning-strategy">Explore Winning Strategy</Link></div>
       </section>
     </main>
   );
