@@ -1,8 +1,6 @@
 "use client";
 
 import "./website-requests.css";
-
-import "./website-requests.css";
 import { useCallback, useEffect, useState } from "react";
 
 type WebsiteRequest = {
