@@ -259,8 +259,6 @@ function EvidenceCarousel({
       <div
         className="vto-evidence-marquee"
         aria-label={title}
-        onContextMenu={(event) => event.preventDefault()}
-        onDragStart={(event) => event.preventDefault()}
       >
         <div className="vto-evidence-track">
           {loopItems.map((item, index) => (
