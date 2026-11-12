@@ -50,7 +50,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.rewrite(url);
   }
 
-  const isAdminOnly = adminOnlyPaths.some(path => pathname === path || pathname.startsWith(`${path}/"));
+  const isAdminOnly = adminOnlyPaths.some(path => pathname === path || pathname.startsWith(`${path}/`));
   const isPaidProtected = paidProtectedPaths.some(path => pathname === path || pathname.startsWith(`${path}/`));
   const matchedFeaturePath = Object.keys(featureProtectedPaths).find(path => pathname === path || pathname.startsWith(`${path}/`));
   const isFeatureProtected = Boolean(matchedFeaturePath);
