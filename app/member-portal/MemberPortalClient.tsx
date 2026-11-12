@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import Link from "next/link";
 
 type Plan = "nexus" | "nexus_plus" | "vortex";
@@ -257,7 +258,7 @@ export default function MemberPortalClient({
   );
 }
 
-function Eyebrow({ children }: { children: React.ReactNode }) {
+function Eyebrow({ children }: { children: ReactNode }) {
   return <div className="vt-member-kicker">{children}</div>;
 }
 
