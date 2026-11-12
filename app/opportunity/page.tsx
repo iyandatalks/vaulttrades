@@ -1,5 +1,7 @@
 import "./opportunity.css";
 import Link from "next/link";
+import fs from "node:fs";
+import path from "node:path";
 
 const stages = [
   ["01", "PREPARE", "Understand the market environment, set your priorities and wait for conditions that fit a defined plan."],
@@ -55,6 +57,7 @@ const resultStages = [
 ];
 
 export default function OpportunityPage() {
+  const evidenceGallery = getEvidenceGallery();
   return (
     <main className="vt-opportunity">
       <section className="vto-hero">
@@ -163,30 +166,26 @@ export default function OpportunityPage() {
         </div>
       </section>
 
-      <section className="vto-results">
+      <section className="vto-results" id="results-gallery">
         <div className="vto-container">
           <div className="vto-section-heading">
-            <div className="vto-kicker">THE JOURNEY, SHOWN IN STAGES</div>
-            <h2>From humble beginnings<br /><span>to scaling up.</span></h2>
-            <p>Trading results are best understood in context. Explore the stages of the journey, with examples to be supported by dated certificates and records—not isolated claims.</p>
+            <div className="vto-kicker">REAL TRADING RECORDS</div>
+            <h2>Results and <span>certificates.</span></h2>
+            <p>Explore the original VaultTrades trading records and certificates.</p>
           </div>
-          <div className="vto-results-track" aria-label="Trading journey stages. Scroll horizontally to explore all three cards.">
-            {resultStages.map((stage) => (
-              <article className="vto-result-card" key={stage.number}>
-                <div className={`vto-result-visual ${stage.visual}`}>
-                  <span>{stage.visualLabel}</span>
-                  <strong>{stage.number}</strong>
-                  <i aria-hidden="true" />
-                </div>
-                <div className="vto-result-copy">
-                  <span className="vto-result-marker">{stage.marker}</span>
-                  <h3>{stage.title}</h3>
-                  <p>{stage.description}</p>
-                </div>
-              </article>
-            ))}
-          </div>
-          <p className="vto-results-note">The final certificate gallery will display the original trade records with their actual dates and context. Historical examples are not a forecast or guarantee of future performance.</p>
+          {evidenceGallery.length > 0 ? (
+            <div className="vto-evidence-gallery">
+              {evidenceGallery.map((item) => (
+                <a className="vto-evidence-item" href={item.src} target="_blank" rel="noreferrer" key={item.src}>
+                  <img src={item.src} alt={item.title} loading="lazy" />
+                  <div className="vto-evidence-caption"><span>{item.category}</span><strong>{item.title}</strong></div>
+                </a>
+              ))}
+            </div>
+          ) : (
+            <div className="vto-gallery-empty" aria-live="polite">Original certificates and trading-result images will appear here when added to the evidence gallery.</div>
+          )}
+          <p className="vto-results-note">Historical examples are not a forecast or guarantee of future performance.</p>
         </div>
       </section>
 
