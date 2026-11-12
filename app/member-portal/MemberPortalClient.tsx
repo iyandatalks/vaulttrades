@@ -290,7 +290,7 @@ export default function MemberPortalClient({
           <Eyebrow>YOUR VAULTTRADES BUSINESS</Eyebrow><h1>Understand the product you joined.</h1>
           <p className="vt-member-lead">You can introduce VaultTrades membership packages to people who may value the trading tools, learning resources and business opportunity.</p>
           <h2>Know what you are explaining</h2><ul><li>Describe the membership package accurately and explain what it includes.</li><li>Show how the EA licensing and installation process works.</li><li>Explain that broker funding and VPS hosting are separate from the membership fee.</li><li>Be clear that trading involves risk and neither trading returns nor reseller income is guaranteed.</li><li>Never promise profits, guaranteed trades or guaranteed commissions.</li></ul>
-          <p>Members may personally refer any of the three VaultTrades plans, subject to the final reseller terms. The programme is based on direct customer sales, not recruitment alone.</p>
+          <p>Members may personally refer any of the three VaultTrades plans, regardless of which plan they purchased. Under the proposed reseller terms, a qualifying direct membership sale may earn a 100% commission, subject to the final approved rules. The programme is based on direct customer sales, not recruitment alone; there is no downline commission.</p>
           <a className="vt-member-button" href="/plans">Review the membership plans</a>
         </>;
       case "referrals":
