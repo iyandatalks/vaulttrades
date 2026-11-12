@@ -6,7 +6,8 @@ import Link from "next/link";
 
 type Plan = "nexus" | "nexus_plus" | "vortex";
 
-type LicensingRequest = { id: string; broker_name: string; broker_server: string | null; mt5_login: string; product_code: string; status: string; admin_notes: string | null; submitted_at: string; license_generated_at: string | null };\ntype WebsiteRequest = { id: string; domain_preference: string; preferred_name_1: string | null; preferred_name_2: string | null; preferred_name_3: string | null; custom_domain: string | null; status: string; admin_notes: string | null; assigned_domain: string | null; submitted_at: string };
+type LicensingRequest = { id: string; broker_name: string; broker_server: string | null; mt5_login: string; product_code: string; status: string; admin_notes: string | null; submitted_at: string; license_generated_at: string | null };
+type WebsiteRequest = { id: string; domain_preference: string; preferred_name_1: string | null; preferred_name_2: string | null; preferred_name_3: string | null; custom_domain: string | null; status: string; admin_notes: string | null; assigned_domain: string | null; submitted_at: string };
 
 type Props = {
   plan: Plan;
@@ -56,7 +57,13 @@ export default function MemberPortalClient({
   const [brokerServer, setBrokerServer] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<"nexus" | "nexus_plus" | "vortex">(plan);
   const [submitting, setSubmitting] = useState(false);
-  const [submitMessage, setSubmitMessage] = useState("");\n  const [websiteRequestRows, setWebsiteRequestRows] = useState<WebsiteRequest[]>(websiteRequests);\n  const [domainPreference, setDomainPreference] = useState<"vaulttrades_subdomain" | "custom_domain">("vaulttrades_subdomain");\n  const [preferredNames, setPreferredNames] = useState(["", "", ""]);\n  const [customDomain, setCustomDomain] = useState("");\n  const [websiteSubmitting, setWebsiteSubmitting] = useState(false);\n  const [websiteMessage, setWebsiteMessage] = useState("");
+  const [submitMessage, setSubmitMessage] = useState("");
+  const [websiteRequestRows, setWebsiteRequestRows] = useState<WebsiteRequest[]>(websiteRequests);
+  const [domainPreference, setDomainPreference] = useState<"vaulttrades_subdomain" | "custom_domain">("vaulttrades_subdomain");
+  const [preferredNames, setPreferredNames] = useState(["", "", ""]);
+  const [customDomain, setCustomDomain] = useState("");
+  const [websiteSubmitting, setWebsiteSubmitting] = useState(false);
+  const [websiteMessage, setWebsiteMessage] = useState("");
   const groups = useMemo(() => {
     const result: { group: string; items: typeof sections[number][] }[] = [];
     for (const item of sections) {
