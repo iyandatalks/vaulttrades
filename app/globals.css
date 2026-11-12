@@ -139,3 +139,12 @@
 @media(max-width:850px){.vt-referral-hero-grid,.vt-referral-calculator{grid-template-columns:1fr}.vt-referral-steps{grid-template-columns:repeat(2,1fr)}.vt-referral-product-grid{grid-template-columns:1fr}.vt-referral-visual{min-height:340px}.vt-referral-floating{right:3%}}
 @media(max-width:600px){.vt-referral-nav{padding:18px 16px;font-size:7px}.vt-referral-brand{font-size:19px}.vt-referral-hero-grid{padding:58px 20px 55px}.vt-referral-hero h1{font-size:48px}.vt-referral-section{padding:62px 20px}.vt-referral-steps,.vt-winning-grid{grid-template-columns:1fr}.vt-referral-visual-card{padding:22px}.vt-referral-orbit{width:320px;height:260px}.vt-referral-visual-foot{font-size:8px}.vt-referral-final-cta{padding:65px 20px}.vt-winning-page{padding:45px 20px 70px}.vt-winning-hero{padding:35px 0 55px}.vt-winning-bottom{padding:25px}}
 @media(prefers-reduced-motion:reduce){.vt-referral-visual-amount,.vt-referral-result-value,.vt-referral-bars i{animation:none}}
+
+/* Interim route in the new public opportunity funnel */
+.vt-plans-placeholder{min-height:100vh;display:grid;place-items:center;padding:50px 22px;background:radial-gradient(circle at 80% 20%,rgba(212,166,55,.12),transparent 35%),#050812;color:#f4f6fb}
+.vt-plans-placeholder section{max-width:760px;text-align:center;padding:52px 35px;border:1px solid rgba(212,166,55,.24);border-radius:18px;background:linear-gradient(145deg,#111a28,#080d16)}
+.vt-plans-placeholder section>div{font-size:10px;font-weight:950;letter-spacing:.18em;color:#d4a637}
+.vt-plans-placeholder h1{font-size:clamp(40px,6vw,68px);line-height:1;letter-spacing:-.055em;margin:20px 0}
+.vt-plans-placeholder h1 span{color:#d4a637}
+.vt-plans-placeholder p{max-width:610px;margin:0 auto;color:#aeb8c8;font-size:14px;line-height:1.8}
+.vt-plans-placeholder a{display:inline-flex;margin-top:28px;padding:13px 19px;border-radius:8px;background:#d4a637;color:#080b12;font-size:10px;font-weight:950;letter-spacing:.08em;text-decoration:none}
