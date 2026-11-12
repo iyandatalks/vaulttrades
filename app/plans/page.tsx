@@ -36,7 +36,7 @@ const plans = [
     intro: "The complete package, with advanced trading resources, risk management and individual mentorship.",
     features: [
       "Everything included in Plans 1 and 2",
-      "VaultTrades Vortex automated trading system",
+      "All three VaultTrades EA products, including Vortex",
       "Full risk-management resources",
       "Both included trading indicators",
       "Advanced trading and business-scaling resources",
