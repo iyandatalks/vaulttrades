@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
-import AppNav from "./AppNav";
-import VaultTradesFooter from "./VaultTradesFooter";
-import SitePromotionPopup from "./SitePromotionPopup";
+import MarketingShell from "./MarketingShell";
 
 export const metadata: Metadata = {
   title: "VaultTrades",
@@ -30,10 +28,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
     <html lang="en">
       <body>
         <script dangerouslySetInnerHTML={{ __html: priceFormattingScript }} />
-        <AppNav />
-        {children}
-        <VaultTradesFooter />
-        <SitePromotionPopup />
+        <MarketingShell>{children}</MarketingShell>
       </body>
     </html>
   );
