@@ -84,6 +84,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unable to save your reseller payment declaration. Please try again." }, { status: 500 });
   }
 
+  await db.from("copy_profile_notifications").insert({
+    auth_user_id: reseller.auth_user_id,
+    title: "Customer payment declaration received",
+    body: `A customer has declared a ${planCode.replace("_", " ")} purchase. Check your PayPal account and verify the MRR payment before confirming access.`,
+    action_href: "/member-portal/reseller-payments",
+    notification_type: "reseller_payment_declaration",
+    metadata: { reseller_order_id: order.id, plan_code: planCode, declared_amount: amount },
+  });
+
   await db.from("admin_inbox_notifications").insert({
     event_type: "reseller_purchase_declared",
     title: "New reseller purchase declaration",
