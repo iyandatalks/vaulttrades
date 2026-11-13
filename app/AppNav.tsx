@@ -6,8 +6,7 @@ import { useEffect, useState } from "react";
 
 const publicTabs = [
   { href: "/", label: "Home" },
-  { href: "/products", label: "Products" },
-  { href: "/start", label: "Business Opportunity" },
+  { href: "/subscription?promo=1", label: "Products" },
 ];
 
 const adminTabs = [
@@ -20,6 +19,7 @@ export default function AppNav() {
   const pathname = usePathname();
   const [isAdmin, setIsAdmin] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
+  const [hasResellerAccess, setHasResellerAccess] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -29,6 +29,7 @@ export default function AppNav() {
         if (!active) return;
         setSignedIn(data.authenticated === true);
         setIsAdmin(data.admin === true);
+        setHasResellerAccess(data.reseller?.enabled === true);
       })
       .catch(() => {
         if (active) { setSignedIn(false); setIsAdmin(false); }
@@ -39,7 +40,8 @@ export default function AppNav() {
   const tabs = [
     ...publicTabs,
     ...(signedIn ? [{ href: "/dashboard", label: "Dashboard" }, { href: "/profile", label: "Profile" }] : []),
-    ...(isAdmin ? adminTabs : []),
+    ...((isAdmin || hasResellerAccess) ? adminTabs.filter(tab => tab.href === "/member-portal") : []),
+    ...(isAdmin ? adminTabs.filter(tab => tab.href !== "/member-portal") : []),
   ];
 
   return (
@@ -52,7 +54,8 @@ export default function AppNav() {
         </Link>
         <nav className="vt-nav-links" aria-label="VaultTrades navigation">
           {tabs.map(tab => {
-            const active = pathname === tab.href || (tab.href !== "/" && pathname.startsWith(tab.href));
+            const tabPath = tab.href.split("?")[0];
+            const active = pathname === tabPath || (tabPath !== "/" && pathname.startsWith(tabPath));
             return <Link key={tab.href} href={tab.href} className={"vt-nav-link" + (active ? " active" : "")}>{tab.label}</Link>;
           })}
           {!signedIn && <Link href="/auth/login" className="vt-nav-link">Sign in</Link>}

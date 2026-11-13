@@ -80,31 +80,28 @@ export default function OpportunityPage() {
         </div>
       </section>
 
-      <section className="vto-results vto-results-float" id="results-gallery">
-        <div className="vto-container">
-          <div className="vto-section-heading">
-            <div className="vto-kicker">REAL TRADING RECORDS</div>
-            <h2>Results and <span>certificates.</span></h2>
-            <p>Explore the original VaultTrades trading records and certificates.</p>
+      <section className="vto-story vto-container" id="my-story">
+        <div className="vto-story-photo-column">
+          <div className="vto-story-photo-frame">
+            <div className="vto-story-sun" aria-hidden="true" />
+            <div className="vto-story-photo-placeholder">
+              <span>FOUNDER PHOTOGRAPH</span>
+              <strong>Your story.<br />Your experience.</strong>
+              <small>The existing personal photograph will be placed in this frame.</small>
+            </div>
+            <div className="vto-story-photo-caption">BUILT THROUGH EXPERIENCE</div>
           </div>
-          <div className="vto-evidence-groups">
-            <EvidenceCarousel
-              title="TRADE CERTIFICATES"
-              description="A moving selection of the original trade records, shown as examples of the trading process."
-              items={evidenceGallery.trades}
-              emptyMessage="Trade certificates will appear here when the original records are available."
-            />
-            <EvidenceCarousel
-              title="CHALLENGE & FUNDED-PROFILE CERTIFICATES"
-              description="Examples of challenge milestones and profile progress, kept separate from individual trade records."
-              items={evidenceGallery.certificates}
-              emptyMessage="Challenge and funded-profile certificates will appear here when those records are uploaded."
-            />
-          </div>
-          <p className="vto-results-note">The final certificate gallery will display the original trade records with their actual dates and context. Historical examples are not a forecast or guarantee of future performance.</p>
+        </div>
+        <div className="vto-story-copy">
+          <div className="vto-kicker">THE PERSON BEHIND THE OPPORTUNITY</div>
+          <h2>My journey started with a lesson in <span>experience.</span></h2>
+          <p>I entered trading believing it could create a different future. Like many people who begin without enough experience, I made mistakes, lost money and became discouraged. I also explored other business opportunities, but found that many depended heavily on selling without giving me a clear structure to build around.</p>
+          <p>Over time, I came to see that trading and digital business both require more than excitement. They need a process: learning, planning, risk awareness, disciplined execution and honest review. That is the thinking behind the VaultTrades ecosystem.</p>
+          <p>This opportunity is about giving people a structured way to explore trading, digital tools and a business pathway—then decide for themselves whether it fits their goals and circumstances.</p>
+          <div className="vto-story-signoff">FOCUS. DISCIPLINE. CONSISTENCY.</div>
+          <Link className="vto-inline-link" href="/start">Explore the opportunity <span>→</span></Link>
         </div>
       </section>
-
 
       <section className="vto-intro vto-container" id="the-opportunity">
         <div className="vto-kicker">A DIFFERENT WAY TO THINK ABOUT YOUR NEXT MOVE</div>
@@ -162,6 +159,26 @@ export default function OpportunityPage() {
         </div>
       </section>
 
+      <section className="vto-pathway-band" id="business-pathway">
+        <div className="vto-container">
+          <div className="vto-section-heading">
+            <div className="vto-kicker">FROM DISCOVERY TO BUILDING</div>
+            <h2>See where the opportunity leads.</h2>
+            <p>A simple route through the process, so you can understand what happens next and the kind of digital business you can work towards building.</p>
+          </div>
+          <div className="vto-pathway-track">
+            <article className="vto-pathway-card"><span>01</span><div><h3>DISCOVER</h3><p>Understand the opportunity and what participation involves.</p></div><b aria-hidden="true">→</b></article>
+            <article className="vto-pathway-card"><span>02</span><div><h3>EXPLORE</h3><p>Review the structure, available pathways and applicable terms.</p></div><b aria-hidden="true">→</b></article>
+            <article className="vto-pathway-card"><span>03</span><div><h3>GET SET UP</h3><p>Choose a suitable plan and complete the onboarding process.</p></div><b aria-hidden="true">→</b></article>
+            <article className="vto-pathway-card"><span>04</span><div><h3>BUILD</h3><p>Develop your digital presence, skills and customer relationships over time.</p></div><b aria-hidden="true">↗</b></article>
+          </div>
+          <div className="vto-pathway-actions">
+            <Link className="vto-button vto-button-gold" href="/opportunity#business-pathway">EXPLORE THE OPPORTUNITY</Link>
+            <Link className="vto-button vto-button-outline" href="/plans">SEE HOW TO JOIN</Link>
+          </div>
+        </div>
+      </section>
+
       <section className="vto-container vto-section vto-business">
         <div className="vto-business-copy">
           <div className="vto-kicker">A BUSINESS YOU CAN BUILD</div>
@@ -207,6 +224,16 @@ export default function OpportunityPage() {
         </div>
       </section>
 
+      <section className="vto-mid-cta">
+        <div className="vto-container vto-mid-cta-inner">
+          <div><div className="vto-kicker">TAKE THE NEXT STEP</div><h2>Explore the structure.<br /><span>Decide if it fits you.</span></h2></div>
+          <div className="vto-mid-cta-actions">
+            <Link className="vto-button vto-button-gold" href="/start">EXPLORE THE OPPORTUNITY</Link>
+            <Link className="vto-button vto-button-outline" href="/plans">SEE HOW TO JOIN</Link>
+          </div>
+        </div>
+      </section>
+
       <section className="vto-container vto-section vto-faq">
         <div className="vto-section-heading"><div className="vto-kicker">CLEAR ANSWERS BEFORE YOU DECIDE</div><h2>Frequently asked questions.</h2></div>
         <div className="vto-faq-list">{faqs.map(([question, answer]) => (<details key={question}><summary>{question}<span>+</span></summary><p>{answer}</p></details>))}</div>
@@ -219,6 +246,31 @@ export default function OpportunityPage() {
           <p>Discover how the VaultTrades opportunity works, what you can build over time and the next step to explore when you are ready.</p>
           <div className="vto-final-actions"><Link className="vto-button vto-button-gold" href="/plans">EXPLORE MEMBERSHIP OPTIONS</Link></div>
           <small>Trading involves risk and losses are possible. Past performance does not guarantee future results. Trading returns and business commissions are not guaranteed and depend on market outcomes, qualifying activity and the applicable terms.</small>
+        </div>
+      </section>
+
+      <section className="vto-results vto-results-float" id="results-gallery">
+        <div className="vto-container">
+          <div className="vto-section-heading">
+            <div className="vto-kicker">REAL EXPERIENCES & SUPPORTING RECORDS</div>
+            <h2>Testimonials and <span>certificates.</span></h2>
+            <p>Review the available original trading records and certificates with their dates and context. Each record is presented as historical evidence, not a promise of future results.</p>
+          </div>
+          <div className="vto-evidence-groups">
+            <EvidenceCarousel
+              title="TRADE CERTIFICATES"
+              description="A moving selection of the original trade records, shown as examples of the trading process."
+              items={evidenceGallery.trades}
+              emptyMessage="Trade certificates will appear here when the original records are available."
+            />
+            <EvidenceCarousel
+              title="CHALLENGE & FUNDED-PROFILE CERTIFICATES"
+              description="Examples of challenge milestones and profile progress, kept separate from individual trade records."
+              items={evidenceGallery.certificates}
+              emptyMessage="Challenge and funded-profile certificates will appear here when those records are uploaded."
+            />
+          </div>
+          <p className="vto-results-note">The final certificate gallery will display the original trade records with their actual dates and context. Historical examples are not a forecast or guarantee of future performance.</p>
         </div>
       </section>
     </main>

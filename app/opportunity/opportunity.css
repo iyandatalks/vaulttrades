@@ -127,3 +127,36 @@
 @media(prefers-reduced-motion:reduce){
   .vto-results-float .vto-evidence-track{animation:none}
 }
+
+
+/* Founder story: the photo frame is intentionally reserved for the approved portrait asset. */
+.vto-story{display:grid;grid-template-columns:minmax(280px,.82fr) 1.18fr;gap:clamp(34px,6vw,78px);align-items:center;padding-top:92px;padding-bottom:96px}
+.vto-story-photo-frame{position:relative;max-width:440px;margin:0 auto;padding:15px;border:1px solid rgba(212,166,55,.7);border-radius:18px;background:linear-gradient(145deg,rgba(212,166,55,.18),rgba(255,255,255,.025));box-shadow:0 24px 65px rgba(0,0,0,.34)}
+.vto-story-sun{position:absolute;inset:-17px -15px auto auto;width:118px;height:118px;border-radius:50%;background:repeating-conic-gradient(from 0deg,rgba(212,166,55,.9) 0deg 2deg,transparent 2deg 15deg);opacity:.72;z-index:0}
+.vto-story-photo-placeholder{position:relative;z-index:1;min-height:430px;display:flex;flex-direction:column;justify-content:flex-end;gap:12px;padding:28px;border-radius:10px;overflow:hidden;background:radial-gradient(circle at 72% 22%,rgba(212,166,55,.23),transparent 27%),linear-gradient(145deg,#192438,#080d17 68%);border:1px solid rgba(255,255,255,.12)}
+.vto-story-photo-placeholder:before{content:"";position:absolute;inset:18px;border:1px solid rgba(212,166,55,.28);border-radius:5px;pointer-events:none}
+.vto-story-photo-placeholder span{color:var(--vto-gold);font-size:9px;font-weight:950;letter-spacing:.18em}
+.vto-story-photo-placeholder strong{font-size:clamp(30px,4vw,48px);line-height:1.02;letter-spacing:-.05em}
+.vto-story-photo-placeholder small{max-width:260px;color:#aeb5c6;font-size:11px;line-height:1.6}
+.vto-story-photo-caption{position:relative;z-index:2;margin-top:12px;text-align:center;color:#d9c27e;font-size:9px;font-weight:950;letter-spacing:.2em}
+.vto-story-copy h2{margin:15px 0 20px;font-size:clamp(34px,4.4vw,53px);line-height:1.05;letter-spacing:-.05em}
+.vto-story-copy h2 span{color:var(--vto-gold)}
+.vto-story-copy p{color:var(--vto-muted);font-size:14px;line-height:1.85}
+.vto-story-signoff{margin-top:22px;color:var(--vto-gold);font-size:10px;font-weight:950;letter-spacing:.18em}
+.vto-pathway-band{padding:90px 0;background:linear-gradient(135deg,rgba(212,166,55,.07),transparent 48%),#080d17;border-top:1px solid rgba(212,166,55,.16);border-bottom:1px solid rgba(212,166,55,.16)}
+.vto-pathway-track{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.vto-pathway-card{position:relative;min-height:190px;display:flex;flex-direction:column;justify-content:space-between;padding:22px;border:1px solid rgba(212,166,55,.27);border-radius:12px;background:linear-gradient(150deg,#121c2c,#090e18);transition:transform .2s ease,border-color .2s ease}
+.vto-pathway-card:hover{transform:translateY(-4px);border-color:rgba(212,166,55,.75)}
+.vto-pathway-card>span{color:var(--vto-gold);font-size:10px;font-weight:950;letter-spacing:.16em}
+.vto-pathway-card h3{margin:19px 0 7px;font-size:13px;letter-spacing:.12em}
+.vto-pathway-card p{margin:0;color:var(--vto-muted);font-size:11px;line-height:1.7}
+.vto-pathway-card>b{position:absolute;right:19px;bottom:15px;color:var(--vto-gold);font-size:22px;font-weight:400}
+.vto-pathway-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:25px}
+.vto-mid-cta{padding:58px 0;background:#0c1421;border-top:1px solid rgba(212,166,55,.13);border-bottom:1px solid rgba(212,166,55,.13)}
+.vto-mid-cta-inner{display:flex;align-items:center;justify-content:space-between;gap:30px}
+.vto-mid-cta h2{margin:10px 0 0;font-size:clamp(26px,3.5vw,40px);line-height:1.08;letter-spacing:-.045em}
+.vto-mid-cta h2 span{color:var(--vto-gold)}
+.vto-mid-cta-actions{display:flex;gap:10px;flex-wrap:wrap}
+.vto-results-float{margin:50px auto 40px}
+@media(max-width:900px){.vto-story{grid-template-columns:1fr;gap:42px}.vto-story-photo-frame{width:min(100%,440px)}.vto-pathway-track{grid-template-columns:repeat(2,minmax(0,1fr))}.vto-mid-cta-inner{align-items:flex-start;flex-direction:column}}
+@media(max-width:620px){.vto-story{padding-top:68px;padding-bottom:72px}.vto-story-photo-placeholder{min-height:340px}.vto-pathway-band{padding:68px 0}.vto-pathway-track{grid-template-columns:1fr}.vto-pathway-card{min-height:150px}.vto-pathway-actions{width:100%}.vto-pathway-actions .vto-button{width:100%}.vto-mid-cta{padding:45px 0}.vto-mid-cta-actions{width:100%}.vto-mid-cta-actions .vto-button{width:100%}.vto-results-float{margin:35px 12px 30px}}
