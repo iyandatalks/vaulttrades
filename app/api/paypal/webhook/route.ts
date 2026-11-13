@@ -41,10 +41,48 @@ export async function POST(request: Request) {
     if (verification.verification_status !== "SUCCESS") return NextResponse.json({ error: "Invalid PayPal webhook signature." }, { status: 401 });
 
     const eventType = String(event.event_type || "");
-    if (!SUBSCRIPTION_EVENTS[eventType]) return NextResponse.json({ received: true, ignored: true }, { status: 200 });
-
     const admin = createAdminClient();
     const resource = event.resource || {};
+
+    if (eventType === "PAYMENT.CAPTURE.COMPLETED") {
+      const orderId = String(resource.supplementary_data?.related_ids?.order_id || "");
+      const captureId = String(resource.id || "");
+      if (!orderId || !captureId) return NextResponse.json({ received: true, ignored: true, reason: "Capture is missing its order reference" }, { status: 200 });
+      const { data: transaction } = await admin.from("payment_transactions")
+        .select("id,amount,currency,status,payment_method,raw_event")
+        .eq("provider", "paypal")
+        .eq("provider_order_id", orderId)
+        .maybeSingle();
+      if (!transaction || (transaction.payment_method !== "paypal_reseller_setup" && transaction.raw_event?.order_type !== "reseller_setup")) {
+        return NextResponse.json({ received: true, ignored: true, reason: "Not a VaultTrades reseller setup order" }, { status: 200 });
+      }
+      const captureAmount = Number(resource.amount?.value);
+      const captureCurrency = String(resource.amount?.currency_code || "");
+      if (String(resource.status || "") !== "COMPLETED" || captureCurrency !== transaction.currency || captureAmount !== Number(transaction.amount)) {
+        return NextResponse.json({ error: "Capture amount or currency does not match the recorded VaultTrades order." }, { status: 400 });
+      }
+      if (transaction.status === "verified") return NextResponse.json({ received: true, duplicate: true }, { status: 200 });
+      const verifiedAt = new Date().toISOString();
+      const { error: transactionUpdateError } = await admin.from("payment_transactions").update({
+        status: "verified",
+        provider_capture_id: captureId,
+        raw_event: event,
+        verified_at: verifiedAt,
+      }).eq("id", transaction.id);
+      if (transactionUpdateError) return NextResponse.json({ error: "Unable to record verified VaultTrades capture." }, { status: 500 });
+      const declarationId = String(transaction.raw_event?.declaration_id || "");
+      if (!declarationId) return NextResponse.json({ error: "The reseller setup order has no declaration reference." }, { status: 500 });
+      const { error: declarationUpdateError } = await admin.from("reseller_purchase_orders").update({
+        vaulttrades_payment_status: "verified",
+        vaulttrades_payment_transaction_id: transaction.id,
+        updated_at: verifiedAt,
+      }).eq("id", declarationId);
+      if (declarationUpdateError) return NextResponse.json({ error: "Unable to update the reseller purchase declaration." }, { status: 500 });
+      return NextResponse.json({ received: true, verified: true, awaitingResellerConfirmation: true }, { status: 200 });
+    }
+
+    if (!SUBSCRIPTION_EVENTS[eventType]) return NextResponse.json({ received: true, ignored: true }, { status: 200 });
+
     const subscriptionId = String(resource.supplementary_data?.related_ids?.subscription_id || resource.billing_agreement_id || resource.id || "");
     if (!subscriptionId) return NextResponse.json({ received: true, ignored: true, reason: "No subscription reference" }, { status: 200 });
 
