@@ -24,7 +24,6 @@ const adminOnlyPaths = [
   "/opportunity",
   "/plans",
   "/membership",
-  "/member-portal",
   "/api/marketing-leads",
 ];
 
@@ -51,6 +50,7 @@ export async function middleware(request: NextRequest) {
   }
 
   const isAdminOnly = adminOnlyPaths.some(path => pathname === path || pathname.startsWith(`${path}/`));
+  const isMemberPortalPath = pathname === "/member-portal" || pathname.startsWith("/member-portal/");
   const isPaidProtected = paidProtectedPaths.some(path => pathname === path || pathname.startsWith(`${path}/`));
   const matchedFeaturePath = Object.keys(featureProtectedPaths).find(path => pathname === path || pathname.startsWith(`${path}/`));
   const isFeatureProtected = Boolean(matchedFeaturePath);
@@ -80,6 +80,10 @@ export async function middleware(request: NextRequest) {
   if (isAdminOnly) {
     return isAdmin ? response : new NextResponse(null, { status: 404 });
   }
+
+  // Member Portal performs its own product_licenses entitlement check on the page
+  // and content API. Do not restrict it to admins or use the legacy users license flags.
+  if (isMemberPortalPath) return response;
 
   if (isFeatureProtected && matchedFeaturePath) {
     if (isAdmin) return response;
