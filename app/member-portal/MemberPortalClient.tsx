@@ -1,14 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode, FormEvent } from "react";
 import Link from "next/link";
+import CommunityCalendar from "./CommunityCalendar";
+import MemberPortalAdminPanel from "./MemberPortalAdminPanel";
 
 type Plan = "nexus" | "nexus_plus" | "vortex";
 
-type LicensingRequest = { id: string; broker_name: string; broker_server: string | null; mt5_login: string; product_code: string; status: string; admin_notes: string | null; submitted_at: string; license_generated_at: string | null };
+type LicensingRequest = { id: string; broker_name: string; broker_server: string | null; mt5_login: string; product_code: string; status: string; admin_notes: string | null; submitted_at: string; license_generated_at: string | null; license_resource_name?: string | null; license_resource_url?: string | null };
 type WebsiteRequest = { id: string; domain_preference: string; preferred_name_1: string | null; preferred_name_2: string | null; preferred_name_3: string | null; custom_domain: string | null; status: string; admin_notes: string | null; assigned_domain: string | null; submitted_at: string };
-type MemberNotification = { id: string; title: string; body: string; action_href: string; notification_type: string; created_at: string; read_at: string | null };
+type MemberNotification = { id: string; title: string; body: string; action_href: string; notification_type: string; created_at: string; read_at: string | null };\ntype KnowledgeResource = { id: string; section_id: string; title: string; description: string | null; resource_kind: string; resource_url: string; plan_codes: string[]; created_at: string };
 
 type Props = {
   plan: Plan;
@@ -55,7 +57,7 @@ const sections = [
   { id: "tools", label: "Plan-Included Digital Tools", group: "TOOLS & SUPPORT" },
   { id: "risk", label: "Risk & Important Information", group: "TOOLS & SUPPORT" },
   { id: "faq", label: "Frequently Asked Questions", group: "TOOLS & SUPPORT" },
-  { id: "notifications", label: "Member Notifications", group: "TOOLS & SUPPORT" },
+  { id: "notifications", label: "Member Notifications", group: "TOOLS & SUPPORT" },\n  { id: "admin", label: "Manage Knowledge Base", group: "ADMINISTRATION" },
 ] as const;
 
 const planNames: Record<Plan, string> = {
@@ -68,7 +70,7 @@ export default function MemberPortalClient({
   plan, isAdmin, memberEmail, referralUrl, licensingRequests, websiteRequests, memberNotifications, xmRegistrationUrl, vpsRegistrationUrl, requestActionsAvailable,
 }: Props) {
   const [active, setActive] = useState<string>("welcome");
-  const [topicSearch, setTopicSearch] = useState("");
+  const [topicSearch, setTopicSearch] = useState("");\n  const [knowledgeResources, setKnowledgeResources] = useState<KnowledgeResource[]>([]);
   const [copied, setCopied] = useState(false);
   const [requests, setRequests] = useState<LicensingRequest[]>(licensingRequests);
   const [mt5Login, setMt5Login] = useState("");
@@ -82,11 +84,11 @@ export default function MemberPortalClient({
   const [preferredNames, setPreferredNames] = useState(["", "", ""]);
   const [customDomain, setCustomDomain] = useState("");
   const [websiteSubmitting, setWebsiteSubmitting] = useState(false);
-  const [websiteMessage, setWebsiteMessage] = useState("");
+  const [websiteMessage, setWebsiteMessage] = useState("");\n  useEffect(() => { fetch("/api/member-portal/content", { cache: "no-store" }).then(r => r.ok ? r.json() : Promise.reject(new Error("Resources unavailable"))).then(data => setKnowledgeResources(data.resources ?? [])).catch(() => setKnowledgeResources([])); }, []);
   const groups = useMemo(() => {
     const result: { group: string; items: typeof sections[number][] }[] = [];
     const query = topicSearch.trim().toLowerCase();
-    for (const item of sections) {
+    for (const item of sections.filter(item => isAdmin || item.id !== "admin")) {
       if (query && !item.label.toLowerCase().includes(query) && !item.group.toLowerCase().includes(query)) continue;
       let group = result.find(entry => entry.group === item.group);
       if (!group) { group = { group: item.group, items: [] }; result.push(group); }
@@ -123,7 +125,7 @@ export default function MemberPortalClient({
       setRequests(current => [data.request, ...current]);
       setMt5Login("");
       setBrokerServer("");
-      setSubmitMessage(data.message || "Your licensing request has been submitted.");
+      setSubmitMessage(data.message || "Your licensing request has been submitted.");\n      if (data.whatsappUrl) window.location.assign(data.whatsappUrl);
     } catch (error) {
       setSubmitMessage(error instanceof Error ? error.message : "Unable to submit your request.");
     } finally { setSubmitting(false); }
@@ -190,9 +192,9 @@ export default function MemberPortalClient({
             <li><strong>Consider VPS hosting.</strong> This optional service can keep the terminal running remotely.</li>
             <li><strong>Learn and build.</strong> Use the community, optional mentorship and your referral resources.</li>
           </ol>
-          <p className="vt-member-note">Some links and request forms are being connected to the member administration workflow. Where a link is not yet published, this guide will be updated rather than sending you to an unverified destination.</p>
+          <p className="vt-member-note">Use the left-hand topics in order. Supporting materials are added as named links to approved cloud-hosted resources, rather than uploading large files into the website.</p>
         </>;
-      case "notifications":
+      case "admin":\n        return isAdmin ? <MemberPortalAdminPanel /> : <><h1>Not available.</h1></>;\n      case "notifications":
         return <>
           <Eyebrow>MEMBER UPDATES</Eyebrow><h1>Your notifications.</h1>
           <p className="vt-member-lead">Important updates about your EA licensing and optional website setup appear here.</p>
@@ -209,7 +211,7 @@ export default function MemberPortalClient({
           <a className="vt-member-button" href="/vaulttrades-community">Open VaultTrades Community</a>
           <h2>What to look out for</h2>
           <ul><li>Important product and member announcements.</li><li>Updates when a Google Meet trading-room session is scheduled.</li><li>Support guidance and notices about changes to the installation process.</li><li>Links to relevant learning sessions and resources.</li></ul>
-          <p className="vt-member-note">Check the community announcements for the current Google Meet link and session details. Daily trade updates and alerts, when published, will be shared through the relevant trading channel. Do not rely on an old meeting link or assume that a session is running unless it has been announced.</p>
+          <CommunityCalendar isAdmin={isAdmin} />\n          <p className="vt-member-note">Only meetings displayed in this calendar are current. Open the meeting button at the scheduled time. Do not reuse an old meeting URL.</p>
         </>;
       case "broker":
         return <>
@@ -253,7 +255,7 @@ export default function MemberPortalClient({
           {requests.length ? <div className="vt-member-request-list">{requests.map(request => <div className="vt-member-request" key={request.id}>
             <div><strong>{request.product_code === "nexus" ? "VaultTrades Nexus" : request.product_code === "nexus_plus" ? "VaultTrades Nexus Plus" : "VaultTrades Vortex"}</strong><small>MT5 {request.mt5_login} · {request.broker_name} · {new Date(request.submitted_at).toLocaleString()}</small></div>
             <span className={"vt-member-request-status " + request.status}>{request.status.replace("_", " ")}</span>
-            {request.status === "ready" && <a className="vt-member-tool-link" href={`/api/member-portal/ea-licensing/${request.id}/download`}>Download EA ↗</a>}
+            {request.status === "ready" && (request.license_resource_url ? <a className="vt-member-tool-link" href={request.license_resource_url} target="_blank" rel="noreferrer">{request.license_resource_name || "Open personalised EA"} ↗</a> : <a className="vt-member-tool-link" href={`/api/member-portal/ea-licensing/${request.id}/download`}>Download EA ↗</a>)}
             {request.status === "rejected" && request.admin_notes && <p className="vt-member-note">{request.admin_notes}</p>}
           </div>)}</div> : <p className="vt-member-note">You have not submitted an MT5 licensing request yet.</p>}
           <p className="vt-member-note">Allow 24–48 hours after VaultTrades receives the correct MT5 number. The personalised file will appear in your download area once licensing is complete.</p>
@@ -271,7 +273,7 @@ export default function MemberPortalClient({
           <p className="vt-member-lead">The download area will display the EA file generated for your approved MT5 account. It will become available after the licensing team marks the build as ready.</p>
           {requests.some(request => request.status === "ready") ? <div className="vt-member-request-list">{requests.filter(request => request.status === "ready").map(request => <div className="vt-member-request" key={request.id}>
             <div><strong>{request.product_code === "nexus" ? "VaultTrades Nexus" : request.product_code === "nexus_plus" ? "VaultTrades Nexus Plus" : "VaultTrades Vortex"}</strong><small>MT5 {request.mt5_login} · Licensed {request.license_generated_at ? new Date(request.license_generated_at).toLocaleString() : ""}</small></div>
-            <a className="vt-member-button" href={`/api/member-portal/ea-licensing/${request.id}/download`}>Download EA</a>
+            {request.license_resource_url ? <a className="vt-member-button" href={request.license_resource_url} target="_blank" rel="noreferrer">{request.license_resource_name || "Open EA link"}</a> : <a className="vt-member-button" href={`/api/member-portal/ea-licensing/${request.id}/download`}>Download EA</a>}
           </div>)}</div> : <div className="vt-member-pending"><strong>Your personalised EA is not ready yet.</strong><span>Once your MT5 request is approved and the licensed file is uploaded, the download will appear here.</span></div>}
           <h2>Before installing</h2><ul><li>Confirm that the EA name and build match your membership.</li><li>Use the installation guide for that exact product.</li><li>Keep the downloaded file private and do not redistribute it.</li></ul>
         </>;
@@ -594,13 +596,13 @@ export default function MemberPortalClient({
         <article className="vt-member-content" aria-live="polite">
           <div className="vt-member-content-toolbar">
             <div><span>{activeSection.group}</span><strong>{activeSection.label}</strong></div>
-            <small>GUIDE {String(activeIndex).padStart(2, "0")} / {sections.length}</small>
+            <small>GUIDE {String(activeIndex).padStart(2, "0")} / {visibleSections.length}</small>
           </div>
           {renderContent()}
           <ResourceShelf active={active} />
           <div className="vt-member-content-footer">
             <span>VaultTrades Member Knowledge Base</span>
-            <button type="button" onClick={() => { const next = sections[Math.min(activeIndex, sections.length - 1)]; setActive(next.id); window.scrollTo({ top: 0, behavior: "smooth" }); }} disabled={activeIndex >= sections.length}>Next topic →</button>
+            <button type="button" onClick={() => { const next = visibleSections[Math.min(activeIndex, visibleSections.length - 1)]; setActive(next.id); window.scrollTo({ top: 0, behavior: "smooth" }); }} disabled={activeIndex >= sections.length}>Next topic →</button>
           </div>
         </article>
       </div>
@@ -655,21 +657,72 @@ const resourceSlots: Record<string, { title: string; kind: string; note: string 
   faq: [{ title: "Member quick-reference sheet", kind: "PDF attachment", note: "Reserved for a printable summary of common onboarding and troubleshooting questions." }],
 };
 
-function ResourceShelf({ active }: { active: string }) {
+function ResourceShelf({ active, resources, isAdmin, onResourcesChange }: { active: string; resources: KnowledgeResource[]; isAdmin: boolean; onResourcesChange: (items: KnowledgeResource[]) => void }) {
   const slots = resourceSlots[active] ?? [];
-  if (!slots.length) return null;
+  const [editing, setEditing] = useState<KnowledgeResource | null>(null);
+  const [title, setTitle] = useState("");
+  const [kind, setKind] = useState("External link");
+  const [description, setDescription] = useState("");
+  const [resourceUrl, setResourceUrl] = useState("");
+  const [planCode, setPlanCode] = useState("all");
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  if (!slots.length && !resources.length && !isAdmin) return null;
+
+  function beginEdit(resource?: KnowledgeResource) {
+    setEditing(resource ?? null); setTitle(resource?.title ?? ""); setKind(resource?.resource_kind ?? "External link");
+    setDescription(resource?.description ?? ""); setResourceUrl(resource?.resource_url ?? "");
+    setPlanCode(resource?.plan_codes?.[0] ?? "all"); setMessage("");
+  }
+  async function saveResource(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setSaving(true); setMessage("");
+    try {
+      const response = await fetch("/api/member-portal/admin", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({
+        action:"resource_upsert", id:editing?.id, sectionId:active, title, resourceKind:kind, description, resourceUrl, planCodes:planCode==="all"?[]:[planCode],
+      })});
+      const data=await response.json(); if(!response.ok) throw new Error(data.error||"Unable to save link.");
+      onResourcesChange([...resources.filter(item=>item.id!==data.resource.id),data.resource]);
+      setMessage("Supporting link saved."); beginEdit();
+    } catch(error) { setMessage(error instanceof Error?error.message:"Unable to save link."); }
+    finally { setSaving(false); }
+  }
+  async function removeResource(id:string) {
+    if(!window.confirm("Remove this supporting link from the Knowledge Base?")) return;
+    const response=await fetch("/api/member-portal/admin",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"resource_delete",id})});
+    const data=await response.json(); if(!response.ok){setMessage(data.error||"Unable to remove link.");return;}
+    onResourcesChange(resources.filter(item=>item.id!==id)); setMessage("Supporting link removed.");
+  }
   return <section className="vt-member-resource-shelf" aria-label="Topic attachments and resources">
     <div className="vt-member-resource-heading">
       <div><span>SUPPORTING MATERIAL</span><h2>Downloads, links & attachments</h2></div>
-      <small>Reserved resource area</small>
+      <small>{resources.length ? `${resources.length} published link(s)` : "Reserved resource area"}</small>
     </div>
+    <p className="vt-member-resource-explainer">Resources open from their approved cloud location. The Knowledge Base stores the resource title and link only; documents are not uploaded to this website.</p>
     <div className="vt-member-resource-grid">
-      {slots.map(slot => <div className="vt-member-resource-card" key={slot.title}>
+      {resources.map(resource=><div className="vt-member-resource-card" key={resource.id}>
+        <div className="vt-member-resource-icon" aria-hidden="true">↗</div>
+        <div className="vt-member-resource-copy"><strong>{resource.title}</strong><span>{resource.resource_kind}</span>{resource.description&&<p>{resource.description}</p>}</div>
+        <a className="vt-member-resource-open" href={resource.resource_url} target="_blank" rel="noreferrer">Open resource ↗</a>
+        {isAdmin&&<div className="vt-member-resource-admin-actions"><button type="button" onClick={()=>beginEdit(resource)}>Edit</button><button type="button" onClick={()=>void removeResource(resource.id)}>Remove</button></div>}
+      </div>)}
+      {slots.map(slot=><div className="vt-member-resource-card" key={slot.title}>
         <div className="vt-member-resource-icon" aria-hidden="true">＋</div>
         <div className="vt-member-resource-copy"><strong>{slot.title}</strong><span>{slot.kind}</span><p>{slot.note}</p></div>
-        {slot.kind.toLowerCase().includes("link") ? <button type="button" className="vt-member-resource-pending-button" disabled>Link button reserved</button> : <span className="vt-member-resource-status">Attachment / resource slot reserved</span>}
+        <span className="vt-member-resource-status">Resource link to be added</span>
       </div>)}
     </div>
+    {isAdmin&&<div className="vt-member-resource-editor">
+      <h3>{editing?"Edit supporting link":"Add supporting link to this topic"}</h3>
+      <form className="vt-member-form" onSubmit={saveResource}>
+        <label>Resource name<input required value={title} onChange={e=>setTitle(e.target.value)} maxLength={140} placeholder="Name shown to members"/></label>
+        <label>Link type<input value={kind} onChange={e=>setKind(e.target.value)} maxLength={80} placeholder="PDF guide, screenshot guide, registration, installation"/></label>
+        <label>Resource description<textarea value={description} onChange={e=>setDescription(e.target.value)} maxLength={600} rows={2} placeholder="Brief explanation of what the link contains"/></label>
+        <label>Cloud file / destination URL<input required type="url" value={resourceUrl} onChange={e=>setResourceUrl(e.target.value)} placeholder="https://drive.google.com/..."/></label>
+        <label>Member access<select value={planCode} onChange={e=>setPlanCode(e.target.value)}><option value="all">All active memberships</option><option value="nexus">Nexus and above</option><option value="nexus_plus">Nexus Plus and above</option><option value="vortex">Vortex only</option></select></label>
+        <div className="vt-calendar-form-actions"><button className="vt-member-button" type="submit" disabled={saving}>{saving?"Saving…":editing?"Update link":"Add link"}</button>{editing&&<button type="button" className="vt-member-outline" onClick={()=>beginEdit()}>Cancel edit</button>}</div>
+      </form>
+      {message&&<p className="vt-member-submit-message" role="status">{message}</p>}
+    </div>}
   </section>;
 }
 
