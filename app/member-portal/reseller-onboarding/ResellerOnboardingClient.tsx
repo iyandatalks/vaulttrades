@@ -101,17 +101,17 @@ export default function ResellerOnboardingClient() {
           </form>
 
           <section style={{ marginTop: 30 }}>
-            <span className="vt-member-kicker">STEP 2 · HOW CHECKOUT IS ROUTED</span>
+            <span className="vt-member-kicker">STEP 2 · CHECKOUT ROUTING</span>
             <ol className="vt-member-steps">
               <li>The customer chooses Nexus, Nexus Plus or Vortex on your reseller website.</li>
-              <li>The central registration form carries the selected product and your reseller attribution.</li>
-              <li>The checkout uses the PayPal link saved for that exact product.</li>
-              <li>The customer returns to VaultTrades after PayPal checkout.</li>
-              <li>VaultTrades must verify the payment with PayPal before granting the purchased membership.</li>
+              <li>The planned central registration form will capture the selected product and your reseller attribution.</li>
+              <li>Once checkout integration is enabled, it will use the PayPal link saved for that exact product.</li>
+              <li>The reseller's PayPal payment link must be configured to return the customer to VaultTrades.</li>
+              <li>VaultTrades must verify the seller-side payment with PayPal before granting the purchased membership.</li>
             </ol>
             <div className="vt-member-pending">
               <strong>Payment verification is a separate security step.</strong>
-              <span>A PayPal return page is not proof of payment. The live reseller-payment verification connection must be completed before customer memberships can be activated automatically from reseller-owned PayPal links.</span>
+              <span>A PayPal return page is not proof of payment. Saving your links does not activate customer access. PayPal's browser return is not proof of payment. Automatic activation requires an approved PayPal connected-seller/platform verification method; the links alone do not provide that verification.</span>
             </div>
           </section>
 
