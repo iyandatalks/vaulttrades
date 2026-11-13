@@ -210,3 +210,65 @@
   .vto-story-photo{min-height:340px;height:340px}
   .vto-story-cta{width:100%;min-height:54px}
 }
+
+
+/* Five-channel commercial opportunity section */
+.vto-income-section{padding:96px 0;background:radial-gradient(circle at 8% 4%,rgba(212,166,55,.13),transparent 34%),linear-gradient(145deg,#080d17,#050812 68%);border-top:1px solid rgba(212,166,55,.22);border-bottom:1px solid rgba(212,166,55,.22)}
+.vto-income-heading{max-width:790px;margin:0 auto 42px;text-align:center}
+.vto-income-heading h2{margin:15px 0;font-size:clamp(36px,5vw,60px);line-height:1.04;letter-spacing:-.05em}
+.vto-income-heading h2 span{color:var(--vto-gold)}
+.vto-income-heading p{color:var(--vto-muted);font-size:14px;line-height:1.85}
+.vto-income-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.vto-income-card{position:relative;min-height:245px;padding:24px;border:1px solid rgba(212,166,55,.24);border-radius:13px;background:linear-gradient(150deg,rgba(22,33,51,.96),rgba(9,14,24,.98));box-shadow:0 16px 38px rgba(0,0,0,.18)}
+.vto-income-card-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.vto-income-card-top>span{color:var(--vto-gold);font-size:11px;font-weight:950;letter-spacing:.14em}
+.vto-income-card-top>b{padding:7px 9px;border:1px solid rgba(212,166,55,.35);border-radius:5px;color:#e6c878;font-size:8px;letter-spacing:.1em;text-align:right}
+.vto-income-card h3{margin:23px 0 10px;font-size:14px;line-height:1.5;letter-spacing:.07em}
+.vto-income-card>p{margin:0;color:#c1c8d5;font-size:12px;line-height:1.8}
+.vto-income-detail{margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.09);color:#8792a5;font-size:10px;line-height:1.7}
+.vto-income-flow{display:grid;grid-template-columns:.8fr 1.2fr;gap:35px;align-items:center;margin-top:24px;padding:30px;border:1px solid rgba(212,166,55,.25);border-radius:14px;background:linear-gradient(115deg,rgba(212,166,55,.09),rgba(255,255,255,.018))}
+.vto-income-flow-copy h3{margin:12px 0;font-size:25px;line-height:1.2}
+.vto-income-flow-copy p{color:var(--vto-muted);font-size:12px;line-height:1.8}
+.vto-flow-diagram{min-width:0}
+.vto-flow-core{width:max-content;max-width:100%;margin:0 auto;padding:14px 25px;border:1px solid rgba(212,166,55,.8);border-radius:9px;background:#121b2a;text-align:center;box-shadow:0 0 28px rgba(212,166,55,.12)}
+.vto-flow-core strong,.vto-flow-core span{display:block}
+.vto-flow-core strong{font-size:13px;letter-spacing:.14em}
+.vto-flow-core span{margin-top:5px;color:var(--vto-gold);font-size:8px;font-weight:900;letter-spacing:.15em}
+.vto-flow-lines{height:34px;display:flex;justify-content:center;gap:18%;padding-top:0;border-bottom:1px solid rgba(212,166,55,.45);margin:0 8%}
+.vto-flow-lines i{width:1px;height:34px;background:rgba(212,166,55,.6)}
+.vto-flow-nodes{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px}
+.vto-flow-nodes>div{min-height:77px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:7px;padding:8px 3px;border:1px solid rgba(212,166,55,.25);border-radius:7px;background:rgba(5,8,18,.65);text-align:center}
+.vto-flow-nodes b{color:var(--vto-gold);font-size:9px}
+.vto-flow-nodes span{font-size:7px;line-height:1.5;font-weight:900;letter-spacing:.06em}
+.vto-revenue-calculator{display:grid;grid-template-columns:1fr .9fr;gap:30px;margin-top:24px;padding:32px;border:1px solid rgba(212,166,55,.55);border-radius:15px;background:linear-gradient(135deg,#111c2c,#090e18 72%);box-shadow:0 22px 60px rgba(0,0,0,.24)}
+.vto-calculator-copy h3{max-width:450px;margin:12px 0;font-size:28px;line-height:1.15;letter-spacing:-.03em}
+.vto-calculator-copy>p{max-width:550px;color:var(--vto-muted);font-size:12px;line-height:1.8}
+.vto-calculator-inputs{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:23px}
+.vto-calculator-inputs label{display:flex;flex-direction:column;gap:8px}
+.vto-calculator-inputs label span{color:#d8c38e;font-size:8px;font-weight:950;letter-spacing:.1em}
+.vto-calculator-inputs input{width:100%;min-height:46px;padding:10px 12px;border:1px solid rgba(212,166,55,.35);border-radius:7px;outline:none;background:#070c15;color:#fff;font:700 15px Inter,Arial,sans-serif}
+.vto-calculator-inputs input:focus{border-color:var(--vto-gold);box-shadow:0 0 0 3px rgba(212,166,55,.12)}
+.vto-calculator-copy>small{display:block;margin-top:14px;color:#8993a4;font-size:9px;line-height:1.7}
+.vto-calculator-results{display:flex;flex-direction:column;justify-content:center;padding:23px;border:1px solid rgba(255,255,255,.1);border-radius:10px;background:rgba(4,8,15,.68)}
+.vto-calculator-result-main{padding-bottom:19px;border-bottom:1px solid rgba(255,255,255,.1)}
+.vto-calculator-result-main span,.vto-calculator-split span{display:block;color:#aeb8c8;font-size:8px;font-weight:950;letter-spacing:.13em}
+.vto-calculator-result-main strong{display:block;margin-top:7px;color:#fff;font-size:clamp(30px,4vw,43px);letter-spacing:-.05em}
+.vto-calculator-split{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding-top:19px}
+.vto-calculator-split strong{display:block;margin:8px 0 11px;color:var(--vto-gold);font-size:21px;letter-spacing:-.03em}
+.vto-calculator-split>div:last-child strong{color:#c5cedc}
+.vto-calculator-split i{display:block;height:5px;overflow:hidden;border-radius:10px;background:rgba(255,255,255,.12)}
+.vto-calculator-split i b{display:block;height:100%;border-radius:10px;background:var(--vto-gold)}
+.vto-calculator-split>div:last-child i b{background:#8c98aa}
+.vto-calculator-foot{margin-top:20px;padding-top:13px;border-top:1px solid rgba(255,255,255,.08);color:#7f8999;font-size:9px;line-height:1.6}
+.vto-operating-costs{display:grid;grid-template-columns:1fr auto;gap:25px;align-items:center;margin-top:18px;padding:24px 28px;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(255,255,255,.025)}
+.vto-operating-costs h3{margin:9px 0 6px;font-size:17px}
+.vto-operating-costs p{max-width:740px;margin:0;color:var(--vto-muted);font-size:11px;line-height:1.8}
+.vto-cost-pills{display:flex;gap:10px}
+.vto-cost-pills>span{min-width:130px;padding:13px;border:1px solid rgba(212,166,55,.25);border-radius:8px;background:rgba(212,166,55,.06)}
+.vto-cost-pills b,.vto-cost-pills small{display:block}
+.vto-cost-pills b{font-size:24px;color:var(--vto-gold)}
+.vto-cost-pills small{margin-top:4px;color:#b8c0ce;font-size:7px;font-weight:900;letter-spacing:.08em;line-height:1.5}
+.vto-income-disclaimer{max-width:1000px;margin:22px auto 0;color:#929bad;font-size:10px;line-height:1.8;text-align:center}
+.vto-income-actions{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:25px}
+@media(max-width:900px){.vto-income-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.vto-income-flow,.vto-revenue-calculator{grid-template-columns:1fr}.vto-operating-costs{grid-template-columns:1fr}.vto-cost-pills{flex-wrap:wrap}}
+@media(max-width:620px){.vto-income-section{padding:68px 0}.vto-income-grid{grid-template-columns:1fr}.vto-income-card{min-height:0}.vto-income-flow,.vto-revenue-calculator{padding:21px}.vto-flow-nodes{gap:4px}.vto-flow-nodes>div{min-height:68px;padding:5px 1px}.vto-flow-nodes span{font-size:6px}.vto-flow-lines{margin:0 5%}.vto-calculator-inputs,.vto-calculator-split{grid-template-columns:1fr}.vto-cost-pills{display:grid;grid-template-columns:1fr 1fr}.vto-cost-pills>span{min-width:0}.vto-income-actions .vto-button{width:100%}}
