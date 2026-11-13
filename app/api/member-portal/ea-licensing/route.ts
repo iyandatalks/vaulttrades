@@ -24,7 +24,7 @@ export async function GET() {
   const { data: { user } } = await auth.auth.getUser();
   if (!user) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
 
-  const db = createAdminClient();
+  const db = process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : auth;
   const { data: profile } = await db.from("users").select("id,role").eq("auth_user_id", user.id).maybeSingle();
   if (!profile) return NextResponse.json({ error: "PROFILE_NOT_FOUND" }, { status: 404 });
 
