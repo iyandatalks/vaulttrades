@@ -1,4 +1,5 @@
 import "./opportunity.css";
+import OpportunityIncomeSection from "./OpportunityIncomeSection";
 import Link from "next/link";
 import fs from "node:fs";
 import path from "node:path";
@@ -200,17 +201,7 @@ export default function OpportunityPage() {
         </div>
       </section>
 
-      <section className="vto-learning-band">
-        <div className="vto-container">
-          <div className="vto-section-heading"><div className="vto-kicker">A GUIDED LEARNING JOURNEY</div><h2>Build capability step by step.</h2><p>Start with the foundations, practise the skills and develop at a pace that suits your circumstances.</p></div>
-          <div className="vto-learning-grid">
-            {learningSteps.map(([title, description], index) => (
-              <article key={title}><span>PHASE 0{index + 1}</span><h3>{title}</h3><p>{description}</p></article>
-            ))}
-          </div>
-        </div>
-      </section>
-
+      <OpportunityIncomeSection />
 
       <section className="vto-dark-band">
         <div className="vto-container vto-split">
