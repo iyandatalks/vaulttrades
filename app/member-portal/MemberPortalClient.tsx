@@ -608,7 +608,7 @@ export default function MemberPortalClient({
             <small>GUIDE {String(activeIndex).padStart(2, "0")} / {visibleSections.length}</small>
           </div>
           {renderContent()}
-          <ResourceShelf active={active} resources={knowledgeResources.filter(resource => resource.section_id === active)} isAdmin={isAdmin} onResourcesChange={setKnowledgeResources} />
+          <ResourceShelf key={active} active={active} resources={knowledgeResources.filter(resource => resource.section_id === active)} isAdmin={isAdmin} onResourcesChange={(items) => setKnowledgeResources(current => [...current.filter(resource => resource.section_id !== active), ...items])} />
           <div className="vt-member-content-footer">
             <span>VaultTrades Member Knowledge Base</span>
             <button type="button" onClick={() => { const next = visibleSections[Math.min(activeIndex, visibleSections.length - 1)]; setActive(next.id); window.scrollTo({ top: 0, behavior: "smooth" }); }} disabled={activeIndex >= visibleSections.length}>Next topic →</button>
@@ -667,7 +667,7 @@ const resourceSlots: Record<string, { title: string; kind: string; note: string 
 };
 
 function ResourceShelf({ active, resources, isAdmin, onResourcesChange }: { active: string; resources: KnowledgeResource[]; isAdmin: boolean; onResourcesChange: (items: KnowledgeResource[]) => void }) {
-  const slots = resourceSlots[active] ?? [];
+  const slots = (resourceSlots[active] ?? []).filter(slot => !resources.some(resource => resource.title.toLowerCase() === slot.title.toLowerCase()));
   const [editing, setEditing] = useState<KnowledgeResource | null>(null);
   const [title, setTitle] = useState("");
   const [kind, setKind] = useState("External link");
