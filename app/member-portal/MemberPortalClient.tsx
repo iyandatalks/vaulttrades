@@ -90,6 +90,19 @@ export default function MemberPortalClient({
   const [websiteSubmitting, setWebsiteSubmitting] = useState(false);
   const [websiteMessage, setWebsiteMessage] = useState("");
   useEffect(() => { fetch("/api/member-portal/content", { cache: "no-store" }).then(r => r.ok ? r.json() : Promise.reject(new Error("Resources unavailable"))).then(data => setKnowledgeResources(data.resources ?? [])).catch(() => setKnowledgeResources([])); }, []);
+  useEffect(() => {
+    const refreshLicensing = async () => {
+      try {
+        const response = await fetch("/api/member-portal/ea-licensing", { cache: "no-store" });
+        if (!response.ok) return;
+        const data = await response.json();
+        setRequests(data.requests ?? []);
+      } catch { /* Keep the last known delivery status if the network is temporarily unavailable. */ }
+    };
+    const interval = window.setInterval(() => { void refreshLicensing(); }, 30000);
+    window.addEventListener("focus", refreshLicensing);
+    return () => { window.clearInterval(interval); window.removeEventListener("focus", refreshLicensing); };
+  }, []);
   const visibleSections = sections.filter(item => isAdmin || item.id !== "admin");
   const groups = useMemo(() => {
     const result: { group: string; items: typeof sections[number][] }[] = [];
