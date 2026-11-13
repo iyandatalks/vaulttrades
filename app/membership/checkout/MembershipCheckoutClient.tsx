@@ -1,33 +1,35 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 
 type PlanCode = "nexus" | "nexus_plus" | "vortex";
 type Plan = { name: string; price: number; description: string };
 
 export default function MembershipCheckoutClient({ planCode, plan, email }: { planCode: PlanCode; plan: Plan; email: string }) {
-  const [website, setWebsite] = useState(false);
-  const total = plan.price + (website ? 39 : 0);
+  const websiteSetupFee = 39;
+  const total = plan.price + websiteSetupFee;
 
   return (
     <main className="vt-checkout-shell">
       <section className="vt-checkout-card">
         <div className="vt-checkout-kicker">MEMBERSHIP SELECTION</div>
         <h1>Your selected plan</h1>
-        <p className="vt-checkout-intro">Your VaultTrades profile is ready. Review your selected membership and optional website setup below.</p>
+        <p className="vt-checkout-intro">Review your selected membership and the required personal website setup. The website is part of the reseller onboarding process.</p>
         <div className="vt-checkout-plan">
           <div><span>SELECTED MEMBERSHIP</span><h2>{plan.name}</h2><p>{plan.description}</p></div>
           <strong>${plan.price.toFixed(2)} <small>USD</small></strong>
         </div>
-        <label className="vt-checkout-addon">
-          <input type="checkbox" checked={website} onChange={event => setWebsite(event.target.checked)} />
-          <span><strong>Add optional personal website setup</strong><small>$39 USD once-off. Hosting, maintenance and domain charges, if applicable, are separate and will be confirmed before purchase.</small></span>
+        <div className="vt-checkout-addon">
+          <span><strong>Required personal website setup</strong><small>$39 USD once-off. This setup is mandatory for the reseller programme and is added to your membership fee.</small></span>
           <b>$39</b>
-        </label>
-        <div className="vt-checkout-total"><span>Selection total before any separately confirmed recurring charges</span><strong>${total.toFixed(2)} USD</strong></div>
+        </div>
+        <div className="vt-checkout-pending">
+          <strong>Personalised domain — optional</strong>
+          <span>You can use the standard VaultTrades website address or request a connection to a domain you own. If you choose your own domain, submit its details after purchase. Any domain purchase or connection fee will be confirmed separately before work begins.</span>
+        </div>
+        <div className="vt-checkout-total"><span>Membership + required website setup</span><strong>${total.toFixed(2)} USD</strong></div>
         <div className="vt-checkout-account">Profile: {email}</div>
-        <div className="vt-checkout-pending"><strong>Payment checkout is being connected.</strong><span>Your plan and optional website selection are displayed here. Payment will only be enabled after the VaultTrades master reseller checkout and payment-confirmation workflow is connected. No payment has been taken.</span></div>
+        <div className="vt-checkout-pending"><strong>Payment checkout is being connected.</strong><span>Your selected plan and required website setup are displayed here. Payment is not connected yet. No payment has been taken and no membership has been activated.</span></div>
         <div className="vt-checkout-actions"><Link href="/plans" className="vt-checkout-secondary">Change plan</Link><Link href="/profile" className="vt-checkout-secondary">Open profile</Link></div>
       </section>
     </main>
