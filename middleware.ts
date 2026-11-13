@@ -74,6 +74,24 @@ export async function middleware(request: NextRequest) {
     return isAdmin ? response : new NextResponse(null, { status: 404 });
   }
 
+  if (isPath(pathname, "/member-portal")) {
+    if (isAdmin) return response;
+    if (!profile?.id) return new NextResponse(null, { status: 404 });
+    const { data: resellerLicences } = await supabase
+      .from("product_licenses")
+      .select("entitlement_code,status,start_at,end_at")
+      .eq("user_id", profile.id)
+      .eq("status", "active")
+      .in("entitlement_code", ["nexus", "vaulttrades_nexus", "nexus_plus", "vaulttrades_nexus_plus", "vortex", "vaulttrades_vortex"]);
+    const now = Date.now();
+    const hasResellerAccess = (resellerLicences ?? []).some(row => {
+      const start = row.start_at ? new Date(row.start_at).getTime() : 0;
+      const end = row.end_at ? new Date(row.end_at).getTime() : Number.POSITIVE_INFINITY;
+      return Number.isFinite(start) && start <= now && end > now;
+    });
+    return hasResellerAccess ? response : new NextResponse(null, { status: 404 });
+  }
+
   const matchedFeaturePath = Object.keys(featureProtectedPaths).find(path => isPath(pathname, path));
   if (matchedFeaturePath) {
     if (isAdmin) return response;
