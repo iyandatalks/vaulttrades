@@ -37,3 +37,51 @@
 @media(max-width:520px){.vt-member-resource-heading{align-items:flex-start;flex-direction:column}.vt-member-content-toolbar{align-items:flex-start}.vt-member-content-toolbar>small{font-size:8px}}
 
 .vt-member-resource-pending-button{grid-column:2;justify-self:start;padding:8px 10px;border:1px solid rgba(212,166,55,.25);border-radius:7px;background:rgba(212,166,55,.06);color:#8d7a4a;font-size:9px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;cursor:not-allowed;opacity:.85}
+
+/* Community month calendar */
+.vt-community-calendar{margin:28px 0;padding:20px;border:1px solid rgba(212,166,55,.22);border-radius:14px;background:#080e18}
+.vt-community-calendar-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:18px}
+.vt-community-calendar-head h2{margin:5px 0!important;font-size:22px!important}
+.vt-community-calendar-head p,.vt-calendar-admin-form>div p{margin:0;color:#8f9caf;font-size:11px;line-height:1.6}
+.vt-calendar-month-switch{display:flex;align-items:center;gap:10px;white-space:nowrap}
+.vt-calendar-month-switch strong{color:#f5f6fa;font-size:12px;min-width:130px;text-align:center}
+.vt-calendar-month-switch button{width:31px;height:31px;border:1px solid rgba(212,166,55,.3);border-radius:8px;background:#101a29;color:#e5bd55;font-size:20px;cursor:pointer}
+.vt-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
+.vt-calendar-weekday{text-align:center;padding:8px 2px;color:#758197;font-size:9px;font-weight:900;text-transform:uppercase}
+.vt-calendar-day{display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:9px;min-height:67px;padding:8px;border:1px solid rgba(255,255,255,.07);border-radius:8px;background:#0c1421;color:#dce2ed;text-align:left;cursor:pointer}
+.vt-calendar-day.outside{opacity:.15;cursor:default}
+.vt-calendar-day.today{border-color:rgba(212,166,55,.65)}
+.vt-calendar-day.selected{background:rgba(212,166,55,.13);border-color:#d4a637}
+.vt-calendar-day>span{font-size:11px;font-weight:900}
+.vt-calendar-day i{color:#e5bd55;font-size:8px;font-style:normal;font-weight:800}
+.vt-calendar-day-events{margin-top:20px}
+.vt-calendar-day-events h3,.vt-calendar-admin-form h3{margin:0 0 11px;color:#fff;font-size:14px}
+.vt-calendar-event{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:8px 0;padding:13px;border:1px solid rgba(212,166,55,.22);border-radius:10px;background:#0c1421}
+.vt-calendar-event>div:first-child{display:grid;gap:3px}
+.vt-calendar-event>div:first-child>span{color:#d4b45d;font-size:9px;font-weight:900}
+.vt-calendar-event strong{color:#fff;font-size:12px}
+.vt-calendar-event p{margin:2px 0 0;color:#9eabba;font-size:11px}
+.vt-calendar-admin-actions{display:flex;gap:8px}
+.vt-calendar-admin-actions button,.vt-member-resource-admin-actions button,.vt-member-admin-select{padding:7px 9px;border:1px solid rgba(212,166,55,.25);border-radius:7px;background:transparent;color:#e5bd55;font-size:10px;font-weight:800;cursor:pointer}
+.vt-calendar-announcement{margin-top:22px;padding-top:18px;border-top:1px solid rgba(255,255,255,.08)}
+.vt-calendar-announcement>p{color:#8f9caf;font-size:11px}
+.vt-calendar-announcement-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.vt-calendar-announcement-row>div{display:grid;gap:3px}
+.vt-calendar-announcement-row strong{color:#f5f6fa;font-size:11px}
+.vt-calendar-announcement-row small{color:#8592a7;font-size:9px}
+.vt-calendar-announcement-row a{color:#e5bd55;font-size:10px;font-weight:900;text-decoration:none;white-space:nowrap}
+.vt-calendar-admin-form{margin-top:22px;padding-top:20px;border-top:1px solid rgba(255,255,255,.08)}
+.vt-calendar-admin-form>div{margin-bottom:12px}
+.vt-calendar-time-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.vt-calendar-form-actions{display:flex;gap:9px;flex-wrap:wrap}
+.vt-member-resource-explainer{margin:0 0 13px;color:#8f9caf!important;font-size:11px!important}
+.vt-member-resource-open{grid-column:2;justify-self:start;color:#e5bd55;font-size:10px;font-weight:900;text-decoration:none}
+.vt-member-resource-admin-actions{grid-column:2;display:flex;gap:8px}
+.vt-member-resource-editor{margin-top:20px;padding-top:18px;border-top:1px solid rgba(255,255,255,.08)}
+.vt-member-resource-editor h3,.vt-member-admin-card h2{margin:0 0 8px;color:#fff;font-size:16px}
+.vt-member-admin-workspace>h1{margin:8px 0 14px;color:#fff;font-size:clamp(28px,4vw,40px);line-height:1.1}
+.vt-member-admin-info,.vt-member-admin-card{margin:20px 0;padding:18px;border:1px solid rgba(212,166,55,.22);border-radius:12px;background:#080e18}
+.vt-member-admin-info strong{color:#e5bd55;font-size:13px}
+.vt-member-admin-info p,.vt-member-admin-card>p{margin:7px 0 0;color:#9eabba;font-size:12px;line-height:1.65}
+.vt-member-admin-card .vt-member-form{margin-bottom:0}
+@media(max-width:620px){.vt-community-calendar{padding:13px}.vt-community-calendar-head{align-items:flex-start;flex-direction:column}.vt-calendar-day{min-height:54px;padding:6px}.vt-calendar-time-fields{grid-template-columns:1fr}.vt-calendar-event{align-items:flex-start;flex-direction:column}.vt-calendar-month-switch{width:100%;justify-content:space-between}}
