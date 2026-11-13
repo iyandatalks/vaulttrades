@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type MemberUser={id:string;email:string;first_name:string|null;last_name:string|null};
 type LicensingRequest={id:string;user_id:string;member_email:string;broker_name:string;broker_server:string|null;mt5_login:string;product_code:string;status:string;submitted_at:string;license_resource_name:string|null;license_resource_url:string|null};
@@ -14,7 +14,7 @@ export default function MemberPortalAdminPanel(){
   const [resourceUrl,setResourceUrl]=useState("");
   const [phone,setPhone]=useState("27746653633");
   const [message,setMessage]=useState("");
-  const [loading,setLoading]=useState(false);
+  const [loading,setLoading]=useState(false);\n\n  useEffect(()=>{fetch("/api/member-portal/admin",{cache:"no-store"}).then(r=>r.ok?r.json():Promise.reject()).then(data=>{if(data.adminWhatsappNumber)setPhone(data.adminWhatsappNumber);}).catch(()=>{});},[]);
 
   async function searchMembers(event:React.FormEvent<HTMLFormElement>){
     event.preventDefault();setLoading(true);setMessage("");
@@ -82,7 +82,7 @@ export default function MemberPortalAdminPanel(){
       <p>When a member submits an MT5 licensing request, VaultTrades saves it to the database and creates an admin inbox notification. The member's browser then opens WhatsApp with the exact request details prefilled to this number.</p>
       <form className="vt-member-form" onSubmit={savePhone}>
         <label>WhatsApp number including country code<input required inputMode="tel" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="27746653633"/></label>
-        <p className="vt-member-form-note">Use digits with the country code, without a leading plus. Current configured number: 27 74 665 3633.</p>
+        <p className="vt-member-form-note">Use digits with the country code, without a leading plus. Current configured number: {phone}.</p>
         <button className="vt-member-button" type="submit" disabled={loading}>Save WhatsApp number</button>
       </form>
       <p className="vt-member-note">Important: the database submission happens first. WhatsApp opens with the message ready; the member must press Send in WhatsApp. The website cannot silently send a WhatsApp message without an approved WhatsApp Business API integration.</p>
