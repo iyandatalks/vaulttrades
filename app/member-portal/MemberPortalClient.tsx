@@ -317,7 +317,7 @@ export default function MemberPortalClient({
           <h2>Attach to your chart</h2>
           <ol><li>Open the intended instrument chart.</li><li>Select H4 for the primary Nexus setup or M15 for the secondary setup.</li><li>Drag VaultTrades Nexus from Navigator → Expert Advisors onto the chart.</li><li>In the Common tab, allow Algo Trading. Confirm the main MT5 Algo Trading toolbar switch is enabled.</li><li>Click OK and confirm the EA is running. Check the Experts tab for startup messages and account/symbol detection.</li></ol>
           <p className="vt-member-note">Do not attach Nexus Plus using this standard Nexus guide. Nexus Plus has an additional core-file dependency and its own H1 recommendation.</p>
-          <p>The MT5 terminal must remain running and connected for a locally hosted EA to operate. A VPS is an optional way to keep the terminal running remotely.</p>
+          <p>The VaultTrades EA requires a compatible VPS. The MT5 terminal must remain connected on that VPS for automated execution.</p>
         </>;
       case "understanding":
         return <>
@@ -389,7 +389,7 @@ export default function MemberPortalClient({
             <details><summary>The EA says the volume is too small or refuses sizing.</summary><p>Review the broker's minimum lot, lot step, contract specification and available margin. If the broker minimum forces a larger volume, the resulting risk may exceed the configured percentage.</p></details>
             <details><summary>The instrument is not available.</summary><p>Check the broker's exact symbol in Market Watch and read the resolved symbol in the startup log. Do not substitute a different instrument just because its name looks similar.</p></details>
             <details><summary>The order was rejected.</summary><p>Read the Experts and Journal tabs for the broker retcode and reason. Common causes include disabled trading, insufficient margin, invalid volume, market closure or symbol restrictions.</p></details>
-            <details><summary>Will the EA run if I close my computer?</summary><p>Not when it is running locally. Your computer and MT5 terminal must remain on and connected. An optional VPS can host the terminal remotely.</p></details>
+            <details><summary>Will the EA run if I close my computer?</summary><p>The EA must be installed on the required VPS, not run locally on your personal computer. Keep the VPS and MT5 terminal active and monitor their connection.</p></details>
           </div>
         </>;
       case "nexus-plus":
@@ -408,7 +408,7 @@ export default function MemberPortalClient({
           <h2>Why the VPS is compulsory</h2><ul><li>The VaultTrades EA is supplied for automated operation, not local manual execution.</li><li>MetaTrader 5 runs on the remote VPS rather than depending on your personal computer.</li><li>You can access the remote desktop to monitor the terminal and connection.</li></ul>
           <h2>VPS setup requirements</h2>
           <ol><li>Choose a Windows VPS that meets the MetaTrader 5 and EA system requirements.</li><li>Use a provider and server location compatible with your approved broker.</li><li>Install MT5 on the VPS and sign in to your own trading account.</li><li>Install the licensed EA and verify its status before allowing live execution.</li><li>Keep your VPS subscription active and monitor its availability.</li></ol>
-          {vpsRegistrationUrl ? <a className="vt-member-button" href={vpsRegistrationUrl} target="_blank" rel="noreferrer">View recommended VPS partner ↗</a> : <div className="vt-member-pending"><strong>Recommended VPS partner link is being finalised</strong><span>You can still choose your own VPS provider or run MT5 locally. The partner link will be added when the affiliate arrangement is confirmed.</span></div>}
+          {vpsRegistrationUrl ? <a className="vt-member-button" href={vpsRegistrationUrl} target="_blank" rel="noreferrer">View recommended VPS partner ↗</a> : <div className="vt-member-pending"><strong>Recommended VPS partner link is being finalised</strong><span>You may choose a compatible VPS provider, but the EA must run on a VPS. The recommended partner link will be added when the affiliate arrangement is confirmed.</span></div>}
           <p className="vt-member-note">A VPS is compulsory for the EA automation route and normally carries a separate recurring subscription. Compare Windows support, memory, CPU, location, latency to your broker server, support and cancellation terms. A VPS does not guarantee uninterrupted service, successful execution or profits.</p>
         </>;
       case "daily":
