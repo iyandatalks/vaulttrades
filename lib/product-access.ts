@@ -1,7 +1,7 @@
 import { createAdminClient } from "./supabase/admin";
 import { COPY_TRADING_ENTITLEMENT } from "./copy-access";
 
-const PAID_PRODUCT_FEATURES = ["analyzer", COPY_TRADING_ENTITLEMENT, "founders_mentorship"] as const;
+const PAID_PRODUCT_FEATURES = ["analyzer", COPY_TRADING_ENTITLEMENT, "founders_mentorship", "journal_tools", "signals"] as const;
 
 export type ProductAccess = {
   admin: boolean;
@@ -9,6 +9,8 @@ export type ProductAccess = {
   analyzer: boolean;
   copy: boolean;
   foundersMentorship: boolean;
+  tools: boolean;
+  signals: boolean;
   userId: string | null;
 };
 
@@ -28,6 +30,8 @@ export async function getProductAccess(authUserId: string): Promise<ProductAcces
       analyzer: false,
       copy: false,
       foundersMentorship: false,
+      tools: false,
+      signals: false,
       userId: null,
     };
   }
@@ -39,6 +43,8 @@ export async function getProductAccess(authUserId: string): Promise<ProductAcces
       analyzer: true,
       copy: true,
       foundersMentorship: true,
+      tools: true,
+      signals: true,
       userId: profile.id,
     };
   }
@@ -73,7 +79,9 @@ export async function getProductAccess(authUserId: string): Promise<ProductAcces
   const analyzer = activeFeature("analyzer") || activeLicense("analyzer");
   const copy = activeFeature(COPY_TRADING_ENTITLEMENT) || activeLicense(COPY_TRADING_ENTITLEMENT);
   const foundersMentorship = activeFeature("founders_mentorship") || activeLicense("founders_mentorship");
-  const anyPaidProduct = analyzer || copy || foundersMentorship;
+  const tools = activeFeature("journal_tools") || activeLicense("journal_tools");
+  const signals = activeFeature("signals") || activeLicense("signals");
+  const anyPaidProduct = analyzer || copy || foundersMentorship || tools || signals;
 
   return {
     admin: false,
@@ -81,6 +89,8 @@ export async function getProductAccess(authUserId: string): Promise<ProductAcces
     analyzer,
     copy,
     foundersMentorship,
+    tools,
+    signals,
     userId: profile.id,
   };
 }
