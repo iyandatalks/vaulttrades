@@ -10,17 +10,21 @@ const plans = {
   vortex: { name: "VaultTrades Vortex", price: 550, description: "The complete membership with advanced risk resources and one-on-one mentorship." },
 } as const;
 
-export default async function MembershipCheckoutPage({ searchParams }: { searchParams: Promise<{ plan?: string }> }) {
+export default async function MembershipCheckoutPage({ searchParams }: { searchParams: Promise<{ plan?: string; ref?: string; declaration?: string; token?: string; payment?: string }> }) {
   const params = await searchParams;
   const planCode = params.plan as keyof typeof plans;
+  const resellerCode = String(params.ref ?? "").trim().toUpperCase();
+  const declarationId = String(params.declaration ?? "").trim();
+  const paypalToken = String(params.token ?? "").trim();
+  const paymentStatus = String(params.payment ?? "");
   if (!planCode || !plans[planCode]) redirect("/plans");
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    const next = `/membership/checkout?plan=${encodeURIComponent(planCode)}`;
-    redirect(`/auth/register?next=${encodeURIComponent(next)}`);
+    const next = `/membership/checkout?plan=${encodeURIComponent(planCode)}&ref=${encodeURIComponent(resellerCode)}`;
+    redirect(`/auth/register?next=${encodeURIComponent(next)}&ref=${encodeURIComponent(resellerCode)}`);
   }
 
-  return <MembershipCheckoutClient planCode={planCode} plan={plans[planCode]} email={user.email ?? ""} />;
+  return <MembershipCheckoutClient planCode={planCode} plan={plans[planCode]} email={user.email ?? ""} resellerCode={resellerCode} declarationId={declarationId} paypalToken={paypalToken} paymentStatus={paymentStatus} />;
 }
