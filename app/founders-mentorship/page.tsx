@@ -11,6 +11,8 @@ const days = [
   [3, "Day 3", "https://docs.google.com/presentation/d/1-dEDPeRd06nihxCf_o3axBpjV27j6YdJ/edit?usp=drive_link&ouid=107858755837339377719&rtpof=true&sd=true"],
   [4, "Day 4", "https://docs.google.com/presentation/d/1Doxy-jLhlGFyHQUOyPVgbDVUE5AzHiNz/edit?usp=drive_link&ouid=107858755837339377719&rtpof=true&sd=true"],
   [5, "Day 5", "https://docs.google.com/presentation/d/14AhsRXnSJ7E84wAA1CX9RL4Tjy_KFoAS/edit?usp=drive_link&ouid=107858755837339377719&rtpof=true&sd=true"],
+  [6, "Day 6", "https://docs.google.com/presentation/d/1xxFokANpS1G70p2GLB0OVN2t4cnlgfua/edit?usp=drive_link&ouid=107858755837339377719&rtpof=true&sd=true"],
+  [7, "Day 7", "https://docs.google.com/presentation/d/10X6hqEJfi1wV0FaCNI6FHfRCPGeVZrqc/edit?usp=drive_link&ouid=107858755837339377719&rtpof=true&sd=true"],
 ];
 
 export default function Mentorship() {
