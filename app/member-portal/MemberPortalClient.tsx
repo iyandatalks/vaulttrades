@@ -10,7 +10,8 @@ type Plan = "nexus" | "nexus_plus" | "vortex";
 
 type LicensingRequest = { id: string; broker_name: string; broker_server: string | null; mt5_login: string; product_code: string; status: string; admin_notes: string | null; submitted_at: string; license_generated_at: string | null; license_resource_name?: string | null; license_resource_url?: string | null };
 type WebsiteRequest = { id: string; domain_preference: string; preferred_name_1: string | null; preferred_name_2: string | null; preferred_name_3: string | null; custom_domain: string | null; status: string; admin_notes: string | null; assigned_domain: string | null; submitted_at: string };
-type MemberNotification = { id: string; title: string; body: string; action_href: string; notification_type: string; created_at: string; read_at: string | null };\ntype KnowledgeResource = { id: string; section_id: string; title: string; description: string | null; resource_kind: string; resource_url: string; plan_codes: string[]; created_at: string };
+type MemberNotification = { id: string; title: string; body: string; action_href: string; notification_type: string; created_at: string; read_at: string | null };
+type KnowledgeResource = { id: string; section_id: string; title: string; description: string | null; resource_kind: string; resource_url: string; plan_codes: string[]; created_at: string };
 
 type Props = {
   plan: Plan;
@@ -23,6 +24,7 @@ type Props = {
   xmRegistrationUrl: string;
   vpsRegistrationUrl: string;
   requestActionsAvailable: boolean;
+  licensingActionsAvailable: boolean;
 };
 
 const sections = [
@@ -57,7 +59,8 @@ const sections = [
   { id: "tools", label: "Plan-Included Digital Tools", group: "TOOLS & SUPPORT" },
   { id: "risk", label: "Risk & Important Information", group: "TOOLS & SUPPORT" },
   { id: "faq", label: "Frequently Asked Questions", group: "TOOLS & SUPPORT" },
-  { id: "notifications", label: "Member Notifications", group: "TOOLS & SUPPORT" },\n  { id: "admin", label: "Manage Knowledge Base", group: "ADMINISTRATION" },
+  { id: "notifications", label: "Member Notifications", group: "TOOLS & SUPPORT" },
+  { id: "admin", label: "Manage Knowledge Base", group: "ADMINISTRATION" },
 ] as const;
 
 const planNames: Record<Plan, string> = {
@@ -67,10 +70,11 @@ const planNames: Record<Plan, string> = {
 };
 
 export default function MemberPortalClient({
-  plan, isAdmin, memberEmail, referralUrl, licensingRequests, websiteRequests, memberNotifications, xmRegistrationUrl, vpsRegistrationUrl, requestActionsAvailable,
+  plan, isAdmin, memberEmail, referralUrl, licensingRequests, websiteRequests, memberNotifications, xmRegistrationUrl, vpsRegistrationUrl, requestActionsAvailable, licensingActionsAvailable,
 }: Props) {
   const [active, setActive] = useState<string>("welcome");
-  const [topicSearch, setTopicSearch] = useState("");\n  const [knowledgeResources, setKnowledgeResources] = useState<KnowledgeResource[]>([]);
+  const [topicSearch, setTopicSearch] = useState("");
+  const [knowledgeResources, setKnowledgeResources] = useState<KnowledgeResource[]>([]);
   const [copied, setCopied] = useState(false);
   const [requests, setRequests] = useState<LicensingRequest[]>(licensingRequests);
   const [mt5Login, setMt5Login] = useState("");
@@ -84,7 +88,8 @@ export default function MemberPortalClient({
   const [preferredNames, setPreferredNames] = useState(["", "", ""]);
   const [customDomain, setCustomDomain] = useState("");
   const [websiteSubmitting, setWebsiteSubmitting] = useState(false);
-  const [websiteMessage, setWebsiteMessage] = useState("");\n  useEffect(() => { fetch("/api/member-portal/content", { cache: "no-store" }).then(r => r.ok ? r.json() : Promise.reject(new Error("Resources unavailable"))).then(data => setKnowledgeResources(data.resources ?? [])).catch(() => setKnowledgeResources([])); }, []);
+  const [websiteMessage, setWebsiteMessage] = useState("");
+  useEffect(() => { fetch("/api/member-portal/content", { cache: "no-store" }).then(r => r.ok ? r.json() : Promise.reject(new Error("Resources unavailable"))).then(data => setKnowledgeResources(data.resources ?? [])).catch(() => setKnowledgeResources([])); }, []);
   const groups = useMemo(() => {
     const result: { group: string; items: typeof sections[number][] }[] = [];
     const query = topicSearch.trim().toLowerCase();
@@ -95,7 +100,7 @@ export default function MemberPortalClient({
       group.items.push(item);
     }
     return result;
-  }, [topicSearch]);
+  }, [topicSearch, isAdmin]);
   const activeSection = sections.find(item => item.id === active) ?? sections[0];
   const activeIndex = sections.findIndex(item => item.id === active) + 1;
 
@@ -125,7 +130,8 @@ export default function MemberPortalClient({
       setRequests(current => [data.request, ...current]);
       setMt5Login("");
       setBrokerServer("");
-      setSubmitMessage(data.message || "Your licensing request has been submitted.");\n      if (data.whatsappUrl) window.location.assign(data.whatsappUrl);
+      setSubmitMessage(data.message || "Your licensing request has been submitted.");
+      if (data.whatsappUrl) window.location.assign(data.whatsappUrl);
     } catch (error) {
       setSubmitMessage(error instanceof Error ? error.message : "Unable to submit your request.");
     } finally { setSubmitting(false); }
@@ -194,7 +200,9 @@ export default function MemberPortalClient({
           </ol>
           <p className="vt-member-note">Use the left-hand topics in order. Supporting materials are added as named links to approved cloud-hosted resources, rather than uploading large files into the website.</p>
         </>;
-      case "admin":\n        return isAdmin ? <MemberPortalAdminPanel /> : <><h1>Not available.</h1></>;\n      case "notifications":
+      case "admin":
+        return isAdmin ? <MemberPortalAdminPanel /> : <><h1>Not available.</h1></>;
+      case "notifications":
         return <>
           <Eyebrow>MEMBER UPDATES</Eyebrow><h1>Your notifications.</h1>
           <p className="vt-member-lead">Important updates about your EA licensing and optional website setup appear here.</p>
@@ -211,7 +219,8 @@ export default function MemberPortalClient({
           <a className="vt-member-button" href="/vaulttrades-community">Open VaultTrades Community</a>
           <h2>What to look out for</h2>
           <ul><li>Important product and member announcements.</li><li>Updates when a Google Meet trading-room session is scheduled.</li><li>Support guidance and notices about changes to the installation process.</li><li>Links to relevant learning sessions and resources.</li></ul>
-          <CommunityCalendar isAdmin={isAdmin} />\n          <p className="vt-member-note">Only meetings displayed in this calendar are current. Open the meeting button at the scheduled time. Do not reuse an old meeting URL.</p>
+          <CommunityCalendar isAdmin={isAdmin} />
+          <p className="vt-member-note">Only meetings displayed in this calendar are current. Open the meeting button at the scheduled time. Do not reuse an old meeting URL.</p>
         </>;
       case "broker":
         return <>
@@ -247,8 +256,8 @@ export default function MemberPortalClient({
               <input value={brokerServer} onChange={event => setBrokerServer(event.target.value)} maxLength={120} placeholder="For example, XM server name shown in MT5" />
             </label>
             <p className="vt-member-form-note">Broker: XM. Submit the MT5 account number only. Do not submit your trading password, investor password or one-time security code.</p>
-            {!requestActionsAvailable && <p className="vt-member-form-note">Admin preview: the guide and layout are available. MT5 request submission is disabled in this preview environment.</p>}
-             <button className="vt-member-button" type="submit" disabled={submitting || !requestActionsAvailable}>{submitting ? "Submitting…" : "Submit MT5 number"}</button>
+            {!licensingActionsAvailable && <p className="vt-member-form-note">MT5 request submission is temporarily unavailable.</p>}
+             <button className="vt-member-button" type="submit" disabled={submitting || !licensingActionsAvailable}>{submitting ? "Submitting…" : "Submit MT5 number"}</button>
             {submitMessage && <p className="vt-member-submit-message" role="status">{submitMessage}</p>}
           </form>
           <h2>Your licensing requests</h2>
@@ -682,7 +691,7 @@ function ResourceShelf({ active, resources, isAdmin, onResourcesChange }: { acti
       })});
       const data=await response.json(); if(!response.ok) throw new Error(data.error||"Unable to save link.");
       onResourcesChange([...resources.filter(item=>item.id!==data.resource.id),data.resource]);
-      setMessage("Supporting link saved."); beginEdit();
+      beginEdit(); setMessage("Supporting link saved.");
     } catch(error) { setMessage(error instanceof Error?error.message:"Unable to save link."); }
     finally { setSaving(false); }
   }
