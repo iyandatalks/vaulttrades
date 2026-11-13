@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
 import Link from "next/link";
 
 type PlanCode = "nexus" | "nexus_plus" | "vortex";
@@ -48,7 +49,7 @@ export default function MembershipCheckoutClient({
     return () => { active = false; };
   }, [paypalToken, captured]);
 
-  async function submitCheckout(event: React.FormEvent<HTMLFormElement>) {
+  async function submitCheckout(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true); setError(""); setNotice("");
     try {
@@ -103,8 +104,6 @@ export default function MembershipCheckoutClient({
         <div className="vt-checkout-total"><span>Payable to VaultTrades now</span><strong>${vaultTradesTotal.toFixed(2)} USD</strong></div>
         <div className="vt-checkout-account">VaultTrades profile: {email}</div>
 
-        {#if false}
-        {/if}
         {paypalToken ? (
           <div className="vt-checkout-pending">
             <strong>{captured ? "VaultTrades payment verified" : "Verifying VaultTrades payment"}</strong>
