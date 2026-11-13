@@ -23,8 +23,8 @@ const plans = [
     features: [
       "Everything included in Plan 1",
       "VaultTrades Nexus Plus automated trading system",
-      "Optional Analyzer subscription available separately at $20/month", 
-      "Journal and core tools available separately through the required $10/month package", 
+      "Optional Analyzer subscription available separately at $20/month",
+      "Journal and core tools available separately through the required $10/month package",
       "Additional trading indicators and tools",
       "Trading development and scaling resources",
       "Membership reseller opportunity",
@@ -62,12 +62,11 @@ export default function PlansPage() {
             <h2>{plan.name}</h2>
             <div className="vt-plan-price">{plan.price}<small> USD</small></div>
             <div className="vt-plan-once">ONE-TIME PACKAGE PRICE · INCLUDES EA SETUP ALLOCATION</div>
-            <div className="vt-plan-addon">
-              <span>Eligible MRR component · 100% reseller commission</span>
-              <strong>${(Number(plan.price.replace("$", "")) * 0.8).toFixed(2)} <small>USD</small></strong>
-              <span>EA once-off setup · VaultTrades</span>
-              <strong>${(Number(plan.price.replace("$", "")) * 0.2).toFixed(2)} <small>USD</small></strong>
-              <p>The MRR component is paid to the reseller through their PayPal link. The EA setup component is a separate VaultTrades charge. Required website setup is $39 once-off.</p>
+            <div className="vt-plan-breakdown">
+              <div><span>Eligible MRR component · 100% reseller commission</span>
+              <strong>${(Number(plan.price.replace("$", "")) * 0.8).toFixed(2)} <small>USD</small></strong></div>
+              <div><span>EA once-off setup · VaultTrades</span><strong>${(Number(plan.price.replace("$", "")) * 0.2).toFixed(2)} <small>USD</small></strong></div>
+              <p>The MRR component is paid to the reseller through their PayPal link. The EA setup component is a separate VaultTrades charge.</p>
             </div>
             <p className="vt-plan-intro">{plan.intro}</p>
             <ul>{plan.features.map((feature) => <li key={feature}><span aria-hidden="true">✓</span>{feature}</li>)}</ul>
