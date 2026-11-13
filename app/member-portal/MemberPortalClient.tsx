@@ -23,38 +23,38 @@ type Props = {
 };
 
 const sections = [
-  { id: "welcome", label: "Welcome to VaultTrades", group: "START HERE" },
-  { id: "understanding", label: "Understanding the Nexus EA", group: "START HERE" },
-  { id: "notifications", label: "Member Notifications", group: "START HERE" },
-  { id: "community", label: "Join the Community", group: "GET STARTED" },
-  { id: "broker", label: "Recommended Broker — XM", group: "GET STARTED" },
-  { id: "mt5", label: "Open Your MT5 Account", group: "GET STARTED" },
-  { id: "before-install", label: "Before You Install", group: "EA LICENSING" },
-  { id: "licensing", label: "Submit Your MT5 Number", group: "EA LICENSING" },
-  { id: "generation", label: "Personalised EA Generation", group: "EA LICENSING" },
-  { id: "download", label: "EA Download", group: "EA LICENSING" },
-  { id: "installation", label: "Installation Guide", group: "EA LICENSING" },
-  { id: "ea-settings", label: "Understanding EA Settings", group: "EA LICENSING" },
-  { id: "broker-detection", label: "Broker & Instrument Detection", group: "EA LICENSING" },
-  { id: "signals", label: "Understanding Trading Signals", group: "EA OPERATION" },
-  { id: "execution", label: "From Signal to Filled Order", group: "EA OPERATION" },
-  { id: "timeframes", label: "Recommended Timeframes", group: "EA OPERATION" },
-  { id: "troubleshooting", label: "Troubleshooting", group: "SUPPORT" },
-  { id: "nexus-plus", label: "Nexus Plus Alternative Build", group: "EA OPERATION" },
-  { id: "vps", label: "Optional 24/7 VPS", group: "AUTOMATION" },
-  { id: "daily", label: "Your Daily Trading Routine", group: "AUTOMATION" },
-  { id: "trading-room", label: "Morning Trading Room", group: "LEARNING & SUPPORT" },
-  { id: "mentorship", label: "Seven-Day Mentorship Programme", group: "LEARNING & SUPPORT" },
-  { id: "scaling", label: "Scaling & KPI Development", group: "LEARNING & SUPPORT" },
-  { id: "vortex-manual", label: "Vortex User Manual", group: "EA LICENSING" },
-  { id: "vortex-install", label: "Vortex Installation Guide", group: "EA LICENSING" },
-  { id: "resources", label: "Additional Resources & Partners", group: "MEMBER TOOLS" },
-  { id: "business", label: "Understand Your Business", group: "BUILD YOUR BUSINESS" },
-  { id: "referrals", label: "Your Referral Link", group: "BUILD YOUR BUSINESS" },
+  { id: "welcome", label: "Welcome & Your Roadmap", group: "START HERE" },
+  { id: "community", label: "1. Join the Community", group: "START HERE" },
+  { id: "broker", label: "2. Broker Registration", group: "ACCOUNT SETUP" },
+  { id: "mt5", label: "3. Open Your MT5 Account", group: "ACCOUNT SETUP" },
+  { id: "licensing", label: "4. Submit Your MT5 Number", group: "EA LICENSING & DELIVERY" },
+  { id: "generation", label: "5. Personalised EA Preparation", group: "EA LICENSING & DELIVERY" },
+  { id: "download", label: "6. Download Your Licensed EA", group: "EA LICENSING & DELIVERY" },
+  { id: "before-install", label: "7. Pre-installation Checklist", group: "EA INSTALLATION & OPERATION" },
+  { id: "installation", label: "Nexus Installation Guide", group: "EA INSTALLATION & OPERATION" },
+  { id: "understanding", label: "Understanding Nexus", group: "EA INSTALLATION & OPERATION" },
+  { id: "ea-settings", label: "EA Settings & Risk Inputs", group: "EA INSTALLATION & OPERATION" },
+  { id: "broker-detection", label: "Broker & Symbol Detection", group: "EA INSTALLATION & OPERATION" },
+  { id: "signals", label: "How Trading Signals Work", group: "EA INSTALLATION & OPERATION" },
+  { id: "execution", label: "Signal-to-Order Lifecycle", group: "EA INSTALLATION & OPERATION" },
+  { id: "timeframes", label: "Recommended Timeframes", group: "EA INSTALLATION & OPERATION" },
+  { id: "nexus-plus", label: "Nexus Plus Installation", group: "EA INSTALLATION & OPERATION" },
+  { id: "vortex-manual", label: "Vortex User Manual", group: "EA INSTALLATION & OPERATION" },
+  { id: "vortex-install", label: "Vortex Installation Guide", group: "EA INSTALLATION & OPERATION" },
+  { id: "troubleshooting", label: "Troubleshooting", group: "EA INSTALLATION & OPERATION" },
+  { id: "vps", label: "Optional VPS Hosting", group: "AUTOMATION & DAILY USE" },
+  { id: "daily", label: "Your Daily Trading Routine", group: "AUTOMATION & DAILY USE" },
+  { id: "trading-room", label: "Morning Trading Room", group: "LEARNING & DEVELOPMENT" },
+  { id: "mentorship", label: "Seven-Day Mentorship", group: "LEARNING & DEVELOPMENT" },
+  { id: "scaling", label: "Scaling & KPI Development", group: "LEARNING & DEVELOPMENT" },
+  { id: "business", label: "Understand the Reseller Programme", group: "BUILD YOUR BUSINESS" },
+  { id: "referrals", label: "Your Existing Referral Link", group: "BUILD YOUR BUSINESS" },
   { id: "website", label: "Your Personal Website", group: "BUILD YOUR BUSINESS" },
-  { id: "tools", label: "Additional Tools", group: "MEMBER TOOLS" },
-  { id: "risk", label: "Risk & Important Information", group: "MEMBER TOOLS" },
-  { id: "faq", label: "Frequently Asked Questions", group: "MEMBER TOOLS" },
+  { id: "resources", label: "Partners & Resource Directory", group: "TOOLS & SUPPORT" },
+  { id: "tools", label: "Plan-Included Digital Tools", group: "TOOLS & SUPPORT" },
+  { id: "risk", label: "Risk & Important Information", group: "TOOLS & SUPPORT" },
+  { id: "faq", label: "Frequently Asked Questions", group: "TOOLS & SUPPORT" },
+  { id: "notifications", label: "Member Notifications", group: "TOOLS & SUPPORT" },
 ] as const;
 
 const planNames: Record<Plan, string> = {
@@ -67,6 +67,7 @@ export default function MemberPortalClient({
   plan, isAdmin, memberEmail, referralUrl, licensingRequests, websiteRequests, memberNotifications, xmRegistrationUrl, vpsRegistrationUrl,
 }: Props) {
   const [active, setActive] = useState<string>("welcome");
+  const [topicSearch, setTopicSearch] = useState("");
   const [copied, setCopied] = useState(false);
   const [requests, setRequests] = useState<LicensingRequest[]>(licensingRequests);
   const [mt5Login, setMt5Login] = useState("");
@@ -83,13 +84,17 @@ export default function MemberPortalClient({
   const [websiteMessage, setWebsiteMessage] = useState("");
   const groups = useMemo(() => {
     const result: { group: string; items: typeof sections[number][] }[] = [];
+    const query = topicSearch.trim().toLowerCase();
     for (const item of sections) {
+      if (query && !item.label.toLowerCase().includes(query) && !item.group.toLowerCase().includes(query)) continue;
       let group = result.find(entry => entry.group === item.group);
       if (!group) { group = { group: item.group, items: [] }; result.push(group); }
       group.items.push(item);
     }
     return result;
-  }, []);
+  }, [topicSearch]);
+  const activeSection = sections.find(item => item.id === active) ?? sections[0];
+  const activeIndex = sections.findIndex(item => item.id === active) + 1;
 
   async function copyReferral() {
     if (!referralUrl) return;
@@ -456,10 +461,15 @@ export default function MemberPortalClient({
         </>;
       case "business":
         return <>
-          <Eyebrow>YOUR VAULTTRADES BUSINESS</Eyebrow><h1>Understand the product you joined.</h1>
-          <p className="vt-member-lead">You can introduce VaultTrades membership packages to people who may value the trading tools, learning resources and business opportunity.</p>
-          <h2>Know what you are explaining</h2><ul><li>Describe the membership package accurately and explain what it includes.</li><li>Show how the EA licensing and installation process works.</li><li>Explain that broker funding and VPS hosting are separate from the membership fee.</li><li>Be clear that trading involves risk and neither trading returns nor reseller income is guaranteed.</li><li>Never promise profits, guaranteed trades or guaranteed commissions.</li></ul>
-          <p>Members may personally refer any of the three VaultTrades plans, regardless of which plan they purchased. Under the proposed reseller terms, a qualifying direct membership sale may earn a 100% commission, subject to the final approved rules. The programme is based on direct customer sales, not recruitment alone; there is no downline commission.</p>
+          <Eyebrow>YOUR VAULTTRADES BUSINESS</Eyebrow><h1>Understand the reseller programme.</h1>
+          <p className="vt-member-lead">This learning path helps you understand the membership packages, explain the value accurately and introduce the programme responsibly to people who may benefit from it.</p>
+          <h2>Know what you are explaining</h2>
+          <ol><li>Understand the differences between VaultTrades Nexus, Nexus Plus and Vortex.</li><li>Explain the included products, tools, learning resources and plan-specific entitlements accurately.</li><li>Explain that broker funding, VPS hosting and any separately priced services are distinct from the membership fee.</li><li>Ask about the person's needs rather than automatically recommending the highest-priced plan.</li><li>Never promise profits, guaranteed trades, account approval or guaranteed commissions.</li></ol>
+          <h2>Keep the two programmes separate</h2>
+          <ul><li><strong>Existing Referral Programme:</strong> the current referral arrangement for eligible VaultTrades products. Its existing attribution and commission rules remain separate.</li><li><strong>Reseller Programme:</strong> the membership-sales pathway being introduced through this opportunity. The working proposal is a commission on qualifying membership sales personally completed by the member, subject to final published terms.</li><li><strong>No downline:</strong> the working reseller model does not include multi-level or network commissions.</li></ul>
+          <h2>How to introduce a membership</h2>
+          <ol><li>Share the official opportunity information.</li><li>Let the person review the plan comparison and included resources.</li><li>Answer questions using the approved product descriptions and terms.</li><li>Direct them to the official checkout so the order and referrer can be attributed.</li><li>Follow up respectfully and allow them to decide without pressure.</li></ol>
+          <p className="vt-member-note">Any proposed reseller commission rate, deductions, refund reversals and payout timing must be governed by the final approved reseller terms. Do not describe a working proposal as an already payable or guaranteed commission.</p>
           <a className="vt-member-button" href="/plans">Review the membership plans</a>
         </>;
       case "referrals":
@@ -547,15 +557,102 @@ export default function MemberPortalClient({
       </header>
       <div className="vt-member-layout">
         <aside className="vt-member-sidebar" aria-label="Knowledge Base topics">
-          {groups.map(group => <div className="vt-member-nav-group" key={group.group}>
-            <div className="vt-member-nav-heading">{group.group}</div>
-            {group.items.map(item => <button type="button" key={item.id} className={active === item.id ? "vt-member-nav-item active" : "vt-member-nav-item"} onClick={() => setActive(item.id)}>{item.label}</button>)}
-          </div>)}
+          <div className="vt-member-sidebar-intro">
+            <span>YOUR LEARNING PATH</span>
+            <strong>Choose a topic</strong>
+            <small>{sections.length} guides and resources</small>
+          </div>
+          <label className="vt-member-topic-search">
+            <span className="sr-only">Search Knowledge Base topics</span>
+            <input value={topicSearch} onChange={event => setTopicSearch(event.target.value)} placeholder="Search topics…" />
+          </label>
+          {groups.length ? groups.map(group => <div className="vt-member-nav-group" key={group.group}>
+            <div className="vt-member-nav-heading"><span>{group.group}</span><small>{group.items.length}</small></div>
+            {group.items.map(item => <button type="button" key={item.id} className={active === item.id ? "vt-member-nav-item active" : "vt-member-nav-item"} onClick={() => setActive(item.id)} aria-current={active === item.id ? "page" : undefined}>
+              <span className="vt-member-nav-dot" aria-hidden="true" />{item.label}
+            </button>)}
+          </div>) : <p className="vt-member-no-results">No topics match that search.</p>}
         </aside>
-        <article className="vt-member-content" aria-live="polite">{renderContent()}</article>
+        <article className="vt-member-content" aria-live="polite">
+          <div className="vt-member-content-toolbar">
+            <div><span>{activeSection.group}</span><strong>{activeSection.label}</strong></div>
+            <small>GUIDE {String(activeIndex).padStart(2, "0")} / {sections.length}</small>
+          </div>
+          {renderContent()}
+          <ResourceShelf active={active} />
+          <div className="vt-member-content-footer">
+            <span>VaultTrades Member Knowledge Base</span>
+            <button type="button" onClick={() => { const next = sections[Math.min(activeIndex, sections.length - 1)]; setActive(next.id); window.scrollTo({ top: 0, behavior: "smooth" }); }} disabled={activeIndex >= sections.length}>Next topic →</button>
+          </div>
+        </article>
       </div>
     </main>
   );
+}
+
+const resourceSlots: Record<string, { title: string; kind: string; note: string }[]> = {
+  community: [
+    { title: "Community joining guide", kind: "PDF / quick-start guide", note: "Reserved for the illustrated guide to joining the official VaultTrades community." },
+    { title: "Current Google Meet announcement", kind: "Live community link", note: "The current session link is published in community announcements so members do not use expired meeting links." },
+  ],
+  broker: [{ title: "Broker account-opening walkthrough", kind: "PDF / screenshots", note: "Reserved for annotated registration, verification and MT5 account-creation screenshots." }],
+  mt5: [
+    { title: "Where to find your MT5 login number", kind: "Screenshot guide", note: "Reserved for desktop and mobile screenshots showing the account number without exposing passwords." },
+    { title: "MetaTrader 5 installation resource", kind: "Official download link", note: "The verified platform download destination will be placed here." },
+  ],
+  licensing: [{ title: "MT5 licensing submission walkthrough", kind: "Step-by-step screenshots", note: "Reserved for a visual walkthrough of the submission form and the information members should provide." }],
+  generation: [{ title: "Licensing status guide", kind: "PDF / status reference", note: "Reserved for explanations of Submitted, In Progress, Ready and Rejected statuses." }],
+  download: [{ title: "Personalised EA download", kind: "Private member attachment", note: "The licensed EA file appears in the download area above when the licensing team marks the request as ready." }],
+  installation: [
+    { title: "Nexus installation manual", kind: "PDF attachment", note: "Reserved for the approved Nexus installation manual and annotated MT5 screenshots." },
+    { title: "Nexus installation video", kind: "Video tutorial", note: "Reserved for a screen-recorded installation walkthrough." },
+  ],
+  "nexus-plus": [{ title: "Nexus Plus installation manual", kind: "PDF attachment", note: "Reserved for the separate Nexus Plus guide and its core-file dependency instructions." }],
+  "vortex-manual": [{ title: "Vortex user manual", kind: "PDF attachment", note: "Reserved for the approved Vortex manual and chart-panel reference images." }],
+  "vortex-install": [{ title: "Vortex installation screenshots", kind: "Image attachments", note: "Reserved for the MT5 Data Folder, Advisors folder, Navigator and chart-attachment screenshots." }],
+  vps: [
+    { title: "VPS setup walkthrough", kind: "PDF / video", note: "Reserved for connecting to a Windows VPS, installing MT5 and transferring the licensed EA." },
+    { title: "Recommended VPS provider", kind: "External registration link", note: "The tracked partner registration button will be enabled when the provider and referral URL are confirmed." },
+  ],
+  "trading-room": [{ title: "Trading-room session materials", kind: "Slides / recordings", note: "Reserved for approved session slides and recordings. The current live meeting link remains in community announcements." }],
+  mentorship: [
+    { title: "Seven-day mentorship presentation", kind: "Slide deck attachment", note: "Reserved for the complete mentorship slides, organised by day and topic." },
+    { title: "Mentorship booking", kind: "Booking link", note: "Reserved for the confirmed scheduling link and booking conditions." },
+  ],
+  scaling: [
+    { title: "Scaling and KPI workbook", kind: "Workbook / spreadsheet", note: "Reserved for the KPI tracker, milestones and review templates." },
+    { title: "Scaling programme presentation", kind: "Slide deck attachment", note: "Reserved for the completed scaling presentation and supporting examples." },
+  ],
+  business: [
+    { title: "Reseller programme guide", kind: "PDF attachment", note: "Reserved for the final approved reseller terms, direct-sale commission rules and member sales workflow." },
+    { title: "Membership comparison sheet", kind: "PDF / comparison guide", note: "Reserved for the approved Nexus, Nexus Plus and Vortex comparison." },
+  ],
+  referrals: [{ title: "Existing referral programme guide", kind: "PDF attachment", note: "Reserved for the current eligible-product referral rules, attribution and payout information." }],
+  website: [
+    { title: "Personal website examples", kind: "Image gallery", note: "Reserved for sample member websites and the standard VaultTrades subdomain layout." },
+    { title: "Website content checklist", kind: "PDF / editable template", note: "Reserved for the information and branding members must provide for website setup." },
+  ],
+  resources: [{ title: "Partner registration links", kind: "Verified external links", note: "Partner cards and current destinations are maintained in the VaultTrades Partners directory." }],
+  tools: [{ title: "Tool access and plan matrix", kind: "PDF / quick reference", note: "Reserved for the final plan-by-plan digital tool access matrix." }],
+  faq: [{ title: "Member quick-reference sheet", kind: "PDF attachment", note: "Reserved for a printable summary of common onboarding and troubleshooting questions." }],
+};
+
+function ResourceShelf({ active }: { active: string }) {
+  const slots = resourceSlots[active] ?? [];
+  if (!slots.length) return null;
+  return <section className="vt-member-resource-shelf" aria-label="Topic attachments and resources">
+    <div className="vt-member-resource-heading">
+      <div><span>SUPPORTING MATERIAL</span><h2>Downloads, links & attachments</h2></div>
+      <small>Reserved resource area</small>
+    </div>
+    <div className="vt-member-resource-grid">
+      {slots.map(slot => <div className="vt-member-resource-card" key={slot.title}>
+        <div className="vt-member-resource-icon" aria-hidden="true">＋</div>
+        <div className="vt-member-resource-copy"><strong>{slot.title}</strong><span>{slot.kind}</span><p>{slot.note}</p></div>
+        <span className="vt-member-resource-status">Awaiting resource</span>
+      </div>)}
+    </div>
+  </section>;
 }
 
 function Eyebrow({ children }: { children: ReactNode }) {
