@@ -34,6 +34,8 @@ export default async function ResellerOnboardingPage() {
   if (!resellerCode) {
     resellerCode = `VT-${crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase()}`;
     await admin.from("users").update({ referral_code: resellerCode }).eq("id", profile.id).is("referral_code", null);
+    const { data: refreshedProfile } = await admin.from("users").select("referral_code").eq("id", profile.id).maybeSingle();
+    resellerCode = String(refreshedProfile?.referral_code ?? resellerCode).trim().toUpperCase();
   }
 
   return <ResellerOnboardingClient resellerCode={resellerCode} />;
