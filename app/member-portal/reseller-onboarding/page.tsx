@@ -13,7 +13,7 @@ export default async function ResellerOnboardingPage() {
   if (!user) redirect("/auth/login?next=/member-portal/reseller-onboarding");
 
   const admin = createAdminClient();
-  const { data: profile } = await admin.from("users").select("id,role").eq("auth_user_id", user.id).maybeSingle();
+  const { data: profile } = await admin.from("users").select("id,role,referral_code").eq("auth_user_id", user.id).maybeSingle();
   if (!profile) {
     return <main className="vt-member-shell"><section className="vt-member-empty"><h1>Profile not found</h1><p>Complete your VaultTrades member profile before setting up reseller payments.</p><Link href="/profile" className="vt-member-button">Open profile</Link></section></main>;
   }
@@ -30,5 +30,11 @@ export default async function ResellerOnboardingPage() {
     if (!eligible) redirect("/plans");
   }
 
-  return <ResellerOnboardingClient />;
+  let resellerCode = String(profile.referral_code ?? "").trim().toUpperCase();
+  if (!resellerCode) {
+    resellerCode = `VT-${crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase()}`;
+    await admin.from("users").update({ referral_code: resellerCode }).eq("id", profile.id).is("referral_code", null);
+  }
+
+  return <ResellerOnboardingClient resellerCode={resellerCode} />;
 }
