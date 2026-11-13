@@ -29,7 +29,7 @@ export async function GET() {
   if (!profile) return NextResponse.json({ error: "PROFILE_NOT_FOUND" }, { status: 404 });
 
   const { data: requests, error } = await db.from("member_ea_licensing_requests")
-    .select("id,broker_name,broker_server,mt5_login,product_code,status,admin_notes,submitted_at,license_generated_at")
+    .select("id,broker_name,broker_server,mt5_login,product_code,status,admin_notes,submitted_at,license_generated_at,license_resource_name,license_resource_url")
     .eq("user_id", profile.id)
     .order("submitted_at", { ascending: false });
 
@@ -109,9 +109,24 @@ export async function POST(request: Request) {
     metadata: { product_code: productCode, mt5_login: mt5Login, broker_name: "XM" },
   });
 
+  const { data: whatsappSetting } = await db.from("member_portal_settings")
+    .select("setting_value").eq("setting_key", "admin_whatsapp_number").maybeSingle();
+  const adminNumber = String(whatsappSetting?.setting_value ?? "27746653633").replace(/[^0-9]/g, "");
+  const whatsappText = [
+    "NEW VAULTTRADES EA LICENSING REQUEST",
+    `Member: ${profile.email ?? user.email ?? "Not provided"}`,
+    `EA: ${productCode}`,
+    `MT5 login: ${mt5Login}`,
+    `Broker: XM`,
+    `Broker server: ${brokerServer || "Not supplied"}`,
+    `Request reference: ${created.id}`,
+    "The request has already been saved in the VaultTrades database. Please review it in the admin licensing queue.",
+  ].join("\\n");
+
   return NextResponse.json({
     ok: true,
     request: created,
-    message: "Your MT5 number has been received. Allow 24–48 hours for the personalised EA licensing process.",
+    whatsappUrl: `https://wa.me/${adminNumber}?text=${encodeURIComponent(whatsappText)}`,
+    message: "Your MT5 number has been saved. WhatsApp will open with the request details ready for you to send to VaultTrades.",
   }, { status: 201 });
 }
