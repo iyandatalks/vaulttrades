@@ -160,3 +160,53 @@
 .vto-results-float{margin:50px auto 40px}
 @media(max-width:900px){.vto-story{grid-template-columns:1fr;gap:42px}.vto-story-photo-frame{width:min(100%,440px)}.vto-pathway-track{grid-template-columns:repeat(2,minmax(0,1fr))}.vto-mid-cta-inner{align-items:flex-start;flex-direction:column}}
 @media(max-width:620px){.vto-story{padding-top:68px;padding-bottom:72px}.vto-story-photo-placeholder{min-height:340px}.vto-pathway-band{padding:68px 0}.vto-pathway-track{grid-template-columns:1fr}.vto-pathway-card{min-height:150px}.vto-pathway-actions{width:100%}.vto-pathway-actions .vto-button{width:100%}.vto-mid-cta{padding:45px 0}.vto-mid-cta-actions{width:100%}.vto-mid-cta-actions .vto-button{width:100%}.vto-results-float{margin:35px 12px 30px}}
+
+
+/* Founder portrait and unmistakable primary story call-to-action */
+.vto-story-photo{
+  position:relative;
+  z-index:1;
+  display:block;
+  width:100%;
+  min-height:430px;
+  height:430px;
+  object-fit:cover;
+  object-position:center 30%;
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:10px;
+  background:#080d17;
+}
+.vto-story-cta{
+  gap:14px;
+  min-height:54px;
+  margin-top:26px;
+  padding:16px 25px;
+  border:1px solid rgba(255,218,125,.55);
+  border-radius:8px;
+  background:linear-gradient(135deg,#f0c75e 0%,#d4a637 58%,#bd8d25 100%);
+  color:#080b12;
+  box-shadow:0 9px 26px rgba(212,166,55,.24),inset 0 1px 0 rgba(255,255,255,.32);
+  font-size:11px;
+  font-weight:950;
+  letter-spacing:.1em;
+  text-align:center;
+}
+.vto-story-cta span{
+  font-size:18px;
+  line-height:1;
+  transition:transform .2s ease;
+}
+.vto-story-cta:hover{
+  border-color:#ffe7a4;
+  background:linear-gradient(135deg,#ffdc7a 0%,#e2b544 58%,#c99a30 100%);
+  box-shadow:0 13px 32px rgba(212,166,55,.34),inset 0 1px 0 rgba(255,255,255,.4);
+}
+.vto-story-cta:hover span{transform:translateX(4px)}
+.vto-story-cta:focus-visible{
+  outline:3px solid #fff;
+  outline-offset:4px;
+}
+@media(max-width:620px){
+  .vto-story-photo{min-height:340px;height:340px}
+  .vto-story-cta{width:100%;min-height:54px}
+}
