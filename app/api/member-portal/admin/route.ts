@@ -24,7 +24,8 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const q = (url.searchParams.get("q") ?? "").trim();
   if (profile.role !== "admin") return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  const { data: setting } = await db.from("member_portal_settings").select("setting_value").eq("setting_key", "admin_whatsapp_number").maybeSingle();\n  if (q.length < 3) return NextResponse.json({ users: [], requests: [], adminWhatsappNumber: setting?.setting_value ?? "27746653633", message: "Enter at least three characters of the member email." });
+  const { data: setting } = await db.from("member_portal_settings").select("setting_value").eq("setting_key", "admin_whatsapp_number").maybeSingle();
+  if (q.length < 3) return NextResponse.json({ users: [], requests: [], adminWhatsappNumber: setting?.setting_value ?? "27746653633", message: "Enter at least three characters of the member email." });
   const { data: users, error: userError } = await db.from("users")
     .select("id,email,first_name,last_name")
     .ilike("email", `%${q}%`)
