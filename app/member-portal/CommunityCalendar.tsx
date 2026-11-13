@@ -70,7 +70,7 @@ export default function CommunityCalendar({ isAdmin }: { isAdmin: boolean }) {
     try {
       const response = await fetch("/api/member-portal/admin",{
         method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({action:"event_upsert",id:editingId,title,description,meetingUrl,startsAt,endsAt}),
+        body:JSON.stringify({action:"event_upsert",id:editingId,title,description,meetingUrl,startsAt:new Date(startsAt).toISOString(),endsAt:new Date(endsAt).toISOString()}),
       });
       const data=await response.json();
       if(!response.ok) throw new Error(data.error || "Unable to save meeting.");
@@ -97,7 +97,7 @@ export default function CommunityCalendar({ isAdmin }: { isAdmin: boolean }) {
   return <section className="vt-community-calendar">
     <div className="vt-community-calendar-head">
       <div><span className="vt-member-kicker">LIVE COMMUNITY SCHEDULE</span><h2>Google Meet calendar</h2><p>Scheduled member sessions for the selected month. Times are shown in South African time.</p></div>
-      <div className="vt-calendar-month-switch"><button type="button" onClick={()=>setMonth(new Date(month.getFullYear(),month.getMonth()-1,1))} aria-label="Previous month">‹</button><strong>{month.toLocaleDateString("en-ZA",{month:"long",year:"numeric"})}</strong><button type="button" onClick={()=>setMonth(new Date(month.getFullYear(),month.getMonth()+1,1))} aria-label="Next month">›</button></div>
+      <div className="vt-calendar-month-switch"><button type="button" onClick={()=>{setSelectedDay(1);setMonth(new Date(month.getFullYear(),month.getMonth()-1,1));}} aria-label="Previous month">‹</button><strong>{month.toLocaleDateString("en-ZA",{month:"long",year:"numeric"})}</strong><button type="button" onClick={()=>{setSelectedDay(1);setMonth(new Date(month.getFullYear(),month.getMonth()+1,1));}} aria-label="Next month">›</button></div>
     </div>
     <div className="vt-calendar-grid">
       {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(day=><div className="vt-calendar-weekday" key={day}>{day}</div>)}
@@ -119,7 +119,7 @@ export default function CommunityCalendar({ isAdmin }: { isAdmin: boolean }) {
       </article>):<p className="vt-member-note">No meeting has been scheduled for this day yet.</p>}
     </div>
     <div className="vt-calendar-announcement">
-      <span className="vt-member-kicker">CURRENT GOOGLE MEET ANNOUNCEMENTS</span>
+      <span className="vt-member-kicker">CURRENT GOOGLE MEET ANNOUNCEMENT · LIVE COMMUNITY LINKS</span>
       {upcoming.length ? upcoming.slice(0,3).map(event=><div className="vt-calendar-announcement-row" key={event.id}><div><strong>{event.title}</strong><small>{new Date(event.starts_at).toLocaleString("en-ZA",{dateStyle:"medium",timeStyle:"short"})} (SAST)</small></div><a href={event.meeting_url} target="_blank" rel="noreferrer">Open meeting ↗</a></div>):<p>No upcoming Google Meet has been published yet. Check back after the administrator schedules a session.</p>}
     </div>
     {isAdmin&&<div className="vt-calendar-admin-form">
