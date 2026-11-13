@@ -255,7 +255,7 @@ export default function MemberPortalClient({
             <label>Broker server (optional)
               <input value={brokerServer} onChange={event => setBrokerServer(event.target.value)} maxLength={120} placeholder="For example, XM server name shown in MT5" />
             </label>
-            <p className="vt-member-form-note">Broker: XM. Submit the MT5 account number only. Do not submit your trading password, investor password or one-time security code.</p>
+            <p className="vt-member-form-note">Submit the MT5 account number only. Do not submit your trading password, investor password or one-time security code.</p>
             {!licensingActionsAvailable && <p className="vt-member-form-note">MT5 request submission is temporarily unavailable.</p>}
              <button className="vt-member-button" type="submit" disabled={submitting || !licensingActionsAvailable}>{submitting ? "Submitting…" : "Submit MT5 number"}</button>
             {submitMessage && <p className="vt-member-submit-message" role="status">{submitMessage}</p>}
@@ -608,10 +608,10 @@ export default function MemberPortalClient({
             <small>GUIDE {String(activeIndex).padStart(2, "0")} / {visibleSections.length}</small>
           </div>
           {renderContent()}
-          <ResourceShelf active={active} />
+          <ResourceShelf active={active} resources={knowledgeResources.filter(resource => resource.section_id === active)} isAdmin={isAdmin} onResourcesChange={setKnowledgeResources} />
           <div className="vt-member-content-footer">
             <span>VaultTrades Member Knowledge Base</span>
-            <button type="button" onClick={() => { const next = visibleSections[Math.min(activeIndex, visibleSections.length - 1)]; setActive(next.id); window.scrollTo({ top: 0, behavior: "smooth" }); }} disabled={activeIndex >= sections.length}>Next topic →</button>
+            <button type="button" onClick={() => { const next = visibleSections[Math.min(activeIndex, visibleSections.length - 1)]; setActive(next.id); window.scrollTo({ top: 0, behavior: "smooth" }); }} disabled={activeIndex >= visibleSections.length}>Next topic →</button>
           </div>
         </article>
       </div>
