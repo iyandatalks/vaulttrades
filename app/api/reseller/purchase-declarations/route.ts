@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   const paymentTime = String(body.paymentTime ?? "").trim();
   const termsAccepted = body.termsAccepted === true;
 
-  if (!(planCode in PLAN_AMOUNTS) || !resellerCode || !/^[A-Z0-9-]{4,32}$/.test(resellerCode)) {
+  if (!Object.prototype.hasOwnProperty.call(PLAN_AMOUNTS, planCode) || !resellerCode || !/^[A-Z0-9-]{4,32}$/.test(resellerCode)) {
     return NextResponse.json({ error: "The reseller reference or selected membership plan is invalid." }, { status: 400 });
   }
   if (!resellerWebsite || resellerWebsite.length > 255 || !/^(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?(?:\/.*)?$/i.test(resellerWebsite)) {
@@ -49,6 +49,18 @@ export async function POST(request: Request) {
   if (resellerError || !reseller || !reseller.auth_user_id || reseller.id === customer.id) {
     return NextResponse.json({ error: "The reseller reference could not be verified." }, { status: 400 });
   }
+  const { data: resellerLicenses } = await db.from("product_licenses")
+    .select("entitlement_code,status,start_at,end_at")
+    .eq("user_id", reseller.id)
+    .in("entitlement_code", ["nexus","vaulttrades_nexus","nexus_plus","vaulttrades_nexus_plus","vortex","vaulttrades_vortex"])
+    .eq("status", "active");
+  const now = Date.now();
+  const resellerIsActive = (resellerLicenses ?? []).some(license => {
+    const start = license.start_at ? new Date(license.start_at).getTime() : 0;
+    const end = license.end_at ? new Date(license.end_at).getTime() : Number.POSITIVE_INFINITY;
+    return Number.isFinite(start) && start <= now && end > now;
+  });
+  if (!resellerIsActive) return NextResponse.json({ error: "This reseller account is not currently eligible to process membership purchases." }, { status: 400 });
 
   const { data: order, error } = await db.from("reseller_purchase_orders").insert({
     customer_user_id: customer.id,
