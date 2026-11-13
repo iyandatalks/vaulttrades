@@ -90,6 +90,7 @@ export default function MemberPortalClient({
   const [websiteSubmitting, setWebsiteSubmitting] = useState(false);
   const [websiteMessage, setWebsiteMessage] = useState("");
   useEffect(() => { fetch("/api/member-portal/content", { cache: "no-store" }).then(r => r.ok ? r.json() : Promise.reject(new Error("Resources unavailable"))).then(data => setKnowledgeResources(data.resources ?? [])).catch(() => setKnowledgeResources([])); }, []);
+  const visibleSections = sections.filter(item => isAdmin || item.id !== "admin");
   const groups = useMemo(() => {
     const result: { group: string; items: typeof sections[number][] }[] = [];
     const query = topicSearch.trim().toLowerCase();
@@ -101,8 +102,8 @@ export default function MemberPortalClient({
     }
     return result;
   }, [topicSearch, isAdmin]);
-  const activeSection = sections.find(item => item.id === active) ?? sections[0];
-  const activeIndex = sections.findIndex(item => item.id === active) + 1;
+  const activeSection = visibleSections.find(item => item.id === active) ?? visibleSections[0];
+  const activeIndex = visibleSections.findIndex(item => item.id === active) + 1;
 
   async function copyReferral() {
     if (!referralUrl) return;
