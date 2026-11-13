@@ -14,7 +14,9 @@ export default function MemberPortalAdminPanel(){
   const [resourceUrl,setResourceUrl]=useState("");
   const [phone,setPhone]=useState("27746653633");
   const [message,setMessage]=useState("");
-  const [loading,setLoading]=useState(false);\n\n  useEffect(()=>{fetch("/api/member-portal/admin",{cache:"no-store"}).then(r=>r.ok?r.json():Promise.reject()).then(data=>{if(data.adminWhatsappNumber)setPhone(data.adminWhatsappNumber);}).catch(()=>{});},[]);
+  const [loading,setLoading]=useState(false);
+
+  useEffect(()=>{fetch("/api/member-portal/admin",{cache:"no-store"}).then(r=>r.ok?r.json():Promise.reject()).then(data=>{if(data.adminWhatsappNumber)setPhone(data.adminWhatsappNumber);}).catch(()=>{});},[]);
 
   async function searchMembers(event:React.FormEvent<HTMLFormElement>){
     event.preventDefault();setLoading(true);setMessage("");
