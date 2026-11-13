@@ -472,10 +472,10 @@ export default function MemberPortalClient({
         </>;
       case "website":
         return <>
-          <Eyebrow>OPTIONAL ADD-ON</Eyebrow><h1>Set up your personal website.</h1>
-          <p className="vt-member-lead">A personal website can give you a branded place to introduce VaultTrades and share your referral link. It is optional and separate from your membership.</p>
-          <h2>Choose your domain route</h2><ul><li><strong>VaultTrades subdomain:</strong> a name such as yourname.vaulttradesve.com, subject to availability and approval.</li><li><strong>Your own domain:</strong> a domain you purchase and own, such as yourname.com, which can be connected to the website.</li></ul>
-          <div className="vt-member-highlight"><strong>Website setup</strong><span>$39 once-off setup fee</span><small>Any annual hosting, maintenance or domain charges will be confirmed separately before you commit.</small></div>
+          <Eyebrow>REQUIRED RESELLER SETUP</Eyebrow><h1>Set up your personal website.</h1>
+          <p className="vt-member-lead">A personal website is a required part of the VaultTrades reseller programme. The setup fee is $39 once-off and is separate from your selected membership fee.</p>
+          <h2>Choose how your website will be addressed</h2><ul><li><strong>Standard VaultTrades address:</strong> use an approved VaultTrades subdomain such as yourname.vaulttradesve.com.</li><li><strong>Your own personalised domain (optional):</strong> you may purchase and use a domain that you own, such as yourname.com. Once you have the domain, submit its details to VaultTrades so the team can review and connect it.</li></ul>
+          <div className="vt-member-highlight"><strong>Required website setup</strong><span>$39 once-off</span><small>A personalised domain is optional. Domain purchase and any applicable connection fee are separate and will be confirmed before work begins.</small></div>
           <h2>Submit your website preferences</h2>
           <form className="vt-member-form" onSubmit={submitWebsiteRequest}>
             <label>Website option
@@ -500,8 +500,8 @@ export default function MemberPortalClient({
             <div><strong>{request.domain_preference === "vaulttrades_subdomain" ? "VaultTrades subdomain" : "Custom domain"}</strong><small>{request.assigned_domain || request.custom_domain || [request.preferred_name_1, request.preferred_name_2, request.preferred_name_3].filter(Boolean).join(" · ")}</small></div>
             <span className={"vt-member-request-status " + request.status}>{request.status.replace("_", " ")}</span>
             {request.admin_notes && <p className="vt-member-note">{request.admin_notes}</p>}
-          </div>)}</div> : <p className="vt-member-note">No website setup request has been submitted. This service is optional.</p>}
-          <p className="vt-member-note">Do not purchase a custom domain until you have checked the spelling and availability. Website setup is not automatically included in the membership price.</p>
+          </div>)}</div> : <p className="vt-member-note">No website setup request has been submitted yet. Website setup is a required part of reseller onboarding.</p>}
+          <p className="vt-member-note">If you want to use your own personalised domain, purchase and register it in your own name first, then submit the exact domain details here. VaultTrades will confirm the connection requirements and any applicable fee before linking it.</p>
         </>;
       case "tools":
         return <>
@@ -530,7 +530,7 @@ export default function MemberPortalClient({
             <details><summary>Do I have to buy a VPS?</summary><p>No. VPS hosting is optional. You can run MT5 on your own computer, but the computer and terminal must remain running for the EA to operate locally.</p></details>
             <details><summary>Will the EA trade every day?</summary><p>No. The EA only acts when its strategy conditions and execution requirements are met. There is no guaranteed daily trade or profit.</p></details>
             <details><summary>Do I have to attend the trading room or mentorship?</summary><p>No. Both are optional learning opportunities.</p></details>
-            <details><summary>Is the personal website compulsory?</summary><p>No. Website setup is optional and separately priced.</p></details>
+            <details><summary>Is the personal website compulsory?</summary><p>Yes. Personal website setup is required for the reseller programme and costs $39 once-off, in addition to the membership fee. Using your own personalised domain is optional.</p></details>
             <details><summary>Can I refer all three plans?</summary><p>Members may personally introduce any of the three plans, subject to the final reseller terms. Qualifying sales and commissions are not guaranteed.</p></details>
           </div>
         </>;
