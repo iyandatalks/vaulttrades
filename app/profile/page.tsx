@@ -17,6 +17,8 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [hasWhatsAppSupport, setHasWhatsAppSupport] = useState(false);
+  const [hasResellerProgramme, setHasResellerProgramme] = useState(false);
+  const [resellerPlan, setResellerPlan] = useState<string | null>(null);
   const [referral, setReferral] = useState<ReferralState>({ enabled: false, code: null, url: null });
 
   useEffect(() => {
@@ -36,6 +38,8 @@ export default function ProfilePage() {
           setReferral(result?.referral ?? { enabled: false, code: null, url: null });
           setIsAdmin(result?.admin === true);
           setHasWhatsAppSupport(result?.supportWhatsApp === true);
+          setHasResellerProgramme(result?.reseller?.enabled === true);
+          setResellerPlan(result?.reseller?.plan ?? null);
         }
       }
 
@@ -115,6 +119,22 @@ export default function ProfilePage() {
                     <Link className="vt-primary" href="/admin/revenue-model" style={{ display: "inline-block", marginTop: 8 }}>Open Revenue Model →</Link>
                   </article>
                 </div>
+              </section>
+            )}
+
+            {(isAdmin || hasResellerProgramme) && (
+              <section className="vt-info-card" style={{ marginTop: 24, textAlign: "left", border: "1px solid rgba(212,166,55,.35)" }}>
+                <div className="vt-label">RESELLER PROGRAMME</div>
+                <h2 style={{ margin: "10px 0 8px", fontSize: 27 }}>Your VaultTrades Reseller Workspace</h2>
+                <p style={{ maxWidth: 760 }}>
+                  {isAdmin
+                    ? "Administrator access is enabled. You can review the complete reseller Knowledge Base without purchasing a plan or entering checkout."
+                    : "Your reseller programme access is active. Open your Knowledge Base to follow onboarding, website setup and the reseller learning pathway."}
+                </p>
+                {resellerPlan && !isAdmin && <p className="muted">Active membership: {resellerPlan.replaceAll("_", " ")}</p>}
+                <Link className="vt-primary" href="/member-portal" style={{ display: "inline-block", marginTop: 10 }}>
+                  Open Reseller Knowledge Base →
+                </Link>
               </section>
             )}
 
