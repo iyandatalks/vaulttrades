@@ -475,6 +475,13 @@ export default function MemberPortalClient({
           <p className="vt-member-lead">This learning path helps you understand the membership packages, explain the value accurately and introduce the programme responsibly to people who may benefit from it.</p>
           <h2>Know what you are explaining</h2>
           <ol><li>Understand the differences between VaultTrades Nexus, Nexus Plus and Vortex.</li><li>Explain the included products, tools, learning resources and plan-specific entitlements accurately.</li><li>Explain that broker funding, VPS hosting and any separately priced services are distinct from the membership fee.</li><li>Ask about the person's needs rather than automatically recommending the highest-priced plan.</li><li>Never promise profits, guaranteed trades, account approval or guaranteed commissions.</li></ol>
+          <h2>Membership options at a glance</h2>
+          <div className="vt-member-table-wrap"><table className="vt-member-table"><thead><tr><th>Membership</th><th>Once-off fee</th><th>Included learning and tools</th></tr></thead><tbody>
+            <tr><td><strong>VaultTrades Nexus</strong></td><td>$150</td><td>Core Nexus membership and its applicable EA onboarding resources.</td></tr>
+            <tr><td><strong>VaultTrades Nexus Plus</strong></td><td>$250</td><td>Nexus membership plus Analyzer, Trading Journal, AI Coaching and scaling resources.</td></tr>
+            <tr><td><strong>VaultTrades Vortex</strong></td><td>$550</td><td>Nexus Plus resources, Vortex EA materials, advanced Risk Manager, Funded Account Wealth Builder and one-on-one mentorship entitlement.</td></tr>
+          </tbody></table></div>
+          <p className="vt-member-note">Personal website setup is a separate required reseller-programme setup charge of $39 once-off. A personalised custom domain is optional and any domain purchase or additional connection charge is separate. Confirm the final checkout breakdown before paying.</p>
           <h2>Keep the two programmes separate</h2>
           <ul><li><strong>Existing Referral Programme:</strong> the current referral arrangement for eligible VaultTrades products. Its existing attribution and commission rules remain separate.</li><li><strong>Reseller Programme:</strong> the membership-sales pathway being introduced through this opportunity. The working proposal is a commission on qualifying membership sales personally completed by the member, subject to final published terms.</li><li><strong>No downline:</strong> the working reseller model does not include multi-level or network commissions.</li></ul>
           <h2>How to introduce a membership</h2>
