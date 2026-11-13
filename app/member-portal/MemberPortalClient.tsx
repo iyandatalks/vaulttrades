@@ -47,7 +47,7 @@ const sections = [
   { id: "vortex-manual", label: "Vortex User Manual", group: "EA INSTALLATION & OPERATION" },
   { id: "vortex-install", label: "Vortex Installation Guide", group: "EA INSTALLATION & OPERATION" },
   { id: "troubleshooting", label: "Troubleshooting", group: "EA INSTALLATION & OPERATION" },
-  { id: "vps", label: "Optional VPS Hosting", group: "AUTOMATION & DAILY USE" },
+  { id: "vps", label: "Required VPS Setup", group: "AUTOMATION & DAILY USE" },
   { id: "daily", label: "Your Daily Trading Routine", group: "AUTOMATION & DAILY USE" },
   { id: "trading-room", label: "Morning Trading Room", group: "LEARNING & DEVELOPMENT" },
   { id: "mentorship", label: "Seven-Day Mentorship", group: "LEARNING & DEVELOPMENT" },
@@ -209,7 +209,7 @@ export default function MemberPortalClient({
             <li><strong>Submit your MT5 number.</strong> VaultTrades uses it to prepare your licensed EA.</li>
             <li><strong>Wait for licensing.</strong> Allow 24–48 hours after the correct MT5 number has been received.</li>
             <li><strong>Download and install your EA.</strong> Follow the product-specific installation guide.</li>
-            <li><strong>Consider VPS hosting.</strong> This optional service can keep the terminal running remotely.</li>
+            <li><strong>Set up your VPS.</strong> A compatible VPS is compulsory for the VaultTrades EA automation route.</li>
             <li><strong>Learn and build.</strong> Use the community, optional mentorship and your referral resources.</li>
           </ol>
           <p className="vt-member-note">Use the left-hand topics in order. Supporting materials are added as named links to approved cloud-hosted resources, rather than uploading large files into the website.</p>
@@ -403,13 +403,13 @@ export default function MemberPortalClient({
         </>;
       case "vps":
         return <>
-          <Eyebrow>OPTIONAL REMOTE HOSTING</Eyebrow><h1>Keep your EA running with a VPS.</h1>
-          <p className="vt-member-lead">A Virtual Private Server (VPS) is a remote computer that can keep MetaTrader 5 and your EA running when your personal computer is switched off or your home internet connection is interrupted.</p>
-          <h2>Why members may choose a VPS</h2><ul><li>MetaTrader 5 can remain online independently of your home computer.</li><li>It can reduce interruptions caused by local power, internet or travel.</li><li>You can access the remote desktop to check the terminal when needed.</li></ul>
-          <h2>Choose how you want to run MT5</h2>
-          <ol><li><strong>Your own computer:</strong> install MT5 locally and keep the computer, terminal and internet connection running while the EA is expected to operate.</li><li><strong>A VPS provider:</strong> rent a remote Windows environment, install MT5 there, sign in to your broker account and attach your licensed EA.</li><li><strong>Another MT5-compatible setup:</strong> you may choose a different provider if it meets your broker, operating-system and terminal requirements.</li></ol>
+          <Eyebrow>REQUIRED EA INFRASTRUCTURE</Eyebrow><h1>Set up your compulsory VPS.</h1>
+          <p className="vt-member-lead">A Virtual Private Server (VPS) is compulsory for the VaultTrades automated EA route. It provides a remote Windows environment for MetaTrader 5 to run continuously, subject to the VPS provider, broker and platform availability.</p>
+          <h2>Why the VPS is compulsory</h2><ul><li>The VaultTrades EA is supplied for automated operation, not local manual execution.</li><li>MetaTrader 5 runs on the remote VPS rather than depending on your personal computer.</li><li>You can access the remote desktop to monitor the terminal and connection.</li></ul>
+          <h2>VPS setup requirements</h2>
+          <ol><li>Choose a Windows VPS that meets the MetaTrader 5 and EA system requirements.</li><li>Use a provider and server location compatible with your approved broker.</li><li>Install MT5 on the VPS and sign in to your own trading account.</li><li>Install the licensed EA and verify its status before allowing live execution.</li><li>Keep your VPS subscription active and monitor its availability.</li></ol>
           {vpsRegistrationUrl ? <a className="vt-member-button" href={vpsRegistrationUrl} target="_blank" rel="noreferrer">View recommended VPS partner ↗</a> : <div className="vt-member-pending"><strong>Recommended VPS partner link is being finalised</strong><span>You can still choose your own VPS provider or run MT5 locally. The partner link will be added when the affiliate arrangement is confirmed.</span></div>}
-          <p className="vt-member-note">A VPS is optional and normally carries a separate recurring subscription. Compare Windows support, memory, CPU, location, latency to your broker server, support and cancellation terms. A VPS does not guarantee uninterrupted service, successful execution or profits.</p>
+          <p className="vt-member-note">A VPS is compulsory for the EA automation route and normally carries a separate recurring subscription. Compare Windows support, memory, CPU, location, latency to your broker server, support and cancellation terms. A VPS does not guarantee uninterrupted service, successful execution or profits.</p>
         </>;
       case "daily":
         return <>
@@ -502,16 +502,16 @@ export default function MemberPortalClient({
           <ol><li>Understand the differences between VaultTrades Nexus, Nexus Plus and Vortex.</li><li>Explain the included products, tools, learning resources and plan-specific entitlements accurately.</li><li>Explain that broker funding, VPS hosting and any separately priced services are distinct from the membership fee.</li><li>Ask about the person's needs rather than automatically recommending the highest-priced plan.</li><li>Never promise profits, guaranteed trades, account approval or guaranteed commissions.</li></ol>
           <h2>Membership options at a glance</h2>
           <div className="vt-member-table-wrap"><table className="vt-member-table"><thead><tr><th>Membership</th><th>Once-off fee</th><th>Included learning and tools</th></tr></thead><tbody>
-            <tr><td><strong>VaultTrades Nexus</strong></td><td>$150</td><td>Core Nexus membership and its applicable EA onboarding resources.</td></tr>
-            <tr><td><strong>VaultTrades Nexus Plus</strong></td><td>$250</td><td>Nexus membership plus Analyzer, Trading Journal, AI Coaching and scaling resources.</td></tr>
-            <tr><td><strong>VaultTrades Vortex</strong></td><td>$550</td><td>Nexus Plus resources, Vortex EA materials, advanced Risk Manager, Funded Account Wealth Builder and one-on-one mentorship entitlement.</td></tr>
+            <tr><td><strong>VaultTrades Nexus</strong></td><td>$150 package</td><td>$120 eligible MRR component + $30 once-off EA setup; Basics of Trading onboarding resources.</td></tr>
+            <tr><td><strong>VaultTrades Nexus Plus</strong></td><td>$250 package</td><td>$200 eligible MRR component + $50 once-off EA setup; optional Analyzer and required tools subscriptions remain separate.</td></tr>
+            <tr><td><strong>VaultTrades Vortex</strong></td><td>$550 package</td><td>$440 eligible MRR component + $110 once-off EA setup; optional Analyzer and required tools subscriptions remain separate.</td></tr>
           </tbody></table></div>
           <p className="vt-member-note">Personal website setup is a separate required reseller-programme setup charge of $39 once-off. A personalised custom domain is optional and any domain purchase or additional connection charge is separate. Confirm the final checkout breakdown before paying.</p>
           <h2>Keep the two programmes separate</h2>
-          <ul><li><strong>Existing Referral Programme:</strong> the current referral arrangement for eligible VaultTrades products. Its existing attribution and commission rules remain separate.</li><li><strong>Reseller Programme:</strong> the membership-sales pathway being introduced through this opportunity. The working proposal is a commission on qualifying membership sales personally completed by the member, subject to final published terms.</li><li><strong>No downline:</strong> the working reseller model does not include multi-level or network commissions.</li></ul>
+          <ul><li><strong>Existing Referral Programme:</strong> the current referral arrangement for eligible VaultTrades products. Its existing attribution and commission rules remain separate.</li><li><strong>Reseller Programme:</strong> the membership-sales pathway being introduced through this opportunity. The reseller receives 100% commission on the eligible MRR component of qualifying membership sales. The 20% EA setup component is paid separately to VaultTrades.</li><li><strong>No downline:</strong> the working reseller model does not include multi-level or network commissions.</li></ul>
           <h2>How to introduce a membership</h2>
           <ol><li>Share the official opportunity information.</li><li>Let the person review the plan comparison and included resources.</li><li>Answer questions using the approved product descriptions and terms.</li><li>Direct them to the official checkout so the order and referrer can be attributed.</li><li>Follow up respectfully and allow them to decide without pressure.</li></ol>
-          <p className="vt-member-note">Any proposed reseller commission rate, deductions, refund reversals and payout timing must be governed by the final approved reseller terms. Do not describe a working proposal as an already payable or guaranteed commission.</p>
+          <p className="vt-member-note">The 100% reseller commission applies only to the eligible MRR component. EA setup, annual licence renewal, website setup and separate monthly subscriptions are not part of the MRR commission.</p>
           <a className="vt-member-button" href="/plans">Review the membership plans</a>
         </>;
       case "referrals":
@@ -561,13 +561,13 @@ export default function MemberPortalClient({
           <Eyebrow>PLAN-BASED TOOLS</Eyebrow><h1>Your additional tools.</h1>
           <p className="vt-member-lead">Your portal displays the tools associated with your membership. Tools are protected by account entitlement; a visible link does not replace the required access check.</p>
           <div className="vt-member-tool-list">
-            <Tool title="Trading Journal" description="Record and review your trading activity." href="/journal" unlocked={plusOrVortex} />
-            <Tool title="Analyzer" description="Structured market analysis and trade planning." href="/analyzer" unlocked={plusOrVortex} />
+            <Tool title="Trading Journal" description="Included in the required $10/month Journal and Core Tools subscription." href="/journal" unlocked={false} lockedLabel="Required subscription · $10/month" />
+            <Tool title="Analyzer" description="Optional separate subscription." href="/analyzer" unlocked={false} lockedLabel="Optional subscription · $20/month" />
             <Tool title="AI Coaching" description="Ask questions about market structure and your trading process." href="/ai-coach" unlocked={plusOrVortex} />
             <Tool title="Risk Manager" description="Calculate position size and manage account risk." href="/risk-manager" unlocked={hasVortex} />
             <Tool title="Funded Account Wealth Builder" description="Model funded-account targets and progress." href="/funded-account-wealth-builder" unlocked={hasVortex} />
           </div>
-          <p className="vt-member-note">Nexus Plus and Vortex include the additional tools described in their plan. Vortex includes the advanced risk-management resources. Your access is determined by your active membership entitlement.</p>
+          <p className="vt-member-note">The Journal and Core Tools package is required at $10/month. Analyzer is optional at $20/month. Access is activated only after the corresponding subscription payment is verified.</p>
         </>;
       case "risk":
         return <>
@@ -580,7 +580,7 @@ export default function MemberPortalClient({
           <div className="vt-member-faq">
             <details><summary>Is the EA a ready-made download?</summary><p>No. The EA is generated for the MT5 account number submitted by the member. The expected preparation period is 24–48 hours after the correct number is received.</p></details>
             <details><summary>Do I submit my broker password?</summary><p>No. Submit only the MT5 account number requested for licensing. Never share your trading password or one-time security codes.</p></details>
-            <details><summary>Do I have to buy a VPS?</summary><p>No. VPS hosting is optional. You can run MT5 on your own computer, but the computer and terminal must remain running for the EA to operate locally.</p></details>
+            <details><summary>Do I have to use a VPS?</summary><p>Yes. A compatible VPS is compulsory for the VaultTrades EA automation route. The VPS hosts the MT5 terminal remotely, but cannot guarantee uninterrupted service or trading results.</p></details>
             <details><summary>Will the EA trade every day?</summary><p>No. The EA only acts when its strategy conditions and execution requirements are met. There is no guaranteed daily trade or profit.</p></details>
             <details><summary>Do I have to attend the trading room or mentorship?</summary><p>No. Both are optional learning opportunities.</p></details>
             <details><summary>Is the personal website compulsory?</summary><p>Yes. Personal website setup is required for the reseller programme and costs $39 once-off, in addition to the membership fee. Using your own personalised domain is optional.</p></details>
@@ -753,9 +753,9 @@ function Eyebrow({ children }: { children: ReactNode }) {
   return <div className="vt-member-kicker">{children}</div>;
 }
 
-function Tool({ title, description, href, unlocked }: { title: string; description: string; href: string; unlocked: boolean }) {
+function Tool({ title, description, href, unlocked, lockedLabel = "Unlocked with a higher plan" }: { title: string; description: string; href: string; unlocked: boolean; lockedLabel?: string }) {
   return <div className="vt-member-tool">
     <div><strong>{title}</strong><p>{description}</p></div>
-    {unlocked ? <Link href={href} className="vt-member-tool-link">Open tool ↗</Link> : <span className="vt-member-locked">Unlocked with a higher plan</span>}
+    {unlocked ? <Link href={href} className="vt-member-tool-link">Open tool ↗</Link> : <span className="vt-member-locked">{lockedLabel}</span>}
   </div>;
 }
