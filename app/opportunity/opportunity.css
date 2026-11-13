@@ -272,3 +272,12 @@
 .vto-income-actions{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:25px}
 @media(max-width:900px){.vto-income-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.vto-income-flow,.vto-revenue-calculator{grid-template-columns:1fr}.vto-operating-costs{grid-template-columns:1fr}.vto-cost-pills{flex-wrap:wrap}}
 @media(max-width:620px){.vto-income-section{padding:68px 0}.vto-income-grid{grid-template-columns:1fr}.vto-income-card{min-height:0}.vto-income-flow,.vto-revenue-calculator{padding:21px}.vto-flow-nodes{gap:4px}.vto-flow-nodes>div{min-height:68px;padding:5px 1px}.vto-flow-nodes span{font-size:6px}.vto-flow-lines{margin:0 5%}.vto-calculator-inputs,.vto-calculator-split{grid-template-columns:1fr}.vto-cost-pills{display:grid;grid-template-columns:1fr 1fr}.vto-cost-pills>span{min-width:0}.vto-income-actions .vto-button{width:100%}}
+
+
+/* Three consistently sized ecosystem opportunity cards */
+.vto-income-grid-three{grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch}
+.vto-income-grid-three .vto-income-card{height:100%;display:flex;flex-direction:column}
+.vto-income-grid-three .vto-income-card h3{min-height:3em;max-width:100%;overflow-wrap:anywhere}
+.vto-income-grid-three .vto-income-card>p{flex:1}
+@media(max-width:900px){.vto-income-grid-three{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.vto-income-grid-three{grid-template-columns:1fr}}
