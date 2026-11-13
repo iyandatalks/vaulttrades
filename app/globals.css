@@ -161,3 +161,40 @@
 .vt-privacy-page .vt-privacy-note{margin-top:28px;color:#7e899a;font-size:10px}
 .vt-privacy-back{display:inline-block;margin-top:18px;color:#d4a637;font-size:11px;font-weight:800}
 @media(max-width:600px){.vt-privacy-page{padding:30px 15px}.vt-privacy-page section{padding:25px 20px}}
+
+
+/* Unified VaultTrades site identity */
+html,body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#050812;color:#f4f6fb}
+.vt-site-shell{min-height:100vh;display:flex;flex-direction:column;background:#050812}
+.vt-site-content{flex:1 0 auto;min-width:0}
+.vt-site-header{position:relative;z-index:50;width:100%;border-bottom:1px solid rgba(212,166,55,.22);background:linear-gradient(100deg,#080d17 0%,#0d1420 55%,#080d17 100%)}
+.vt-site-header .vt-nav-inner{width:min(1280px,calc(100% - 48px));min-height:92px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:28px}
+.vt-nav-brand-block{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-decoration:none;white-space:nowrap}
+.vt-nav-brand{font-size:20px;line-height:1.1;color:#e2c16e;font-weight:950;letter-spacing:.16em}
+.vt-nav-tagline{font-size:12px;color:#f4f6fb;font-weight:850;letter-spacing:.08em}
+.vt-nav-slogan{font-size:10px;color:#8793a6;letter-spacing:.12em}
+.vt-nav-links{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap}
+.vt-nav-link{border:1px solid rgba(212,166,55,.22);border-radius:6px;padding:9px 12px;color:#cbd3df;font-size:11px;font-weight:750;letter-spacing:.025em}
+.vt-nav-link.active{background:#d4a637;border-color:#d4a637;color:#080d17}
+.vt-global-footer{width:100%;margin-top:auto;border-top:1px solid rgba(212,166,55,.18);padding:34px 24px 24px;background:#070b12;text-align:center}
+.vt-global-footer-inner{width:min(1120px,100%);margin:0 auto}
+.vt-global-footer-brand{font-size:15px;letter-spacing:.16em;color:#e2c16e}
+.vt-global-footer-tagline{font-size:11px;letter-spacing:.04em;color:#c1c9d5}
+.vt-global-footer p{max-width:900px;margin:17px auto;color:#7f8b9e;font-size:10px;line-height:1.75}
+.vt-global-footer-copy{padding-top:14px;border-top:1px solid rgba(255,255,255,.06);font-size:10px;letter-spacing:.04em;color:#687487}
+.vt-sales-footer{display:none}
+.vt-calc-visual{margin-top:18px;padding:17px;border:1px solid rgba(215,180,90,.24);border-radius:7px;background:radial-gradient(circle at 90% 0,rgba(215,180,90,.12),transparent 45%),#080d15}
+.vt-calc-visual-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;color:#9ba6b6;font-size:9px;font-weight:850;letter-spacing:.13em}
+.vt-calc-visual-head strong{color:#e2c16e;font-size:16px;letter-spacing:.04em}
+.vt-calc-bar{height:18px;display:flex;overflow:hidden;border-radius:99px;background:#202a39;box-shadow:inset 0 1px 3px rgba(0,0,0,.45)}
+.vt-calc-bar-reseller{width:80%;background:linear-gradient(90deg,#b98e35,#f0d58a)}
+.vt-calc-bar-platform{width:20%;background:linear-gradient(90deg,#46566c,#78879b)}
+.vt-calc-legend{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:12px;color:#aab4c3;font-size:10px}
+.vt-calc-legend span{display:inline-flex;align-items:center;gap:7px}
+.vt-calc-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.vt-calc-dot.reseller{background:#e2c16e}.vt-calc-dot.platform{background:#718198}
+.vt-calc-footnote{margin:13px 0 0!important;color:#758195!important;font-size:10px!important;line-height:1.65!important}
+.vt-calc-result-primary{border-color:rgba(215,180,90,.6);background:linear-gradient(145deg,rgba(215,180,90,.12),#090d14)}
+.vt-calc-result-primary strong{font-size:clamp(19px,2.2vw,26px)}
+@media(max-width:820px){.vt-site-header .vt-nav-inner{width:calc(100% - 32px);padding:14px 0;align-items:flex-start;flex-direction:column;gap:12px}.vt-nav-links{justify-content:flex-start;width:100%}}
+@media(max-width:560px){.vt-nav-brand{font-size:18px}.vt-nav-links{gap:6px}.vt-nav-link{padding:8px 9px;font-size:10px}.vt-global-footer{padding:28px 18px 20px}.vt-calc-legend{flex-direction:column}}

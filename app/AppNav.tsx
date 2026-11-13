@@ -43,17 +43,21 @@ export default function AppNav() {
   ];
 
   return (
-    <nav className="vt-nav" aria-label="VaultTrades navigation">
+    <header className="vt-site-header">
       <div className="vt-nav-inner">
-        <Link href="/" className="vt-nav-brand">VAULTTRADES</Link>
-        <div className="vt-nav-links">
+        <Link href="/" className="vt-nav-brand-block" aria-label="VaultTrades home">
+          <span className="vt-nav-brand">VAULTTRADES</span>
+          <span className="vt-nav-tagline">Built by Traders.</span>
+          <span className="vt-nav-slogan">Focus. Discipline. Consistency.</span>
+        </Link>
+        <nav className="vt-nav-links" aria-label="VaultTrades navigation">
           {tabs.map(tab => {
             const active = pathname === tab.href || (tab.href !== "/" && pathname.startsWith(tab.href));
             return <Link key={tab.href} href={tab.href} className={"vt-nav-link" + (active ? " active" : "")}>{tab.label}</Link>;
           })}
           {!signedIn && <Link href="/auth/login" className="vt-nav-link">Sign in</Link>}
-        </div>
+        </nav>
       </div>
-    </nav>
+    </header>
   );
 }
