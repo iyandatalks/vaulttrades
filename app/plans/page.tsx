@@ -61,7 +61,14 @@ export default function PlansPage() {
             <div className="vt-plan-number">{plan.number}</div>
             <h2>{plan.name}</h2>
             <div className="vt-plan-price">{plan.price}<small> USD</small></div>
-            <div className="vt-plan-once">ONE-TIME MEMBERSHIP FEE</div>
+            <div className="vt-plan-once">ONE-TIME PACKAGE PRICE · INCLUDES EA SETUP ALLOCATION</div>
+            <div className="vt-plan-addon">
+              <span>Eligible MRR component · 100% reseller commission</span>
+              <strong>${(Number(plan.price.replace("$", "")) * 0.8).toFixed(2)} <small>USD</small></strong>
+              <span>EA once-off setup · VaultTrades</span>
+              <strong>${(Number(plan.price.replace("$", "")) * 0.2).toFixed(2)} <small>USD</small></strong>
+              <p>The MRR component is paid to the reseller through their PayPal link. The EA setup component is a separate VaultTrades charge. Required website setup is $39 once-off.</p>
+            </div>
             <p className="vt-plan-intro">{plan.intro}</p>
             <ul>{plan.features.map((feature) => <li key={feature}><span aria-hidden="true">✓</span>{feature}</li>)}</ul>
             <div className="vt-plan-addon">
