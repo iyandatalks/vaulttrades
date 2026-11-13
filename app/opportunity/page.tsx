@@ -86,7 +86,7 @@ export default function OpportunityPage() {
             <div className="vto-story-sun" aria-hidden="true" />
             <img
               className="vto-story-photo"
-              src="https://avatars.githubusercontent.com/u/117064545?v=4"
+              src="/images/vaulttrades-lifestyle.jpg"
               alt="VaultTrades founder"
               loading="eager"
               fetchPriority="high"
