@@ -65,9 +65,9 @@ export default function PlansPage() {
             <p className="vt-plan-intro">{plan.intro}</p>
             <ul>{plan.features.map((feature) => <li key={feature}><span aria-hidden="true">✓</span>{feature}</li>)}</ul>
             <div className="vt-plan-addon">
-              <span>Optional personal website setup</span>
+              <span>Required personal website setup</span>
               <strong>$39 <small>USD · once-off</small></strong>
-              <p>Separate from the membership fee. Hosting, maintenance and domain charges, if applicable, are confirmed separately.</p>
+              <p>Required for the reseller programme and charged in addition to membership. A personalised domain is optional; domain purchase, connection and any applicable fees are handled separately.</p>
             </div>
             <Link className="vt-plan-select" href={`/membership/checkout?plan=${plan.code}`}>Select this plan <span>→</span></Link>
           </article>
@@ -77,7 +77,7 @@ export default function PlansPage() {
         <h2>Important details</h2>
         <p>Membership fees are once-off. Trading capital is separate and must be funded with your chosen broker. Trading involves risk and losses are possible; trading results and business commissions are not guaranteed.</p>
         <p>Eligible members may earn commission on qualifying membership sales they personally refer, subject to the final reseller terms. This is a membership-sale commission, not a guarantee of trading profit.</p>
-        <p>Personal website setup is optional and separate from membership. The optional setup fee is $39 once-off. Any annual hosting, maintenance or domain charges will be confirmed separately before purchase.</p>
+        <p>Personal website setup is required for the reseller programme and costs $39 once-off, in addition to the selected membership fee. Using your own personalised domain is optional. If you choose that route, provide the domain details after purchase so VaultTrades can assess and configure the connection. Any domain purchase or connection fee will be disclosed separately before you proceed.</p>
       </section>
     </main>
   );
