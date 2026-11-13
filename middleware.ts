@@ -23,6 +23,7 @@ const adminOnlyPaths = [
   "/partners",
   "/how-it-works",
   "/member-portal",
+  "/api/marketing-leads",
 ];
 
 const isPath = (pathname: string, path: string) =>
