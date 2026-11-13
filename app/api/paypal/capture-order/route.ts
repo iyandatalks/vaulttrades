@@ -22,7 +22,15 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (!transaction) return NextResponse.json({ error: "Payment transaction was not found." }, { status: 404 });
-    if (transaction.status === "verified") return NextResponse.json({ success: true, membershipActive: true, alreadyVerified: true });
+    if (transaction.status === "verified") {
+      const isResellerSetup = transaction.payment_method === "paypal_reseller_setup" || transaction.raw_event?.order_type === "reseller_setup";
+      return NextResponse.json({
+        success: true,
+        membershipActive: !isResellerSetup,
+        awaitingResellerConfirmation: isResellerSetup,
+        alreadyVerified: true,
+      });
+    }
 
     const capture = await paypalRequest(`/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`, { method: "POST", headers: { "PayPal-Request-Id": `capture-${orderId}` }, body: "{}" });
     const purchase = capture.purchase_units?.[0];
