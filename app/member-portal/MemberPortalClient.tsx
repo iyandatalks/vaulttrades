@@ -649,7 +649,7 @@ function ResourceShelf({ active }: { active: string }) {
       {slots.map(slot => <div className="vt-member-resource-card" key={slot.title}>
         <div className="vt-member-resource-icon" aria-hidden="true">＋</div>
         <div className="vt-member-resource-copy"><strong>{slot.title}</strong><span>{slot.kind}</span><p>{slot.note}</p></div>
-        <span className="vt-member-resource-status">Awaiting resource</span>
+        {slot.kind.toLowerCase().includes("link") ? <button type="button" className="vt-member-resource-pending-button" disabled>Link button reserved</button> : <span className="vt-member-resource-status">Attachment / resource slot reserved</span>}
       </div>)}
     </div>
   </section>;
