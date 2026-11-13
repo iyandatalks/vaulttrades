@@ -54,7 +54,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Select a valid VaultTrades EA product." }, { status: 400 });
   }
 
-  const db = createAdminClient();
+  const db = process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : auth;
   const { data: profile } = await db.from("users").select("id,email,role").eq("auth_user_id", user.id).maybeSingle();
   if (!profile) return NextResponse.json({ error: "PROFILE_NOT_FOUND" }, { status: 404 });
 
