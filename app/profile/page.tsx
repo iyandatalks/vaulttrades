@@ -17,6 +17,8 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [hasWhatsAppSupport, setHasWhatsAppSupport] = useState(false);
+  const [hasResellerProgramme, setHasResellerProgramme] = useState(false);
+  const [resellerPlan, setResellerPlan] = useState<string | null>(null);
   const [referral, setReferral] = useState<ReferralState>({ enabled: false, code: null, url: null });
 
   useEffect(() => {
@@ -36,6 +38,8 @@ export default function ProfilePage() {
           setReferral(result?.referral ?? { enabled: false, code: null, url: null });
           setIsAdmin(result?.admin === true);
           setHasWhatsAppSupport(result?.supportWhatsApp === true);
+          setHasResellerProgramme(result?.reseller?.enabled === true);
+          setResellerPlan(result?.reseller?.plan ?? null);
         }
       }
 
@@ -95,6 +99,16 @@ export default function ProfilePage() {
                     <Link className="vt-primary" href="/admin/community-testimonials" style={{ display: "inline-block", marginTop: 8 }}>Review Submissions →</Link>
                   </article>
                   <article className="vt-info-card">
+                    <h3>EA Licensing Queue</h3>
+                    <p className="muted">Review member MT5 submissions, generate personalised EA files and release private downloads.</p>
+                    <Link className="vt-primary" href="/admin/ea-licensing" style={{ display: "inline-block", marginTop: 8 }}>Open Licensing Queue →</Link>
+                  </article>
+                  <article className="vt-info-card">
+                    <h3>Website Requests</h3>
+                    <p className="muted">Review member subdomain preferences and custom-domain setup requests.</p>
+                    <Link className="vt-primary" href="/admin/website-requests" style={{ display: "inline-block", marginTop: 8 }}>Open Website Requests →</Link>
+                  </article>
+                  <article className="vt-info-card">
                     <h3>Manage Partners</h3>
                     <p className="muted">Manage the partner catalogue and public partner page.</p>
                     <Link className="vt-primary" href="/admin/partners" style={{ display: "inline-block", marginTop: 8 }}>Open Partner Management →</Link>
@@ -108,9 +122,27 @@ export default function ProfilePage() {
               </section>
             )}
 
+            {(isAdmin || hasResellerProgramme) && (
+              <section className="vt-info-card" style={{ marginTop: 24, textAlign: "left", border: "1px solid rgba(212,166,55,.35)" }}>
+                <div className="vt-label">RESELLER PROGRAMME</div>
+                <h2 style={{ margin: "10px 0 8px", fontSize: 27 }}>Your VaultTrades Reseller Workspace</h2>
+                <p style={{ maxWidth: 760 }}>
+                  {isAdmin
+                    ? "Administrator access is enabled. You can review the complete reseller Knowledge Base without purchasing a plan or entering checkout."
+                    : "Your reseller programme access is active. Open your Knowledge Base to follow onboarding, website setup and the reseller learning pathway."}
+                </p>
+                {resellerPlan && !isAdmin && <p className="muted">Active membership: {resellerPlan.replaceAll("_", " ")}</p>}
+                <Link className="vt-primary" href="/member-portal" style={{ display: "inline-block", marginTop: 10 }}>
+                  Open Reseller Knowledge Base →
+                </Link>
+              </section>
+            )}
+
             <section className="vt-info-card" style={{ marginTop: 24, textAlign: "left" }}>
               <div className="vt-label">REFERRAL</div>
-              <h2 style={{ margin: "10px 0 8px", fontSize: 27 }}>VaultTrades Referral</h2>\n              <p style={{ maxWidth: 760 }}>Discover how the referral programme works, explore an illustrative earnings calculator and learn how qualifying purchases are attributed.</p>\n              <Link className="vt-primary" href="/referral-program" style={{ display: "inline-block", marginTop: 10 }}>Explore Referral Programme →</Link>
+              <h2 style={{ margin: "10px 0 8px", fontSize: 27 }}>VaultTrades Referral</h2>
+              <p style={{ maxWidth: 760 }}>Your existing referral programme for eligible VaultTrades products. This remains separate from the new reseller membership programme.</p>
+              <Link className="vt-primary" href="/referral-program" style={{ display: "inline-block", marginTop: 10 }}>Explore Referral Programme →</Link>
               {referral.enabled && referral.url ? (
                 <>
                   <p style={{ maxWidth: 760 }}>
@@ -155,10 +187,17 @@ export default function ProfilePage() {
                     Your personal referral link becomes active after you have signed up for at least one VaultTrades product.
                   </p>
                   <Link className="vt-primary" href="/referral-process" style={{ display: "inline-block", marginTop: 12 }}>
-                    View VaultTrades Process →
+                    View Referral Process →
                   </Link>
                 </>
               )}
+            </section>
+
+            <section className="vt-info-card" style={{ marginTop: 24, textAlign: "left" }}>
+              <div className="vt-label">VAULTTRADES PROCESS</div>
+              <h2 style={{ margin: "10px 0 8px", fontSize: 27 }}>How the VaultTrades process works</h2>
+              <p style={{ maxWidth: 760 }}>A separate step-by-step explanation of the customer journey, from initial interest and programme review through plan selection, membership activation and access to the Knowledge Base. This is not the Referral Programme and does not replace the Reseller Workspace.</p>
+              <Link className="vt-primary" href="/vaulttrades-process" style={{ display: "inline-block", marginTop: 10 }}>View VaultTrades Process →</Link>
             </section>
 
             {hasWhatsAppSupport && (

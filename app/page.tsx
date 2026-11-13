@@ -4,7 +4,7 @@ import Link from "next/link";
 
 const products = [
   { title: "VAULTTRADES WINNING STRATEGY", text: "A structured trading framework built around order flow, institutional order blocks, Fibonacci price levels, defined invalidation and targeted take-profit levels. Free for registered VaultTrades Community members.", href: "/winning-strategy", action: "Explore Winning Strategy", featured: true },
-  { title: "VAULTTRADES ANALYZER", text: "A paid market-analysis product that evaluates market structure, liquidity, order blocks, Fibonacci levels and strategy conditions to support disciplined trade planning.", href: "/products#analyzer", action: "View Analyzer pricing", featured: true },
+  { title: "VAULTTRADES ANALYZER", text: "A paid market-analysis product that evaluates market structure, liquidity, order blocks, Fibonacci levels and strategy conditions to support disciplined trade planning.", href: "/subscription?promo=1", action: "View Analyzer pricing", featured: true },
   { title: "FOUNDERS MENTORSHIP", text: "A focused online mentorship programme with a one-on-one session and structured trading-process development.", href: "/founders-mentorship/purchase", action: "Join Founders Mentorship" },
   { title: "COPY TRADING", text: "Connect an MT5 account to the VaultTrades copy infrastructure. The underlying trading engine stays behind the product.", href: "/copy", action: "Open Copy" },
   { title: "AI COACH", text: "Available to customers with any active VaultTrades product. Ask questions about market structure, strategy conditions, analysis and trading decisions.", href: "/ai-coach", action: "Open AI Coach" },
@@ -28,7 +28,6 @@ export default function HomePage() {
         <p>Explore the VaultTrades Winning Strategy and Analyzer, supported by mentorship, MT5 copy trading and tools designed to strengthen your trading process.</p>
         <div className="vt-actions">
           <Link className="vt-primary" href="/start">Explore the Opportunity</Link>
-          <Link className="vt-secondary" href="/products">View Products</Link>
           <Link className="vt-secondary" href="/analyzer">Open Analyzer</Link>
           <Link className="vt-secondary" href="/referral-program">Referral Programme</Link>
           <a className="vt-secondary vt-whatsapp-contact" href="https://wa.me/27746653633?text=Hello%20VaultTrades%20Admin%2C%20I%20would%20like%20assistance%20with%20joining." target="_blank" rel="noopener noreferrer" aria-label="Contact VaultTrades Admin on WhatsApp">

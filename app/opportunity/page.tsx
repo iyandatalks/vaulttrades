@@ -202,7 +202,7 @@ export default function OpportunityPage() {
           <div>
             <p>Membership fees are once-off. Trading capital is separate and must be deposited with a broker recommended in your selected module. Trading involves risk, and losses are possible. Trading results and business commissions are not guaranteed.</p>
             <p>Eligible members may earn a 100% commission on a qualifying membership sale they personally refer, subject to the final reseller terms. This is a membership-sale commission, not a guarantee of trading profit.</p>
-            <p><strong>Optional personal website:</strong> A personal website is optional and separate from membership. A personal subdomain, such as yourname.vaulttradesve.com, may be available. The once-off setup fee and any annual hosting or maintenance charges will be confirmed before purchase.</p>
+            <p><strong>Personal website setup:</strong> A personal website is a required part of the reseller programme and carries a separate $39 once-off setup fee in addition to the selected membership. Members may use an approved VaultTrades subdomain. Using a personally owned custom domain is optional; any domain purchase or additional connection fee will be disclosed separately before work begins.</p>
           </div>
         </div>
       </section>

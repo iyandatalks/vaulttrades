@@ -3,9 +3,8 @@ import "./plans.css";
 
 const plans = [
   {
-    number: "PLAN 1",
-    name: "VaultTrades Nexus",
-    price: "$150",
+    number: "PLAN 1", code: "nexus",
+    name: "VaultTrades Nexus", price: "$150",
     intro: "Launch your trading and digital-business journey with the core VaultTrades experience.",
     features: [
       "VaultTrades Nexus automated trading system",
@@ -17,9 +16,8 @@ const plans = [
     ],
   },
   {
-    number: "PLAN 2",
-    name: "VaultTrades Nexus Plus",
-    price: "$250",
+    number: "PLAN 2", code: "nexus_plus",
+    name: "VaultTrades Nexus Plus", price: "$250",
     intro: "Everything in Nexus, with additional tools and resources to develop your trading capability.",
     featured: true,
     features: [
@@ -33,13 +31,12 @@ const plans = [
     ],
   },
   {
-    number: "PLAN 3",
-    name: "VaultTrades Nexus Vortex",
-    price: "$550",
+    number: "PLAN 3", code: "vortex",
+    name: "VaultTrades Vortex", price: "$550",
     intro: "The complete package, with advanced trading resources, risk management and individual mentorship.",
     features: [
       "Everything included in Plans 1 and 2",
-      "VaultTrades Vortex automated trading system",
+      "All three VaultTrades EA products, including Vortex",
       "Full risk-management resources",
       "Both included trading indicators",
       "Advanced trading and business-scaling resources",
@@ -67,14 +64,20 @@ export default function PlansPage() {
             <div className="vt-plan-once">ONE-TIME MEMBERSHIP FEE</div>
             <p className="vt-plan-intro">{plan.intro}</p>
             <ul>{plan.features.map((feature) => <li key={feature}><span aria-hidden="true">✓</span>{feature}</li>)}</ul>
+            <div className="vt-plan-addon">
+              <span>Required personal website setup</span>
+              <strong>$39 <small>USD · once-off</small></strong>
+              <p>Required for the reseller programme and charged in addition to membership. A personalised domain is optional; domain purchase, connection and any applicable fees are handled separately.</p>
+            </div>
+            <Link className="vt-plan-select" href={`/membership/checkout?plan=${plan.code}`}>Select this plan <span>→</span></Link>
           </article>
         ))}
       </section>
       <section className="vt-plan-notes">
         <h2>Important details</h2>
         <p>Membership fees are once-off. Trading capital is separate and must be funded with your chosen broker. Trading involves risk and losses are possible; trading results and business commissions are not guaranteed.</p>
-        <p>Eligible members may earn a 100% commission on a qualifying membership sale they personally refer, subject to the final reseller terms. This is a membership-sale commission, not a guarantee of trading profit.</p>
-        <p>Personal website setup is optional and separate from membership. Website setup and annual hosting/maintenance pricing will be confirmed before purchase.</p>
+        <p>Eligible members may earn commission on qualifying membership sales they personally refer, subject to the final reseller terms. This is a membership-sale commission, not a guarantee of trading profit.</p>
+        <p>Personal website setup is required for the reseller programme and costs $39 once-off, in addition to the selected membership fee. Using your own personalised domain is optional. If you choose that route, provide the domain details after purchase so VaultTrades can assess and configure the connection. Any domain purchase or connection fee will be disclosed separately before you proceed.</p>
       </section>
     </main>
   );
