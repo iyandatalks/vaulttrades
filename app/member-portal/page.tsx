@@ -131,7 +131,8 @@ export default async function MemberPortalPage() {
       memberNotifications={memberNotifications ?? []}
       xmRegistrationUrl={xmPartner?.referral_url ?? process.env.NEXT_PUBLIC_XM_AFFILIATE_URL ?? ""}
       vpsRegistrationUrl={process.env.NEXT_PUBLIC_VPS_PARTNER_URL ?? ""}
-      requestActionsAvailable={requestActionsAvailable}\n      licensingActionsAvailable={true}
+      requestActionsAvailable={requestActionsAvailable}
+      licensingActionsAvailable={true}
     />
   );
 }
