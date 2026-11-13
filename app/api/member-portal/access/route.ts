@@ -8,7 +8,7 @@ export async function GET() {
   const auth = await createClient();
   const { data: { user } } = await auth.auth.getUser();
   if (!user) return NextResponse.json({ hasMembership: false, isAdmin: false }, { status: 200 });
-  const db = createAdminClient();
+  const db = process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : auth;
   const { data: profile } = await db.from("users").select("id,role").eq("auth_user_id", user.id).maybeSingle();
   if (!profile) return NextResponse.json({ hasMembership: false, isAdmin: false }, { status: 200 });
   if (profile.role === "admin") return NextResponse.json({ hasMembership: true, isAdmin: true, plan: "vortex" });
