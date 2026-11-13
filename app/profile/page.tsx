@@ -140,7 +140,9 @@ export default function ProfilePage() {
 
             <section className="vt-info-card" style={{ marginTop: 24, textAlign: "left" }}>
               <div className="vt-label">REFERRAL</div>
-              <h2 style={{ margin: "10px 0 8px", fontSize: 27 }}>VaultTrades Referral</h2>\n              <p style={{ maxWidth: 760 }}>Discover how the referral programme works, explore an illustrative earnings calculator and learn how qualifying purchases are attributed.</p>\n              <Link className="vt-primary" href="/referral-program" style={{ display: "inline-block", marginTop: 10 }}>Explore Referral Programme →</Link>
+              <h2 style={{ margin: "10px 0 8px", fontSize: 27 }}>VaultTrades Referral</h2>
+              <p style={{ maxWidth: 760 }}>Your existing referral programme for eligible VaultTrades products. This remains separate from the new reseller membership programme.</p>
+              <Link className="vt-primary" href="/referral-program" style={{ display: "inline-block", marginTop: 10 }}>Explore Referral Programme →</Link>
               {referral.enabled && referral.url ? (
                 <>
                   <p style={{ maxWidth: 760 }}>
@@ -185,10 +187,17 @@ export default function ProfilePage() {
                     Your personal referral link becomes active after you have signed up for at least one VaultTrades product.
                   </p>
                   <Link className="vt-primary" href="/referral-process" style={{ display: "inline-block", marginTop: 12 }}>
-                    View VaultTrades Process →
+                    View Referral Process →
                   </Link>
                 </>
               )}
+            </section>
+
+            <section className="vt-info-card" style={{ marginTop: 24, textAlign: "left" }}>
+              <div className="vt-label">VAULTTRADES PROCESS</div>
+              <h2 style={{ margin: "10px 0 8px", fontSize: 27 }}>How the VaultTrades process works</h2>
+              <p style={{ maxWidth: 760 }}>A separate step-by-step explanation of the customer journey, from initial interest and programme review through plan selection, membership activation and access to the Knowledge Base. This is not the Referral Programme and does not replace the Reseller Workspace.</p>
+              <Link className="vt-primary" href="/vaulttrades-process" style={{ display: "inline-block", marginTop: 10 }}>View VaultTrades Process →</Link>
             </section>
 
             {hasWhatsAppSupport && (
