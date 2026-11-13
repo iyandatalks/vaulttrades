@@ -54,7 +54,8 @@ export default function AppNav() {
         </Link>
         <nav className="vt-nav-links" aria-label="VaultTrades navigation">
           {tabs.map(tab => {
-            const active = pathname === tab.href || (tab.href !== "/" && pathname.startsWith(tab.href));
+            const tabPath = tab.href.split("?")[0];
+            const active = pathname === tabPath || (tabPath !== "/" && pathname.startsWith(tabPath));
             return <Link key={tab.href} href={tab.href} className={"vt-nav-link" + (active ? " active" : "")}>{tab.label}</Link>;
           })}
           {!signedIn && <Link href="/auth/login" className="vt-nav-link">Sign in</Link>}
