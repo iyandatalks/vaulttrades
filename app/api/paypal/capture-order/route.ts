@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     const admin = createAdminClient();
     const { data: transaction } = await admin
       .from("payment_transactions")
-      .select("id,provider_order_id,amount,currency,user_id,auth_user_id,status,membership_months")
+      .select("id,provider_order_id,amount,currency,user_id,auth_user_id,status,membership_months,payment_method,raw_event")
       .eq("provider", "paypal")
       .eq("provider_order_id", orderId)
       .eq("auth_user_id", user.id)
@@ -36,7 +36,31 @@ export async function POST(request: Request) {
 
     const expires = new Date();
     expires.setMonth(expires.getMonth() + Number(transaction.membership_months || 1));
-    await admin.from("payment_transactions").update({ status: "verified", provider_capture_id: captureRecord.id, raw_event: capture, verified_at: new Date().toISOString() }).eq("id", transaction.id);
+    const verifiedAt = new Date().toISOString();
+    await admin.from("payment_transactions").update({ status: "verified", provider_capture_id: captureRecord.id, raw_event: capture, verified_at: verifiedAt }).eq("id", transaction.id);
+
+    if (transaction.payment_method === "paypal_reseller_setup" || transaction.raw_event?.order_type === "reseller_setup") {
+      const declarationId = String(transaction.raw_event?.declaration_id || "");
+      if (!declarationId) return NextResponse.json({ error: "The setup payment is missing its reseller declaration reference." }, { status: 500 });
+      const { error: declarationError } = await admin.from("reseller_purchase_orders").update({
+        vaulttrades_payment_status: "verified",
+        vaulttrades_payment_transaction_id: transaction.id,
+        updated_at: verifiedAt,
+      }).eq("id", declarationId).eq("customer_auth_user_id", user.id);
+      if (declarationError) {
+        console.error("Unable to mark VaultTrades setup payment as verified", declarationError);
+        return NextResponse.json({ error: "Payment was captured, but the reseller order could not be updated. Contact support." }, { status: 500 });
+      }
+      return NextResponse.json({
+        success: true,
+        membershipActive: false,
+        awaitingResellerConfirmation: true,
+        orderId,
+        captureId: captureRecord.id,
+        verifiedAt,
+      });
+    }
+
     await admin.from("users").update({ license_status: "active", is_active: true, payment_method: "paypal", last_payment_ref: String(captureRecord.id), license_expires_at: expires.toISOString() }).eq("auth_user_id", user.id);
 
     return NextResponse.json({ success: true, membershipActive: true, orderId, captureId: captureRecord.id, expiresAt: expires.toISOString() });
