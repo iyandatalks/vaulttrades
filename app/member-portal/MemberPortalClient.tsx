@@ -186,10 +186,7 @@ export default function MemberPortalClient({
     } finally { setWebsiteSubmitting(false); }
   }
 
-  const plusOrVortex = plan === "nexus_plus" || plan === "vortex";
-  const hasVortex = plan === "vortex";
-
-  function renderContent() {
+    function renderContent() {
     switch (active) {
       case "welcome":
         return <>
@@ -563,9 +560,9 @@ export default function MemberPortalClient({
           <div className="vt-member-tool-list">
             <Tool title="Trading Journal" description="Included in the required $10/month Journal and Core Tools subscription." href="/journal" unlocked={false} lockedLabel="Required subscription · $10/month" />
             <Tool title="Analyzer" description="Optional separate subscription." href="/analyzer" unlocked={false} lockedLabel="Optional subscription · $20/month" />
-            <Tool title="AI Coaching" description="Ask questions about market structure and your trading process." href="/ai-coach" unlocked={plusOrVortex} />
-            <Tool title="Risk Manager" description="Calculate position size and manage account risk." href="/risk-manager" unlocked={hasVortex} />
-            <Tool title="Funded Account Wealth Builder" description="Model funded-account targets and progress." href="/funded-account-wealth-builder" unlocked={hasVortex} />
+            <Tool title="AI Coaching" description="Included in the required $10/month Journal and Core Tools subscription." href="/ai-coach" unlocked={false} lockedLabel="Required subscription · $10/month" />
+            <Tool title="Risk Manager" description="Included in the required $10/month Journal and Core Tools subscription." href="/risk-manager" unlocked={false} lockedLabel="Required subscription · $10/month" />
+            <Tool title="Funded Account Wealth Builder" description="Included in the required $10/month Journal and Core Tools subscription." href="/funded-account-wealth-builder" unlocked={false} lockedLabel="Required subscription · $10/month" />
           </div>
           <p className="vt-member-note">The Journal and Core Tools package is required at $10/month. Analyzer is optional at $20/month. Access is activated only after the corresponding subscription payment is verified.</p>
         </>;
