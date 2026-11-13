@@ -157,6 +157,8 @@ export default function MemberPortalClient({
       ? [{ value: "nexus", label: "VaultTrades Nexus" }, { value: "nexus_plus", label: "VaultTrades Nexus Plus" }]
       : [{ value: "nexus", label: "VaultTrades Nexus" }, { value: "nexus_plus", label: "VaultTrades Nexus Plus" }, { value: "vortex", label: "VaultTrades Vortex" }];
 
+  const hasVortex = plan === "vortex";
+
   async function submitWebsiteRequest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!requestActionsAvailable) {
