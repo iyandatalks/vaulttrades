@@ -12,7 +12,7 @@ const plans = [
       "Access to the free member community",
       "Business-launch and monthly-income education",
       "Access to the membership reseller opportunity",
-      "Core tools and resources included with Nexus",
+      "Access to the central reseller Knowledge Base and Basics of Trading lessons",
     ],
   },
   {
@@ -23,8 +23,8 @@ const plans = [
     features: [
       "Everything included in Plan 1",
       "VaultTrades Nexus Plus automated trading system",
-      "Analyzer access",
-      "Trading journal access",
+      "Optional Analyzer subscription available separately at $20/month", 
+      "Journal and core tools available separately through the required $10/month package", 
       "Additional trading indicators and tools",
       "Trading development and scaling resources",
       "Membership reseller opportunity",
@@ -76,7 +76,7 @@ export default function PlansPage() {
       <section className="vt-plan-notes">
         <h2>Important details</h2>
         <p>Membership fees are once-off. Trading capital is separate and must be funded with your chosen broker. Trading involves risk and losses are possible; trading results and business commissions are not guaranteed.</p>
-        <p>Eligible members may earn commission on qualifying membership sales they personally refer, subject to the final reseller terms. This is a membership-sale commission, not a guarantee of trading profit.</p>
+        <p>Resellers receive 100% commission on the eligible MRR membership component of qualifying sales they personally refer, subject to verification, refunds and the reseller agreement. Separately priced VaultTrades services are excluded from that MRR commission. This is a membership-sale commission, not a guarantee of trading profit.</p>
         <p>Personal website setup is required for the reseller programme and costs $39 once-off, in addition to the selected membership fee. Using your own personalised domain is optional. If you choose that route, provide the domain details after purchase so VaultTrades can assess and configure the connection. Any domain purchase or connection fee will be disclosed separately before you proceed.</p>
       </section>
     </main>
