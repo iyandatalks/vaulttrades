@@ -35,3 +35,5 @@
 .vt-member-content-footer button:disabled{opacity:.35;cursor:not-allowed}
 @media(max-width:850px){.vt-member-sidebar{max-height:390px}.vt-member-resource-grid{grid-template-columns:1fr}.vt-member-content-toolbar{margin-top:0}}
 @media(max-width:520px){.vt-member-resource-heading{align-items:flex-start;flex-direction:column}.vt-member-content-toolbar{align-items:flex-start}.vt-member-content-toolbar>small{font-size:8px}}
+
+.vt-member-resource-pending-button{grid-column:2;justify-self:start;padding:8px 10px;border:1px solid rgba(212,166,55,.25);border-radius:7px;background:rgba(212,166,55,.06);color:#8d7a4a;font-size:9px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;cursor:not-allowed;opacity:.85}
