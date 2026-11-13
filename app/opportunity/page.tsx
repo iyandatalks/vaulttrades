@@ -252,9 +252,9 @@ export default function OpportunityPage() {
       <section className="vto-results vto-results-float" id="results-gallery">
         <div className="vto-container">
           <div className="vto-section-heading">
-            <div className="vto-kicker">REAL TRADING RECORDS</div>
-            <h2>Results and <span>certificates.</span></h2>
-            <p>Explore the original VaultTrades trading records and certificates.</p>
+            <div className="vto-kicker">REAL EXPERIENCES & SUPPORTING RECORDS</div>
+            <h2>Testimonials and <span>certificates.</span></h2>
+            <p>Review the available original trading records and certificates with their dates and context. Each record is presented as historical evidence, not a promise of future results.</p>
           </div>
           <div className="vto-evidence-groups">
             <EvidenceCarousel
