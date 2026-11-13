@@ -13,21 +13,57 @@ const FEATURES = [
   "risk_manager",
 ] as const;
 
+const emptyAccess = () => Object.fromEntries(FEATURES.map(feature => [feature, false]));
+
 export async function GET() {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ authenticated: false, access: {} }, { status: 401 });
 
-    const admin = createAdminClient();
-    const { data: profile } = await admin
+    const hasServiceRole = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+    const db = hasServiceRole ? createAdminClient() : supabase;
+    const { data: profile } = await db
       .from("users")
-      .select("id,role")
+      .select("id,role,referral_code")
       .eq("auth_user_id", user.id)
       .maybeSingle();
 
     if (!profile) return NextResponse.json({ authenticated: true, access: {} });
 
+    // Admin preview must remain usable in Preview deployments without exposing or
+    // copying the production service-role secret. The signed-in user's own profile
+    // is readable/updatable through the existing RLS policies.
+    if (profile.role === "admin") {
+      let code = profile.referral_code ?? null;
+      if (!code) {
+        code = `VT-${crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase()}`;
+        await db.from("users").update({ referral_code: code }).eq("id", profile.id);
+      }
+      return NextResponse.json({
+        authenticated: true,
+        admin: true,
+        supportWhatsApp: true,
+        access: Object.fromEntries(FEATURES.map(feature => [feature, true])),
+        referral: { enabled: true, code, url: code ? `https://vaulttradesve.com/ref/${code}` : null },
+        reseller: { enabled: true, plan: "vortex" },
+      });
+    }
+
+    // Customer entitlement checks use the privileged access service. If this is
+    // an unconfigured Preview, fail closed rather than granting any paid access.
+    if (!hasServiceRole) {
+      return NextResponse.json({
+        authenticated: true,
+        admin: false,
+        supportWhatsApp: false,
+        access: emptyAccess(),
+        referral: { enabled: false, code: null, url: null },
+        reseller: { enabled: false, plan: null },
+      });
+    }
+
+    const admin = createAdminClient();
     const productAccess = await getProductAccess(user.id);
     const membershipCodes = [
       "nexus", "vaulttrades_nexus",
@@ -52,47 +88,7 @@ export async function GET() {
       : codes.has("nexus_plus") || codes.has("vaulttrades_nexus_plus") ? "nexus_plus"
       : codes.has("nexus") || codes.has("vaulttrades_nexus") ? "nexus"
       : null;
-    const reseller = {
-      enabled: productAccess.admin || Boolean(resellerPlan),
-      plan: productAccess.admin ? "vortex" : resellerPlan,
-    };
-
-    if (productAccess.admin) {
-      let referral: { enabled: boolean; code: string | null; url: string | null } = {
-        enabled: true,
-        code: null,
-        url: null,
-      };
-
-      if (productAccess.userId) {
-        const { data: referralProfile } = await admin
-          .from("users")
-          .select("referral_code")
-          .eq("id", productAccess.userId)
-          .maybeSingle();
-
-        let code = referralProfile?.referral_code ?? null;
-        if (!code) {
-          code = `VT-${crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase()}`;
-          await admin.from("users").update({ referral_code: code }).eq("id", productAccess.userId);
-        }
-
-        referral = {
-          enabled: true,
-          code,
-          url: `https://vaulttradesve.com/ref/${code}`,
-        };
-      }
-
-      return NextResponse.json({
-        authenticated: true,
-        admin: true,
-        supportWhatsApp: true,
-        access: Object.fromEntries(FEATURES.map(feature => [feature, true])),
-        referral,
-        reseller,
-      });
-    }
+    const reseller = { enabled: Boolean(resellerPlan), plan: resellerPlan };
 
     const access: Record<string, boolean> = {
       analyzer: productAccess.analyzer,
@@ -123,14 +119,17 @@ export async function GET() {
         await admin.from("users").update({ referral_code: code }).eq("id", productAccess.userId);
       }
 
-      referral = {
-        enabled: true,
-        code,
-        url: `https://vaulttradesve.com/ref/${code}`,
-      };
+      referral = { enabled: true, code, url: `https://vaulttradesve.com/ref/${code}` };
     }
 
-    return NextResponse.json({ authenticated: true, admin: false, supportWhatsApp: productAccess.anyPaidProduct === true, access, referral, reseller });
+    return NextResponse.json({
+      authenticated: true,
+      admin: false,
+      supportWhatsApp: productAccess.anyPaidProduct === true,
+      access,
+      referral,
+      reseller,
+    });
   } catch (error) {
     console.error("Dashboard access error", error);
     return NextResponse.json({ error: "Unable to load dashboard access." }, { status: 500 });
