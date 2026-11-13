@@ -15,12 +15,18 @@ const PRODUCTS: { code: ProductCode; name: string; detail: string }[] = [
 
 const EMPTY: LinkMap = { nexus: "", nexus_plus: "", vortex: "" };
 
-export default function ResellerOnboardingClient() {
+export default function ResellerOnboardingClient({ resellerCode }: { resellerCode: string }) {
   const [links, setLinks] = useState<LinkMap>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [copiedReturn, setCopiedReturn] = useState("");
+  const returnUrl = (code: ProductCode) => `https://vaulttradesve.com/reseller-return?ref=${encodeURIComponent(resellerCode)}&plan=${encodeURIComponent(code)}`;
+  async function copyReturnUrl(code: ProductCode) {
+    try { await navigator.clipboard.writeText(returnUrl(code)); setCopiedReturn(code); }
+    catch { setError("Unable to copy automatically. Select and copy the return URL shown."); }
+  }
 
   useEffect(() => {
     fetch("/api/reseller/payment-links", { cache: "no-store" })
@@ -71,9 +77,25 @@ export default function ResellerOnboardingClient() {
         <article className="vt-member-content">
           <span className="vt-member-kicker">STEP 1 · YOUR PAYPAL LINKS</span>
           <h2>One separate link for each MRR component</h2>
-          <p className="vt-member-lead">Generate a separate PayPal link in your own account for the MRR component only. The once-off EA setup component is paid separately to VaultTrades after the reseller payment has been verified.</p>
+          <p className="vt-member-lead">Create one PayPal payment link per membership plan in your own PayPal account. You collect only the MRR amount shown below. After your customer pays you, PayPal must automatically return them to the matching VaultTrades page so they can register their profile, declare the reseller payment and pay VaultTrades for the website and EA setup.</p>
           <div className="vt-member-table-wrap"><table className="vt-member-table"><thead><tr><th>Plan</th><th>Package price</th><th>Your PayPal link amount (80% MRR)</th><th>EA setup (20%)</th></tr></thead><tbody><tr><td>VaultTrades Nexus</td><td>$150</td><td><strong>$120</strong></td><td>$30 once-off</td></tr><tr><td>VaultTrades Nexus Plus</td><td>$250</td><td><strong>$200</strong></td><td>$50 once-off</td></tr><tr><td>VaultTrades Vortex</td><td>$550</td><td><strong>$440</strong></td><td>$110 once-off</td></tr></tbody></table></div>
           <p className="vt-member-note">The reseller earns 100% of the MRR amount shown. VaultTrades receives the separate 20% EA setup component. The $39 reseller website setup fee is a further once-off VaultTrades charge.</p>
+          <div className="vt-member-pending" style={{ marginTop: 18 }}>
+            <strong>Important: set the VaultTrades return page on every PayPal link</strong>
+            <span>For each product below, copy its matching return URL and paste it into PayPal's payment-link settings under Confirmation / Auto-return. Enable Auto-return. Do not use your own reseller website as the return address. Each link has its own plan and reseller reference, so the customer arrives at the correct VaultTrades checkout.</span>
+            <span>You do not need a PayPal webhook, API integration, developer account, client ID or secret key. Do not share your PayPal login details with VaultTrades.</span>
+          </div>
+          <div className="vt-member-table-wrap" style={{ marginTop: 14 }}>
+            <table className="vt-member-table">
+              <thead><tr><th>PayPal link</th><th>VaultTrades return URL to paste into PayPal</th><th>Action</th></tr></thead>
+              <tbody>{PRODUCTS.map(product => <tr key={product.code}>
+                <td>{product.name}</td>
+                <td><code style={{ overflowWrap: "anywhere", whiteSpace: "normal" }}>{returnUrl(product.code)}</code></td>
+                <td><button type="button" className="vt-member-outline" onClick={() => void copyReturnUrl(product.code)}>{copiedReturn === product.code ? "Copied" : "Copy URL"}</button></td>
+              </tr>)}</tbody>
+            </table>
+          </div>
+          <p className="vt-member-note">Your reseller reference is <strong>{resellerCode}</strong>. Keep the plan-specific return URL paired with the correct PayPal link. If you change a link or its return settings, test it before sharing it with customers.</p>
 
           <form className="vt-member-form" onSubmit={save}>
             {PRODUCTS.map(product => (
@@ -102,17 +124,17 @@ export default function ResellerOnboardingClient() {
           </form>
 
           <section style={{ marginTop: 30 }}>
-            <span className="vt-member-kicker">STEP 2 · CHECKOUT ROUTING</span>
+            <span className="vt-member-kicker">STEP 2 · CUSTOMER CHECKOUT</span>
             <ol className="vt-member-steps">
-              <li>The customer chooses Nexus, Nexus Plus or Vortex on your reseller website.</li>
-              <li>The planned central registration form will capture the selected product and your reseller attribution.</li>
-              <li>Once checkout integration is enabled, it will use the PayPal link saved for that exact product.</li>
-              <li>The reseller's PayPal payment link must be configured to return the customer to VaultTrades.</li>
-              <li>VaultTrades must verify the seller-side payment with PayPal before granting the purchased membership.</li>
+              <li>The customer selects a membership plan on your reseller website and pays your matching PayPal link.</li>
+              <li>PayPal automatically returns the customer to the VaultTrades URL configured for that plan.</li>
+              <li>The customer completes their VaultTrades profile and the post-payment declaration form, including the amount, date, approximate time and PayPal transaction or invoice reference for the payment made to you.</li>
+              <li>The customer then pays VaultTrades separately for the $39 website setup and the applicable EA setup fee. VaultTrades verifies this payment through its own PayPal checkout.</li>
+              <li>You remain responsible for checking your own PayPal account and confirming to VaultTrades that the customer's MRR payment has actually arrived. Do not approve access based only on the customer's declaration or the PayPal return page.</li>
             </ol>
             <div className="vt-member-pending">
-              <strong>Payment verification is a separate security step.</strong>
-              <span>A PayPal return page is not proof of payment. Saving your links does not activate customer access. PayPal's browser return is not proof of payment. Automatic activation requires an approved PayPal connected-seller/platform verification method; the links alone do not provide that verification.</span>
+              <strong>Important: the two payments are verified separately.</strong>
+              <span>VaultTrades' PayPal confirmation verifies only the fees paid to VaultTrades. It does not verify the money paid to you. The membership entitlement must remain pending until you have checked your PayPal account and confirmed receipt through the reseller confirmation process.</span>
             </div>
           </section>
 
