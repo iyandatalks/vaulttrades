@@ -2,29 +2,24 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { getProductAccess } from "@/lib/product-access";
 
-const paidProtectedPaths = ["/ai-coach", "/journal", "/strategies"];
-
+const paidProtectedPaths = ["/ai-coach", "/journal", "/risk-manager"];
 const featureProtectedPaths: Record<string, string> = {
   "/analyzer": "analyzer",
   "/scanner-automation": "scanner",
   "/automated-trader": "automation",
+  "/copy": "copy_trading",
   "/referral-vault": "referral",
+  "/vaulttrades-community": "community",
+  "/founders-mentorship": "founders_mentorship",
+  "/winning-strategy": "community",
+  "/strategies": "analyzer",
 };
-
-const authenticatedPaths = ["/profile", "/subscription", "/dashboard"];
-
-// These unfinished/internal areas are deliberately unpublished.
-// Only an authenticated administrator may open them, including by direct URL.
-const adminOnlyPaths = [
-  "/start",
-  "/opportunity",
-  "/plans",
-  "/membership",
-  "/partners",
-  "/how-it-works",
-  "/member-portal",
-  "/api/marketing-leads",
+const publicPagePaths = [
+  "/", "/products", "/start", "/opportunity", "/plans", "/subscription",
+  "/membership/checkout", "/privacy-policy",
 ];
+const authenticatedPaths = ["/profile", "/dashboard"];
+const adminOnlyPaths = ["/membership", "/partners", "/how-it-works"];
 
 const isPath = (pathname: string, path: string) =>
   pathname === path || pathname.startsWith(`${path}/`);
@@ -39,9 +34,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.rewrite(url);
   }
 
-  // The only public website pages are the homepage and the product-name catalogue.
-  // Authentication screens remain available so a visitor can create/sign into an account.
-  if (pathname === "/" || pathname === "/products" || pathname.startsWith("/auth/")) return response;
+  // Lead capture is intentionally public. The handler validates consent, input and honeypot.
+  if (pathname === "/api/marketing-leads") {
+    return request.method === "POST" ? response : new NextResponse(null, { status: 404 });
+  }
+
+  // Public marketing and checkout pages never grant product access.
+  if (publicPagePaths.some(path => isPath(pathname, path)) || pathname.startsWith("/auth/")) return response;
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -60,71 +59,90 @@ export async function middleware(request: NextRequest) {
   );
 
   const { data: { user } } = await supabase.auth.getUser();
-  const isAdminOnly = adminOnlyPaths.some(path => isPath(pathname, path));
-  const isMemberPortalPath = isPath(pathname, "/member-portal");
-  const isPaidProtected = paidProtectedPaths.some(path => isPath(pathname, path));
-  const matchedFeaturePath = Object.keys(featureProtectedPaths).find(path => isPath(pathname, path));
-  const isFeatureProtected = Boolean(matchedFeaturePath);
-  const isAuthenticatedOnly = authenticatedPaths.some(path => isPath(pathname, path));
-
-  // Unknown and unpublished pages must not be discoverable by unauthenticated visitors.
   if (!user) return new NextResponse(null, { status: 404 });
 
-  if (isAuthenticatedOnly) return response;
+  if (authenticatedPaths.some(path => isPath(pathname, path))) return response;
 
   const { data: profile, error: profileError } = await supabase
     .from("users")
-    .select("license_status, is_active, role")
+    .select("id,license_status,is_active,role")
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
   const isAdmin = !profileError && profile?.role === "admin";
-
-  if (isAdminOnly) {
+  if (adminOnlyPaths.some(path => isPath(pathname, path))) {
     return isAdmin ? response : new NextResponse(null, { status: 404 });
   }
 
-  // The Knowledge Base is part of the private build and is admin-only until publication.
-  if (isMemberPortalPath) return isAdmin ? response : new NextResponse(null, { status: 404 });
-
-  if (isFeatureProtected && matchedFeaturePath) {
+  const matchedFeaturePath = Object.keys(featureProtectedPaths).find(path => isPath(pathname, path));
+  if (matchedFeaturePath) {
     if (isAdmin) return response;
     const featureCode = featureProtectedPaths[matchedFeaturePath];
-    const eligibleForFeature = featureCode === "referral"
-      ? (await getProductAccess(user.id)).anyPaidProduct
-      : (await supabase.rpc("has_feature_access", {
-          p_auth_user_id: user.id,
-          p_feature_code: featureCode,
-        })).data === true;
-    if (!eligibleForFeature) {
-      const subscriptionUrl = request.nextUrl.clone();
-      subscriptionUrl.pathname = "/subscription";
-      subscriptionUrl.search = "";
-      subscriptionUrl.searchParams.set("required", featureCode);
-      return NextResponse.redirect(subscriptionUrl);
+    const access = await getProductAccess(user.id);
+    let allowed = false;
+
+    if (featureCode === "analyzer") allowed = access.analyzer;
+    else if (featureCode === "copy_trading") allowed = access.copy;
+    else if (featureCode === "founders_mentorship") allowed = access.foundersMentorship;
+    else if (featureCode === "referral") allowed = access.anyPaidProduct;
+    else if (featureCode === "community") {
+      const { data: featureAccess } = await supabase.rpc("has_feature_access", {
+        p_auth_user_id: user.id,
+        p_feature_code: "community",
+      });
+      allowed = featureAccess === true;
+
+      // Existing community/mentorship licences are also accepted as the entitlement source.
+      if (!allowed && profile?.id) {
+        const { data: licences } = await supabase
+          .from("product_licenses")
+          .select("entitlement_code,status,start_at,end_at")
+          .eq("user_id", profile.id)
+          .eq("status", "active")
+          .in("entitlement_code", ["community", "vaulttrades_community", "founders_mentorship"]);
+        const now = Date.now();
+        allowed = (licences ?? []).some(row => {
+          const start = row.start_at ? new Date(row.start_at).getTime() : 0;
+          const end = row.end_at ? new Date(row.end_at).getTime() : Number.POSITIVE_INFINITY;
+          return Number.isFinite(start) && start <= now && end > now;
+        });
+      }
+    } else {
+      const { data: featureAccess } = await supabase.rpc("has_feature_access", {
+        p_auth_user_id: user.id,
+        p_feature_code: featureCode,
+      });
+      allowed = featureAccess === true;
+    }
+
+    if (!allowed) {
+      const destination = request.nextUrl.clone();
+      destination.pathname = "/subscription";
+      destination.search = "";
+      destination.searchParams.set("required", featureCode);
+      return NextResponse.redirect(destination);
     }
     return response;
   }
 
-  if (isPaidProtected) {
+  if (paidProtectedPaths.some(path => isPath(pathname, path))) {
     if (isAdmin) return response;
     const access = await getProductAccess(user.id);
-    const hasPaidAccess = access.anyPaidProduct;
-    if (!hasPaidAccess) {
-      const subscriptionUrl = request.nextUrl.clone();
-      subscriptionUrl.pathname = "/subscription";
-      subscriptionUrl.search = "";
-      return NextResponse.redirect(subscriptionUrl);
+    if (!access.anyPaidProduct) {
+      const destination = request.nextUrl.clone();
+      destination.pathname = "/subscription";
+      destination.search = "";
+      return NextResponse.redirect(destination);
     }
     return response;
   }
 
   const hasActiveMembership = !profileError && profile?.is_active === true && profile?.license_status === "active";
   if (!hasActiveMembership && !isAdmin) {
-    const subscriptionUrl = request.nextUrl.clone();
-    subscriptionUrl.pathname = "/subscription";
-    subscriptionUrl.search = "";
-    return NextResponse.redirect(subscriptionUrl);
+    const destination = request.nextUrl.clone();
+    destination.pathname = "/subscription";
+    destination.search = "";
+    return NextResponse.redirect(destination);
   }
   return response;
 }
