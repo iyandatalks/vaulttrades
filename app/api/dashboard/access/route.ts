@@ -29,6 +29,33 @@ export async function GET() {
     if (!profile) return NextResponse.json({ authenticated: true, access: {} });
 
     const productAccess = await getProductAccess(user.id);
+    const membershipCodes = [
+      "nexus", "vaulttrades_nexus",
+      "nexus_plus", "vaulttrades_nexus_plus",
+      "vortex", "vaulttrades_vortex",
+    ];
+    const { data: membershipLicenses } = await admin
+      .from("product_licenses")
+      .select("entitlement_code,status,start_at,end_at")
+      .eq("user_id", profile.id)
+      .in("entitlement_code", membershipCodes)
+      .eq("status", "active");
+
+    const now = Date.now();
+    const activeMemberships = (membershipLicenses ?? []).filter(license => {
+      const start = license.start_at ? new Date(license.start_at).getTime() : 0;
+      const end = license.end_at ? new Date(license.end_at).getTime() : Number.POSITIVE_INFINITY;
+      return Number.isFinite(start) && start <= now && end > now;
+    });
+    const codes = new Set(activeMemberships.map(license => String(license.entitlement_code).toLowerCase()));
+    const resellerPlan = codes.has("vortex") || codes.has("vaulttrades_vortex") ? "vortex"
+      : codes.has("nexus_plus") || codes.has("vaulttrades_nexus_plus") ? "nexus_plus"
+      : codes.has("nexus") || codes.has("vaulttrades_nexus") ? "nexus"
+      : null;
+    const reseller = {
+      enabled: productAccess.admin || Boolean(resellerPlan),
+      plan: productAccess.admin ? "vortex" : resellerPlan,
+    };
 
     if (productAccess.admin) {
       let referral: { enabled: boolean; code: string | null; url: string | null } = {
@@ -63,6 +90,7 @@ export async function GET() {
         supportWhatsApp: true,
         access: Object.fromEntries(FEATURES.map(feature => [feature, true])),
         referral,
+        reseller,
       });
     }
 
@@ -102,7 +130,7 @@ export async function GET() {
       };
     }
 
-    return NextResponse.json({ authenticated: true, admin: false, supportWhatsApp: productAccess.anyPaidProduct === true, access, referral });
+    return NextResponse.json({ authenticated: true, admin: false, supportWhatsApp: productAccess.anyPaidProduct === true, access, referral, reseller });
   } catch (error) {
     console.error("Dashboard access error", error);
     return NextResponse.json({ error: "Unable to load dashboard access." }, { status: 500 });
