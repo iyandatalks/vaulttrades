@@ -28,7 +28,10 @@ export default async function MemberPortalPage() {
   const { data: { user } } = await auth.auth.getUser();
   if (!user) redirect("/auth/login?next=/member-portal");
 
-  const db = createAdminClient();
+  const requestActionsAvailable = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  // The authenticated client can read the signed-in user's own profile and entitlements
+  // under RLS. Use the service-role client only when privileged request queues are enabled.
+  const db = requestActionsAvailable ? createAdminClient() : auth;
   const { data: profile } = await db
     .from("users")
     .select("id,email,role,referral_code")
