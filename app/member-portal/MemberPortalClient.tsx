@@ -596,7 +596,7 @@ export default function MemberPortalClient({
     <main className="vt-member-shell">
       <header className="vt-member-header">
         <div><span className="vt-member-kicker">VAULTTRADES MEMBER WORKSPACE</span><h1>Knowledge Base</h1><p>One place for onboarding, EA licensing, learning and business resources.</p></div>
-        <div className="vt-member-header-actions"><span className="vt-member-plan">{planNames[plan]}</span><Link href="/profile" className="vt-member-outline">My profile</Link></div>
+        <div className="vt-member-header-actions"><span className="vt-member-plan">{planNames[plan]}</span><Link href="/member-portal/reseller-onboarding" className="vt-member-outline">Reseller onboarding</Link><Link href="/profile" className="vt-member-outline">My profile</Link></div>
       </header>
       <div className="vt-member-layout">
         <aside className="vt-member-sidebar" aria-label="Knowledge Base topics">
