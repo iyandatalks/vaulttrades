@@ -60,28 +60,37 @@ export async function POST(request: Request) {
       const approveUrl = paypalOrder.links?.find((link: any) => link.rel === "approve")?.href;
       if (!approveUrl || !paypalOrder.id) return NextResponse.json({ error: "PayPal did not return a valid checkout approval URL." }, { status: 502 });
 
-      const { data: transaction, error: transactionError } = await admin.from("payment_transactions").insert({
-        auth_user_id: user.id,
-        user_id: profile.id,
-        provider: "paypal",
-        provider_order_id: String(paypalOrder.id),
-        amount: total,
-        currency: "USD",
-        status: "created",
-        payment_method: "paypal_reseller_setup",
-        membership_months: 1,
-        raw_event: {
-          order_type: "reseller_setup",
-          declaration_id: declaration.id,
-          plan_code: declaration.plan_code,
-          website_setup_fee: websiteSetupFee,
-          ea_setup_fee: eaSetupFee,
-          reseller_mrr_amount: declaration.plan_code === "nexus" ? 120 : declaration.plan_code === "nexus_plus" ? 200 : 440,
-        },
-      }).select("id").single();
-      if (transactionError || !transaction) {
-        console.error("Unable to save reseller setup PayPal order", transactionError);
-        return NextResponse.json({ error: "Unable to record the VaultTrades checkout. Please contact support before paying again." }, { status: 500 });
+      const { data: existingTransaction } = await admin.from("payment_transactions")
+        .select("id")
+        .eq("provider", "paypal")
+        .eq("provider_order_id", String(paypalOrder.id))
+        .maybeSingle();
+      let transaction = existingTransaction;
+      if (!transaction) {
+        const { data: insertedTransaction, error: transactionError } = await admin.from("payment_transactions").insert({
+          auth_user_id: user.id,
+          user_id: profile.id,
+          provider: "paypal",
+          provider_order_id: String(paypalOrder.id),
+          amount: total,
+          currency: "USD",
+          status: "created",
+          payment_method: "paypal_reseller_setup",
+          membership_months: 1,
+          raw_event: {
+            order_type: "reseller_setup",
+            declaration_id: declaration.id,
+            plan_code: declaration.plan_code,
+            website_setup_fee: websiteSetupFee,
+            ea_setup_fee: eaSetupFee,
+            reseller_mrr_amount: declaration.plan_code === "nexus" ? 120 : declaration.plan_code === "nexus_plus" ? 200 : 440,
+          },
+        }).select("id").single();
+        if (transactionError || !insertedTransaction) {
+          console.error("Unable to save reseller setup PayPal order", transactionError);
+          return NextResponse.json({ error: "Unable to record the VaultTrades checkout. Please contact support before paying again." }, { status: 500 });
+        }
+        transaction = insertedTransaction;
       }
       await admin.from("reseller_purchase_orders").update({
         vaulttrades_payment_transaction_id: transaction.id,
