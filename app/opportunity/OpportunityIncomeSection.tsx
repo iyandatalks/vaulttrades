@@ -6,8 +6,8 @@ const channels = [
   {
     number: "01",
     title: "RESELLER'S ECOSYSTEM RIGHTS",
-    tag: "80% PARTICIPANT SHARE",
-    description: "Participate in the VaultTrades membership ecosystem with your assigned reseller rights and branded digital presence. When a qualifying membership enrolment is attributed to your channel, the agreed allocation is 80% to you and 20% to VaultTrades.",
+    tag: "100% MRR COMMISSION",
+    description: "Participate in the VaultTrades membership ecosystem with your assigned reseller rights and branded digital presence. You receive 100% commission on the eligible MRR membership component attributed to your channel. Separately priced EA setup, annual licensing, website setup, tools, Analyzer and signals are excluded from that MRR commission.",
     detail: "Your assigned presence and lead flow are activated after the opportunity purchase is verified. The platform, infrastructure and service providers remain centrally managed.",
   },
   {
@@ -40,7 +40,7 @@ export default function OpportunityIncomeSection() {
     const count = Math.max(0, Number(memberships) || 0);
     const value = Math.max(0, Number(averageValue) || 0);
     const total = count * value;
-    return { total, participant: total * 0.8, vaulttrades: total * 0.2 };
+    return { total, participant: total, vaulttrades: 0 };
   }, [memberships, averageValue]);
 
   return (
@@ -88,8 +88,8 @@ export default function OpportunityIncomeSection() {
         <div className="vto-revenue-calculator" id="opportunity-calculator">
           <div className="vto-calculator-copy">
             <div className="vto-kicker">ILLUSTRATIVE MEMBERSHIP SCENARIO</div>
-            <h3>Explore how the qualifying membership allocation works.</h3>
-            <p>Adjust the number of qualifying membership enrolments attributed to your channel and the average membership value. The illustration applies the stated 80/20 allocation and does not include commissions from other pathways.</p>
+            <h3>Explore your 100% commission on eligible MRR.</h3>
+            <p>Adjust the number of qualifying membership enrolments attributed to your channel and the eligible MRR component per enrolment. The illustration applies 100% to the eligible MRR component only. Separately priced VaultTrades services are excluded.</p>
             <div className="vto-calculator-inputs">
               <label>
                 <span>QUALIFYING MEMBERSHIPS PER MONTH</span>
@@ -100,13 +100,13 @@ export default function OpportunityIncomeSection() {
                 <input type="number" min="0" step="0.01" inputMode="decimal" value={averageValue} onChange={(event) => setAverageValue(event.target.value)} />
               </label>
             </div>
-            <small>Illustrative assumptions only. Actual allocation depends on verified qualifying enrolments, eligibility, refunds and the reseller agreement.</small>
+            <small>Illustrative assumptions only. Actual commission depends on verified eligible MRR, refunds, eligibility and the reseller agreement. Separately priced VaultTrades services are excluded.</small>
           </div>
           <div className="vto-calculator-results">
             <div className="vto-calculator-result-main"><span>ILLUSTRATIVE MEMBERSHIP VALUE</span><strong>{money(calculation.total)}</strong></div>
             <div className="vto-calculator-split">
-              <div><span>YOUR 80% ALLOCATION</span><strong>{money(calculation.participant)}</strong><i><b style={{ width: "80%" }} /></i></div>
-              <div><span>VAULTTRADES 20% ALLOCATION</span><strong>{money(calculation.vaulttrades)}</strong><i><b style={{ width: "20%" }} /></i></div>
+              <div><span>YOUR 100% MRR COMMISSION</span><strong>{money(calculation.participant)}</strong><i><b style={{ width: "100%" }} /></i></div>
+              <div><span>SEPARATE VAULTTRADES SERVICES</span><strong>{money(calculation.vaulttrades)}</strong><i><b style={{ width: "0%" }} /></i></div>
             </div>
             <div className="vto-calculator-foot">Illustrative calculation only · Not a promise or guarantee of income</div>
           </div>
