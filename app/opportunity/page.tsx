@@ -84,11 +84,13 @@ export default function OpportunityPage() {
         <div className="vto-story-photo-column">
           <div className="vto-story-photo-frame">
             <div className="vto-story-sun" aria-hidden="true" />
-            <div className="vto-story-photo-placeholder">
-              <span>FOUNDER PHOTOGRAPH</span>
-              <strong>Your story.<br />Your experience.</strong>
-              <small>The existing personal photograph will be placed in this frame.</small>
-            </div>
+            <img
+              className="vto-story-photo"
+              src="https://avatars.githubusercontent.com/u/117064545?v=4"
+              alt="VaultTrades founder"
+              loading="eager"
+              fetchPriority="high"
+            />
             <div className="vto-story-photo-caption">BUILT THROUGH EXPERIENCE</div>
           </div>
         </div>
@@ -99,7 +101,7 @@ export default function OpportunityPage() {
           <p>Over time, I came to see that trading and digital business both require more than excitement. They need a process: learning, planning, risk awareness, disciplined execution and honest review. That is the thinking behind the VaultTrades ecosystem.</p>
           <p>This opportunity is about giving people a structured way to explore trading, digital tools and a business pathway—then decide for themselves whether it fits their goals and circumstances.</p>
           <div className="vto-story-signoff">FOCUS. DISCIPLINE. CONSISTENCY.</div>
-          <Link className="vto-inline-link" href="/start">Explore the opportunity <span>→</span></Link>
+          <Link className="vto-button vto-button-gold vto-story-cta" href="/start">EXPLORE THE OPPORTUNITY <span aria-hidden="true">→</span></Link>
         </div>
       </section>
 
