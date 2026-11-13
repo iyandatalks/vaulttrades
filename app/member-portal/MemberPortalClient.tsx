@@ -20,6 +20,7 @@ type Props = {
   memberNotifications: MemberNotification[];
   xmRegistrationUrl: string;
   vpsRegistrationUrl: string;
+  requestActionsAvailable: boolean;
 };
 
 const sections = [
@@ -64,7 +65,7 @@ const planNames: Record<Plan, string> = {
 };
 
 export default function MemberPortalClient({
-  plan, isAdmin, memberEmail, referralUrl, licensingRequests, websiteRequests, memberNotifications, xmRegistrationUrl, vpsRegistrationUrl,
+  plan, isAdmin, memberEmail, referralUrl, licensingRequests, websiteRequests, memberNotifications, xmRegistrationUrl, vpsRegistrationUrl, requestActionsAvailable,
 }: Props) {
   const [active, setActive] = useState<string>("welcome");
   const [topicSearch, setTopicSearch] = useState("");
@@ -105,6 +106,10 @@ export default function MemberPortalClient({
 
   async function submitLicensingRequest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!requestActionsAvailable) {
+      setSubmitMessage("This preview can display the Knowledge Base, but licensing submissions are disabled until the privileged request service is configured.");
+      return;
+    }
     setSubmitting(true);
     setSubmitMessage("");
     try {
@@ -132,6 +137,10 @@ export default function MemberPortalClient({
 
   async function submitWebsiteRequest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!requestActionsAvailable) {
+      setWebsiteMessage("This preview can display the Knowledge Base, but website requests are disabled until the privileged request service is configured.");
+      return;
+    }
     setWebsiteSubmitting(true);
     setWebsiteMessage("");
     try {
@@ -236,7 +245,8 @@ export default function MemberPortalClient({
               <input value={brokerServer} onChange={event => setBrokerServer(event.target.value)} maxLength={120} placeholder="For example, XM server name shown in MT5" />
             </label>
             <p className="vt-member-form-note">Broker: XM. Submit the MT5 account number only. Do not submit your trading password, investor password or one-time security code.</p>
-            <button className="vt-member-button" type="submit" disabled={submitting}>{submitting ? "Submitting…" : "Submit MT5 number"}</button>
+            {!requestActionsAvailable && <p className="vt-member-form-note">Admin preview: the guide and layout are available. MT5 request submission is disabled in this preview environment.</p>}
+             <button className="vt-member-button" type="submit" disabled={submitting || !requestActionsAvailable}>{submitting ? "Submitting…" : "Submit MT5 number"}</button>
             {submitMessage && <p className="vt-member-submit-message" role="status">{submitMessage}</p>}
           </form>
           <h2>Your licensing requests</h2>
@@ -502,7 +512,8 @@ export default function MemberPortalClient({
             </div> : <label>Your custom domain
               <input required value={customDomain} onChange={event => setCustomDomain(event.target.value.toLowerCase().trim())} placeholder="yourname.com" />
             </label>}
-            <button className="vt-member-button" type="submit" disabled={websiteSubmitting}>{websiteSubmitting ? "Submitting…" : "Submit website preferences"}</button>
+            {!requestActionsAvailable && <p className="vt-member-form-note">Admin preview: the guide and layout are available. Website request submission is disabled in this preview environment.</p>}
+             <button className="vt-member-button" type="submit" disabled={websiteSubmitting || !requestActionsAvailable}>{websiteSubmitting ? "Submitting…" : "Submit website preferences"}</button>
             {websiteMessage && <p className="vt-member-submit-message" role="status">{websiteMessage}</p>}
           </form>
           <h2>Your website request status</h2>
