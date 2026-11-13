@@ -56,7 +56,7 @@ export async function middleware(request: NextRequest) {
   const isFeatureProtected = Boolean(matchedFeaturePath);
   const isAuthenticatedOnly = authenticatedPaths.some(path => pathname === path || pathname.startsWith(`${path}/`));
 
-  if (!isAdminOnly && !isPaidProtected && !isFeatureProtected && !isAuthenticatedOnly) return response;
+  if (!isAdminOnly && !isPaidProtected && !isFeatureProtected && !isAuthenticatedOnly && !isMemberPortalPath) return response;
 
   // Return not-found rather than exposing an unfinished module or its existence.
   if (!user) {
