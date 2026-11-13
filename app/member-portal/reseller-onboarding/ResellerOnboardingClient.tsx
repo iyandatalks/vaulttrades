@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
 import Link from "next/link";
 
 type ProductCode = "nexus" | "nexus_plus" | "vortex";
@@ -32,7 +33,7 @@ export default function ResellerOnboardingClient() {
       .finally(() => setLoading(false));
   }, []);
 
-  async function save(event: React.FormEvent<HTMLFormElement>) {
+  async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
     setMessage("");
