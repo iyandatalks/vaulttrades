@@ -99,7 +99,7 @@ export default async function MemberPortalPage() {
   }
 
   const { data: licensingRequests } = await db.from("member_ea_licensing_requests")
-    .select("id,broker_name,broker_server,mt5_login,product_code,status,admin_notes,submitted_at,license_generated_at")
+    .select("id,broker_name,broker_server,mt5_login,product_code,status,admin_notes,submitted_at,license_generated_at,license_resource_name,license_resource_url")
     .eq("user_id", profile.id)
     .order("submitted_at", { ascending: false });
 
@@ -131,7 +131,7 @@ export default async function MemberPortalPage() {
       memberNotifications={memberNotifications ?? []}
       xmRegistrationUrl={xmPartner?.referral_url ?? process.env.NEXT_PUBLIC_XM_AFFILIATE_URL ?? ""}
       vpsRegistrationUrl={process.env.NEXT_PUBLIC_VPS_PARTNER_URL ?? ""}
-      requestActionsAvailable={requestActionsAvailable}
+      requestActionsAvailable={requestActionsAvailable}\n      licensingActionsAvailable={true}
     />
   );
 }
