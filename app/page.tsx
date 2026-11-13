@@ -98,9 +98,15 @@ export default function HomePage() {
               <div className="vt-calc-field"><label htmlFor="vt-sales-count">Number of qualifying sales</label><input id="vt-sales-count" type="number" min="0" max="100000" step="1" value={sales} onChange={e => setSales(Math.max(0,Math.min(100000,Number(e.target.value)||0)))} /></div>
               <div className="vt-calc-field"><label htmlFor="vt-average-sale">Illustrative average sale value (USD)</label><input id="vt-average-sale" type="number" min="0" max="1000000" step="0.01" value={averageSale} onChange={e => setAverageSale(Math.max(0,Math.min(1000000,Number(e.target.value)||0)))} /></div>
               <div className="vt-calc-results">
-                <div className="vt-calc-result"><small>GROSS SALES VALUE</small><strong>${estimate.gross.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></div>
-                <div className="vt-calc-result"><small>80% RESELLER SHARE</small><strong>${estimate.reseller.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></div>
-                <div className="vt-calc-result"><small>20% VAULTTRADES SHARE</small><strong>${estimate.platform.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></div>
+                <div className="vt-calc-result"><small>ILLUSTRATIVE SALES COUNT</small><strong>{sales.toLocaleString("en-US")}</strong></div>
+                <div className="vt-calc-result vt-calc-result-primary"><small>ESTIMATED RESELLER SHARE</small><strong>${estimate.reseller.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></div>
+                <div className="vt-calc-result"><small>INDICATIVE SHARE RATE</small><strong>80%</strong></div>
+              </div>
+              <div className="vt-calc-visual" role="img" aria-label="Illustrative allocation: 80 percent reseller share and 20 percent platform allocation">
+                <div className="vt-calc-visual-head"><span>ILLUSTRATIVE ALLOCATION</span><strong>80 / 20</strong></div>
+                <div className="vt-calc-bar"><span className="vt-calc-bar-reseller" /><span className="vt-calc-bar-platform" /></div>
+                <div className="vt-calc-legend"><span><i className="vt-calc-dot reseller" /> 80% reseller share</span><span><i className="vt-calc-dot platform" /> 20% platform allocation</span></div>
+                <p className="vt-calc-footnote">A hypothetical example only. No live sales, customer activity, company revenue or actual commission data is displayed.</p>
               </div>
             </div>
           </div>
@@ -116,12 +122,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <footer className="vt-sales-footer">
-        <div className="vt-sales-wrap">
-          <div className="vt-sales-footer-inner"><strong>VAULTTRADES</strong><span>Trade with structure. Manage risk. Execute with discipline.</span><a href="https://wa.me/27746653633?text=Hello%20VaultTrades%2C%20I%20would%20like%20more%20information." target="_blank" rel="noopener noreferrer">Contact VaultTrades ↗</a></div>
-          <p className="vt-sales-disclaimer">Trading involves risk and losses are possible. VaultTrades does not guarantee trading profits, business income or reseller commissions. The calculator is illustrative only and does not account for refunds, fees, taxes, chargebacks or product-specific eligibility. Any reseller participation is subject to the applicable agreement and qualifying transaction rules.</p>
-        </div>
-      </footer>
+      
     </main>
   );
 }
