@@ -114,8 +114,8 @@ export default function MemberPortalClient({
 
   async function submitLicensingRequest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!requestActionsAvailable) {
-      setSubmitMessage("This preview can display the Knowledge Base, but licensing submissions are disabled until the privileged request service is configured.");
+    if (!licensingActionsAvailable) {
+      setSubmitMessage("Licensing submissions are temporarily unavailable.");
       return;
     }
     setSubmitting(true);
