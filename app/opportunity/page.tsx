@@ -203,20 +203,6 @@ export default function OpportunityPage() {
 
       <OpportunityIncomeSection />
 
-      <section className="vto-dark-band">
-        <div className="vto-container vto-split">
-          <div>
-            <div className="vto-kicker">IMPORTANT DETAILS</div>
-            <h2>Understand the terms<br /><span>before you decide.</span></h2>
-          </div>
-          <div>
-            <p>Membership fees are once-off. Trading capital is separate and must be deposited with a broker recommended in your selected module. Trading involves risk, and losses are possible. Trading results and business commissions are not guaranteed.</p>
-            <p>Eligible members may earn a 100% commission on a qualifying membership sale they personally refer, subject to the final reseller terms. This is a membership-sale commission, not a guarantee of trading profit.</p>
-            <p><strong>Personal website setup:</strong> A personal website is a required part of the reseller programme and carries a separate $39 once-off setup fee in addition to the selected membership. Members may use an approved VaultTrades subdomain. Using a personally owned custom domain is optional; any domain purchase or additional connection fee will be disclosed separately before work begins.</p>
-          </div>
-        </div>
-      </section>
-
       <section className="vto-mid-cta">
         <div className="vto-container vto-mid-cta-inner">
           <div><div className="vto-kicker">TAKE THE NEXT STEP</div><h2>Explore the structure.<br /><span>Decide if it fits you.</span></h2></div>
