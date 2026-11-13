@@ -22,7 +22,7 @@ export default async function MembershipCheckoutPage({ searchParams }: { searchP
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    const next = `/membership/checkout?plan=${encodeURIComponent(planCode)}&ref=${encodeURIComponent(resellerCode)}`;
+    const next = `/membership/checkout?plan=${encodeURIComponent(planCode)}&ref=${encodeURIComponent(resellerCode)}&declaration=${encodeURIComponent(declarationId)}&token=${encodeURIComponent(paypalToken)}&payment=${encodeURIComponent(paymentStatus)}`;
     redirect(`/auth/register?next=${encodeURIComponent(next)}&ref=${encodeURIComponent(resellerCode)}`);
   }
 
