@@ -7,9 +7,6 @@ import { useEffect, useState } from "react";
 const tabs = [
   { href: "/", label: "Home" },
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/start", label: "Lead Generation", adminOnly: true },
-  { href: "/plans", label: "Plans", adminOnly: true },
-  { href: "/member-portal", label: "Knowledge Base", adminOnly: true },
   { href: "/subscription?promo=1", label: "Products" },
   { href: "/partners", label: "Partners" },
   { href: "/how-it-works", label: "How It Works" },
