@@ -69,7 +69,19 @@ export async function POST(request: Request) {
 
   if (error || !order) {
     const duplicate = /duplicate key|unique constraint/i.test(error?.message ?? "");
-    return NextResponse.json({ error: duplicate ? "That PayPal transaction reference has already been submitted. Check the reference or contact VaultTrades support." : "Unable to save your reseller payment declaration. Please try again." }, { status: 409 });
+    if (duplicate) {
+      const { data: previous } = await db.from("reseller_purchase_orders")
+        .select("id,plan_code,expected_mrr_amount,reseller_payment_status,vaulttrades_payment_status,reseller_transaction_reference")
+        .eq("customer_auth_user_id", user.id)
+        .eq("reseller_code", resellerCode)
+        .eq("plan_code", planCode)
+        .order("created_at", { ascending: false })
+        .limit(10);
+      const matching = (previous ?? []).find(row => String(row.reseller_transaction_reference).trim().toLowerCase() === transactionReference.toLowerCase());
+      if (matching) return NextResponse.json({ ok: true, declaration: matching, existing: true });
+      return NextResponse.json({ error: "That PayPal transaction reference has already been submitted for another customer or reseller. Contact VaultTrades support if you believe this is an error." }, { status: 409 });
+    }
+    return NextResponse.json({ error: "Unable to save your reseller payment declaration. Please try again." }, { status: 500 });
   }
 
   await db.from("admin_inbox_notifications").insert({
