@@ -59,12 +59,12 @@ export async function GET() {
 
     if (productAccess.admin) {
       let referral: { enabled: boolean; code: string | null; url: string | null } = {
-        enabled: productAccess.anyPaidProduct,
+        enabled: true,
         code: null,
         url: null,
       };
 
-      if (productAccess.anyPaidProduct && productAccess.userId) {
+      if (productAccess.userId) {
         const { data: referralProfile } = await admin
           .from("users")
           .select("referral_code")
