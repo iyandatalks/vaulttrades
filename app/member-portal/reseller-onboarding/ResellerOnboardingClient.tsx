@@ -7,9 +7,9 @@ type ProductCode = "nexus" | "nexus_plus" | "vortex";
 type LinkMap = Record<ProductCode, string>;
 
 const PRODUCTS: { code: ProductCode; name: string; detail: string }[] = [
-  { code: "nexus", name: "VaultTrades Nexus", detail: "Your PayPal link for Nexus customer purchases." },
-  { code: "nexus_plus", name: "VaultTrades Nexus Plus", detail: "Your PayPal link for Nexus Plus customer purchases." },
-  { code: "vortex", name: "VaultTrades Vortex", detail: "Your PayPal link for Vortex customer purchases." },
+  { code: "nexus", name: "VaultTrades Nexus", detail: "Create a PayPal link for $120 (MRR component)." },
+  { code: "nexus_plus", name: "VaultTrades Nexus Plus", detail: "Create a PayPal link for $200 (MRR component)." },
+  { code: "vortex", name: "VaultTrades Vortex", detail: "Create a PayPal link for $440 (MRR component)." },
 ];
 
 const EMPTY: LinkMap = { nexus: "", nexus_plus: "", vortex: "" };
@@ -69,8 +69,10 @@ export default function ResellerOnboardingClient() {
       <div className="vt-member-layout" style={{ gridTemplateColumns: "minmax(0, 1fr)" }}>
         <article className="vt-member-content">
           <span className="vt-member-kicker">STEP 1 · YOUR PAYPAL LINKS</span>
-          <h2>One separate link for each membership</h2>
-          <p className="vt-member-lead">Generate the three product-specific payment links in your own PayPal account, then paste each link below. The selected membership on your reseller checkout must match the link assigned here.</p>
+          <h2>One separate link for each MRR component</h2>
+          <p className="vt-member-lead">Generate a separate PayPal link in your own account for the MRR component only. The once-off EA setup component is paid separately to VaultTrades after the reseller payment has been verified.</p>
+          <div className="vt-member-table-wrap"><table className="vt-member-table"><thead><tr><th>Plan</th><th>Package price</th><th>Your PayPal link amount (80% MRR)</th><th>EA setup (20%)</th></tr></thead><tbody><tr><td>VaultTrades Nexus</td><td>$150</td><td><strong>$120</strong></td><td>$30 once-off</td></tr><tr><td>VaultTrades Nexus Plus</td><td>$250</td><td><strong>$200</strong></td><td>$50 once-off</td></tr><tr><td>VaultTrades Vortex</td><td>$550</td><td><strong>$440</strong></td><td>$110 once-off</td></tr></tbody></table></div>
+          <p className="vt-member-note">The reseller earns 100% of the MRR amount shown. VaultTrades receives the separate 20% EA setup component. The $39 reseller website setup fee is a further once-off VaultTrades charge.</p>
 
           <form className="vt-member-form" onSubmit={save}>
             {PRODUCTS.map(product => (
