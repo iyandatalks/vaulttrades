@@ -110,7 +110,7 @@ export async function POST(request: Request) {
     auth_user_id: order.customer_auth_user_id,
     title: "Reseller payment needs attention",
     body: `Your reseller could not confirm the declared payment. Reason: ${reason}`,
-    action_href: "/membership/checkout?plan=${order.plan_code}&ref=${order.reseller_code}",
+    action_href: `/membership/checkout?plan=${order.plan_code}&ref=${order.reseller_code}`,
     notification_type: "reseller_payment_rejected",
     metadata: { reseller_order_id: order.id },
   });
