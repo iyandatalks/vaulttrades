@@ -17,7 +17,7 @@ export default function HomePage() {
   const [averageSale, setAverageSale] = useState(100);
   const estimate = useMemo(() => {
     const gross = Math.max(0, sales) * Math.max(0, averageSale);
-    return { gross, reseller: gross * 0.8, platform: gross * 0.2 };
+    return { gross, reseller: gross, platform: 0 };
   }, [sales, averageSale]);
 
   return (
@@ -87,25 +87,25 @@ export default function HomePage() {
               <div className="vt-sales-kicker">RESELLER PARTICIPATION</div>
               <h3>A digital-programme business opportunity, with the platform infrastructure managed by VaultTrades.</h3>
               <p>The opportunity is separate from purchasing trading tools. It is designed for people interested in building a customer network around selected digital products, with the programme terms, eligibility and onboarding explained before joining.</p>
-              <div className="vt-split"><span>80% RESELLER SHARE</span><span>20% VAULTTRADES SHARE</span></div>
+              <div className="vt-split"><span>100% ELIGIBLE MRR COMMISSION</span><span>SEPARATE VAULTTRADES SERVICES</span></div>
               <p>Illustrative headline split only. Actual eligibility, qualifying products, transaction treatment, refunds and payout terms are governed by the reseller agreement.</p>
               <Link className="vt-sales-btn outline" href="/start">View the opportunity <b>→</b></Link>
             </div>
             <div className="vt-calculator">
               <div className="vt-sales-kicker">SALES POTENTIAL CALCULATOR</div>
               <h3>Model an example sales scenario.</h3>
-              <p>Enter an illustrative number of qualifying product sales and an average sale value. This is a simple gross-sales split calculator—not an earnings forecast or promise.</p>
+              <p>Enter an illustrative number of qualifying product sales and an average sale value. This illustrates the reseller's 100% commission on the eligible MRR component only. EA setup, annual licensing, website setup and separate subscriptions are excluded; it is not an earnings forecast or promise.</p>
               <div className="vt-calc-field"><label htmlFor="vt-sales-count">Number of qualifying sales</label><input id="vt-sales-count" type="number" min="0" max="100000" step="1" value={sales} onChange={e => setSales(Math.max(0,Math.min(100000,Number(e.target.value)||0)))} /></div>
-              <div className="vt-calc-field"><label htmlFor="vt-average-sale">Illustrative average sale value (USD)</label><input id="vt-average-sale" type="number" min="0" max="1000000" step="0.01" value={averageSale} onChange={e => setAverageSale(Math.max(0,Math.min(1000000,Number(e.target.value)||0)))} /></div>
+              <div className="vt-calc-field"><label htmlFor="vt-average-sale">Illustrative eligible MRR component per sale (USD)</label><input id="vt-average-sale" type="number" min="0" max="1000000" step="0.01" value={averageSale} onChange={e => setAverageSale(Math.max(0,Math.min(1000000,Number(e.target.value)||0)))} /></div>
               <div className="vt-calc-results">
                 <div className="vt-calc-result"><small>ILLUSTRATIVE SALES COUNT</small><strong>{sales.toLocaleString("en-US")}</strong></div>
                 <div className="vt-calc-result vt-calc-result-primary"><small>ESTIMATED RESELLER SHARE</small><strong>${estimate.reseller.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></div>
-                <div className="vt-calc-result"><small>INDICATIVE SHARE RATE</small><strong>80%</strong></div>
+                <div className="vt-calc-result"><small>INDICATIVE SHARE RATE</small><strong>100%</strong></div>
               </div>
-              <div className="vt-calc-visual" role="img" aria-label="Illustrative allocation: 80 percent reseller share and 20 percent platform allocation">
+              <div className="vt-calc-visual" role="img" aria-label="Illustrative allocation: 100 percent reseller commission on eligible MRR; separate VaultTrades services are excluded">
                 <div className="vt-calc-visual-head"><span>ILLUSTRATIVE ALLOCATION</span><strong>80 / 20</strong></div>
                 <div className="vt-calc-bar"><span className="vt-calc-bar-reseller" /><span className="vt-calc-bar-platform" /></div>
-                <div className="vt-calc-legend"><span><i className="vt-calc-dot reseller" /> 80% reseller share</span><span><i className="vt-calc-dot platform" /> 20% platform allocation</span></div>
+                <div className="vt-calc-legend"><span><i className="vt-calc-dot reseller" /> 100% eligible MRR commission</span><span><i className="vt-calc-dot platform" /> Separate VaultTrades services (not part of MRR commission)</span></div>
                 <p className="vt-calc-footnote">A hypothetical example only. No live sales, customer activity, company revenue or actual commission data is displayed.</p>
               </div>
             </div>
