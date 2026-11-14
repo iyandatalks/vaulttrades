@@ -86,18 +86,6 @@ export async function POST(request: NextRequest) {
         metadata: { lead_id: savedLead?.id ?? null, partner_code: partner.referral_code },
       });
     }
-    if (partner && partnerShareConsent && savedLead?.id) {
-      const { error: notificationError } = await db.from("copy_profile_notifications").insert({
-        auth_user_id: partner.auth_user_id,
-        title: "New business enquiry",
-        body: firstName + " has submitted an enquiry through your VaultTrades lead link. Open Business Leads to review the contact details and record your follow-up.",
-        action_href: "/member-portal/business-leads",
-        notification_type: "business_lead_received",
-        metadata: { lead_id: savedLead.id, partner_code: partner.referral_code },
-      });
-      if (notificationError) console.error("Partner lead notification failed:", notificationError.message);
-    }
-
     return NextResponse.json({ ok: true }, { status: 201 });
   } catch (error) {
     console.error("Marketing lead request failed:", error);
