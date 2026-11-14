@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import MembershipCheckoutClient from "./MembershipCheckoutClient";
 import "./checkout.css";
@@ -15,16 +14,20 @@ export default async function MembershipCheckoutPage({ searchParams }: { searchP
   const planCode = params.plan as keyof typeof plans;
   const resellerCode = String(params.ref ?? "VT-C4D867E2").trim().toUpperCase();
   const declarationId = String(params.declaration ?? "").trim();
-  const paypalToken = String(params.token ?? "").trim();
-  const paymentStatus = String(params.payment ?? "");
   if (!planCode || !plans[planCode]) redirect("/plans");
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    const next = `/membership/checkout?plan=${encodeURIComponent(planCode)}&ref=${encodeURIComponent(resellerCode)}&declaration=${encodeURIComponent(declarationId)}&token=${encodeURIComponent(paypalToken)}&payment=${encodeURIComponent(paymentStatus)}`;
-    redirect(`/auth/register?next=${encodeURIComponent(next)}&ref=${encodeURIComponent(resellerCode)}`);
-  }
+  const next = "/membership/checkout?plan=" + encodeURIComponent(planCode) + "&ref=" + encodeURIComponent(resellerCode) + (declarationId ? "&declaration=" + encodeURIComponent(declarationId) : "");
+  const registrationHref = "/auth/register?next=" + encodeURIComponent(next) + "&ref=" + encodeURIComponent(resellerCode);
 
-  return <MembershipCheckoutClient planCode={planCode} plan={plans[planCode]} email={user.email ?? ""} resellerCode={resellerCode} declarationId={declarationId} paypalToken={paypalToken} paymentStatus={paymentStatus} />;
+  return <MembershipCheckoutClient
+    planCode={planCode}
+    plan={plans[planCode]}
+    email={user?.email ?? ""}
+    resellerCode={resellerCode}
+    declarationId={declarationId}
+    isAuthenticated={Boolean(user)}
+    registrationHref={registrationHref}
+  />;
 }
