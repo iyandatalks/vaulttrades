@@ -16,7 +16,7 @@ const featureProtectedPaths: Record<string, string> = {
 };
 const publicPagePaths = [
   "/", "/products", "/start", "/opportunity", "/plans", "/subscription",
-  "/membership/checkout", "/reseller-return", "/privacy-policy",
+  "/membership/checkout", "/reseller-return", "/privacy-policy", "/community",
 ];
 const authenticatedPaths = ["/profile", "/dashboard"];
 const adminOnlyPaths = ["/membership", "/partners", "/how-it-works"];
