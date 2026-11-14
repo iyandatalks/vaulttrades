@@ -129,6 +129,7 @@ export default function MembershipCheckoutClient({ planCode, plan, email, resell
 
     {declarationSubmitted && <section className="vt-checkout-section">
       <div className="vt-checkout-section-heading"><span className="vt-checkout-section-number">3</span><div><h2>VaultTrades setup payments</h2><p>These are one-time payments to VaultTrades. They are separate from the membership payment made to your partner.</p></div></div>
+      <p className="vt-checkout-note"><strong>Important:</strong> Use the same PayPal email address as your VaultTrades profile so PayPal can match your setup payment to this order.</p>
       <div className="vt-checkout-addon"><span><strong>{plan.eaName} · EA setup</strong><small>{statuses?.eaSetupPaid ? "Payment verified by VaultTrades." : "Awaiting PayPal verification."}</small></span><b>{statuses?.eaSetupPaid ? "Verified ✓" : "$" + EA[planCode].toFixed(2) + " USD"}</b></div>
       {!statuses?.eaSetupPaid && <a className="vt-checkout-pay" href={EA_PAYPAL[planCode]} target="_blank" rel="noreferrer">{"Pay EA setup · $" + EA[planCode].toFixed(2) + " USD"}</a>}
       <div className="vt-checkout-addon"><span><strong>VaultTrades website setup</strong><small>{statuses?.websiteSetupPaid ? "Payment verified by VaultTrades." : "Awaiting PayPal verification."}</small></span><b>{statuses?.websiteSetupPaid ? "Verified ✓" : "$39.00 USD"}</b></div>
