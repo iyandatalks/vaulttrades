@@ -592,7 +592,11 @@ export default function MemberPortalClient({
             <Tool title="Risk Manager" description="Included in the required $10/month Journal and Core Tools subscription." href="/risk-manager" unlocked={false} lockedLabel="Required subscription · $10/month" />
             <Tool title="Funded Account Wealth Builder" description="Included in the required $10/month Journal and Core Tools subscription." href="/funded-account-wealth-builder" unlocked={false} lockedLabel="Required subscription · $10/month" />
           </div>
-          <p className="vt-member-note">The Journal and Core Tools package is required at $10/month. Analyzer is optional at $20/month. Access is activated only after the corresponding subscription payment is verified.</p>
+          <div className="vt-member-tool-list">
+            <div className="vt-member-tool"><div><strong>Journal + Risk Management</strong><p>Required tools subscription · $10/month.</p></div><a className="vt-member-tool-link" href="https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-1L8320881F985382FNL4CYUI" target="_blank" rel="noreferrer">Subscribe with PayPal ↗</a></div>
+            <div className="vt-member-tool"><div><strong>Reseller Analyzer Access</strong><p>Optional subscription · $20/month.</p></div><a className="vt-member-tool-link" href="https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-0411991308853042NNHESISY" target="_blank" rel="noreferrer">Subscribe with PayPal ↗</a></div>
+          </div>
+          <p className="vt-member-note">These VaultTrades PayPal subscriptions are confirmed through the VaultTrades PayPal webhook. Access is activated after the webhook verifies the subscription. Cancellation or failed payment updates access through the same webhook.</p>
         </>;
       case "risk":
         return <>
