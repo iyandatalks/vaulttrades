@@ -33,9 +33,8 @@ export async function GET() {
   const { db, user, profile } = access;
   let query = db.from("marketing_leads")
     .select("id,first_name,email,cellphone,source,campaign,created_at,partner_status,partner_notes,partner_updated_at,partner_display_name,partner_code,partner_share_consent", { count: "exact" })
-    .eq("partner_share_consent", true)
     .order("created_at", { ascending: false }).limit(250);
-  if (profile.role !== "admin") query = query.eq("partner_auth_user_id", user.id);
+  if (profile.role !== "admin") query = query.eq("partner_share_consent", true).eq("partner_auth_user_id", user.id);
   const { data, error, count } = await query;
   if (error) {
     console.error("Business leads load failed:", error.message);
