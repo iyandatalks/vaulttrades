@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
 import CommunityCalendar from "@/app/member-portal/CommunityCalendar";
 import "./community-workspace.css";
