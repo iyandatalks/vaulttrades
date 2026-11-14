@@ -123,6 +123,7 @@ export default function MembershipCheckoutClient({
           <div className="vt-checkout-form">
             <h2>Complete your VaultTrades payments</h2>
             <p>Your reseller declaration is saved. Pay each VaultTrades charge separately using the official PayPal links below. Return to this page after payment; webhook status refreshes automatically.</p>
+            <p className="vt-member-note">Important: use the same PayPal email address as your VaultTrades profile for both payments. The webhook uses the payer email and exact payment amount to match each payment to this order.</p>
             <div className="vt-checkout-addon">
               <span><strong>EA setup payment</strong><small>{statuses?.eaSetupPaid ? "PayPal webhook verified this payment." : "Awaiting PayPal webhook confirmation."}</small></span>
               <b>{statuses?.eaSetupPaid ? "Verified" : `$${EA[planCode].toFixed(2)}`}</b>
