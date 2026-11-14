@@ -72,6 +72,12 @@ export default function CommunityWorkspace() {
       if (ok) { setAnnouncementTitle(""); setAnnouncementBody(""); }
     });
   }
+  function createAdminPost(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void submitAction({ action: "create_post", category: postCategory, title: postTitle, body: postBody }).then(ok => {
+      if (ok) { setPostTitle(""); setPostBody(""); }
+    });
+  }
 
   const posts: Post[] = data?.posts ?? [];
   const announcements: Announcement[] = data?.announcements ?? [];
@@ -157,9 +163,13 @@ export default function CommunityWorkspace() {
 
     {tab === "admin" && isAdmin && <section className="vt-cw-grid"><div className="vt-cw-main">
       <form className="vt-cw-compose" onSubmit={publishAnnouncement}><h3>Publish a Community announcement</h3><label>Title<input value={announcementTitle} onChange={e => setAnnouncementTitle(e.target.value)} required maxLength={140} /></label><label>Announcement<textarea value={announcementBody} onChange={e => setAnnouncementBody(e.target.value)} required maxLength={5000} rows={4} /></label><button disabled={busy}>Publish announcement</button></form>
+      <form className="vt-cw-compose" onSubmit={createAdminPost}><h3>Publish a read-only Community post</h3><label>Post category<select value={postCategory} onChange={e => setPostCategory(e.target.value)}><option value="general_discussion">General discussion</option><option value="opportunity">Opportunity</option></select></label><label>Title<input value={postTitle} onChange={e => setPostTitle(e.target.value)} required maxLength={140} /></label><label>Post<textarea value={postBody} onChange={e => setPostBody(e.target.value)} required maxLength={5000} rows={4} /></label><button disabled={busy}>Publish post</button></form>
       <div className="vt-cw-section-heading"><div><span>MEMBER ACCESS</span><h2>Pending approval requests</h2></div></div>
       {(data.pendingMembers || []).map((item: Member) => <div className="vt-cw-admin-row" key={item.auth_user_id}><strong>{item.display_name}</strong><div><button onClick={() => void submitAction({ action: "approve_member", authUserId: item.auth_user_id, displayName: item.display_name, approved: true })}>Approve</button><button className="secondary" onClick={() => void submitAction({ action: "approve_member", authUserId: item.auth_user_id, displayName: item.display_name, approved: false })}>Revoke</button></div></div>)}
       {!(data.pendingMembers || []).length && <div className="vt-cw-empty">No pending member requests.</div>}
+      <div className="vt-cw-section-heading"><div><span>COMMENT MODERATION</span><h2>Pending comments</h2></div></div>
+      {(data.pendingComments || []).map((item: Comment) => <div className="vt-cw-admin-row" key={item.id}><div><strong>{item.display_name}</strong><p>{item.body}</p></div><div><button onClick={() => void submitAction({ action: "moderate_comment", id: item.id, approved: true })}>Approve</button><button className="secondary" onClick={() => void submitAction({ action: "moderate_comment", id: item.id, approved: false })}>Reject</button></div></div>)}
+      {!(data.pendingComments || []).length && <div className="vt-cw-empty">No pending comments.</div>}
     </div><aside className="vt-cw-side"><div className="vt-cw-panel"><span>MODERATION QUEUE</span><h3>Member submissions</h3>{(data.moderationQueue || []).map((post: Post) => <div className="vt-cw-mini-rank" key={post.id}><b>{post.title}</b><small>{post.display_name} · {post.category.replaceAll("_"," ")}</small><button onClick={() => void submitAction({ action: "moderate_post", id: post.id, approved: true })}>Approve post</button></div>)}{!(data.moderationQueue || []).length && <p>No posts awaiting moderation.</p>}</div></aside></section>}
 
     <footer className="vt-cw-footer"><span>VAULTTRADES COMMUNITY</span><p>Trade with structure. Manage risk. Execute with discipline.</p><Link href="/member-portal">Return to Knowledge Base ↗</Link></footer>
