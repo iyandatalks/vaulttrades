@@ -165,7 +165,7 @@ export default function CommunityWorkspace() {
 
     {tab === "members" && <section className="vt-cw-column"><div className="vt-cw-section-heading"><div><span>APPROVED PARTICIPANTS</span><h2>Community members</h2><p>Only the approved display names chosen by members appear here. Real account identities remain private.</p></div></div><div className="vt-cw-member-grid">{(data.members || []).map((item: Member) => <div key={item.auth_user_id}><span>{item.display_name.slice(0,1).toUpperCase()}</span><strong>{item.display_name}</strong></div>)}</div></section>}
 
-    {tab === "sessions" && <section className="vt-cw-column"><div className="vt-cw-section-heading"><div><span>UPCOMING COMMUNITY SESSIONS</span><h2>Meetings & calendar</h2><p>Current-month calendar and private meeting links published by the administrator through the Knowledge Base.</p></div></div><CommunityCalendar isAdmin={isAdmin} /></section>}
+    {tab === "sessions" && <section className="vt-cw-column vt-cw-sessions"><CommunityCalendar isAdmin={isAdmin} /></section>}
 
     {tab === "admin" && isAdmin && <section className="vt-cw-grid"><div className="vt-cw-main">
       <form className="vt-cw-compose" onSubmit={publishAnnouncement}><h3>Publish a Community announcement</h3><label>Title<input value={announcementTitle} onChange={e => setAnnouncementTitle(e.target.value)} required maxLength={140} /></label><label>Announcement<textarea value={announcementBody} onChange={e => setAnnouncementBody(e.target.value)} required maxLength={5000} rows={4} /></label><button disabled={busy}>Publish announcement</button></form>
