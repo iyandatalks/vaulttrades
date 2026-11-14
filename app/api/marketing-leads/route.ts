@@ -42,7 +42,6 @@ export async function POST(request: NextRequest) {
     const partnerCode = cleanText(body.partnerCode, 80).toUpperCase();
     const partnerShareConsent = body.partnerShareConsent === true;
 
-    const supabase = await createClient();
     const db = createAdminClient();
     let partner: { id: string; auth_user_id: string; first_name: string | null; referral_code: string } | null = null;
     if (partnerCode) {
