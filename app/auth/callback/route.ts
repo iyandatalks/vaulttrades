@@ -17,7 +17,6 @@ export async function GET(request: Request) {
 
   const supabase = await createClient();
   const { error } = await supabase.auth.exchangeCodeForSession(code);
-
   if (error) {
     return NextResponse.redirect(new URL("/auth/login?error=confirmation_failed&next=" + encodeURIComponent(next), url.origin));
   }
@@ -33,14 +32,8 @@ export async function GET(request: Request) {
       admin.from("users").select("id").eq("referral_code", referralCode).maybeSingle(),
       admin.from("users").select("id,referred_by").eq("auth_user_id", user.id).maybeSingle(),
     ]);
-
-    // Attribute only a new, valid referral. Never overwrite an existing referrer or allow self-referral.
     if (referrer && profile && referrer.id !== profile.id && !profile.referred_by) {
-      await admin
-        .from("users")
-        .update({ referred_by: referralCode })
-        .eq("auth_user_id", user.id)
-        .is("referred_by", null);
+      await admin.from("users").update({ referred_by: referralCode }).eq("auth_user_id", user.id).is("referred_by", null);
     }
   }
 
