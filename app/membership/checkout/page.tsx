@@ -5,9 +5,9 @@ import MembershipCheckoutClient from "./MembershipCheckoutClient";
 import "./checkout.css";
 
 const plans = {
-  nexus: { name: "VaultTrades Nexus", automationName: "VaultTrades Nexus – Automation", price: 150, description: "The core VaultTrades membership." },
-  nexus_plus: { name: "VaultTrades Nexus Plus", automationName: "VaultTrades Nexus Plus – Automation", price: 250, description: "Nexus plus Analyzer, Journal and additional tools." },
-  vortex: { name: "VaultTrades Vortex", automationName: "VaultTrades Vortex – Automation", price: 550, description: "The complete membership with advanced risk resources and one-on-one mentorship." },
+  nexus: { name: "VaultTrades Nexus", eaName: "VaultTrades Nexus EA", price: 150, description: "The core VaultTrades membership." },
+  nexus_plus: { name: "VaultTrades Nexus Plus", eaName: "VaultTrades Nexus Plus EA", price: 250, description: "Nexus plus Analyzer, Journal and additional tools." },
+  vortex: { name: "VaultTrades Vortex", eaName: "VaultTrades Vortex EA", price: 550, description: "The complete membership with advanced risk resources and one-on-one mentorship." },
 } as const;
 
 export default async function MembershipCheckoutPage({ searchParams }: { searchParams: Promise<{ plan?: string; ref?: string; declaration?: string; token?: string; payment?: string }> }) {
