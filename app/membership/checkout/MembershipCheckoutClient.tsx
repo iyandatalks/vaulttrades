@@ -128,17 +128,16 @@ export default function MembershipCheckoutClient({
               <>
                 <p>Pay the membership MRR amount to the referring partner who introduced you to VaultTrades. After payment, return to this page to declare your payment and complete your VaultTrades setup.</p>
                 <a className="vt-checkout-pay" href={RESELLER_PAYPAL[resellerCode]?.[planCode]?.url} target="_blank" rel="noreferrer">Pay membership MRR · ${MRR[planCode].toFixed(2)} USD</a>
-                <p className="vt-member-note">Expected return address after PayPal payment: {RESELLER_PAYPAL[resellerCode]?.[planCode]?.returnUrl}</p>
               </>
             ) : (
-              <div className="vt-checkout-pending"><strong>Partner payment link pending</strong><span>Your referring partner's plan-specific PayPal payment link will appear here once it has been configured.</span></div>
+              <div className="vt-checkout-pending"><strong>Partner checkout link unavailable</strong><span>This checkout address is not linked to a partner payment profile. Please open checkout from the website of the partner who introduced you.</span></div>
             )}
             <form className="vt-checkout-form" onSubmit={submitCheckout}>
             <h2>Declare your payment</h2>
             <p>Enter the details of your MRR payment to your referring partner so they can verify receipt. Your EA setup and website setup are separate one-time payments made to VaultTrades.</p>
-            <label>Reseller website<input required value={resellerWebsite} onChange={e => setResellerWebsite(e.target.value)} placeholder="e.g. yourname.vaulttradesve.com" /></label>
-            <label>Amount paid to reseller (USD)<input required type="number" min="0.01" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} /></label>
-            <label>PayPal transaction or invoice number<input required minLength={5} maxLength={120} value={transactionReference} onChange={e => setTransactionReference(e.target.value)} placeholder="Enter the reseller PayPal reference" /></label>
+            <label>Partner website<input required value={resellerWebsite} onChange={e => setResellerWebsite(e.target.value)} placeholder="e.g. yourname.vaulttradesve.com" /></label>
+            <label>Amount paid to referring partner (USD)<input required type="number" min="0.01" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} /></label>
+            <label>PayPal transaction or invoice number<input required minLength={5} maxLength={120} value={transactionReference} onChange={e => setTransactionReference(e.target.value)} placeholder="Enter the partner PayPal transaction reference" /></label>
             <div className="vt-checkout-date-row">
               <label>Payment date<input required type="date" value={paymentDate} onChange={e => setPaymentDate(e.target.value)} /></label>
               <label>Payment time (if known)<input type="time" value={paymentTime} onChange={e => setPaymentTime(e.target.value)} /></label>
@@ -165,7 +164,7 @@ export default function MembershipCheckoutClient({
             <a className="vt-checkout-pay" href={WEBSITE_PAYPAL} target="_blank" rel="noreferrer">Pay website setup · $39.00 USD</a>
             <div className="vt-checkout-pending">
               <strong>{statuses?.vaultTradesSetupComplete ? "VaultTrades payments verified" : "Awaiting VaultTrades payment verification"}</strong>
-              <span>{resellerConfirmed ? "Your reseller has confirmed the MRR payment." : "Your referring partner must still independently confirm the MRR payment."} Membership access is activated only after both VaultTrades payments and the reseller payment have been verified.</span>
+              <span>{resellerConfirmed ? "Your referring partner has confirmed the MRR payment." : "Your referring partner must still independently confirm the MRR payment."} Membership access is activated only after both VaultTrades payments and the reseller payment have been verified.</span>
             </div>
             <button type="button" className="vt-checkout-secondary" onClick={() => window.location.reload()}>Refresh payment status</button>
           </div>
