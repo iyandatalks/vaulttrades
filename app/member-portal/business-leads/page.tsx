@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { randomUUID } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import BusinessLeadsClient from "./BusinessLeadsClient";
@@ -13,9 +14,14 @@ export default async function BusinessLeadsPage() {
   const { data: { user } } = await auth.auth.getUser();
   if (!user) redirect("/auth/login?next=/member-portal/business-leads");
   const db = createAdminClient();
-  const { data: profile } = await db.from("users").select("id,role").eq("auth_user_id", user.id).maybeSingle();
+  const { data: profile } = await db.from("users").select("id,role,referral_code").eq("auth_user_id", user.id).maybeSingle();
   if (!profile) redirect("/profile");
   const isAdmin = profile.role === "admin";
+  let referralCode = profile.referral_code as string | null;
+  if (!referralCode) {
+    referralCode = "VT-" + randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase();
+    await db.from("users").update({ referral_code: referralCode }).eq("id", profile.id);
+  }
   if (!isAdmin) {
     const { data: licences } = await db.from("product_licenses").select("entitlement_code,start_at,end_at,status")
       .eq("user_id", profile.id).eq("status", "active").in("entitlement_code", CODES);
@@ -27,5 +33,5 @@ export default async function BusinessLeadsPage() {
     });
     if (!allowed) redirect("/plans");
   }
-  return <BusinessLeadsClient isAdmin={isAdmin} />;
+  return <BusinessLeadsClient isAdmin={isAdmin} leadCaptureUrl={`https://vaulttradesve.com/start?ref=${encodeURIComponent(referralCode)}`} />;
 }
