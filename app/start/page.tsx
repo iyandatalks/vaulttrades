@@ -14,8 +14,7 @@ export default function StartPage() {
   const [emailMarketing, setEmailMarketing] = useState(false);
   const [whatsappMarketing, setWhatsappMarketing] = useState(false);
   const [partnerShareConsent, setPartnerShareConsent] = useState(false);
-  const [paramsHasPartner, setParamsHasPartner] = useState(false);
-  useState(() => { if (typeof window !== "undefined") setParamsHasPartner(Boolean(new URLSearchParams(window.location.search).get("ref"))); return null; });
+  const [paramsHasPartner] = useState(() => typeof window !== "undefined" && Boolean(new URLSearchParams(window.location.search).get("ref")));
   const [website, setWebsite] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -49,7 +48,7 @@ export default function StartPage() {
           partnerCode,
           partnerShareConsent,
           website,
-          source: params.get("utm_source") || params.get("ref") || "bio_link",
+          source: params.get("utm_source") || "bio_link",
           campaign: params.get("utm_campaign") || "",
         }),
       });
