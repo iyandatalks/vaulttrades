@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
       partner_code: partner?.referral_code ?? null,
       partner_display_name: partner?.first_name ?? null,
       partner_share_consent: Boolean(partner && partnerShareConsent),
-    });
+    }).select("id").single();
 
     if (error) {
       console.error("Marketing lead insert failed:", error.message);
@@ -73,14 +73,14 @@ export async function POST(request: NextRequest) {
     }
 
     if (partner?.auth_user_id) {
-      const { data: leadRow } = await db.from("marketing_leads").select("id").eq("email", email).eq("partner_auth_user_id", partner.auth_user_id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+      
       await db.from("copy_profile_notifications").insert({
         auth_user_id: partner.auth_user_id,
         title: "New business enquiry received",
         body: `A new prospect, ${firstName}, submitted their contact details through your VaultTrades referral link. Open Business Leads to follow up.`,
         action_href: "/member-portal/business-leads",
         notification_type: "partner_new_lead",
-        metadata: { lead_id: leadRow?.id ?? null, partner_code: partner.referral_code },
+        metadata: { lead_id: savedLead?.id ?? null, partner_code: partner.referral_code },
       });
     }
     return NextResponse.json({ ok: true }, { status: 201 });
