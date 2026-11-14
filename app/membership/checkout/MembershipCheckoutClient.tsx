@@ -5,7 +5,7 @@ import type { FormEvent } from "react";
 import Link from "next/link";
 
 type PlanCode = "nexus" | "nexus_plus" | "vortex";
-type Plan = { name: string; price: number; description: string };
+type Plan = { name: string; automationName: string; price: number; description: string };
 const MRR: Record<PlanCode, number> = { nexus: 120, nexus_plus: 200, vortex: 440 };
 const EA: Record<PlanCode, number> = { nexus: 30, nexus_plus: 50, vortex: 110 };
 
@@ -86,7 +86,7 @@ export default function MembershipCheckoutClient({
         <h1>Complete your purchase</h1>
         <p className="vt-checkout-intro">Your reseller payment and your VaultTrades setup payment are separate transactions. Your VaultTrades profile is linked to the selected product, and access is activated only after both payments have been verified.</p>
         <div className="vt-checkout-plan">
-          <div><span>SELECTED MEMBERSHIP</span><h2>{plan.name}</h2><p>{plan.description}</p></div>
+          <div><span>SELECTED MEMBERSHIP</span><h2>{plan.name}</h2><p>{plan.description}</p><p className="vt-checkout-automation-name"><strong>EA PRODUCT:</strong> {plan.automationName}</p></div>
           <strong>${plan.price.toFixed(2)} <small>USD package price</small></strong>
         </div>
         <div className="vt-checkout-addon">
@@ -94,7 +94,7 @@ export default function MembershipCheckoutClient({
           <b>${MRR[planCode].toFixed(2)}</b>
         </div>
         <div className="vt-checkout-addon">
-          <span><strong>EA automation setup · once-off</strong><small>Payable to VaultTrades. EA operation requires an approved broker and compulsory VPS.</small></span>
+          <span><strong>{plan.automationName} · once-off setup</strong><small>Payable to VaultTrades. EA operation requires an approved broker and compulsory VPS.</small></span>
           <b>${EA[planCode].toFixed(2)}</b>
         </div>
         <div className="vt-checkout-addon">
