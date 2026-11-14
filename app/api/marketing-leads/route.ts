@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     if (partner && !partnerShareConsent) {
       return NextResponse.json({ error: "Please confirm that your contact details may be shared with the VaultTrades partner who referred you." }, { status: 400 });
     }
-    const { error } = await db.from("marketing_leads").insert({
+    const { data: savedLead, error } = await db.from("marketing_leads").insert({
       first_name: firstName,
       email,
       cellphone,
@@ -72,6 +72,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "We could not save your details right now. Please try again shortly." }, { status: 500 });
     }
 
+    if (partner?.auth_user_id) {
+      const { data: leadRow } = await db.from("marketing_leads").select("id").eq("email", email).eq("partner_auth_user_id", partner.auth_user_id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+      await db.from("copy_profile_notifications").insert({
+        auth_user_id: partner.auth_user_id,
+        title: "New business enquiry received",
+        body: `A new prospect, ${firstName}, submitted their contact details through your VaultTrades referral link. Open Business Leads to follow up.`,
+        action_href: "/member-portal/business-leads",
+        notification_type: "partner_new_lead",
+        metadata: { lead_id: leadRow?.id ?? null, partner_code: partner.referral_code },
+      });
+    }
     return NextResponse.json({ ok: true }, { status: 201 });
   } catch (error) {
     console.error("Marketing lead request failed:", error);
