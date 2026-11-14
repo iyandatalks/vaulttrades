@@ -33,5 +33,5 @@ export default async function BusinessLeadsPage() {
     });
     if (!allowed) redirect("/plans");
   }
-  return <BusinessLeadsClient isAdmin={isAdmin} leadCaptureUrl={`https://vaulttradesve.com/start?ref=${encodeURIComponent(referralCode)}`} />;
+  return <BusinessLeadsClient isAdmin={isAdmin} />;
 }
