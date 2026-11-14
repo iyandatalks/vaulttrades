@@ -23,36 +23,32 @@ function isCurrent(startAt: string | null, endAt: string | null) {
   return Number.isFinite(start) && start <= now && end > now;
 }
 
+function isPlanCode(value: string): value is "nexus" | "nexus_plus" | "vortex" {
+  return value === "nexus" || value === "nexus_plus" || value === "vortex";
+}
+
 export default async function MemberPortalPage() {
   const auth = await createClient();
   const { data: { user } } = await auth.auth.getUser();
   if (!user) redirect("/auth/login?next=/member-portal");
 
   const requestActionsAvailable = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
-  // The authenticated client can read the signed-in user's own profile and entitlements
-  // under RLS. Use the service-role client only when privileged request queues are enabled.
   const db = requestActionsAvailable ? createAdminClient() : auth;
-  const { data: profile } = await db
-    .from("users")
+  const { data: profile } = await db.from("users")
     .select("id,email,role,referral_code")
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
   if (!profile) {
-    return (
-      <main className="vt-member-shell">
-        <section className="vt-member-empty">
-          <span className="vt-member-kicker">VAULTTRADES MEMBER ACCESS</span>
-          <h1>Your member profile is not ready yet.</h1>
-          <p>Please contact VaultTrades support so your account can be checked.</p>
-          <Link href="/profile" className="vt-member-button">Open profile</Link>
-        </section>
-      </main>
-    );
+    return <main className="vt-member-shell"><section className="vt-member-empty">
+      <span className="vt-member-kicker">VAULTTRADES MEMBER ACCESS</span>
+      <h1>Your member profile is not ready yet.</h1>
+      <p>Please contact VaultTrades support so your account can be checked.</p>
+      <Link href="/profile" className="vt-member-button">Open profile</Link>
+    </section></main>;
   }
 
-  const { data: licenses } = await db
-    .from("product_licenses")
+  const { data: licenses } = await db.from("product_licenses")
     .select("entitlement_code,status,start_at,end_at")
     .eq("user_id", profile.id)
     .eq("status", "active");
@@ -61,10 +57,9 @@ export default async function MemberPortalPage() {
     MEMBERSHIP_CODES.has(String(license.entitlement_code || "").toLowerCase()) &&
     isCurrent(license.start_at, license.end_at)
   );
-
   const isAdmin = profile.role === "admin";
   const membershipCodes = new Set(memberships.map((license: any) => String(license.entitlement_code).toLowerCase()));
-  const plan = isAdmin || membershipCodes.has("vortex") || membershipCodes.has("vaulttrades_vortex")
+  const activePlan = isAdmin || membershipCodes.has("vortex") || membershipCodes.has("vaulttrades_vortex")
     ? "vortex"
     : membershipCodes.has("nexus_plus") || membershipCodes.has("vaulttrades_nexus_plus")
       ? "nexus_plus"
@@ -72,30 +67,41 @@ export default async function MemberPortalPage() {
         ? "nexus"
         : null;
 
+  const { data: pendingOrder } = !isAdmin
+    ? await db.from("reseller_purchase_orders")
+        .select("id,plan_code,reseller_payment_status,vaulttrades_payment_status")
+        .eq("customer_auth_user_id", user.id)
+        .eq("vaulttrades_payment_status", "verified")
+        .eq("reseller_payment_status", "awaiting_reseller_confirmation")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    : { data: null };
+
+  const pendingPlanCode = String(pendingOrder?.plan_code ?? "");
+  const pendingPlan = pendingOrder && isPlanCode(pendingPlanCode) ? pendingPlanCode : null;
+  const plan = activePlan || pendingPlan;
+
   let referralUrl: string | null = null;
   if (plan || isAdmin) {
     let code = profile.referral_code;
     if (!code) {
-      code = `VT-${crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase()}`;
+      code = "VT-" + crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase();
       await db.from("users").update({ referral_code: code }).eq("id", profile.id);
     }
-    referralUrl = `https://vaulttradesve.com/ref/${code}`;
+    referralUrl = "https://vaulttradesve.com/ref/" + code;
   }
 
   if (!plan && !isAdmin) {
-    return (
-      <main className="vt-member-shell">
-        <section className="vt-member-empty">
-          <span className="vt-member-kicker">MEMBERSHIP REQUIRED</span>
-          <h1>Your VaultTrades Knowledge Base</h1>
-          <p>Create your profile and choose a membership plan to unlock the member learning area, EA licensing process, installation guides and eligible tools.</p>
-          <div className="vt-member-empty-actions">
-            <Link href="/plans" className="vt-member-button">View membership plans</Link>
-            <Link href="/profile" className="vt-member-outline">My profile</Link>
-          </div>
-        </section>
-      </main>
-    );
+    return <main className="vt-member-shell"><section className="vt-member-empty">
+      <span className="vt-member-kicker">MEMBERSHIP REQUIRED</span>
+      <h1>Your VaultTrades Knowledge Base</h1>
+      <p>Create your profile and choose a membership plan to unlock the member learning area, EA licensing process, installation guides and eligible tools.</p>
+      <div className="vt-member-empty-actions">
+        <Link href="/plans" className="vt-member-button">View membership plans</Link>
+        <Link href="/profile" className="vt-member-outline">My profile</Link>
+      </div>
+    </section></main>;
   }
 
   const { data: licensingRequests } = await db.from("member_ea_licensing_requests")
@@ -120,7 +126,13 @@ export default async function MemberPortalPage() {
     .order("created_at", { ascending: false })
     .limit(30);
 
-  return (
+  return <>
+    {pendingOrder && <section className="vt-member-shell" style={{ paddingBottom: 0 }}>
+      <div className="vt-member-pending" style={{ maxWidth: 1100, margin: "0 auto", border: "1px solid rgba(212,166,55,.45)" }}>
+        <strong>Your VaultTrades setup is active.</strong>
+        <span>Your EA and website setup payments have been verified. You can use your Knowledge Base and member profile now. Your partner still needs to confirm receipt of the separate membership payment. You do not need to pay that amount again.</span>
+      </div>
+    </section>}
     <MemberPortalClient
       plan={plan ?? "vortex"}
       isAdmin={isAdmin}
@@ -134,5 +146,5 @@ export default async function MemberPortalPage() {
       requestActionsAvailable={requestActionsAvailable}
       licensingActionsAvailable={true}
     />
-  );
+  </>;
 }
