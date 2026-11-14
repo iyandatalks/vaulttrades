@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import CommunityCalendar from "@/app/member-portal/CommunityCalendar";
 import "./community-workspace.css";
@@ -142,7 +142,7 @@ export default function CommunityWorkspace() {
 
     {tab === "deals" && <section className="vt-cw-column"><div className="vt-cw-section-heading"><div><span>BUSINESS DEVELOPMENT</span><h2>New Business Deals</h2><p>Record a new deal milestone without posting a customer's name, email, phone number or payment details. VaultTrades administrators verify deal stages before they count on the leaderboard.</p></div></div>
       <div className="vt-cw-deal-rules"><strong>How it works</strong><ol><li>Submit a deal record with a general title and product plan.</li><li>Administrators review and verify its stage.</li><li>Only approved, verified Converted deals count on the leaderboard.</li></ol></div>
-      <form className="vt-cw-compose" onSubmit={createPost}><h3>Submit a deal record</h3><input type="hidden" value="new_business_deal" readOnly /><label>Deal title<input value={postTitle} onChange={e => setPostTitle(e.target.value)} required maxLength={140} placeholder="e.g. Nexus Plus enquiry" /></label><label>Deal details<textarea value={postBody} onChange={e => setPostBody(e.target.value)} required maxLength={5000} rows={3} placeholder="Describe the deal stage without including personal customer details." /></label><button disabled={busy} onClick={() => setPostCategory("new_business_deal")}>Submit deal for verification</button></form>
+      <form className="vt-cw-compose" onSubmit={createDeal}><h3>Submit a deal record</h3><label>Deal title<input value={postTitle} onChange={e => setPostTitle(e.target.value)} required maxLength={140} placeholder="e.g. Nexus Plus enquiry" /></label><label>Deal details<textarea value={postBody} onChange={e => setPostBody(e.target.value)} required maxLength={5000} rows={3} placeholder="Describe the deal stage without including personal customer details." /></label><button disabled={busy}>Submit deal for verification</button></form>
       {posts.filter(post => post.category === "new_business_deal").map(renderPost)}
     </section>}
 
