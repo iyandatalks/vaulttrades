@@ -85,7 +85,7 @@ export async function POST(request: Request) {
     if (title.length < 4 || content.length < 20 || !["general_discussion","new_business_deal","trading_experience"].includes(category)) {
       return NextResponse.json({ error: "Enter a title, at least 20 characters of detail and a valid discussion category." }, { status: 400 });
     }
-    if (category === "new_business_deal" && !Object.hasOwn(POINTS, stage)) {
+    if (category === "new_business_deal" && !Object.prototype.hasOwnProperty.call(POINTS, stage)) {
       return NextResponse.json({ error: "Choose the current stage of the business deal." }, { status: 400 });
     }
     const { data: name } = await db.from("community_member_names").select("display_name,is_approved")
