@@ -5,11 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createBrowserClient } from "@supabase/ssr";
 
-type ReferralState = {
-  enabled: boolean;
-  code: string | null;
-  url: string | null;
-};
+type ReferralState = { enabled: boolean; code: string | null; url: string | null };
+type MembershipSetupState = { active: boolean; plan: string; partnerConfirmationPending: boolean } | null;
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -20,211 +17,107 @@ export default function ProfilePage() {
   const [hasResellerProgramme, setHasResellerProgramme] = useState(false);
   const [resellerPlan, setResellerPlan] = useState<string | null>(null);
   const [referral, setReferral] = useState<ReferralState>({ enabled: false, code: null, url: null });
+  const [membershipSetup, setMembershipSetup] = useState<MembershipSetupState>(null);
 
   useEffect(() => {
-    const sb = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-
+    const sb = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
     sb.auth.getUser().then(async ({ data }) => {
       setEmail(data.user?.email ?? null);
-
       if (data.user) {
         const response = await fetch("/api/dashboard/access", { cache: "no-store" });
         const result = await response.json().catch(() => ({}));
-
         if (response.ok) {
           setReferral(result?.referral ?? { enabled: false, code: null, url: null });
           setIsAdmin(result?.admin === true);
           setHasWhatsAppSupport(result?.supportWhatsApp === true);
           setHasResellerProgramme(result?.reseller?.enabled === true);
           setResellerPlan(result?.reseller?.plan ?? null);
+          setMembershipSetup(result?.membershipSetup ?? null);
         }
       }
-
       setLoading(false);
     });
   }, []);
 
   async function handleLogout() {
-    const sb = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    const sb = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
     await sb.auth.signOut();
     router.replace("/");
     router.refresh();
   }
 
-  return (
-    <main className="shell">
-      <section className="card">
-        <div className="section-label">PROFILE</div>
-        <h1 className="title">Your VaultTrades Profile</h1>
-        <p className="muted">Account information and the products and tools currently available to your account.</p>
+  return <main className="shell"><section className="card">
+    <div className="section-label">PROFILE</div>
+    <h1 className="title">Your VaultTrades Profile</h1>
+    <p className="muted">Account information and the products and tools currently available to your account.</p>
 
-        {!loading && email && (
-          <div className="card" style={{ margin: "24px 0 0" }}>
-            <strong>Signed in as</strong>
-            <p className="muted">{email}</p>
-            <button onClick={handleLogout} className="button" type="button">Log out</button>
+    {!loading && email && <div className="card" style={{ margin: "24px 0 0" }}>
+      <strong>Signed in as</strong><p className="muted">{email}</p>
+      <button onClick={handleLogout} className="button" type="button">Log out</button>
+    </div>}
+    {!loading && !email && <div style={{ marginTop: 24 }}><Link className="button" href="/auth/login">Log in</Link></div>}
+
+    {!loading && membershipSetup?.active && membershipSetup.partnerConfirmationPending && <section className="vt-info-card" style={{ marginTop: 24, textAlign: "left", border: "1px solid rgba(212,166,55,.45)" }}>
+      <div className="vt-label">SETUP ACTIVE · PARTNER CONFIRMATION PENDING</div>
+      <h2 style={{ margin: "10px 0 8px", fontSize: 25 }}>Your VaultTrades setup is ready.</h2>
+      <p className="muted">VaultTrades has verified your EA and website setup payments. You can open your Knowledge Base now. Your partner still needs to confirm receipt of the separate membership payment. You do not need to pay that membership amount again.</p>
+      <Link className="vt-primary" href="/member-portal" style={{ display: "inline-block", marginTop: 10 }}>Open Your Knowledge Base →</Link>
+    </section>}
+
+    {!loading && email && <>
+      {isAdmin && <section className="vt-info-card" style={{ marginTop: 24, textAlign: "left", border: "1px solid rgba(212,166,55,.35)" }}>
+        <div className="vt-label">ADMIN</div><h2 style={{ margin: "10px 0 8px", fontSize: 27 }}>Admin Controls</h2>
+        <p className="muted" style={{ maxWidth: 760 }}>Administrative links for account access, submitted content and partner management.</p>
+        <div className="vt-info-grid" style={{ marginTop: 16 }}>
+          <article className="vt-info-card"><h3>Grant Product Access</h3><p className="muted">Find a customer and grant or deactivate eligible product access.</p><Link className="vt-primary" href="/admin/product-access" style={{ display: "inline-block", marginTop: 8 }}>Open Access Control →</Link></article>
+          <article className="vt-info-card"><h3>Review Community Posts</h3><p className="muted">Approve, keep pending, or reject customer testimonials before publication.</p><Link className="vt-primary" href="/admin/community-testimonials" style={{ display: "inline-block", marginTop: 8 }}>Review Submissions →</Link></article>
+          <article className="vt-info-card"><h3>EA Licensing Queue</h3><p className="muted">Review member MT5 submissions, generate personalised EA files and release private downloads.</p><Link className="vt-primary" href="/admin/ea-licensing" style={{ display: "inline-block", marginTop: 8 }}>Open Licensing Queue →</Link></article>
+          <article className="vt-info-card"><h3>Website Requests</h3><p className="muted">Review member subdomain preferences and custom-domain setup requests.</p><Link className="vt-primary" href="/admin/website-requests" style={{ display: "inline-block", marginTop: 8 }}>Open Website Requests →</Link></article>
+          <article className="vt-info-card"><h3>Manage Partners</h3><p className="muted">Manage the partner catalogue and public partner page.</p><Link className="vt-primary" href="/admin/partners" style={{ display: "inline-block", marginTop: 8 }}>Open Partner Management →</Link></article>
+          <article className="vt-info-card"><h3>Revenue Model</h3><p className="muted">Private notes on reseller commissions, product revenue, website services and payment settlement.</p><Link className="vt-primary" href="/admin/revenue-model" style={{ display: "inline-block", marginTop: 8 }}>Open Revenue Model →</Link></article>
+        </div>
+      </section>}
+
+      {(isAdmin || hasResellerProgramme) && <section className="vt-info-card" style={{ marginTop: 24, textAlign: "left", border: "1px solid rgba(212,166,55,.35)" }}>
+        <div className="vt-label">RESELLER PROGRAMME</div><h2 style={{ margin: "10px 0 8px", fontSize: 27 }}>Your VaultTrades Reseller Workspace</h2>
+        <p>{isAdmin ? "Administrator access is enabled. You can review the complete reseller Knowledge Base without purchasing a plan or entering checkout." : "Your reseller programme access is active. Open your Knowledge Base to follow onboarding, website setup and the reseller learning pathway."}</p>
+        {resellerPlan && !isAdmin && <p className="muted">Active membership: {resellerPlan.replaceAll("_", " ")}</p>}
+        <Link className="vt-primary" href="/member-portal" style={{ display: "inline-block", marginTop: 10 }}>Open Reseller Knowledge Base →</Link>
+      </section>}
+
+      <section className="vt-info-card" style={{ marginTop: 24, textAlign: "left" }}>
+        <div className="vt-label">REFERRAL</div><h2 style={{ margin: "10px 0 8px", fontSize: 27 }}>VaultTrades Referral</h2>
+        <p style={{ maxWidth: 760 }}>Your existing referral programme for eligible VaultTrades products. This remains separate from the new reseller membership programme.</p>
+        <Link className="vt-primary" href="/referral-program" style={{ display: "inline-block", marginTop: 10 }}>Explore Referral Programme →</Link>
+        {referral.enabled && referral.url ? <>
+          <p style={{ maxWidth: 760 }}>Your personal referral link is active because your account has an active VaultTrades product. Share the full link below with people you refer to VaultTrades.</p>
+          <div style={{ marginTop: 14, padding: "14px 16px", borderRadius: 10, background: "#050812", border: "1px solid rgba(212,166,55,.18)" }}>
+            <strong style={{ color: "#d4a637" }}>20% Commission</strong>
+            <p className="muted" style={{ margin: "6px 0 0" }}>Earn 20% commission when a person you refer subscribes to an eligible VaultTrades product. Commission is payable to your PayPal account once your available balance reaches the $50 minimum payment threshold.</p>
           </div>
-        )}
-
-        {!loading && !email && (
-          <div style={{ marginTop: 24 }}>
-            <Link className="button" href="/auth/login">Log in</Link>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 14 }}>
+            <input readOnly value={referral.url} aria-label="Your VaultTrades referral link" style={{ flex: 1, minWidth: 280, padding: "12px 14px", borderRadius: 9, border: "1px solid rgba(255,255,255,.12)", background: "#050812", color: "#f4f6fb" }} />
+            <Link className="vt-primary" href="/referral-vault">Open Referral Vault →</Link>
           </div>
-        )}
-
-        {!loading && email && (
-          <>
-            {isAdmin && (
-              <section className="vt-info-card" style={{ marginTop: 24, textAlign: "left", border: "1px solid rgba(212,166,55,.35)" }}>
-                <div className="vt-label">ADMIN</div>
-                <h2 style={{ margin: "10px 0 8px", fontSize: 27 }}>Admin Controls</h2>
-                <p className="muted" style={{ maxWidth: 760 }}>
-                  Administrative links for account access, submitted content and partner management.
-                </p>
-                <div className="vt-info-grid" style={{ marginTop: 16 }}>
-                  <article className="vt-info-card">
-                    <h3>Grant Product Access</h3>
-                    <p className="muted">Find a customer and grant or deactivate eligible product access.</p>
-                    <Link className="vt-primary" href="/admin/product-access" style={{ display: "inline-block", marginTop: 8 }}>Open Access Control →</Link>
-                  </article>
-                  <article className="vt-info-card">
-                    <h3>Review Community Posts</h3>
-                    <p className="muted">Approve, keep pending, or reject customer testimonials before publication.</p>
-                    <Link className="vt-primary" href="/admin/community-testimonials" style={{ display: "inline-block", marginTop: 8 }}>Review Submissions →</Link>
-                  </article>
-                  <article className="vt-info-card">
-                    <h3>EA Licensing Queue</h3>
-                    <p className="muted">Review member MT5 submissions, generate personalised EA files and release private downloads.</p>
-                    <Link className="vt-primary" href="/admin/ea-licensing" style={{ display: "inline-block", marginTop: 8 }}>Open Licensing Queue →</Link>
-                  </article>
-                  <article className="vt-info-card">
-                    <h3>Website Requests</h3>
-                    <p className="muted">Review member subdomain preferences and custom-domain setup requests.</p>
-                    <Link className="vt-primary" href="/admin/website-requests" style={{ display: "inline-block", marginTop: 8 }}>Open Website Requests →</Link>
-                  </article>
-                  <article className="vt-info-card">
-                    <h3>Manage Partners</h3>
-                    <p className="muted">Manage the partner catalogue and public partner page.</p>
-                    <Link className="vt-primary" href="/admin/partners" style={{ display: "inline-block", marginTop: 8 }}>Open Partner Management →</Link>
-                  </article>
-                  <article className="vt-info-card">
-                    <h3>Revenue Model</h3>
-                    <p className="muted">Private notes on reseller commissions, product revenue, website services and payment settlement.</p>
-                    <Link className="vt-primary" href="/admin/revenue-model" style={{ display: "inline-block", marginTop: 8 }}>Open Revenue Model →</Link>
-                  </article>
-                </div>
-              </section>
-            )}
-
-            {(isAdmin || hasResellerProgramme) && (
-              <section className="vt-info-card" style={{ marginTop: 24, textAlign: "left", border: "1px solid rgba(212,166,55,.35)" }}>
-                <div className="vt-label">RESELLER PROGRAMME</div>
-                <h2 style={{ margin: "10px 0 8px", fontSize: 27 }}>Your VaultTrades Reseller Workspace</h2>
-                <p style={{ maxWidth: 760 }}>
-                  {isAdmin
-                    ? "Administrator access is enabled. You can review the complete reseller Knowledge Base without purchasing a plan or entering checkout."
-                    : "Your reseller programme access is active. Open your Knowledge Base to follow onboarding, website setup and the reseller learning pathway."}
-                </p>
-                {resellerPlan && !isAdmin && <p className="muted">Active membership: {resellerPlan.replaceAll("_", " ")}</p>}
-                <Link className="vt-primary" href="/member-portal" style={{ display: "inline-block", marginTop: 10 }}>
-                  Open Reseller Knowledge Base →
-                </Link>
-              </section>
-            )}
-
-            <section className="vt-info-card" style={{ marginTop: 24, textAlign: "left" }}>
-              <div className="vt-label">REFERRAL</div>
-              <h2 style={{ margin: "10px 0 8px", fontSize: 27 }}>VaultTrades Referral</h2>
-              <p style={{ maxWidth: 760 }}>Your existing referral programme for eligible VaultTrades products. This remains separate from the new reseller membership programme.</p>
-              <Link className="vt-primary" href="/referral-program" style={{ display: "inline-block", marginTop: 10 }}>Explore Referral Programme →</Link>
-              {referral.enabled && referral.url ? (
-                <>
-                  <p style={{ maxWidth: 760 }}>
-                    Your personal referral link is active because your account has an active VaultTrades product.
-                    Share the full link below with people you refer to VaultTrades.
-                  </p>
-                  <div style={{ marginTop: 14, padding: "14px 16px", borderRadius: 10, background: "#050812", border: "1px solid rgba(212,166,55,.18)" }}>
-                    <strong style={{ color: "#d4a637" }}>20% Commission</strong>
-                    <p className="muted" style={{ margin: "6px 0 0" }}>
-                      Earn 20% commission when a person you refer subscribes to an eligible VaultTrades product.
-                      Commission is payable to your PayPal account once your available balance reaches the $50 minimum payment threshold.
-                    </p>
-                  </div>
-                  <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 14 }}>
-                    <input
-                      readOnly
-                      value={referral.url}
-                      aria-label="Your VaultTrades referral link"
-                      style={{
-                        flex: 1,
-                        minWidth: 280,
-                        padding: "12px 14px",
-                        borderRadius: 9,
-                        border: "1px solid rgba(255,255,255,.12)",
-                        background: "#050812",
-                        color: "#f4f6fb",
-                      }}
-                    />
-                    <Link className="vt-primary" href="/referral-vault">
-                      Open Referral Vault →
-                    </Link>
-                  </div>
-                  {referral.code && (
-                    <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>
-                      Referral code: {referral.code}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <>
-                  <p style={{ maxWidth: 760 }}>
-                    Your personal referral link becomes active after you have signed up for at least one VaultTrades product.
-                  </p>
-                  <Link className="vt-primary" href="/referral-process" style={{ display: "inline-block", marginTop: 12 }}>
-                    View Referral Process →
-                  </Link>
-                </>
-              )}
-            </section>
-
-            <section className="vt-info-card" style={{ marginTop: 24, textAlign: "left" }}>
-              <div className="vt-label">VAULTTRADES PROCESS</div>
-              <h2 style={{ margin: "10px 0 8px", fontSize: 27 }}>How the VaultTrades process works</h2>
-              <p style={{ maxWidth: 760 }}>A separate step-by-step explanation of the customer journey, from initial interest and programme review through plan selection, membership activation and access to the Knowledge Base. This is not the Referral Programme and does not replace the Reseller Workspace.</p>
-              <Link className="vt-primary" href="/vaulttrades-process" style={{ display: "inline-block", marginTop: 10 }}>View VaultTrades Process →</Link>
-            </section>
-
-            {hasWhatsAppSupport && (
-              <section className="vt-info-card" style={{ marginTop: 24, textAlign: "left", border: "1px solid rgba(212,166,55,.35)" }}>
-                <div className="vt-label">PRIORITY CUSTOMER SUPPORT</div>
-                <h2 style={{ margin: "10px 0 8px", fontSize: 27 }}>WhatsApp Business Support</h2>
-                <p style={{ maxWidth: 760 }}>
-                  Direct WhatsApp support is available to customers with an active paid VaultTrades product or access granted by the VaultTrades team.
-                </p>
-                <a
-                  className="vt-primary"
-                  href="https://wa.me/27746653633?text=Hello%20VaultTrades%20Support%2C%20I%20need%20assistance%20with%20my%20account."
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{ display: "inline-block", marginTop: 12 }}
-                >
-                  WhatsApp Business Support
-                </a>
-                <p className="muted" style={{ marginTop: 10, fontSize: 12 }}>
-                  Access to this support link is checked against your current VaultTrades product entitlement.
-                </p>
-              </section>
-            )}
-
-          </>
-        )}
+          {referral.code && <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>Referral code: {referral.code}</div>}
+        </> : <>
+          <p style={{ maxWidth: 760 }}>Your personal referral link becomes active after you have signed up for at least one VaultTrades product.</p>
+          <Link className="vt-primary" href="/referral-process" style={{ display: "inline-block", marginTop: 12 }}>View Referral Process →</Link>
+        </>}
       </section>
-    </main>
-  );
+
+      <section className="vt-info-card" style={{ marginTop: 24, textAlign: "left" }}>
+        <div className="vt-label">VAULTTRADES PROCESS</div><h2 style={{ margin: "10px 0 8px", fontSize: 27 }}>How the VaultTrades process works</h2>
+        <p style={{ maxWidth: 760 }}>A separate step-by-step explanation of the customer journey, from initial interest and programme review through plan selection, membership activation and access to the Knowledge Base. This is not the Referral Programme and does not replace the Reseller Workspace.</p>
+        <Link className="vt-primary" href="/vaulttrades-process" style={{ display: "inline-block", marginTop: 10 }}>View VaultTrades Process →</Link>
+      </section>
+
+      {hasWhatsAppSupport && <section className="vt-info-card" style={{ marginTop: 24, textAlign: "left", border: "1px solid rgba(212,166,55,.35)" }}>
+        <div className="vt-label">PRIORITY CUSTOMER SUPPORT</div><h2 style={{ margin: "10px 0 8px", fontSize: 27 }}>WhatsApp Business Support</h2>
+        <p style={{ maxWidth: 760 }}>Direct WhatsApp support is available to customers with an active paid VaultTrades product or access granted by the VaultTrades team.</p>
+        <a className="vt-primary" href="https://wa.me/27746653633?text=Hello%20VaultTrades%20Support%2C%20I%20need%20assistance%20with%20my%20account." target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 12 }}>WhatsApp Business Support</a>
+        <p className="muted" style={{ marginTop: 10, fontSize: 12 }}>Access to this support link is checked against your current VaultTrades product entitlement.</p>
+      </section>}
+    </>}
+  </section></main>;
 }
