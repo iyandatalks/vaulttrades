@@ -32,20 +32,20 @@ const sections = [
   { id: "community", label: "1. Join the Community", group: "START HERE" },
   { id: "broker", label: "2. Broker Registration", group: "ACCOUNT SETUP" },
   { id: "mt5", label: "3. Open Your MT5 Account", group: "ACCOUNT SETUP" },
-  { id: "licensing", label: "4. Submit Your MT5 Number", group: "EA LICENSING & DELIVERY" },
-  { id: "generation", label: "5. Personalised EA Preparation", group: "EA LICENSING & DELIVERY" },
-  { id: "download", label: "6. Download Your Licensed EA", group: "EA LICENSING & DELIVERY" },
-  { id: "before-install", label: "7. Pre-installation Checklist", group: "EA INSTALLATION & OPERATION" },
-  { id: "installation", label: "Nexus Installation Guide", group: "EA INSTALLATION & OPERATION" },
-  { id: "understanding", label: "Understanding Nexus", group: "EA INSTALLATION & OPERATION" },
+  { id: "licensing", label: "4. Submit Your MT5 Number", group: "AUTOMATION LICENSING & DELIVERY" },
+  { id: "generation", label: "5. Personalised Automation Preparation", group: "AUTOMATION LICENSING & DELIVERY" },
+  { id: "download", label: "6. Download Your Licensed Automation", group: "AUTOMATION LICENSING & DELIVERY" },
+  { id: "before-install", label: "7. Pre-installation Checklist", group: "AUTOMATION INSTALLATION & OPERATION" },
+  { id: "installation", label: "VaultTrades Nexus – Automation Installation Guide", group: "EA INSTALLATION & OPERATION" },
+  { id: "understanding", label: "Understanding VaultTrades Nexus – Automation", group: "EA INSTALLATION & OPERATION" },
   { id: "ea-settings", label: "EA Settings & Risk Inputs", group: "EA INSTALLATION & OPERATION" },
   { id: "broker-detection", label: "Broker & Symbol Detection", group: "EA INSTALLATION & OPERATION" },
   { id: "signals", label: "How Trading Signals Work", group: "EA INSTALLATION & OPERATION" },
   { id: "execution", label: "Signal-to-Order Lifecycle", group: "EA INSTALLATION & OPERATION" },
   { id: "timeframes", label: "Recommended Timeframes", group: "EA INSTALLATION & OPERATION" },
-  { id: "nexus-plus", label: "Nexus Plus Installation", group: "EA INSTALLATION & OPERATION" },
-  { id: "vortex-manual", label: "Vortex User Manual", group: "EA INSTALLATION & OPERATION" },
-  { id: "vortex-install", label: "Vortex Installation Guide", group: "EA INSTALLATION & OPERATION" },
+  { id: "nexus-plus", label: "VaultTrades Nexus Plus – Automation Installation", group: "EA INSTALLATION & OPERATION" },
+  { id: "vortex-manual", label: "VaultTrades Vortex – Automation User Manual", group: "EA INSTALLATION & OPERATION" },
+  { id: "vortex-install", label: "VaultTrades Vortex – Automation Installation Guide", group: "EA INSTALLATION & OPERATION" },
   { id: "troubleshooting", label: "Troubleshooting", group: "EA INSTALLATION & OPERATION" },
   { id: "vps", label: "Required VPS Setup", group: "AUTOMATION & DAILY USE" },
   { id: "daily", label: "Your Daily Trading Routine", group: "AUTOMATION & DAILY USE" },
@@ -152,10 +152,10 @@ export default function MemberPortalClient({
   }
 
   const allowedEaProducts = plan === "nexus"
-    ? [{ value: "nexus", label: "VaultTrades Nexus" }]
+    ? [{ value: "nexus", label: "VaultTrades Nexus – Automation" }]
     : plan === "nexus_plus"
-      ? [{ value: "nexus", label: "VaultTrades Nexus" }, { value: "nexus_plus", label: "VaultTrades Nexus Plus" }]
-      : [{ value: "nexus", label: "VaultTrades Nexus" }, { value: "nexus_plus", label: "VaultTrades Nexus Plus" }, { value: "vortex", label: "VaultTrades Vortex" }];
+      ? [{ value: "nexus", label: "VaultTrades Nexus – Automation" }, { value: "nexus_plus", label: "VaultTrades Nexus Plus – Automation" }]
+      : [{ value: "nexus", label: "VaultTrades Nexus – Automation" }, { value: "nexus_plus", label: "VaultTrades Nexus Plus – Automation" }, { value: "vortex", label: "VaultTrades Vortex – Automation" }];
 
   const plusOrVortex = plan === "nexus_plus" || plan === "vortex";
   const hasVortex = plan === "vortex";
@@ -276,7 +276,7 @@ export default function MemberPortalClient({
           </form>
           <h2>Your licensing requests</h2>
           {requests.length ? <div className="vt-member-request-list">{requests.map(request => <div className="vt-member-request" key={request.id}>
-            <div><strong>{request.product_code === "nexus" ? "VaultTrades Nexus" : request.product_code === "nexus_plus" ? "VaultTrades Nexus Plus" : "VaultTrades Vortex"}</strong><small>MT5 {request.mt5_login} · {request.broker_name} · {new Date(request.submitted_at).toLocaleString()}</small></div>
+            <div><strong>{request.product_code === "nexus" ? "VaultTrades Nexus – Automation" : request.product_code === "nexus_plus" ? "VaultTrades Nexus Plus – Automation" : "VaultTrades Vortex – Automation"}</strong><small>MT5 {request.mt5_login} · {request.broker_name} · {new Date(request.submitted_at).toLocaleString()}</small></div>
             <span className={"vt-member-request-status " + request.status}>{request.status.replace("_", " ")}</span>
             {request.status === "ready" && (request.license_resource_url ? <a className="vt-member-tool-link" href={request.license_resource_url} target="_blank" rel="noreferrer">{request.license_resource_name || "Open personalised EA"} ↗</a> : <a className="vt-member-tool-link" href={`/api/member-portal/ea-licensing/${request.id}/download`}>Download EA ↗</a>)}
             {request.status === "rejected" && request.admin_notes && <p className="vt-member-note">{request.admin_notes}</p>}
