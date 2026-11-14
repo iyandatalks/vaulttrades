@@ -13,6 +13,9 @@ export default function StartPage() {
   const [processingConsent, setProcessingConsent] = useState(false);
   const [emailMarketing, setEmailMarketing] = useState(false);
   const [whatsappMarketing, setWhatsappMarketing] = useState(false);
+  const [partnerShareConsent, setPartnerShareConsent] = useState(false);
+  const [paramsHasPartner, setParamsHasPartner] = useState(false);
+  useState(() => { if (typeof window !== "undefined") setParamsHasPartner(Boolean(new URLSearchParams(window.location.search).get("ref"))); return null; });
   const [website, setWebsite] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -22,6 +25,11 @@ export default function StartPage() {
     setError("");
     if (!processingConsent) {
       setError("Please confirm that VaultTrades may use your details to respond to this access request.");
+      return;
+    }
+    const partnerCode = new URLSearchParams(window.location.search).get("ref") || "";
+    if (partnerCode && !partnerShareConsent) {
+      setError("Please confirm whether your contact details may be shared with the referring VaultTrades partner.");
       return;
     }
 
@@ -38,6 +46,8 @@ export default function StartPage() {
           processingConsent,
           emailMarketing,
           whatsappMarketing,
+          partnerCode,
+          partnerShareConsent,
           website,
           source: params.get("utm_source") || params.get("ref") || "bio_link",
           campaign: params.get("utm_campaign") || "",
@@ -87,6 +97,7 @@ export default function StartPage() {
 
               <label className="vts-consent required"><input type="checkbox" checked={processingConsent} onChange={(e) => setProcessingConsent(e.target.checked)} required /><span>I agree that VaultTrades may use these details to respond to my request and provide access to the opportunity information. I have read the <a href="/privacy-policy" target="_blank" rel="noreferrer">Privacy Policy</a>.</span></label>
 
+              {paramsHasPartner && <label className="vts-consent required"><input type="checkbox" checked={partnerShareConsent} onChange={(e) => setPartnerShareConsent(e.target.checked)} /><span>I agree that my name, email address and cellphone number may be shared with the VaultTrades partner who referred me, as well as VaultTrades, so they can follow up on my enquiry. I understand I can contact VaultTrades about my privacy choices.</span></label>}
               <div className="vts-marketing-title">OPTIONAL UPDATES</div>
               <label className="vts-consent"><input type="checkbox" checked={emailMarketing} onChange={(e) => setEmailMarketing(e.target.checked)} /><span>I would also like to receive VaultTrades updates by email. I can unsubscribe at any time.</span></label>
               <label className="vts-consent"><input type="checkbox" checked={whatsappMarketing} onChange={(e) => setWhatsappMarketing(e.target.checked)} /><span>I would also like to receive VaultTrades updates by WhatsApp. I can opt out at any time.</span></label>
