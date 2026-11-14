@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import "./start.css";
@@ -14,7 +14,8 @@ export default function StartPage() {
   const [emailMarketing, setEmailMarketing] = useState(false);
   const [whatsappMarketing, setWhatsappMarketing] = useState(false);
   const [partnerShareConsent, setPartnerShareConsent] = useState(false);
-  const [paramsHasPartner] = useState(() => typeof window !== "undefined" && Boolean(new URLSearchParams(window.location.search).get("ref")));
+  const [paramsHasPartner, setParamsHasPartner] = useState(false);
+  useEffect(() => { setParamsHasPartner(Boolean(new URLSearchParams(window.location.search).get("ref"))); }, []);
   const [website, setWebsite] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
