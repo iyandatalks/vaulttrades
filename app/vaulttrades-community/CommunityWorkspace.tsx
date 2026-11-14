@@ -9,7 +9,7 @@ type Member = { auth_user_id: string; display_name: string; is_approved: boolean
 type Announcement = { id: string; title: string; body: string; category: string; published_at: string | null; created_at: string };
 type Post = { id: string; auth_user_id: string; display_name: string; category: string; title: string; body: string; deal_stage: string | null; moderation_status: string; participation_points: number; is_featured: boolean; created_at: string };
 type Comment = { id: string; post_id: string; auth_user_id: string; display_name: string; body: string; created_at: string };
-type Leader = { rank: number; display_name: string; verified_deals: number };
+type Leader = { rank: number; display_name: string; verified_deals: number; new: number; contacted: number; qualified: number; converted: number; closed: number };
 
 const stageLabels: Record<string, string> = { new: "New", contacted: "Contacted", qualified: "Qualified", converted: "Converted", closed: "Closed" };
 
@@ -138,7 +138,7 @@ export default function CommunityWorkspace() {
         <div className="vt-cw-section-heading"><div><span>READ-ONLY COMMUNITY POSTS</span><h2>General discussion</h2><p>These posts are published by the Community team for everyone to read. Member replies are kept in the separate discussion area.</p></div></div>
         {generalPosts.length ? generalPosts.map(renderPost) : <div className="vt-cw-empty">No general discussion posts yet.</div>}
       </div>
-      <aside className="vt-cw-side"><div className="vt-cw-panel"><span>YOUR COMMUNITY</span><h3>Trade with structure.</h3><p>Keep member discussion constructive. Protect private information and avoid posting account credentials, customer details or personal financial data.</p><button onClick={() => setTab("discussions")}>Join member discussions</button></div><div className="vt-cw-panel"><span>BUSINESS LEADERBOARD</span><h3>Verified progress</h3>{(data.leaderboard || []).slice(0,5).map((row: Leader) => <div className="vt-cw-mini-rank" key={row.rank}><b>#{row.rank} {row.display_name}</b><small>{row.verified_deals} verified deals</small></div>)}{!data.leaderboard?.length && <p>No verified deals yet.</p>}<button className="ghost" onClick={() => setTab("leaderboard")}>View leaderboard</button></div></aside>
+      <aside className="vt-cw-side"><div className="vt-cw-panel"><span>YOUR COMMUNITY</span><h3>Trade with structure.</h3><p>Keep member discussion constructive. Protect private information and avoid posting account credentials, customer details or personal financial data.</p><button onClick={() => setTab("discussions")}>Join member discussions</button></div><div className="vt-cw-panel"><span>BUSINESS LEADERBOARD</span><h3>Verified progress</h3>{(data.leaderboard || []).slice(0,5).map((row: Leader) => <div className="vt-cw-mini-rank" key={row.rank}><b>#{row.rank} {row.display_name}</b><small>{row.converted} converted · {row.qualified} qualified</small></div>)}{!data.leaderboard?.length && <p>No verified deals yet.</p>}<button className="ghost" onClick={() => setTab("leaderboard")}>View leaderboard</button></div></aside>
     </section>}
 
     {tab === "discussions" && <section className="vt-cw-column"><div className="vt-cw-section-heading"><div><span>APPROVED MEMBERS</span><h2>Member discussions</h2><p>Posts and comments are moderated before appearing to the Community. General discussion posts remain read-only.</p></div></div>
@@ -152,9 +152,9 @@ export default function CommunityWorkspace() {
       {posts.filter(post => post.category === "new_business_deal").map(renderPost)}
     </section>}
 
-    {tab === "leaderboard" && <section className="vt-cw-column"><div className="vt-cw-section-heading"><div><span>VERIFIED NEW BUSINESS DEALS</span><h2>Business leaderboard</h2><p>Rankings reflect the number of approved deals verified at the Converted stage. General discussions, comments and journal/P&amp;L activity do not add points here.</p></div></div>
-      <div className="vt-cw-rank-list">{(data.leaderboard || []).map((row: Leader) => <div key={row.rank}><b>#{row.rank}</b><strong>{row.display_name}</strong><span>{row.verified_deals} verified converted {row.verified_deals === 1 ? "deal" : "deals"}</span></div>)}</div>
-      {!data.leaderboard?.length && <div className="vt-cw-empty">The leaderboard will populate when the first business deal has been verified as Converted.</div>}
+    {tab === "leaderboard" && <section className="vt-cw-column"><div className="vt-cw-section-heading"><div><span>VERIFIED NEW BUSINESS DEALS</span><h2>Business leaderboard</h2><p>Rankings use administrator-verified New Business Deal stages, ordered by Converted, then Qualified, Contacted and New. General discussions, comments and journal/P&amp;L activity do not contribute to the business ranking.</p></div></div>
+      <div className="vt-cw-rank-list">{(data.leaderboard || []).map((row: Leader) => <div key={row.rank}><b>#{row.rank}</b><strong>{row.display_name}</strong><span>{row.converted} converted · {row.qualified} qualified · {row.contacted} contacted · {row.new} new</span></div>)}</div>
+      {!data.leaderboard?.length && <div className="vt-cw-empty">The leaderboard will populate when the first New Business Deal stage has been verified by an administrator.</div>}
     </section>}
 
     {tab === "members" && <section className="vt-cw-column"><div className="vt-cw-section-heading"><div><span>APPROVED PARTICIPANTS</span><h2>Community members</h2><p>Only the approved display names chosen by members appear here. Real account identities remain private.</p></div></div><div className="vt-cw-member-grid">{(data.members || []).map((item: Member) => <div key={item.auth_user_id}><span>{item.display_name.slice(0,1).toUpperCase()}</span><strong>{item.display_name}</strong></div>)}</div></section>}
