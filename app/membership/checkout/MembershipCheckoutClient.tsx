@@ -102,13 +102,13 @@ export default function MembershipCheckoutClient({
       <section className="vt-checkout-card">
         <div className="vt-checkout-kicker">VAULTTRADES CUSTOMER CHECKOUT</div>
         <h1>Complete your purchase</h1>
-        <p className="vt-checkout-intro">Your membership payment is completed with the referring partner who introduced you to VaultTrades. After that payment, return here to declare it and complete your separate VaultTrades setup payments.</p>
+        <p className="vt-checkout-intro">Your membership MRR payment is made to the referring partner who introduced you to VaultTrades. After paying, return to this page to declare the payment and complete your separate VaultTrades setup.</p>
         <div className="vt-checkout-plan">
           <div><span>SELECTED MEMBERSHIP</span><h2>{plan.name}</h2><p>{plan.description}</p><p className="vt-checkout-automation-name"><strong>EA PRODUCT:</strong> {plan.eaName}</p></div>
           <strong>${plan.price.toFixed(2)} <small>USD package allocation</small></strong>
         </div>
         <div className="vt-checkout-addon">
-          <span><strong>Eligible MRR component · paid directly to your reseller</strong><small>Your reseller independently verifies this payment in their own PayPal account.</small></span>
+          <span><strong>Eligible MRR component · paid to your referring partner</strong><small>Your referring partner independently verifies this payment in their own PayPal account.</small></span>
           <b>${MRR[planCode].toFixed(2)}</b>
         </div>
         <div className="vt-checkout-addon">
@@ -126,16 +126,16 @@ export default function MembershipCheckoutClient({
             <h2>Membership payment</h2>
             {RESELLER_PAYPAL[resellerCode]?.[planCode] ? (
               <>
-                <p>Pay the membership amount to the referring partner who introduced you to VaultTrades. Once the payment is complete, return to this checkout page to declare your payment and continue with your VaultTrades setup.</p>
-                <a className="vt-checkout-pay" href={RESELLER_PAYPAL[resellerCode]?.[planCode]?.url} target="_blank" rel="noreferrer">Pay reseller MRR · ${MRR[planCode].toFixed(2)} USD</a>
+                <p>Pay the membership MRR amount to the referring partner who introduced you to VaultTrades. After payment, return to this page to declare your payment and complete your VaultTrades setup.</p>
+                <a className="vt-checkout-pay" href={RESELLER_PAYPAL[resellerCode]?.[planCode]?.url} target="_blank" rel="noreferrer">Pay membership MRR · ${MRR[planCode].toFixed(2)} USD</a>
                 <p className="vt-member-note">Expected return address after PayPal payment: {RESELLER_PAYPAL[resellerCode]?.[planCode]?.returnUrl}</p>
               </>
             ) : (
-              <div className="vt-checkout-pending"><strong>Reseller payment link pending</strong><span>This reseller's plan-specific PayPal link will appear here once their payment setup is completed.</span></div>
+              <div className="vt-checkout-pending"><strong>Partner payment link pending</strong><span>Your referring partner's plan-specific PayPal payment link will appear here once it has been configured.</span></div>
             )}
             <form className="vt-checkout-form" onSubmit={submitCheckout}>
-            <h2>Declare your reseller payment</h2>
-            <p>After paying the reseller, enter the payment details so the reseller can verify receipt. Your VaultTrades EA and website setup payments are made separately below.</p>
+            <h2>Declare your payment</h2>
+            <p>Enter the details of your MRR payment to your referring partner so they can verify receipt. Your EA setup and website setup are separate one-time payments made to VaultTrades.</p>
             <label>Reseller website<input required value={resellerWebsite} onChange={e => setResellerWebsite(e.target.value)} placeholder="e.g. yourname.vaulttradesve.com" /></label>
             <label>Amount paid to reseller (USD)<input required type="number" min="0.01" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} /></label>
             <label>PayPal transaction or invoice number<input required minLength={5} maxLength={120} value={transactionReference} onChange={e => setTransactionReference(e.target.value)} placeholder="Enter the reseller PayPal reference" /></label>
@@ -143,7 +143,7 @@ export default function MembershipCheckoutClient({
               <label>Payment date<input required type="date" value={paymentDate} onChange={e => setPaymentDate(e.target.value)} /></label>
               <label>Payment time (if known)<input type="time" value={paymentTime} onChange={e => setPaymentTime(e.target.value)} /></label>
             </div>
-            <label className="vt-checkout-terms"><input type="checkbox" checked={termsAccepted} onChange={e => setTermsAccepted(e.target.checked)} /><span>I confirm that I have paid the reseller directly and that the details entered are accurate. I understand that the reseller must independently verify receipt before membership access can be activated.</span></label>
+            <label className="vt-checkout-terms"><input type="checkbox" checked={termsAccepted} onChange={e => setTermsAccepted(e.target.checked)} /><span>I confirm that I have paid the referring partner and that the details entered are accurate. I understand that the referring partner must independently verify receipt before membership access can be activated.</span></label>
             {error && <p className="vt-checkout-error" role="alert">{error}</p>}
             <button className="vt-checkout-pay" type="submit" disabled={busy || !termsAccepted}>{busy ? "Recording declaration…" : "Submit payment details and continue"}</button>
             </form>
@@ -151,7 +151,7 @@ export default function MembershipCheckoutClient({
         ) : (
           <div className="vt-checkout-form">
             <h2>Complete your VaultTrades payments</h2>
-            <p>Your reseller declaration is saved. Pay each VaultTrades charge separately using the official PayPal links below. Return to this page after payment; webhook status refreshes automatically.</p>
+            <p>Your MRR payment declaration is saved. Complete the separate EA setup and website setup payments using the VaultTrades PayPal payment links. Return to this page after each payment; verification status refreshes automatically.</p>
             <p className="vt-member-note">Complete both setup payments separately. Use the same PayPal email address as your VaultTrades profile for each payment so the VaultTrades PayPal webhook can match and verify them against your order.</p>
             <div className="vt-checkout-addon">
               <span><strong>EA setup payment</strong><small>{statuses?.eaSetupPaid ? "PayPal webhook verified this payment." : "Awaiting PayPal webhook confirmation."}</small></span>
@@ -165,7 +165,7 @@ export default function MembershipCheckoutClient({
             <a className="vt-checkout-pay" href={WEBSITE_PAYPAL} target="_blank" rel="noreferrer">Pay website setup · $39.00 USD</a>
             <div className="vt-checkout-pending">
               <strong>{statuses?.vaultTradesSetupComplete ? "VaultTrades payments verified" : "Awaiting VaultTrades payment verification"}</strong>
-              <span>{resellerConfirmed ? "Your reseller has confirmed the MRR payment." : "Your reseller must still independently confirm the MRR payment."} Membership access is activated only after both VaultTrades payments and the reseller payment have been verified.</span>
+              <span>{resellerConfirmed ? "Your reseller has confirmed the MRR payment." : "Your referring partner must still independently confirm the MRR payment."} Membership access is activated only after both VaultTrades payments and the reseller payment have been verified.</span>
             </div>
             <button type="button" className="vt-checkout-secondary" onClick={() => window.location.reload()}>Refresh payment status</button>
           </div>
