@@ -5,7 +5,7 @@ import type { FormEvent } from "react";
 import Link from "next/link";
 
 type PlanCode = "nexus" | "nexus_plus" | "vortex";
-type Plan = { name: string; automationName: string; price: number; description: string };
+type Plan = { name: string; eaName: string; price: number; description: string };
 const MRR: Record<PlanCode, number> = { nexus: 120, nexus_plus: 200, vortex: 440 };
 const EA: Record<PlanCode, number> = { nexus: 30, nexus_plus: 50, vortex: 110 };
 const EA_PAYPAL: Record<PlanCode, string> = {
@@ -87,7 +87,7 @@ export default function MembershipCheckoutClient({
         <h1>Complete your purchase</h1>
         <p className="vt-checkout-intro">Your reseller MRR payment is made directly to your reseller. Your EA setup and website setup payments are separate VaultTrades payments, verified by the VaultTrades PayPal webhook.</p>
         <div className="vt-checkout-plan">
-          <div><span>SELECTED MEMBERSHIP</span><h2>{plan.name}</h2><p>{plan.description}</p><p className="vt-checkout-automation-name"><strong>EA PRODUCT:</strong> {plan.automationName}</p></div>
+          <div><span>SELECTED MEMBERSHIP</span><h2>{plan.name}</h2><p>{plan.description}</p><p className="vt-checkout-automation-name"><strong>EA PRODUCT:</strong> {plan.eaName}</p></div>
           <strong>${plan.price.toFixed(2)} <small>USD package allocation</small></strong>
         </div>
         <div className="vt-checkout-addon">
