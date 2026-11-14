@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
@@ -38,9 +39,20 @@ export async function POST(request: NextRequest) {
     const source = cleanText(body.source, 80) || "website";
     const campaign = cleanText(body.campaign, 120) || null;
     const referrer = cleanText(request.headers.get("referer"), 500) || null;
+    const partnerCode = cleanText(body.partnerCode, 80).toUpperCase();
+    const partnerShareConsent = body.partnerShareConsent === true;
 
     const supabase = await createClient();
-    const { error } = await supabase.from("marketing_leads").insert({
+    const db = createAdminClient();
+    let partner: { id: string; auth_user_id: string; first_name: string | null; referral_code: string } | null = null;
+    if (partnerCode) {
+      const { data } = await db.from("users").select("id,auth_user_id,first_name,referral_code").ilike("referral_code", partnerCode).maybeSingle();
+      if (data?.auth_user_id) partner = data;
+    }
+    if (partner && !partnerShareConsent) {
+      return NextResponse.json({ error: "Please confirm that your contact details may be shared with the VaultTrades partner who referred you." }, { status: 400 });
+    }
+    const { error } = await db.from("marketing_leads").insert({
       first_name: firstName,
       email,
       cellphone,
@@ -49,7 +61,12 @@ export async function POST(request: NextRequest) {
       referrer,
       marketing_email_consent: emailMarketing,
       marketing_whatsapp_consent: whatsappMarketing,
-      privacy_notice_version: "2026-11-12",
+      privacy_notice_version: "2026-11-14",
+      partner_user_id: partner?.id ?? null,
+      partner_auth_user_id: partner?.auth_user_id ?? null,
+      partner_code: partner?.referral_code ?? null,
+      partner_display_name: partner?.first_name ?? null,
+      partner_share_consent: Boolean(partner && partnerShareConsent),
     });
 
     if (error) {
