@@ -13,7 +13,7 @@ const plans = {
 export default async function MembershipCheckoutPage({ searchParams }: { searchParams: Promise<{ plan?: string; ref?: string; declaration?: string; token?: string; payment?: string }> }) {
   const params = await searchParams;
   const planCode = params.plan as keyof typeof plans;
-  const resellerCode = String(params.ref ?? "").trim().toUpperCase();
+  const resellerCode = String(params.ref ?? "VT-C4D867E2").trim().toUpperCase();
   const declarationId = String(params.declaration ?? "").trim();
   const paypalToken = String(params.token ?? "").trim();
   const paymentStatus = String(params.payment ?? "");
