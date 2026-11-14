@@ -10,7 +10,7 @@ async function getAccess() {
   const { data: { user } } = await auth.auth.getUser();
   if (!user) return { response: NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 }) };
   const db = createAdminClient();
-  const { data: profile } = await db.from("users").select("id,email,role").eq("auth_user_id", user.id).maybeSingle();
+  const { data: profile } = await db.from("users").select("id,email,role,referral_code").eq("auth_user_id", user.id).maybeSingle();
   if (!profile) return { response: NextResponse.json({ error: "PROFILE_NOT_FOUND" }, { status: 404 }) };
   if (profile.role !== "admin") {
     const { data: licences } = await db.from("product_licenses")
@@ -23,6 +23,11 @@ async function getAccess() {
       return Number.isFinite(start) && start <= now && end > now;
     });
     if (!eligible) return { response: NextResponse.json({ error: "MEMBERSHIP_REQUIRED" }, { status: 403 }) };
+  }
+  if (!profile.referral_code) {
+    const referralCode = `VT-${crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase()}`;
+    const { data: updated } = await db.from("users").update({ referral_code: referralCode }).eq("id", profile.id).is("referral_code", null).select("referral_code").maybeSingle();
+    profile.referral_code = updated?.referral_code ?? referralCode;
   }
   return { db, user, profile };
 }
@@ -48,7 +53,7 @@ export async function GET() {
     qualified: leads.filter(x => x.partner_status === "qualified").length,
     converted: leads.filter(x => x.partner_status === "converted").length,
   };
-  return NextResponse.json({ leads, counts, isAdmin: profile.role === "admin" });
+  return NextResponse.json({ leads, counts, isAdmin: profile.role === "admin", partnerCode: profile.referral_code });
 }
 
 export async function PATCH(request: Request) {
