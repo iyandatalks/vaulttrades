@@ -69,8 +69,13 @@ export async function GET() {
     .map((row, index) => ({ rank: index + 1, display_name: row.display_name, verified_deals: row.verified_deals }));
 
   let moderationQueue: unknown[] = [];
+  let pendingMembers: unknown[] = [];
   if (isAdmin) {
     moderationQueue = (postsResult.data ?? []).filter(post => post.moderation_status === "pending");
+    const { data: pending } = await db.from("community_member_names")
+      .select("auth_user_id,display_name,is_approved,created_at")
+      .eq("is_approved", false).order("created_at", { ascending: true }).limit(200);
+    pendingMembers = pending ?? [];
   }
 
   return NextResponse.json({
