@@ -49,7 +49,7 @@ export default function StartPage() {
           partnerCode,
           partnerShareConsent,
           website,
-          source: params.get("utm_source") || "bio_link",
+          source: params.get("utm_source") || (params.get("ref") ? "partner_lead_link" : "bio_link"),
           campaign: params.get("utm_campaign") || "",
         }),
       });
