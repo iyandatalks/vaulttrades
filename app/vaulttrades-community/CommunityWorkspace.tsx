@@ -66,6 +66,12 @@ export default function CommunityWorkspace() {
       if (ok) { setPostTitle(""); setPostBody(""); }
     });
   }
+  function createDeal(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void submitAction({ action: "create_post", category: "new_business_deal", title: postTitle, body: postBody }).then(ok => {
+      if (ok) { setPostTitle(""); setPostBody(""); }
+    });
+  }
   function publishAnnouncement(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     void submitAction({ action: "admin_announcement", title: announcementTitle, body: announcementBody }).then(ok => {
@@ -163,7 +169,7 @@ export default function CommunityWorkspace() {
 
     {tab === "admin" && isAdmin && <section className="vt-cw-grid"><div className="vt-cw-main">
       <form className="vt-cw-compose" onSubmit={publishAnnouncement}><h3>Publish a Community announcement</h3><label>Title<input value={announcementTitle} onChange={e => setAnnouncementTitle(e.target.value)} required maxLength={140} /></label><label>Announcement<textarea value={announcementBody} onChange={e => setAnnouncementBody(e.target.value)} required maxLength={5000} rows={4} /></label><button disabled={busy}>Publish announcement</button></form>
-      <form className="vt-cw-compose" onSubmit={createAdminPost}><h3>Publish a read-only Community post</h3><label>Post category<select value={postCategory} onChange={e => setPostCategory(e.target.value)}><option value="general_discussion">General discussion</option><option value="opportunity">Opportunity</option></select></label><label>Title<input value={postTitle} onChange={e => setPostTitle(e.target.value)} required maxLength={140} /></label><label>Post<textarea value={postBody} onChange={e => setPostBody(e.target.value)} required maxLength={5000} rows={4} /></label><button disabled={busy}>Publish post</button></form>
+      <form className="vt-cw-compose" onSubmit={createAdminPost}><h3>Publish a read-only Community post</h3><label>Post category<select value={postCategory === "opportunity" ? "opportunity" : "general_discussion"} onChange={e => setPostCategory(e.target.value)}><option value="general_discussion">General discussion</option><option value="opportunity">Opportunity</option></select></label><label>Title<input value={postTitle} onChange={e => setPostTitle(e.target.value)} required maxLength={140} /></label><label>Post<textarea value={postBody} onChange={e => setPostBody(e.target.value)} required maxLength={5000} rows={4} /></label><button disabled={busy}>Publish post</button></form>
       <div className="vt-cw-section-heading"><div><span>MEMBER ACCESS</span><h2>Pending approval requests</h2></div></div>
       {(data.pendingMembers || []).map((item: Member) => <div className="vt-cw-admin-row" key={item.auth_user_id}><strong>{item.display_name}</strong><div><button onClick={() => void submitAction({ action: "approve_member", authUserId: item.auth_user_id, displayName: item.display_name, approved: true })}>Approve</button><button className="secondary" onClick={() => void submitAction({ action: "approve_member", authUserId: item.auth_user_id, displayName: item.display_name, approved: false })}>Revoke</button></div></div>)}
       {!(data.pendingMembers || []).length && <div className="vt-cw-empty">No pending member requests.</div>}
