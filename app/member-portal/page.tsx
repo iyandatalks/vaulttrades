@@ -83,7 +83,7 @@ export default async function MemberPortalPage() {
   const plan = activePlan || pendingPlan;
 
   let referralUrl: string | null = null;
-  if (plan || isAdmin) {
+  if (activePlan || isAdmin) {
     let code = profile.referral_code;
     if (!code) {
       code = "VT-" + crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase();
