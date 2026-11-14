@@ -8,9 +8,9 @@ type ProductCode = "nexus" | "nexus_plus" | "vortex";
 type LinkMap = Record<ProductCode, string>;
 
 const PRODUCTS: { code: ProductCode; name: string; detail: string }[] = [
-  { code: "nexus", name: "VaultTrades Nexus", detail: "Create a PayPal link for $120 (MRR component)." },
-  { code: "nexus_plus", name: "VaultTrades Nexus Plus", detail: "Create a PayPal link for $200 (MRR component)." },
-  { code: "vortex", name: "VaultTrades Vortex", detail: "Create a PayPal link for $440 (MRR component)." },
+  { code: "nexus", name: "VaultTrades Nexus – Automation", detail: "Create a PayPal link for $120 (MRR component)." },
+  { code: "nexus_plus", name: "VaultTrades Nexus Plus – Automation", detail: "Create a PayPal link for $200 (MRR component)." },
+  { code: "vortex", name: "VaultTrades Vortex – Automation", detail: "Create a PayPal link for $440 (MRR component)." },
 ];
 
 const EMPTY: LinkMap = { nexus: "", nexus_plus: "", vortex: "" };
@@ -78,7 +78,7 @@ export default function ResellerOnboardingClient({ resellerCode }: { resellerCod
           <span className="vt-member-kicker">STEP 1 · YOUR PAYPAL LINKS</span>
           <h2>One separate link for each MRR component</h2>
           <p className="vt-member-lead">Create one PayPal payment link per membership plan in your own PayPal account. You collect only the MRR amount shown below. After your customer pays you, PayPal must automatically return them to the matching VaultTrades page so they can register their profile, declare the reseller payment and pay VaultTrades for the website and EA setup.</p>
-          <div className="vt-member-table-wrap"><table className="vt-member-table"><thead><tr><th>Plan</th><th>Package price</th><th>Your PayPal link amount (80% MRR)</th><th>EA setup (20%)</th></tr></thead><tbody><tr><td>VaultTrades Nexus</td><td>$150</td><td><strong>$120</strong></td><td>$30 once-off</td></tr><tr><td>VaultTrades Nexus Plus</td><td>$250</td><td><strong>$200</strong></td><td>$50 once-off</td></tr><tr><td>VaultTrades Vortex</td><td>$550</td><td><strong>$440</strong></td><td>$110 once-off</td></tr></tbody></table></div>
+          <div className="vt-member-table-wrap"><table className="vt-member-table"><thead><tr><th>Membership plan</th><th>EA product / checkout name</th><th>Package price</th><th>Your PayPal link amount (80% MRR)</th><th>EA setup (20%)</th></tr></thead><tbody><tr><td>VaultTrades Nexus</td><td>VaultTrades Nexus – Automation</td><td>$150</td><td><strong>$120</strong></td><td>$30 once-off</td></tr><tr><td>VaultTrades Nexus Plus</td><td>VaultTrades Nexus Plus – Automation</td><td>$250</td><td><strong>$200</strong></td><td>$50 once-off</td></tr><tr><td>VaultTrades Vortex</td><td>VaultTrades Vortex – Automation</td><td>$550</td><td><strong>$440</strong></td><td>$110 once-off</td></tr></tbody></table></div>
           <p className="vt-member-note">The reseller earns 100% of the MRR amount shown. VaultTrades receives the separate 20% EA setup component. The $39 reseller website setup fee is a further once-off VaultTrades charge.</p>
           <div className="vt-member-pending" style={{ marginTop: 18 }}>
             <strong>Important: set the VaultTrades return page on every PayPal link</strong>
