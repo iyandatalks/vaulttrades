@@ -70,12 +70,17 @@ export async function GET() {
 
   let moderationQueue: unknown[] = [];
   let pendingMembers: unknown[] = [];
+  let pendingComments: unknown[] = [];
   if (isAdmin) {
     moderationQueue = (postsResult.data ?? []).filter(post => post.moderation_status === "pending");
     const { data: pending } = await db.from("community_member_names")
       .select("auth_user_id,display_name,is_approved,created_at")
       .eq("is_approved", false).order("created_at", { ascending: true }).limit(200);
     pendingMembers = pending ?? [];
+    const { data: commentsPending } = await db.from("community_comments")
+      .select("id,post_id,auth_user_id,display_name,body,created_at")
+      .eq("moderation_status", "pending").order("created_at", { ascending: true }).limit(200);
+    pendingComments = commentsPending ?? [];
   }
 
   return NextResponse.json({
@@ -166,6 +171,17 @@ export async function POST(request: Request) {
     }).eq("auth_user_id", authUserId);
     if (error) return fail("Member access could not be updated.", 500);
     return NextResponse.json({ ok: true, message: isApproved ? "Member approved." : "Member access revoked." });
+  }
+
+  if (action === "moderate_comment") {
+    if (!isAdmin) return fail("Administrator access required.", 403);
+    const id = typeof body.id === "string" ? body.id : "";
+    const moderationStatus = body.approved === true ? "approved" : "rejected";
+    const { error } = await db.from("community_comments").update({
+      moderation_status: moderationStatus, updated_at: new Date().toISOString(),
+    }).eq("id", id);
+    if (error) return fail("The comment could not be moderated.", 500);
+    return NextResponse.json({ ok: true, message: moderationStatus === "approved" ? "Comment approved." : "Comment rejected." });
   }
 
   if (action === "moderate_post") {
