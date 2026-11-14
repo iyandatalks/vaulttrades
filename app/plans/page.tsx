@@ -7,7 +7,7 @@ const plans = [
     name: "VaultTrades Nexus", price: "$150",
     intro: "Launch your trading and digital-business journey with the core VaultTrades experience.",
     features: [
-      "VaultTrades Nexus automated trading system",
+      "VaultTrades Nexus – Automation",
       "Nexus trading guidance and learning resources",
       "Access to the free member community",
       "Business-launch and monthly-income education",
@@ -22,7 +22,7 @@ const plans = [
     featured: true,
     features: [
       "Everything included in Plan 1",
-      "VaultTrades Nexus Plus automated trading system",
+      "VaultTrades Nexus Plus – Automation",
       "Optional Analyzer subscription available separately at $20/month",
       "Journal and core tools available separately through the required $10/month package",
       "Additional trading indicators and tools",
@@ -36,7 +36,7 @@ const plans = [
     intro: "The complete package, with advanced trading resources, risk management and individual mentorship.",
     features: [
       "Everything included in Plans 1 and 2",
-      "All three VaultTrades EA products, including Vortex",
+      "All three automation products: VaultTrades Nexus – Automation, VaultTrades Nexus Plus – Automation and VaultTrades Vortex – Automation",
       "Full risk-management resources",
       "Both included trading indicators",
       "Advanced trading and business-scaling resources",
