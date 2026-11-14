@@ -55,18 +55,19 @@ export async function GET() {
   const visiblePosts = (postsResult.data ?? []).filter(post =>
     post.moderation_status === "approved" || post.auth_user_id === user.id || isAdmin
   );
-  const leaderboardMap = new Map<string, { auth_user_id: string; display_name: string; verified_deals: number }>();
+  const leaderboardMap = new Map<string, { auth_user_id: string; display_name: string; verified_deals: number; new: number; contacted: number; qualified: number; converted: number; closed: number }>();
   for (const deal of dealsResult.data ?? []) {
-    if (deal.deal_stage !== "converted") continue;
     const existing = leaderboardMap.get(deal.auth_user_id) ?? {
-      auth_user_id: deal.auth_user_id, display_name: deal.display_name, verified_deals: 0,
+      auth_user_id: deal.auth_user_id, display_name: deal.display_name,
+      verified_deals: 0, new: 0, contacted: 0, qualified: 0, converted: 0, closed: 0,
     };
     existing.verified_deals += 1;
+    if (deal.deal_stage && deal.deal_stage in existing) existing[deal.deal_stage as "new" | "contacted" | "qualified" | "converted" | "closed"] += 1;
     leaderboardMap.set(deal.auth_user_id, existing);
   }
   const leaderboard = [...leaderboardMap.values()]
-    .sort((a, b) => b.verified_deals - a.verified_deals || a.display_name.localeCompare(b.display_name))
-    .map((row, index) => ({ rank: index + 1, display_name: row.display_name, verified_deals: row.verified_deals }));
+    .sort((a, b) => b.converted - a.converted || b.qualified - a.qualified || b.contacted - a.contacted || b.new - a.new || a.display_name.localeCompare(b.display_name))
+    .map((row, index) => ({ rank: index + 1, display_name: row.display_name, verified_deals: row.verified_deals, new: row.new, contacted: row.contacted, qualified: row.qualified, converted: row.converted, closed: row.closed }));
 
   let moderationQueue: unknown[] = [];
   let pendingMembers: unknown[] = [];
