@@ -55,6 +55,7 @@ const sections = [
   { id: "business", label: "Understand the Reseller Programme", group: "BUILD YOUR BUSINESS" },
   { id: "referrals", label: "Your Existing Referral Link", group: "BUILD YOUR BUSINESS" },
   { id: "website", label: "Your Personal Website", group: "BUILD YOUR BUSINESS" },
+  { id: "paypal-setup", label: "PayPal Setup", group: "RESELLER PAYMENTS & SETUP" },
   { id: "resources", label: "Partners & Resource Directory", group: "TOOLS & SUPPORT" },
   { id: "tools", label: "Plan-Included Digital Tools", group: "TOOLS & SUPPORT" },
   { id: "risk", label: "Risk & Important Information", group: "TOOLS & SUPPORT" },
@@ -555,6 +556,30 @@ export default function MemberPortalClient({
             {request.admin_notes && <p className="vt-member-note">{request.admin_notes}</p>}
           </div>)}</div> : <p className="vt-member-note">No website setup request has been submitted yet. Website setup is a required part of reseller onboarding.</p>}
           <p className="vt-member-note">If you want to use your own personalised domain, purchase and register it in your own name first, then submit the exact domain details here. VaultTrades will confirm the connection requirements and any applicable fee before linking it.</p>
+        </>;
+      case "paypal-setup":
+        return <>
+          <Eyebrow>RESELLER PAYMENT OPERATIONS</Eyebrow><h1>PayPal setup.</h1>
+          <p className="vt-member-lead">This section is the central guide for configuring PayPal to receive your reseller payments and for understanding how customer payments are confirmed.</p>
+          <div className="vt-member-highlight"><strong>Your reseller payment destination</strong><span>Customers pay the eligible MRR component directly to your own PayPal account.</span><small>VaultTrades does not collect or webhook-verify your reseller MRR payment. You must independently check your PayPal account and confirm the payment through the reseller payment dashboard.</small></div>
+          <h2>What this guide will cover</h2>
+          <ol>
+            <li>Preparing and securing your PayPal account for receiving customer payments.</li>
+            <li>Creating the correct payment links for Nexus ($120), Nexus Plus ($200) and Vortex ($440).</li>
+            <li>Keeping each payment link associated with the correct product and reseller subdomain.</li>
+            <li>Checking PayPal activity and confirming that funds have actually cleared.</li>
+            <li>Reviewing a customer's purchase declaration and confirming or rejecting it in the VaultTrades reseller payment area.</li>
+            <li>Handling refunds, disputes, duplicate payments and payment discrepancies.</li>
+          </ol>
+          <h2>How payment confirmation works</h2>
+          <ul>
+            <li><strong>Reseller MRR payment:</strong> paid directly to you. You verify it in your own PayPal account and then confirm the declaration in VaultTrades.</li>
+            <li><strong>VaultTrades EA setup and website setup:</strong> paid to VaultTrades using VaultTrades PayPal links. These payments are verified by the VaultTrades PayPal webhook.</li>
+          </ul>
+          <div className="vt-member-pending"><strong>Reseller payment links are not available yet.</strong><span>Your individual links will be connected after your VaultTrades reseller subdomain has been created. Do not substitute VaultTrades' EA or website setup links for your own MRR payment links.</span></div>
+          <h2>Open your payment declarations</h2>
+          <a className="vt-member-button" href="/member-portal/reseller-payments">Open reseller payment verification</a>
+          <p className="vt-member-note">Detailed PayPal account setup and payment-link instructions will be added to this topic as the reseller onboarding material is completed. Never share your PayPal password, one-time code or account recovery details with anyone.</p>
         </>;
       case "tools":
         return <>
