@@ -1,1 +1,1 @@
-export { default } from "../vaulttrades-community/page";
+export { default } from "../community-program/page";\n
