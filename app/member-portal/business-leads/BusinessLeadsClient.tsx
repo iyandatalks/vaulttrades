@@ -16,9 +16,7 @@ const statusOptions = [
   ["converted", "Converted"], ["closed", "Closed / not proceeding"],
 ];
 
-export default function BusinessLeadsClient({ isAdmin, leadCaptureUrl }: { isAdmin: boolean; leadCaptureUrl: string }) {
-  const [copiedLink, setCopiedLink] = useState(false);
-  async function copyLeadLink() { await navigator.clipboard.writeText(leadCaptureUrl); setCopiedLink(true); window.setTimeout(() => setCopiedLink(false), 1800); }
+export default function BusinessLeadsClient({ isAdmin }: { isAdmin: boolean }) {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [counts, setCounts] = useState<Counts>({ total: 0, new: 0, contacted: 0, qualified: 0, converted: 0 });
   const [loading, setLoading] = useState(true);
@@ -69,10 +67,6 @@ export default function BusinessLeadsClient({ isAdmin, leadCaptureUrl }: { isAdm
         <p>Track enquiries attributed to your business, record follow-up and move each prospect through your pipeline.</p></div>
       <div className="vt-member-header-actions"><Link href="/member-portal" className="vt-member-outline">Knowledge Base</Link><Link href="/member-portal/reseller-onboarding" className="vt-member-outline">Partner setup</Link></div>
     </header>
-    <section className="vt-lead-link-panel">
-      <div><span className="vt-member-kicker">YOUR TRACKED ENQUIRY LINK</span><strong>Share this link to receive partner enquiries.</strong><p>Visitors who submit the form through this link and consent to share their details with your business will appear in this dashboard. This is separate from your account-registration referral link.</p><code>{leadCaptureUrl}</code></div>
-      <button className="vt-member-button" onClick={() => void copyLeadLink()}>{copiedLink ? "Copied" : "Copy lead link"}</button>
-    </section>
     <div className="vt-member-layout" style={{ gridTemplateColumns: "minmax(0,1fr)" }}>
       <section className="vt-member-content">
         <div className="vt-lead-link-panel"><div><span className="vt-member-kicker">YOUR TRACKED LEAD LINK</span><strong>Share this link to capture enquiries for your business.</strong><small>Prospects who submit through this link and consent to partner follow-up will appear in your Business Leads workspace.</small><code>https://vaulttradesve.com/start?ref={partnerCode || "…"}</code></div><button className="vt-member-button" onClick={() => void copyLeadLink()} disabled={!partnerCode}>{copiedLink ? "Copied" : "Copy lead link"}</button></div>
