@@ -80,7 +80,7 @@ export default function CommunityWorkspace() {
   }
   function createAdminPost(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    void submitAction({ action: "create_post", category: postCategory, title: postTitle, body: postBody }).then(ok => {
+    void submitAction({ action: "create_post", category: postCategory === "opportunity" ? "opportunity" : "general_discussion", title: postTitle, body: postBody }).then(ok => {
       if (ok) { setPostTitle(""); setPostBody(""); }
     });
   }
