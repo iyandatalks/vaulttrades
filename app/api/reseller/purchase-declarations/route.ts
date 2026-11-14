@@ -5,6 +5,37 @@ import { createAdminClient } from "@/lib/supabase/admin";
 const PLAN_AMOUNTS = { nexus: 120, nexus_plus: 200, vortex: 440 } as const;
 type PlanCode = keyof typeof PLAN_AMOUNTS;
 
+export async function GET(request: Request) {
+  const auth = await createClient();
+  const { data: { user } } = await auth.auth.getUser();
+  if (!user) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
+  const declarationId = new URL(request.url).searchParams.get("declarationId")?.trim();
+  if (!declarationId) return NextResponse.json({ error: "A purchase declaration is required." }, { status: 400 });
+
+  const db = createAdminClient();
+  const { data: order, error } = await db.from("reseller_purchase_orders")
+    .select("id,plan_code,reseller_payment_status,vaulttrades_payment_status,customer_email,created_at")
+    .eq("id", declarationId)
+    .eq("customer_auth_user_id", user.id)
+    .maybeSingle();
+  if (error || !order) return NextResponse.json({ error: "Purchase declaration not found." }, { status: 404 });
+
+  const { data: componentPayments, error: paymentError } = await db.from("payment_transactions")
+    .select("id,payment_method,status,raw_event")
+    .eq("provider", "paypal")
+    .eq("status", "verified")
+    .contains("raw_event", { declaration_id: declarationId, order_type: "reseller_setup_component" });
+  if (paymentError) return NextResponse.json({ error: "Unable to load PayPal payment status." }, { status: 500 });
+
+  const legacyVerified = order.vaulttrades_payment_status === "verified" && !(componentPayments || []).length;
+  const eaSetupPaid = legacyVerified || (componentPayments || []).some((row: any) => row.payment_method === "paypal_reseller_ea_setup");
+  const websiteSetupPaid = legacyVerified || (componentPayments || []).some((row: any) => row.payment_method === "paypal_reseller_website_setup");
+  return NextResponse.json({
+    declaration: order,
+    payments: { eaSetupPaid, websiteSetupPaid, vaultTradesSetupComplete: eaSetupPaid && websiteSetupPaid },
+  });
+}
+
 export async function POST(request: Request) {
   const auth = await createClient();
   const { data: { user } } = await auth.auth.getUser();
