@@ -27,6 +27,8 @@ export default function BusinessLeadsClient({ isAdmin }: { isAdmin: boolean }) {
   const [draftNotes, setDraftNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [partnerCode, setPartnerCode] = useState("");
+  const [copiedLink, setCopiedLink] = useState(false);
 
   async function load() {
     setLoading(true); setError("");
@@ -34,7 +36,7 @@ export default function BusinessLeadsClient({ isAdmin }: { isAdmin: boolean }) {
       const response = await fetch("/api/member-portal/business-leads", { cache: "no-store" });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Unable to load business leads.");
-      setLeads(data.leads ?? []); setCounts(data.counts ?? { total: 0, new: 0, contacted: 0, qualified: 0, converted: 0 });
+      setLeads(data.leads ?? []); setCounts(data.counts ?? { total: 0, new: 0, contacted: 0, qualified: 0, converted: 0 }); setPartnerCode(data.partnerCode ?? "");
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to load business leads."); }
     finally { setLoading(false); }
   }
@@ -42,6 +44,7 @@ export default function BusinessLeadsClient({ isAdmin }: { isAdmin: boolean }) {
 
   const visible = useMemo(() => filter === "all" ? leads : leads.filter(x => x.partner_status === filter), [leads, filter]);
   function beginEdit(lead: Lead) { setEditing(lead.id); setDraftStatus(lead.partner_status); setDraftNotes(lead.partner_notes ?? ""); setMessage(""); }
+  async function copyLeadLink() { await navigator.clipboard.writeText(`https://vaulttradesve.com/start?ref=${partnerCode}`); setCopiedLink(true); window.setTimeout(() => setCopiedLink(false), 1800); }
   async function save(id: string) {
     setSaving(true); setMessage("");
     try {
@@ -66,6 +69,7 @@ export default function BusinessLeadsClient({ isAdmin }: { isAdmin: boolean }) {
     </header>
     <div className="vt-member-layout" style={{ gridTemplateColumns: "minmax(0,1fr)" }}>
       <section className="vt-member-content">
+        <div className="vt-lead-link-panel"><div><span className="vt-member-kicker">YOUR TRACKED LEAD LINK</span><strong>Share this link to capture enquiries for your business.</strong><small>Prospects who submit through this link and consent to partner follow-up will appear in your Business Leads workspace.</small><code>https://vaulttradesve.com/start?ref={partnerCode || "…"}</code></div><button className="vt-member-button" onClick={() => void copyLeadLink()} disabled={!partnerCode}>{copiedLink ? "Copied" : "Copy lead link"}</button></div>
         <div className="vt-lead-metrics">
           {([["All enquiries", counts.total], ["New", counts.new], ["Contacted", counts.contacted], ["Qualified", counts.qualified], ["Converted", counts.converted]] as const).map(([label, value]) =>
             <div className="vt-lead-metric" key={label}><span>{label}</span><strong>{value}</strong></div>)}
