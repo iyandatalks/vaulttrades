@@ -12,9 +12,29 @@ async function getContext() {
   const db = createAdminClient();
   const { data: profile } = await db.from("users").select("id,role").eq("auth_user_id", user.id).maybeSingle();
   if (!profile) return { response: NextResponse.json({ error: "Your VaultTrades profile could not be found." }, { status: 404 }) };
+  const isAdmin = profile.role === "admin";
+  if (!isAdmin) {
+    const { data: featureAccess } = await db.rpc("has_feature_access", {
+      p_auth_user_id: user.id, p_feature_code: "community",
+    });
+    let allowed = featureAccess === true;
+    if (!allowed) {
+      const { data: licences } = await db.from("product_licenses")
+        .select("entitlement_code,status,start_at,end_at")
+        .eq("user_id", profile.id).eq("status", "active")
+        .in("entitlement_code", ["community", "vaulttrades_community", "founders_mentorship"]);
+      const now = Date.now();
+      allowed = (licences ?? []).some(row => {
+        const start = row.start_at ? new Date(row.start_at).getTime() : 0;
+        const end = row.end_at ? new Date(row.end_at).getTime() : Number.POSITIVE_INFINITY;
+        return Number.isFinite(start) && start <= now && end > now;
+      });
+    }
+    if (!allowed) return { response: NextResponse.json({ error: "Community access is not included in your current entitlement." }, { status: 403 }) };
+  }
   const { data: member } = await db.from("community_member_names")
     .select("auth_user_id,display_name,is_approved").eq("auth_user_id", user.id).maybeSingle();
-  return { db, user, profile, member, isAdmin: profile.role === "admin" };
+  return { db, user, profile, member, isAdmin };
 }
 
 function fail(message: string, status = 400) {
