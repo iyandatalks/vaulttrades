@@ -91,14 +91,14 @@ export async function GET() {
     comments: commentsResult.data ?? [],
     leaderboard,
     members: membersResult.data ?? [],
-    moderationQueue,
+    moderationQueue, pendingMembers, pendingComments,
   });
 }
 
 export async function POST(request: Request) {
   const context = await getContext();
   if ("response" in context) return context.response;
-  const { db, user, profile, member, isAdmin } = context;
+  const { db, user, member, isAdmin } = context;
   const body = await request.json().catch(() => ({}));
   const action = typeof body.action === "string" ? body.action : "";
 
