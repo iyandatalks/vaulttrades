@@ -1,1 +1,1 @@
-export { default } from "../community-program/page";\n
+export { default } from "../community-program/page";
