@@ -101,7 +101,7 @@ export default function MembershipCheckoutClient({ planCode, plan, email, resell
     <div className="vt-checkout-plan"><div><span>YOUR SELECTED MEMBERSHIP</span><h2>{plan.name}</h2><p>{plan.description}</p><p className="vt-checkout-automation-name"><strong>INCLUDED PRODUCT:</strong> {plan.eaName}</p></div><strong>{plan.name}</strong></div>
 
     <section className="vt-checkout-progress" aria-label="Checkout steps">
-      <h2>Follow these steps and come back here after every step</h2>
+      <h2>Your checkout steps</h2>
       <Step number={1} complete={declarationSubmitted} title="Pay partner membership fee" detail="Pay your partner's membership fee using the button below, return here, and submit the payment confirmation." />
       <Step number={2} complete={isAuthenticated} title="Create profile" detail={isAuthenticated ? "Your profile is already verified. You are signed in as " + email + "." : "Create your VaultTrades profile using the button below. Verify your email, then return to this page."} />
       <Step number={3} complete={setupComplete} title="Setup your page" detail={setupComplete ? "Your EA and website setup payments have both been verified." : "Use the setup links below to pay for your selected EA and your VaultTrades website setup."} />
@@ -118,7 +118,7 @@ export default function MembershipCheckoutClient({ planCode, plan, email, resell
 
 
     <section className="vt-checkout-section vt-checkout-declaration">
-      <div className="vt-checkout-section-heading"><span className="vt-checkout-section-number">1</span><div><h2>Confirm your partner payment</h2><p>After paying your partner above, submit the details here. Your partner will independently check PayPal and confirm receipt.</p></div></div>
+      <div className="vt-checkout-section-heading"><span className="vt-checkout-section-number">1A</span><div><h2>Confirm your partner payment</h2><p>After paying your partner above, submit the details here. Your partner will independently check PayPal and confirm receipt.</p></div></div>
       {declarationSubmitted
         ? <div className="vt-checkout-pending"><strong>{resellerConfirmed ? "Partner payment confirmed" : "Partner payment declaration received"}</strong><span>{resellerConfirmed ? "Your partner has confirmed receipt." : "Your declaration is recorded. Your partner still needs to confirm that the membership payment was received. This does not require another payment from you."}</span></div>
         : isAuthenticated
@@ -131,7 +131,9 @@ export default function MembershipCheckoutClient({ planCode, plan, email, resell
               <button className="vt-checkout-pay" type="submit" disabled={busy || !RESELLER_PAYPAL[resellerCode]?.[planCode]}>{busy ? "Submitting declaration…" : "Submit partner payment declaration"}</button>
             </form>
           : <div className="vt-checkout-pending"><strong>Create and verify your VaultTrades profile first.</strong><span>Once you return from email verification, this declaration form will be available here. Your selected plan and partner details will remain saved.</span><Link className="vt-checkout-secondary-button vt-checkout-link-button" href={registrationHref}>Create your VaultTrades profile</Link></div>}
-    </section>    <section className="vt-checkout-section">
+    </section>
+
+    <section className="vt-checkout-section">
       <div className="vt-checkout-section-heading"><span className="vt-checkout-section-number">2</span><div><h2>Create profile</h2><p>Your verified VaultTrades profile is required for Knowledge Base, community access, setup requests and member support.</p></div></div>
       {isAuthenticated
         ? <div className="vt-checkout-success"><strong>✓ Your VaultTrades profile is verified</strong><span>Signed in as {email}. Continue below to finish your checkout.</span></div>
@@ -150,9 +152,7 @@ export default function MembershipCheckoutClient({ planCode, plan, email, resell
       <div className="vt-checkout-addon"><span><strong>VaultTrades website setup</strong><small>{statuses?.websiteSetupPaid ? "Payment verified by VaultTrades." : "Awaiting PayPal verification."}</small></span><b>{statuses?.websiteSetupPaid ? "Verified ✓" : "$39.00 USD"}</b></div>
       {!statuses?.websiteSetupPaid && <a className="vt-checkout-pay" href={WEBSITE_PAYPAL} target="_blank" rel="noreferrer">Pay website setup · $39.00 USD</a>}
       <button type="button" className="vt-checkout-secondary-button" onClick={() => window.location.reload()}>Refresh VaultTrades payment status</button>
-    </section>}
-
-
+    </section>
 
     {declarationSubmitted && <div className="vt-checkout-final-status">
       <strong>{setupComplete ? "VaultTrades setup is active" : "Your order is being processed"}</strong>
