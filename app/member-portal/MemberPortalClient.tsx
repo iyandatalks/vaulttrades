@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode, FormEvent } from "react";
 import Link from "next/link";
-import CommunityCalendar from "./CommunityCalendar";
 import MemberPortalAdminPanel from "./MemberPortalAdminPanel";
 
 type Plan = "nexus" | "nexus_plus" | "vortex";
@@ -54,6 +53,7 @@ const sections = [
   { id: "scaling", label: "Scaling & KPI Development", group: "LEARNING & DEVELOPMENT" },
   { id: "business", label: "Understand the Reseller Programme", group: "BUILD YOUR BUSINESS" },
   { id: "referrals", label: "Your Existing Referral Link", group: "BUILD YOUR BUSINESS" },
+  { id: "business-leads", label: "Business Leads & Prospect Follow-up", group: "BUILD YOUR BUSINESS" },
   { id: "website", label: "Your Personal Website", group: "WEBSITE & PAYMENT SETUP" },
   { id: "paypal-setup", label: "PayPal Setup & Payment Links", group: "WEBSITE & PAYMENT SETUP" },
   { id: "resources", label: "Partners & Resource Directory", group: "TOOLS & SUPPORT" },
@@ -233,13 +233,19 @@ export default function MemberPortalClient({
         </>;
       case "community":
         return <>
-          <Eyebrow>GET STARTED</Eyebrow><h1>Join the VaultTrades community.</h1>
-          <p className="vt-member-lead">Start here. The community is the main announcement channel for member updates, support information, trading-room notices and Google Meet invitations.</p>
-          <a className="vt-member-button" href="/vaulttrades-community">Open VaultTrades Community</a>
-          <h2>What to look out for</h2>
-          <ul><li>Important product and member announcements.</li><li>Updates when a Google Meet trading-room session is scheduled.</li><li>Support guidance and notices about changes to the installation process.</li><li>Links to relevant learning sessions and resources.</li></ul>
-          <CommunityCalendar isAdmin={isAdmin} />
-          <p className="vt-member-note">Only meetings displayed in this calendar are current. Open the meeting button at the scheduled time. Do not reuse an old meeting URL.</p>
+          <Eyebrow>PRIVATE MEMBER COMMUNITY</Eyebrow><h1>VaultTrades Community.</h1>
+          <p className="vt-member-lead">Your Community space brings together announcements, read-only general discussion, moderated member conversations, verified business development, the member leaderboard and the current-month Google Meet calendar.</p>
+          <div className="vt-member-highlight"><strong>Approved participant access</strong><span>Community access is separately controlled. Your chosen display name is visible to other participants; your real account identity remains private.</span></div>
+          <a className="vt-member-button" href="/vaulttrades-community">Open Community Workspace ↗</a>
+          <p className="vt-member-note">The calendar and private meeting links are inside the Community workspace. Meeting links are published by the administrator through the Knowledge Base workflow.</p>
+        </>;
+      case "business-leads":
+        return <>
+          <Eyebrow>PARTNER BUSINESS PIPELINE</Eyebrow><h1>Business Leads.</h1>
+          <p className="vt-member-lead">Manage people who enquire through your tracked partner link. Review the contact details they have consented to share with your business, record follow-up, and move each enquiry through your pipeline.</p>
+          <div className="vt-member-highlight"><strong>Your business follow-up workspace</strong><span>New enquiry → Contacted → Qualified → Converted or Closed. Partner payment declarations remain separate from prospect enquiries.</span></div>
+          <a className="vt-member-button" href="/member-portal/business-leads">Open Business Leads ↗</a>
+          <p className="vt-member-note">Only leads attributed to your partner account and covered by the prospect's partner-sharing consent are shown in your workspace.</p>
         </>;
       case "broker":
         return <>
