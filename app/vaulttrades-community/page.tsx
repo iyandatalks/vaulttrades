@@ -98,6 +98,7 @@ export default function VaultTradesCommunitySales() {
         <div className="vt-community-nav">
           <div className="vt-brand">Vault<span>Trades</span></div>
           <div className="vt-online-badge">100% ONLINE COMMUNITY</div>
+          <a className="vt-community-link" href="/member-portal?section=community">MEMBER CALENDAR ↗</a>
         </div>
 
         <div className="vt-community-hero-inner">
