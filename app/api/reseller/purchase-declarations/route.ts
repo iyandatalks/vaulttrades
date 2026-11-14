@@ -1,9 +1,20 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const PLAN_AMOUNTS = { nexus: 120, nexus_plus: 200, vortex: 440 } as const;
 type PlanCode = keyof typeof PLAN_AMOUNTS;
+
+function getRequestWebsite(request: Request) {
+  const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const directHost = request.headers.get("host")?.trim();
+  const host = (forwardedHost || directHost || "").toLowerCase().replace(/:\d+$/, "");
+  if (!/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/.test(host)) return null;
+  const forwardedProto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  const protocol = forwardedProto === "http" && /^(localhost|127\.0\.0\.1)$/.test(host) ? "http" : "https";
+  return `${protocol}://${host}`;
+}
 
 export async function GET(request: Request) {
   const auth = await createClient();
@@ -14,7 +25,7 @@ export async function GET(request: Request) {
 
   const db = createAdminClient();
   const { data: order, error } = await db.from("reseller_purchase_orders")
-    .select("id,plan_code,reseller_payment_status,vaulttrades_payment_status,customer_email,created_at")
+    .select("id,plan_code,reseller_payment_status,vaulttrades_payment_status,customer_email,created_at,declared_mrr_amount")
     .eq("id", declarationId)
     .eq("customer_auth_user_id", user.id)
     .maybeSingle();
@@ -44,32 +55,24 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const planCode = String(body.planCode ?? "") as PlanCode;
   const resellerCode = String(body.resellerCode ?? "").trim().toUpperCase();
-  const resellerWebsite = String(body.resellerWebsite ?? "").trim().toLowerCase();
   const amount = Number(body.amount);
   const transactionReference = String(body.transactionReference ?? "").trim();
-  const paymentDate = String(body.paymentDate ?? "").trim();
-  const paymentTime = String(body.paymentTime ?? "").trim();
-  const termsAccepted = body.termsAccepted === true;
+  const invoiceNumber = String(body.invoiceNumber ?? "").trim();
+  const resellerWebsite = getRequestWebsite(request);
+  const paymentDate = new Date().toISOString().slice(0, 10);
 
   if (!Object.prototype.hasOwnProperty.call(PLAN_AMOUNTS, planCode) || !resellerCode || !/^[A-Z0-9-]{4,32}$/.test(resellerCode)) {
-    return NextResponse.json({ error: "The reseller reference or selected membership plan is invalid." }, { status: 400 });
+    return NextResponse.json({ error: "The partner reference or selected membership plan is invalid." }, { status: 400 });
   }
-  if (!resellerWebsite || resellerWebsite.length > 255 || !/^(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?(?:\/.*)?$/i.test(resellerWebsite)) {
-    return NextResponse.json({ error: "Enter the reseller website you purchased from." }, { status: 400 });
+  if (!resellerWebsite) {
+    return NextResponse.json({ error: "We could not identify the website this purchase came from. Please reopen the original partner checkout link." }, { status: 400 });
   }
-  if (!Number.isFinite(amount) || Math.abs(amount - PLAN_AMOUNTS[planCode]) > 0.001) {
-    return NextResponse.json({ error: `The expected reseller payment for this plan is $${PLAN_AMOUNTS[planCode].toFixed(2)} USD. Please enter the amount actually paid.` }, { status: 400 });
+  if (!Number.isFinite(amount) || amount <= 0 || amount > 100000) {
+    return NextResponse.json({ error: "Enter the actual amount paid in USD." }, { status: 400 });
   }
-  if (transactionReference.length < 5 || transactionReference.length > 120) {
-    return NextResponse.json({ error: "Enter the PayPal invoice or transaction reference from your reseller payment." }, { status: 400 });
+  if (transactionReference.length > 120 || invoiceNumber.length > 120) {
+    return NextResponse.json({ error: "The transaction reference and invoice number must each be 120 characters or fewer." }, { status: 400 });
   }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(paymentDate) || Number.isNaN(Date.parse(paymentDate))) {
-    return NextResponse.json({ error: "Enter the date you paid the reseller." }, { status: 400 });
-  }
-  if (paymentTime && !/^([01]\d|2[0-3]):[0-5]\d$/.test(paymentTime)) {
-    return NextResponse.json({ error: "Enter the payment time in 24-hour format or leave it blank." }, { status: 400 });
-  }
-  if (!termsAccepted) return NextResponse.json({ error: "You must accept the terms and conditions to continue." }, { status: 400 });
 
   const db = createAdminClient();
   const [{ data: customer, error: customerError }, { data: reseller, error: resellerError }] = await Promise.all([
@@ -78,8 +81,9 @@ export async function POST(request: Request) {
   ]);
   if (customerError || !customer) return NextResponse.json({ error: "Your VaultTrades profile could not be found. Please complete registration first." }, { status: 400 });
   if (resellerError || !reseller || !reseller.auth_user_id || reseller.id === customer.id) {
-    return NextResponse.json({ error: "The reseller reference could not be verified." }, { status: 400 });
+    return NextResponse.json({ error: "The partner reference could not be verified." }, { status: 400 });
   }
+
   const { data: resellerLicenses } = await db.from("product_licenses")
     .select("entitlement_code,status,start_at,end_at")
     .eq("user_id", reseller.id)
@@ -91,8 +95,11 @@ export async function POST(request: Request) {
     const end = license.end_at ? new Date(license.end_at).getTime() : Number.POSITIVE_INFINITY;
     return Number.isFinite(start) && start <= now && end > now;
   });
-  if (!resellerIsActive) return NextResponse.json({ error: "This reseller account is not currently eligible to process membership purchases." }, { status: 400 });
+  if (!resellerIsActive) return NextResponse.json({ error: "This partner account is not currently eligible to process membership purchases." }, { status: 400 });
 
+  // The column is non-null and may be covered by a unique index. A generated marker
+  // preserves optional customer input without making multiple blank references collide.
+  const storedTransactionReference = transactionReference || `Not supplied · ${randomUUID()}`;
   const { data: order, error } = await db.from("reseller_purchase_orders").insert({
     customer_user_id: customer.id,
     customer_auth_user_id: user.id,
@@ -104,15 +111,16 @@ export async function POST(request: Request) {
     plan_code: planCode,
     expected_mrr_amount: PLAN_AMOUNTS[planCode],
     declared_mrr_amount: amount,
-    reseller_transaction_reference: transactionReference,
+    reseller_transaction_reference: storedTransactionReference,
+    reseller_invoice_number: invoiceNumber || null,
     reseller_payment_date: paymentDate,
-    reseller_payment_time: paymentTime || null,
+    reseller_payment_time: null,
     terms_accepted_at: new Date().toISOString(),
-  }).select("id,plan_code,expected_mrr_amount,reseller_payment_status,vaulttrades_payment_status").single();
+  }).select("id,plan_code,expected_mrr_amount,declared_mrr_amount,reseller_payment_status,vaulttrades_payment_status").single();
 
   if (error || !order) {
     const duplicate = /duplicate key|unique constraint/i.test(error?.message ?? "");
-    if (duplicate) {
+    if (duplicate && transactionReference) {
       const { data: previous } = await db.from("reseller_purchase_orders")
         .select("id,plan_code,expected_mrr_amount,reseller_payment_status,vaulttrades_payment_status,reseller_transaction_reference")
         .eq("customer_auth_user_id", user.id)
@@ -122,15 +130,15 @@ export async function POST(request: Request) {
         .limit(10);
       const matching = (previous ?? []).find(row => String(row.reseller_transaction_reference).trim().toLowerCase() === transactionReference.toLowerCase());
       if (matching) return NextResponse.json({ ok: true, declaration: matching, existing: true });
-      return NextResponse.json({ error: "That PayPal transaction reference has already been submitted for another customer or reseller. Contact VaultTrades support if you believe this is an error." }, { status: 409 });
+      return NextResponse.json({ error: "That transaction reference has already been submitted. Check your details or contact VaultTrades support." }, { status: 409 });
     }
-    return NextResponse.json({ error: "Unable to save your reseller payment declaration. Please try again." }, { status: 500 });
+    return NextResponse.json({ error: "Unable to save your payment details. Please try again." }, { status: 500 });
   }
 
   await db.from("copy_profile_notifications").insert({
     auth_user_id: reseller.auth_user_id,
     title: "Customer payment declaration received",
-    body: `A customer has declared a ${planCode.replace("_", " ")} purchase. Check your PayPal account and verify the MRR payment before confirming access.`,
+    body: `A customer has declared a ${planCode.replace("_", " ")} purchase. Check your PayPal account and verify the partner payment before confirming access.`,
     action_href: "/member-portal/reseller-payments",
     notification_type: "reseller_payment_declaration",
     metadata: { reseller_order_id: order.id, plan_code: planCode, declared_amount: amount },
@@ -138,14 +146,14 @@ export async function POST(request: Request) {
 
   await db.from("admin_inbox_notifications").insert({
     event_type: "reseller_purchase_declared",
-    title: "New reseller purchase declaration",
-    body: `${order.plan_code} purchase declared by ${customer.email || user.email}; awaiting reseller verification.`,
+    title: "New partner purchase declaration",
+    body: `${order.plan_code} purchase declared by ${customer.email || user.email}; awaiting partner verification.`,
     severity: "normal",
     auth_user_id: user.id,
     customer_email: customer.email || user.email || null,
     related_id: order.id,
     action_href: "/member-portal/reseller-payments",
-    metadata: { reseller_code: resellerCode, plan_code: planCode, declared_mrr_amount: amount },
+    metadata: { reseller_code: resellerCode, plan_code: planCode, declared_mrr_amount: amount, invoice_number: invoiceNumber || null, reseller_website: resellerWebsite },
   });
 
   return NextResponse.json({ ok: true, declaration: order });
