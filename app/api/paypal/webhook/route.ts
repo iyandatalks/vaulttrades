@@ -48,37 +48,132 @@ export async function POST(request: Request) {
       const orderId = String(resource.supplementary_data?.related_ids?.order_id || "");
       const captureId = String(resource.id || "");
       if (!orderId || !captureId) return NextResponse.json({ received: true, ignored: true, reason: "Capture is missing its order reference" }, { status: 200 });
+
+      const { data: duplicateCapture } = await admin.from("payment_transactions")
+        .select("id")
+        .eq("provider", "paypal")
+        .eq("provider_capture_id", captureId)
+        .maybeSingle();
+      if (duplicateCapture) return NextResponse.json({ received: true, duplicate: true }, { status: 200 });
+
+      const captureAmount = Number(resource.amount?.value);
+      const captureCurrency = String(resource.amount?.currency_code || "");
+      if (String(resource.status || "") !== "COMPLETED" || captureCurrency !== "USD" || !Number.isFinite(captureAmount)) {
+        return NextResponse.json({ error: "Capture status, amount or currency is invalid." }, { status: 400 });
+      }
+
       const { data: transaction } = await admin.from("payment_transactions")
-        .select("id,amount,currency,status,payment_method,raw_event")
+        .select("id,amount,currency,status,payment_method,raw_event,auth_user_id,user_id")
         .eq("provider", "paypal")
         .eq("provider_order_id", orderId)
         .maybeSingle();
-      if (!transaction || (transaction.payment_method !== "paypal_reseller_setup" && transaction.raw_event?.order_type !== "reseller_setup")) {
-        return NextResponse.json({ received: true, ignored: true, reason: "Not a VaultTrades reseller setup order" }, { status: 200 });
+
+      // Legacy VaultTrades checkout orders remain supported.
+      if (transaction && (transaction.payment_method === "paypal_reseller_setup" || transaction.raw_event?.order_type === "reseller_setup")) {
+        if (captureCurrency !== transaction.currency || captureAmount !== Number(transaction.amount)) {
+          return NextResponse.json({ error: "Capture amount or currency does not match the recorded VaultTrades order." }, { status: 400 });
+        }
+        if (transaction.status === "verified") return NextResponse.json({ received: true, duplicate: true }, { status: 200 });
+        const verifiedAt = new Date().toISOString();
+        const { error: transactionUpdateError } = await admin.from("payment_transactions").update({
+          status: "verified", provider_capture_id: captureId, raw_event: event, verified_at: verifiedAt,
+        }).eq("id", transaction.id);
+        if (transactionUpdateError) return NextResponse.json({ error: "Unable to record verified VaultTrades capture." }, { status: 500 });
+        const declarationId = String(transaction.raw_event?.declaration_id || "");
+        if (!declarationId) return NextResponse.json({ error: "The reseller setup order has no declaration reference." }, { status: 500 });
+        const { error: declarationUpdateError } = await admin.from("reseller_purchase_orders").update({
+          vaulttrades_payment_status: "verified", vaulttrades_payment_transaction_id: transaction.id, updated_at: verifiedAt,
+        }).eq("id", declarationId);
+        if (declarationUpdateError) return NextResponse.json({ error: "Unable to update the reseller purchase declaration." }, { status: 500 });
+        return NextResponse.json({ received: true, verified: true, awaitingResellerConfirmation: true }, { status: 200 });
       }
-      const captureAmount = Number(resource.amount?.value);
-      const captureCurrency = String(resource.amount?.currency_code || "");
-      if (String(resource.status || "") !== "COMPLETED" || captureCurrency !== transaction.currency || captureAmount !== Number(transaction.amount)) {
-        return NextResponse.json({ error: "Capture amount or currency does not match the recorded VaultTrades order." }, { status: 400 });
+
+      // Hosted VaultTrades PayPal links do not create a checkout order in our database.
+      // Resolve the payer and the pending order before recording a component payment.
+      let hostedOrder: any = null;
+      try { hostedOrder = await paypalRequest(`/v2/checkout/orders/${encodeURIComponent(orderId)}`); }
+      catch (error) { console.error("Unable to retrieve hosted PayPal order", error); }
+      const payerEmail = String(
+        resource.payer?.email_address ||
+        hostedOrder?.payer?.email_address ||
+        hostedOrder?.payment_source?.paypal?.email_address ||
+        ""
+      ).trim().toLowerCase();
+      if (!payerEmail) {
+        return NextResponse.json({ received: true, ignored: true, reason: "Hosted PayPal capture has no payer email for order matching" }, { status: 200 });
       }
-      if (transaction.status === "verified") return NextResponse.json({ received: true, duplicate: true }, { status: 200 });
-      const verifiedAt = new Date().toISOString();
-      const { error: transactionUpdateError } = await admin.from("payment_transactions").update({
-        status: "verified",
+
+      const eaPlanByAmount: Record<number, string> = { 30: "nexus", 50: "nexus_plus", 110: "vortex" };
+      const component = captureAmount === 39 ? "website_setup" : eaPlanByAmount[captureAmount] ? "ea_setup" : null;
+      if (!component) return NextResponse.json({ received: true, ignored: true, reason: "Capture amount is not a configured VaultTrades setup charge" }, { status: 200 });
+
+      const { data: customer } = await admin.from("users")
+        .select("id,auth_user_id,email")
+        .ilike("email", payerEmail)
+        .maybeSingle();
+      if (!customer?.id || !customer.auth_user_id) {
+        return NextResponse.json({ received: true, ignored: true, reason: "PayPal payer does not match a registered VaultTrades profile" }, { status: 200 });
+      }
+
+      let candidatesQuery = admin.from("reseller_purchase_orders")
+        .select("id,customer_user_id,customer_auth_user_id,customer_email,plan_code,reseller_code,vaulttrades_payment_status,created_at")
+        .eq("customer_auth_user_id", customer.auth_user_id)
+        .eq("vaulttrades_payment_status", "pending")
+        .order("created_at", { ascending: false })
+        .limit(10);
+      const { data: candidates, error: candidatesError } = await candidatesQuery;
+      if (candidatesError) return NextResponse.json({ error: "Unable to match hosted PayPal payment to a customer order." }, { status: 500 });
+
+      const eligible = (candidates || []).filter((row: any) => component === "website_setup" || row.plan_code === eaPlanByAmount[captureAmount]);
+      if (eligible.length !== 1) {
+        return NextResponse.json({ received: true, ignored: true, reason: eligible.length ? "More than one pending order matches this customer and payment; manual review required" : "No matching pending VaultTrades order was found" }, { status: 200 });
+      }
+      const matchedOrder = eligible[0];
+      const now = new Date().toISOString();
+      const paymentMethod = component === "website_setup" ? "paypal_reseller_website_setup" : "paypal_reseller_ea_setup";
+      const { data: recorded, error: recordError } = await admin.from("payment_transactions").insert({
+        auth_user_id: customer.auth_user_id,
+        user_id: customer.id,
+        provider: "paypal",
+        provider_order_id: orderId,
         provider_capture_id: captureId,
-        raw_event: event,
-        verified_at: verifiedAt,
-      }).eq("id", transaction.id);
-      if (transactionUpdateError) return NextResponse.json({ error: "Unable to record verified VaultTrades capture." }, { status: 500 });
-      const declarationId = String(transaction.raw_event?.declaration_id || "");
-      if (!declarationId) return NextResponse.json({ error: "The reseller setup order has no declaration reference." }, { status: 500 });
-      const { error: declarationUpdateError } = await admin.from("reseller_purchase_orders").update({
-        vaulttrades_payment_status: "verified",
-        vaulttrades_payment_transaction_id: transaction.id,
-        updated_at: verifiedAt,
-      }).eq("id", declarationId);
-      if (declarationUpdateError) return NextResponse.json({ error: "Unable to update the reseller purchase declaration." }, { status: 500 });
-      return NextResponse.json({ received: true, verified: true, awaitingResellerConfirmation: true }, { status: 200 });
+        amount: captureAmount,
+        currency: "USD",
+        status: "verified",
+        payment_method: paymentMethod,
+        membership_months: 1,
+        raw_event: { order_type: "reseller_setup_component", component, declaration_id: matchedOrder.id, plan_code: matchedOrder.plan_code, payer_email: payerEmail, webhook_event_id: event.id || null, paypal_event: event },
+        verified_at: now,
+      }).select("id").single();
+      if (recordError || !recorded) {
+        console.error("Unable to record hosted VaultTrades PayPal payment", recordError);
+        return NextResponse.json({ error: "Unable to record the verified VaultTrades payment." }, { status: 500 });
+      }
+
+      const { data: componentPayments, error: componentError } = await admin.from("payment_transactions")
+        .select("id,payment_method,status,raw_event")
+        .eq("provider", "paypal")
+        .eq("status", "verified")
+        .contains("raw_event", { declaration_id: matchedOrder.id, order_type: "reseller_setup_component" });
+      if (componentError) return NextResponse.json({ error: "Payment was recorded, but the order status could not be refreshed." }, { status: 500 });
+
+      const hasEa = (componentPayments || []).some((row: any) => row.payment_method === "paypal_reseller_ea_setup");
+      const hasWebsite = (componentPayments || []).some((row: any) => row.payment_method === "paypal_reseller_website_setup");
+      if (hasEa && hasWebsite) {
+        const { error: orderUpdateError } = await admin.from("reseller_purchase_orders").update({
+          vaulttrades_payment_status: "verified",
+          vaulttrades_payment_transaction_id: recorded.id,
+          updated_at: now,
+        }).eq("id", matchedOrder.id).eq("vaulttrades_payment_status", "pending");
+        if (orderUpdateError) return NextResponse.json({ error: "Both payments were recorded, but the order status could not be updated." }, { status: 500 });
+      }
+      return NextResponse.json({
+        received: true,
+        verified: true,
+        component,
+        declarationId: matchedOrder.id,
+        vaultTradesSetupComplete: hasEa && hasWebsite,
+      }, { status: 200 });
     }
 
     if (!SUBSCRIPTION_EVENTS[eventType]) return NextResponse.json({ received: true, ignored: true }, { status: 200 });
