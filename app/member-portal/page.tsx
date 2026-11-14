@@ -133,6 +133,7 @@ export default async function MemberPortalPage() {
         <span>Your EA and website setup payments have been verified. You can use your Knowledge Base and member profile now. Your partner still needs to confirm receipt of the separate membership payment. You do not need to pay that amount again.</span>
       </div>
     </section>}
+    <section className="vt-member-shell" style={{ padding: "10px 24px 0", minHeight: "auto" }}><div className="vt-member-header-actions" style={{ maxWidth: 1320, margin: "0 auto" }}><Link href="/member-portal/business-leads" className="vt-member-button">Open Business Leads ↗</Link></div></section>
     <MemberPortalClient
       plan={plan ?? "vortex"}
       isAdmin={isAdmin}
