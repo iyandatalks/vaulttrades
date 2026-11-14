@@ -92,6 +92,10 @@ export default function MemberPortalClient({
   const [websiteMessage, setWebsiteMessage] = useState("");
   useEffect(() => { fetch("/api/member-portal/content", { cache: "no-store" }).then(r => r.ok ? r.json() : Promise.reject(new Error("Resources unavailable"))).then(data => setKnowledgeResources(data.resources ?? [])).catch(() => setKnowledgeResources([])); }, []);
   useEffect(() => {
+    const requestedSection = new URLSearchParams(window.location.search).get("section");
+    if (requestedSection === "community") setActive("community");
+  }, []);
+  useEffect(() => {
     const refreshLicensing = async () => {
       try {
         const response = await fetch("/api/member-portal/ea-licensing", { cache: "no-store" });
