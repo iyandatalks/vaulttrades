@@ -54,8 +54,8 @@ const sections = [
   { id: "scaling", label: "Scaling & KPI Development", group: "LEARNING & DEVELOPMENT" },
   { id: "business", label: "Understand the Reseller Programme", group: "BUILD YOUR BUSINESS" },
   { id: "referrals", label: "Your Existing Referral Link", group: "BUILD YOUR BUSINESS" },
-  { id: "website", label: "Your Personal Website", group: "BUILD YOUR BUSINESS" },
-  { id: "paypal-setup", label: "PayPal Setup", group: "RESELLER PAYMENTS & SETUP" },
+  { id: "website", label: "Your Personal Website", group: "WEBSITE & PAYMENT SETUP" },
+  { id: "paypal-setup", label: "PayPal Setup & Payment Links", group: "WEBSITE & PAYMENT SETUP" },
   { id: "resources", label: "Partners & Resource Directory", group: "TOOLS & SUPPORT" },
   { id: "tools", label: "Plan-Included Digital Tools", group: "TOOLS & SUPPORT" },
   { id: "risk", label: "Risk & Important Information", group: "TOOLS & SUPPORT" },
@@ -526,7 +526,8 @@ export default function MemberPortalClient({
       case "website":
         return <>
           <Eyebrow>REQUIRED RESELLER SETUP</Eyebrow><h1>Set up your personal website.</h1>
-          <p className="vt-member-lead">A personal website is a required part of the VaultTrades reseller programme. The setup fee is $39 once-off and is separate from your selected membership fee.</p>
+          <p className="vt-member-lead">Your reseller website and PayPal payment setup are one connected onboarding task. The website can be prepared, but it cannot accept customer orders until your PayPal account and the correct product payment links are configured. The website setup fee is $39 once-off and is separate from your selected membership fee.</p>
+          <div className="vt-member-highlight"><strong>Complete both setup topics together</strong><span>1. Submit your website preferences. 2. Configure your PayPal account and create the Nexus, Nexus Plus and Vortex payment links. 3. Connect and test the correct links on your reseller website before launch.</span><small>Open the next topic directly: <button type="button" className="vt-member-inline-link" onClick={() => setActive("paypal-setup")}>PayPal Setup & Payment Links →</button></small></div>
           <h2>Choose how your website will be addressed</h2><ul><li><strong>Standard VaultTrades address:</strong> use an approved VaultTrades subdomain such as yourname.vaulttradesve.com.</li><li><strong>Your own personalised domain (optional):</strong> you may purchase and use a domain that you own, such as yourname.com. Once you have the domain, submit its details to VaultTrades so the team can review and connect it.</li></ul>
           <div className="vt-member-highlight"><strong>Required website setup</strong><span>$39 once-off</span><small>A personalised domain is optional. Domain purchase and any applicable connection fee are separate and will be confirmed before work begins.</small></div>
           <h2>Submit your website preferences</h2>
@@ -560,7 +561,7 @@ export default function MemberPortalClient({
       case "paypal-setup":
         return <>
           <Eyebrow>RESELLER PAYMENT OPERATIONS</Eyebrow><h1>PayPal setup.</h1>
-          <p className="vt-member-lead">This section is the central guide for configuring PayPal to receive your reseller payments and for understanding how customer payments are confirmed.</p>
+          <p className="vt-member-lead">This is a priority setup task that must be completed alongside your reseller website. Your website must have the correct PayPal payment links connected before it is ready to accept customer orders.</p>
           <div className="vt-member-highlight"><strong>Your reseller payment destination</strong><span>Customers pay the eligible MRR component directly to your own PayPal account.</span><small>VaultTrades does not collect or webhook-verify your reseller MRR payment. You must independently check your PayPal account and confirm the payment through the reseller payment dashboard.</small></div>
           <h2>What this guide will cover</h2>
           <ol>
