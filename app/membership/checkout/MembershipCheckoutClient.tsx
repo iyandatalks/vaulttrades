@@ -14,6 +14,23 @@ const EA_PAYPAL: Record<PlanCode, string> = {
   vortex: "https://www.paypal.com/ncp/payment/BKSANDDAJT7M6",
 };
 const WEBSITE_PAYPAL = "https://www.paypal.com/ncp/payment/L4Q3HEC5VYKPQ";
+const RESELLER_PAYPAL: Record<string, Partial<Record<PlanCode, { url: string; returnUrl: string }>>> = {
+  "VT-C4D867E2": {
+    nexus: {
+      url: "https://www.paypal.com/ncp/payment/NPHGR52G8QXUS",
+      returnUrl: "https://vaulttradesve.com/reseller-return?ref=VT-C4D867E2&plan=nexus",
+    },
+    nexus_plus: {
+      url: "https://www.paypal.com/ncp/payment/FYDV4X5ELLUCS",
+      returnUrl: "https://vaulttradesve.com/reseller-return?ref=VT-C4D867E2&plan=nexus_plus",
+    },
+    vortex: {
+      url: "https://www.paypal.com/ncp/payment/UEF2B7PU3FJRU",
+      returnUrl: "https://vaulttradesve.com/reseller-return?ref=VT-C4D867E2&plan=vortex",
+    },
+  },
+};
+
 
 type PaymentStatus = {
   declaration?: { id: string; plan_code: string; reseller_payment_status: string; vaulttrades_payment_status: string };
@@ -105,9 +122,20 @@ export default function MembershipCheckoutClient({
         <div className="vt-checkout-account">VaultTrades profile: {email}</div>
 
         {!activeDeclarationId ? (
-          <form className="vt-checkout-form" onSubmit={submitCheckout}>
+          <div className="vt-checkout-form">
+            <h2>Pay your reseller directly</h2>
+            {RESELLER_PAYPAL[resellerCode]?.[planCode] ? (
+              <>
+                <p>Your selected reseller has provided a PayPal payment link for this package. Complete the MRR payment directly with the reseller, then return here to submit the PayPal transaction reference for independent verification.</p>
+                <a className="vt-checkout-pay" href={RESELLER_PAYPAL[resellerCode]?.[planCode]?.url} target="_blank" rel="noreferrer">Pay reseller MRR · ${MRR[planCode].toFixed(2)} USD</a>
+                <p className="vt-member-note">Expected return address after PayPal payment: {RESELLER_PAYPAL[resellerCode]?.[planCode]?.returnUrl}</p>
+              </>
+            ) : (
+              <div className="vt-checkout-pending"><strong>Reseller payment link pending</strong><span>This reseller's plan-specific PayPal link will appear here once their payment setup is completed.</span></div>
+            )}
+            <form className="vt-checkout-form" onSubmit={submitCheckout}>
             <h2>Declare your reseller payment</h2>
-            <p>Pay the eligible MRR amount directly to your reseller first. Then enter the payment details so the reseller can verify receipt. Your VaultTrades payments are made separately below.</p>
+            <p>After paying the reseller, enter the payment details so the reseller can verify receipt. Your VaultTrades EA and website setup payments are made separately below.</p>
             <label>Reseller website<input required value={resellerWebsite} onChange={e => setResellerWebsite(e.target.value)} placeholder="e.g. yourname.vaulttradesve.com" /></label>
             <label>Amount paid to reseller (USD)<input required type="number" min="0.01" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} /></label>
             <label>PayPal transaction or invoice number<input required minLength={5} maxLength={120} value={transactionReference} onChange={e => setTransactionReference(e.target.value)} placeholder="Enter the reseller PayPal reference" /></label>
@@ -118,7 +146,8 @@ export default function MembershipCheckoutClient({
             <label className="vt-checkout-terms"><input type="checkbox" checked={termsAccepted} onChange={e => setTermsAccepted(e.target.checked)} /><span>I confirm that I have paid the reseller directly and that the details entered are accurate. I understand that the reseller must independently verify receipt before membership access can be activated.</span></label>
             {error && <p className="vt-checkout-error" role="alert">{error}</p>}
             <button className="vt-checkout-pay" type="submit" disabled={busy || !termsAccepted}>{busy ? "Recording declaration…" : "Continue to VaultTrades payments"}</button>
-          </form>
+            </form>
+          </div>
         ) : (
           <div className="vt-checkout-form">
             <h2>Complete your VaultTrades payments</h2>
