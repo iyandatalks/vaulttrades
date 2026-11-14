@@ -1,11 +1,10 @@
-import CommunityHubClient from "./CommunityHubClient";
-import "./community-hub.css";
+import CommunityWorkspace from "./CommunityWorkspace";
 
 export const metadata = {
-  title: "VaultTrades Community | Trade · Technology · Build",
-  description: "The central VaultTrades community for announcements, member progress, shared learning and business participation.",
+  title: "VaultTrades Community | Private Member Space",
+  description: "The private VaultTrades Community for approved participants.",
 };
 
 export default function VaultTradesCommunityPage() {
-  return <CommunityHubClient />;
+  return <CommunityWorkspace />;
 }
