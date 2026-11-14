@@ -8,6 +8,10 @@ import { createBrowserClient } from "@supabase/ssr";
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const next = searchParams.get("next") || "/profile";
+  const nextParams = new URLSearchParams(next.split("?")[1] || "");
+  const checkoutPlan = nextParams.get("plan") || "";
+  const checkoutName = checkoutPlan === "nexus_plus" ? "VaultTrades Nexus Plus" : checkoutPlan === "vortex" ? "VaultTrades Vortex" : checkoutPlan === "nexus" ? "VaultTrades Nexus" : ""; 
+  const isCheckoutRegistration = next.startsWith("/membership/checkout") && Boolean(checkoutName);
   const [email, setEmail] = useState("");
   const [resending, setResending] = useState(false);
   const [message, setMessage] = useState("");
@@ -61,6 +65,7 @@ function VerifyEmailContent() {
           <p className="mt-2 text-sm text-muted-foreground">
             We have sent a verification email for your new VaultTrades account. You must verify your email before signing in.
           </p>
+          {isCheckoutRegistration && <div className="mt-4 rounded-xl border border-amber-500/40 bg-amber-500/5 p-4 space-y-2"><strong>{checkoutName} checkout saved</strong><p className="text-sm text-muted-foreground">After you verify your email, VaultTrades will return you to this same checkout. Your selected membership and partner reference are being preserved. Email verification does not charge you or complete the purchase.</p></div>}
         </div>
 
         <div className="rounded-xl border p-5 space-y-4">
