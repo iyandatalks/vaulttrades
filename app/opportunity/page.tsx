@@ -118,6 +118,18 @@ export default function OpportunityPage() {
         </div>
       </section>
 
+      <section className="vto-automation-range vto-container" id="trading-automation">
+        <div className="vto-kicker">THE VAULTTRADES TRADING AUTOMATION RANGE</div>
+        <h2>Trading technology built around <span>a defined process.</span></h2>
+        <p className="vto-automation-intro">VaultTrades develops trading tools and automated execution products to support a structured approach to the markets. Each automation product is part of the trading side of the VaultTrades business. Automation does not remove market risk or guarantee trading results.</p>
+        <div className="vto-automation-grid">
+          <article className="vto-automation-card"><span>01 · AUTOMATION</span><h3>VaultTrades Nexus – Automation</h3><p>Our core automated trading product for traders who want to apply a defined trading process.</p></article>
+          <article className="vto-automation-card"><span>02 · AUTOMATION</span><h3>VaultTrades Nexus Plus – Automation</h3><p>An expanded automated trading product within the VaultTrades trading ecosystem.</p></article>
+          <article className="vto-automation-card"><span>03 · AUTOMATION</span><h3>VaultTrades Vortex – Automation</h3><p>Our advanced automation product within the wider VaultTrades trading and development pathway.</p></article>
+        </div>
+        <p className="vto-automation-note">The automation products are trading tools, not standalone income opportunities. Trading involves risk, and losses are possible. Product access, setup, licensing and operating requirements are explained before purchase.</p>
+      </section>
+
 
       <section className="vto-dark-band">
         <div className="vto-container vto-split">
