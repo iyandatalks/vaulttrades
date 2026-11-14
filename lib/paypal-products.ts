@@ -1,15 +1,33 @@
 export type VaultTradesPayPalProduct = {
-  code: "analyzer_monthly" | "automated_trader_monthly" | "founders_mentorship_once";
+  code: "analyzer_monthly" | "automated_trader_monthly" | "founders_mentorship_once" | "journal_tools_monthly" | "analyzer_reseller_monthly";
   name: string;
   price: number;
   planId: string;
-  entitlement: "analyzer" | "copy_trading" | "founders_mentorship";
+  entitlement: "analyzer" | "copy_trading" | "founders_mentorship" | "journal_tools";
   billingMode: "monthly" | "once_off";
   returnPath: string;
   referralPaymentUrl?: string;
 };
 
 export const PAYPAL_PRODUCTS: Record<string, VaultTradesPayPalProduct> = {
+  journal_tools_monthly: {
+    code: "journal_tools_monthly",
+    name: "Journal and Risk Management Tools",
+    price: 10,
+    planId: "P-1L8320881F985382FNL4CYUI",
+    entitlement: "journal_tools",
+    billingMode: "monthly",
+    returnPath: "/subscription/paypal/success?product=journal_tools_monthly",
+  },
+  analyzer_reseller_monthly: {
+    code: "analyzer_reseller_monthly",
+    name: "Reseller Analyzer Access",
+    price: 20,
+    planId: "P-0411991308853042NNHESISY",
+    entitlement: "analyzer",
+    billingMode: "monthly",
+    returnPath: "/subscription/paypal/success?product=analyzer_reseller_monthly",
+  },
   analyzer_monthly: {
     code: "analyzer_monthly",
     name: "Analyzer",
