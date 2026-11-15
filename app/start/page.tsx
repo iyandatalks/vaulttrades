@@ -14,8 +14,19 @@ export default function StartPage() {
   const [emailMarketing, setEmailMarketing] = useState(false);
   const [whatsappMarketing, setWhatsappMarketing] = useState(false);
   const [partnerShareConsent, setPartnerShareConsent] = useState(false);
-  const [paramsHasPartner, setParamsHasPartner] = useState(false);\n  const [resolvedPartnerCode, setResolvedPartnerCode] = useState("");
-  useEffect(() => {\n    const host = window.location.hostname.toLowerCase();\n    const queryCode = new URLSearchParams(window.location.search).get("ref") || "";\n    const partnerHost = host.endsWith(".vaulttradesve.com") && host !== "www.vaulttradesve.com";\n    setParamsHasPartner(Boolean(queryCode) || partnerHost);\n    if (queryCode) setResolvedPartnerCode(queryCode.toUpperCase());\n    if (partnerHost) fetch("/api/partner-site", { cache: "no-store" }).then(r => r.json()).then(data => {\n      if (data.assigned && data.partnerCode) setResolvedPartnerCode(String(data.partnerCode).toUpperCase());\n      else setError("This partner website has not yet been assigned to an active VaultTrades partner account. Please contact VaultTrades before accepting enquiries.");\n    }).catch(() => setError("We could not verify this partner website. Please try again later."));\n  }, []);
+  const [paramsHasPartner, setParamsHasPartner] = useState(false);
+  const [resolvedPartnerCode, setResolvedPartnerCode] = useState("");
+  useEffect(() => {
+    const host = window.location.hostname.toLowerCase();
+    const queryCode = new URLSearchParams(window.location.search).get("ref") || "";
+    const partnerHost = host.endsWith(".vaulttradesve.com") && host !== "www.vaulttradesve.com";
+    setParamsHasPartner(Boolean(queryCode) || partnerHost);
+    if (queryCode) setResolvedPartnerCode(queryCode.toUpperCase());
+    if (partnerHost) fetch("/api/partner-site", { cache: "no-store" }).then(r => r.json()).then(data => {
+      if (data.assigned && data.partnerCode) setResolvedPartnerCode(String(data.partnerCode).toUpperCase());
+      else setError("This partner website has not yet been assigned to an active VaultTrades partner account. Please contact VaultTrades before accepting enquiries.");
+    }).catch(() => setError("We could not verify this partner website. Please try again later."));
+  }, []);
   const [website, setWebsite] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
