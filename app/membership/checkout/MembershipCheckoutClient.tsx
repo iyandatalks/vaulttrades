@@ -87,7 +87,8 @@ export default function MembershipCheckoutClient({ planCode, plan, email, resell
     }
   }
 
-  const partnerPaymentUrl = assignedPartnerPaymentUrl || RESELLER_PAYPAL[resellerCode]?.[planCode] || "";\n  const statuses = paymentStatusData?.payments;
+  const partnerPaymentUrl = assignedPartnerPaymentUrl || RESELLER_PAYPAL[resellerCode]?.[planCode] || "";
+  const statuses = paymentStatusData?.payments;
   const resellerConfirmed = paymentStatusData?.declaration?.reseller_payment_status === "confirmed_by_reseller";
   const declarationSubmitted = Boolean(activeDeclarationId || paymentStatusData?.declaration?.id);
   const setupComplete = statuses?.vaultTradesSetupComplete === true;
