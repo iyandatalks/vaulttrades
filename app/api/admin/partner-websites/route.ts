@@ -31,10 +31,11 @@ export async function POST(request: Request) {
   let body: any;
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request body." }, { status: 400 }); }
   const profileId = typeof body.profileId === "string" ? body.profileId : "";
-  const domain = typeof body.domain === "string" ? body.domain.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/$/, "") : "";
+  const rawDomain = typeof body.domain === "string" ? body.domain.trim().toLowerCase() : "";
+  const domain = rawDomain.includes("://") ? rawDomain.split("://").pop()!.split("/")[0] : rawDomain.split("/")[0];
   const requestId = typeof body.requestId === "string" ? body.requestId : "";
-  const notes = typeof body.adminNotes === "string" ? body.adminNotes.trim().slice(0, 2000) : null;
-  if (!profileId || !/^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]\.vaulttradesve\.com$/.test(domain) || domain === "www.vaulttradesve.com") {
+  const validDomain = domain.endsWith(".vaulttradesve.com") && domain.split(".").length === 3 && /^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$/.test(domain.split(".")[0]);
+  if (!profileId || !validDomain || domain === "www.vaulttradesve.com") {
     return NextResponse.json({ error: "Choose a partner and enter a valid partner subdomain, such as partner.vaulttradesve.com." }, { status: 400 });
   }
   const { data: partner, error: partnerError } = await auth.db.from("users").select("id,auth_user_id,email,referral_code,is_active,role").eq("id", profileId).maybeSingle();
