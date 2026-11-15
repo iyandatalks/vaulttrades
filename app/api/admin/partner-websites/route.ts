@@ -22,7 +22,7 @@ export async function GET() {
     auth.db.from("users").select("id,auth_user_id,email,first_name,last_name,referral_code,is_active,role").not("auth_user_id", "is", null).not("referral_code", "is", null).order("created_at", { ascending: false }),
   ]);
   if (requestError || usersError) return NextResponse.json({ error: "Could not load partner website records." }, { status: 500 });
-  return NextResponse.json({ requests: requests ?? [], users: (users ?? []).filter(u => u.is_active !== false && u.role !== "admin") }, { headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json({ requests: requests ?? [], users: (users ?? []).filter(u => u.is_active === true) }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST(request: Request) {
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Choose a partner and enter a valid partner subdomain, such as partner.vaulttradesve.com." }, { status: 400 });
   }
   const { data: partner, error: partnerError } = await auth.db.from("users").select("id,auth_user_id,email,referral_code,is_active,role").eq("id", profileId).maybeSingle();
-  if (partnerError || !partner?.auth_user_id || !partner.referral_code || partner.is_active === false || partner.role === "admin") {
+  if (partnerError || !partner?.auth_user_id || !partner.referral_code || partner.is_active === false) {
     return NextResponse.json({ error: "The selected account is not an eligible active partner profile with a referral code." }, { status: 400 });
   }
   const { data: conflict } = await auth.db.from("member_website_requests").select("id,member_email").ilike("assigned_domain", domain).maybeSingle();
