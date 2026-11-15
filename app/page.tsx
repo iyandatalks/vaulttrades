@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 const products = [
   { number: "01", name: "VaultTrades Analyzer", type: "MARKET ANALYSIS", description: "A structured analysis environment built around market context, strategy conditions and disciplined trade planning.", detail: "For traders who want a defined process before considering execution.", href: "/subscription?product=analyzer_monthly", action: "Explore Analyzer access", visual: "analyzer" },
@@ -13,22 +13,10 @@ const products = [
 ];
 
 const CONTRACTOR_PORTAL_URL = "https://contractorportal.io/contractor-portal/ID/1220/";
-const CONTRACTOR_POPUP_KEY = "vt_global_contracting_popup_dismissed_v1";
 
 export default function HomePage() {
-  const [showContractorPopup, setShowContractorPopup] = useState(false);
   const [sales, setSales] = useState(10);
 
-  useEffect(() => {
-    if (window.localStorage.getItem(CONTRACTOR_POPUP_KEY) === "1") return;
-    const timer = window.setTimeout(() => setShowContractorPopup(true), 8500);
-    return () => window.clearTimeout(timer);
-  }, []);
-
-  function closeContractorPopup() {
-    window.localStorage.setItem(CONTRACTOR_POPUP_KEY, "1");
-    setShowContractorPopup(false);
-  }
   const [averageSale, setAverageSale] = useState(100);
   const estimate = useMemo(() => {
     const gross = Math.max(0, sales) * Math.max(0, averageSale);
@@ -48,16 +36,14 @@ export default function HomePage() {
         .vt-global-contract-card{position:relative;display:flex;align-items:center;justify-content:space-between;gap:22px;margin-top:22px;max-width:760px;padding:18px 20px;border:1px solid rgba(215,180,90,.48);border-radius:7px;background:linear-gradient(105deg,rgba(215,180,90,.12),rgba(16,21,34,.94) 58%);box-shadow:0 14px 38px rgba(0,0,0,.2)}
         .vt-global-contract-card-copy{min-width:0}.vt-global-contract-card-label{color:#d7b45a;font-size:9px;font-weight:900;letter-spacing:.16em}.vt-global-contract-card h2{font-size:19px;line-height:1.2;margin:7px 0;color:#f5f2e9}.vt-global-contract-card p{margin:0;color:#aeb7c5;font-size:12px;line-height:1.6;max-width:510px}
         .vt-global-contract-link{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:12px 14px;border-radius:4px;background:#d7b45a;color:#090b10!important;font-size:10px;font-weight:900;letter-spacing:.05em;text-transform:uppercase}
-        .vt-contract-modal-backdrop{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:20px;background:rgba(2,5,10,.78);backdrop-filter:blur(8px)}
-        .vt-contract-modal{position:relative;width:min(520px,100%);padding:34px;border:1px solid rgba(215,180,90,.55);border-radius:10px;background:radial-gradient(ellipse at 100% 0%,rgba(215,180,90,.14),transparent 42%),linear-gradient(145deg,#151c29,#080c14);box-shadow:0 28px 90px rgba(0,0,0,.55)}
-        .vt-contract-modal-close{position:absolute;top:13px;right:15px;border:0;background:transparent;color:#aab3c2;font-size:27px;cursor:pointer}.vt-contract-modal h2{margin:14px 0 12px;color:#f5f2e9;font-size:clamp(26px,5vw,36px);line-height:1.08;letter-spacing:-.04em}.vt-contract-modal p{color:#b3bdcb;font-size:14px;line-height:1.75}.vt-contract-modal-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:24px}.vt-contract-modal-actions button{padding:13px 16px;border:1px solid #45403a;border-radius:4px;background:transparent;color:#c6ced9;font-weight:800;font-size:11px;cursor:pointer}.vt-contract-modal-actions a{display:inline-flex;align-items:center;padding:13px 16px;border-radius:4px;background:#d7b45a;color:#090b10!important;font-size:11px;font-weight:900;letter-spacing:.04em;text-transform:uppercase}.vt-sales-section{padding:92px 0}.vt-sales-section.alt{background:#0c111b;border-top:1px solid #202634;border-bottom:1px solid #202634}
+        .vt-sales-section{padding:92px 0}.vt-sales-section.alt{background:#0c111b;border-top:1px solid #202634;border-bottom:1px solid #202634}
         .vt-sales-heading{max-width:700px;margin-bottom:36px}.vt-sales-heading h2{font-size:clamp(30px,4vw,48px);letter-spacing:-.04em;line-height:1.08;margin:12px 0}.vt-sales-heading p{color:#aab3c2;line-height:1.75;font-size:15px}
         .vt-opportunity-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:30px;align-items:stretch}.vt-opportunity-copy,.vt-calculator{border:1px solid #343022;background:linear-gradient(145deg,#111722,#0a0e16);padding:34px;border-radius:8px}.vt-opportunity-copy h3{font-size:27px;line-height:1.15;margin:15px 0}.vt-opportunity-copy p{color:#aeb7c5;line-height:1.8}.vt-split{display:flex;gap:12px;flex-wrap:wrap;margin:26px 0}.vt-split span{padding:10px 13px;background:#171b22;border:1px solid #343022;border-radius:4px;color:#d9c58f;font-size:12px;font-weight:800;letter-spacing:.05em}
         .vt-calculator{border-color:rgba(215,180,90,.45)}.vt-calculator h3{font-size:22px;margin:8px 0}.vt-calculator p{color:#8e98a8;font-size:12px;line-height:1.6}.vt-calc-field{display:grid;gap:8px;margin:18px 0}.vt-calc-field label{color:#b7bfcb;font-size:12px;font-weight:700}.vt-calc-field input{width:100%;padding:12px 13px;background:#070b12;border:1px solid #3a3d42;border-radius:4px;color:#fff}.vt-calc-results{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:22px}.vt-calc-result{padding:14px 10px;background:#090d14;border:1px solid #292e37;border-radius:4px}.vt-calc-result small{display:block;color:#8993a2;font-size:9px;letter-spacing:.1em}.vt-calc-result strong{display:block;color:#e1c477;font-size:clamp(16px,2vw,22px);margin-top:8px;overflow-wrap:anywhere}
         .vt-product-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.vt-product-card{position:relative;min-height:285px;overflow:hidden;padding:25px;border:1px solid #282e39;border-radius:7px;background:linear-gradient(145deg,#121a27,#090d15)}.vt-product-card:before{content:"";position:absolute;right:-45px;top:-65px;width:170px;height:170px;border:1px solid rgba(215,180,90,.17);border-radius:50%;box-shadow:0 0 0 22px rgba(215,180,90,.025),0 0 0 46px rgba(215,180,90,.02)}.vt-product-card>*{position:relative}.vt-product-number{color:#d7b45a;font-size:11px;letter-spacing:.15em}.vt-product-card h3{font-size:23px;line-height:1.15;margin:22px 0 12px}.vt-product-card p{color:#aab3c2;font-size:13px;line-height:1.7}.vt-product-card small{display:block;color:#d7b45a;font-size:9px;letter-spacing:.14em;font-weight:800}.vt-product-link{display:inline-block;margin-top:16px;color:#e2c77e!important;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}.vt-business-strip{display:flex;justify-content:space-between;align-items:center;gap:25px;padding:34px;border:1px solid #343022;background:linear-gradient(105deg,#161a21,#11141c);border-radius:7px}.vt-business-strip h3{font-size:24px;margin:0 0 8px}.vt-business-strip p{color:#aab3c2;line-height:1.65;margin:0;max-width:650px}
         .vt-sales-footer{padding:54px 0;border-top:1px solid #252a33;background:#06080d}.vt-sales-footer-inner{display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap}.vt-sales-footer strong{color:#d7b45a;letter-spacing:.12em}.vt-sales-disclaimer{color:#737d8c;font-size:11px;line-height:1.7;max-width:850px;margin-top:22px}
         @media(max-width:900px){.vt-product-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.vt-opportunity-grid{grid-template-columns:1fr}.vt-sales-hero{min-height:560px}}
-        @media(max-width:600px){.vt-global-contract-card{align-items:flex-start;flex-direction:column}.vt-global-contract-link{width:100%}.vt-contract-modal{padding:28px 22px}.vt-sales-wrap{width:min(100% - 30px,1180px)}.vt-sales-hero-inner{padding:78px 0}.vt-product-grid{grid-template-columns:1fr}.vt-sales-section{padding:66px 0}.vt-opportunity-copy,.vt-calculator{padding:24px}.vt-calc-results{grid-template-columns:1fr}.vt-business-strip{align-items:flex-start;flex-direction:column;padding:25px}.vt-sales-btn{width:100%}}
+        @media(max-width:600px){.vt-global-contract-card{align-items:flex-start;flex-direction:column}.vt-global-contract-link{width:100%}.vt-sales-wrap{width:min(100% - 30px,1180px)}.vt-sales-hero-inner{padding:78px 0}.vt-product-grid{grid-template-columns:1fr}.vt-sales-section{padding:66px 0}.vt-opportunity-copy,.vt-calculator{padding:24px}.vt-calc-results{grid-template-columns:1fr}.vt-business-strip{align-items:flex-start;flex-direction:column;padding:25px}.vt-sales-btn{width:100%}}
       `}</style>
 
       <section className="vt-sales-hero">
@@ -152,19 +138,6 @@ export default function HomePage() {
       </section>
 
       
-      {showContractorPopup && (
-        <div className="vt-contract-modal-backdrop" role="presentation" onClick={closeContractorPopup}>
-          <section className="vt-contract-modal" role="dialog" aria-modal="true" aria-labelledby="vt-contract-modal-title" onClick={event => event.stopPropagation()}>
-            <button type="button" className="vt-contract-modal-close" onClick={closeContractorPopup} aria-label="Close popup">×</button>
-            <div className="vt-sales-kicker">BEYOND THE MARKETS · GLOBAL OPPORTUNITIES</div>
-            <h2 id="vt-contract-modal-title">When we're not trading, we're exploring global contracts and deals.</h2>
-            <p>Looking for an online opportunity beyond trading? Visit the external Contractor Portal to review its contractor opportunities and decide whether any are right for you.</p>
-            <div className="vt-contract-modal-actions">
-              <a href={CONTRACTOR_PORTAL_URL} target="_blank" rel="noopener noreferrer" onClick={closeContractorPopup}>Visit Contractor Portal ↗</a>
-              <button type="button" onClick={closeContractorPopup}>Maybe later</button>
-            </div>
-          </section>
-        </div>
       )}
       
     </main>
