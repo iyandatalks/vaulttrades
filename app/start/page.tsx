@@ -14,8 +14,8 @@ export default function StartPage() {
   const [emailMarketing, setEmailMarketing] = useState(false);
   const [whatsappMarketing, setWhatsappMarketing] = useState(false);
   const [partnerShareConsent, setPartnerShareConsent] = useState(false);
-  const [paramsHasPartner, setParamsHasPartner] = useState(false);
-  useEffect(() => { const host = window.location.hostname.toLowerCase(); setParamsHasPartner(Boolean(new URLSearchParams(window.location.search).get("ref")) || (host.endsWith(".vaulttradesve.com") && host !== "www.vaulttradesve.com")); }, []);
+  const [paramsHasPartner, setParamsHasPartner] = useState(false);\n  const [resolvedPartnerCode, setResolvedPartnerCode] = useState("");
+  useEffect(() => {\n    const host = window.location.hostname.toLowerCase();\n    const queryCode = new URLSearchParams(window.location.search).get("ref") || "";\n    const partnerHost = host.endsWith(".vaulttradesve.com") && host !== "www.vaulttradesve.com";\n    setParamsHasPartner(Boolean(queryCode) || partnerHost);\n    if (queryCode) setResolvedPartnerCode(queryCode.toUpperCase());\n    if (partnerHost) fetch("/api/partner-site", { cache: "no-store" }).then(r => r.json()).then(data => {\n      if (data.assigned && data.partnerCode) setResolvedPartnerCode(String(data.partnerCode).toUpperCase());\n      else setError("This partner website has not yet been assigned to an active VaultTrades partner account. Please contact VaultTrades before accepting enquiries.");\n    }).catch(() => setError("We could not verify this partner website. Please try again later."));\n  }, []);
   const [website, setWebsite] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -27,7 +27,7 @@ export default function StartPage() {
       setError("Please confirm that VaultTrades may use your details to respond to this access request.");
       return;
     }
-    const partnerCode = new URLSearchParams(window.location.search).get("ref") || "";
+    const partnerCode = resolvedPartnerCode || new URLSearchParams(window.location.search).get("ref") || "";
     if (partnerCode && !partnerShareConsent) {
       setError("Please confirm whether your contact details may be shared with the referring VaultTrades partner.");
       return;
@@ -122,17 +122,17 @@ export default function StartPage() {
             <article className="vts-membership-card">
               <span>PLAN 1</span><h3>VaultTrades Nexus</h3><strong>$150 <small>USD · once-off</small></strong>
               <p>Core VaultTrades membership and Nexus automation pathway.</p>
-              <a href="/membership/checkout?plan=nexus&ref=VT-C4D867E2">Continue to checkout <b>→</b></a>
+              <a href={"/membership/checkout?plan=nexus" + (resolvedPartnerCode ? "&ref=" + encodeURIComponent(resolvedPartnerCode) : "")}>Continue to checkout <b>→</b></a>
             </article>
             <article className="vts-membership-card featured">
               <span>PLAN 2</span><h3>VaultTrades Nexus Plus</h3><strong>$250 <small>USD · once-off</small></strong>
               <p>Expanded membership with additional trading tools and development resources.</p>
-              <a href="/membership/checkout?plan=nexus_plus&ref=VT-C4D867E2">Continue to checkout <b>→</b></a>
+              <a href={"/membership/checkout?plan=nexus_plus" + (resolvedPartnerCode ? "&ref=" + encodeURIComponent(resolvedPartnerCode) : "")}>Continue to checkout <b>→</b></a>
             </article>
             <article className="vts-membership-card">
               <span>PLAN 3</span><h3>VaultTrades Vortex</h3><strong>$550 <small>USD · once-off</small></strong>
               <p>Complete membership pathway with advanced resources and individual mentorship.</p>
-              <a href="/membership/checkout?plan=vortex&ref=VT-C4D867E2">Continue to checkout <b>→</b></a>
+              <a href={"/membership/checkout?plan=vortex" + (resolvedPartnerCode ? "&ref=" + encodeURIComponent(resolvedPartnerCode) : "")}>Continue to checkout <b>→</b></a>
             </article>
           </div>
           <p className="vts-memberships-note">Checkout separates the partner membership payment from VaultTrades setup charges. All payments and access remain subject to verification. Trading involves risk; no trading or business income is guaranteed.</p>
