@@ -27,7 +27,7 @@ export default function SitePromotionPopup() {
     timer.current = setTimeout(() => {
       const dismissed = readIds(DISMISSED_KEY);
       const shown = readIds(SHOWN_KEY);
-      if (shown.length >= 3) return;
+      if (shown.length >= 4) return;
       const next = queueRef.current.find(item => !dismissed.includes(item.id) && !shown.includes(item.id));
       if (!next) return;
       sessionStorage.setItem(SHOWN_KEY, JSON.stringify([...shown, next.id]));
@@ -48,7 +48,7 @@ export default function SitePromotionPopup() {
         const contractorPromotion: Promotion = {
           id: "vt-global-contracting",
           title: "When we're not trading, we're exploring global contracts and deals.",
-          description: "Explore online contracting opportunities and global business deals through our external Contractor Portal.",
+          description: "When we are not trading, we are exploring contracts and deals on a global scale. Discover online contracting opportunities, review available projects and explore ways to participate through the external Contractor Portal. This is separate from VaultTrades trading products and reseller programmes; review the portal terms and requirements before proceeding.",
           category: "GLOBAL CONTRACTING · ONLINE OPPORTUNITIES",
           image_url: null,
           cta_text: "Explore opportunities ↗",
