@@ -28,15 +28,20 @@ export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
   const pathname = request.nextUrl.pathname;
 
-  // Partner subdomains host partner-facing acquisition pages only. Central Home and
-  // Product destinations remain on the primary VaultTrades domain.
+  // Partner subdomains host partner-facing acquisition pages. Their homepage must
+  // enter the partner funnel on the same host; central destinations stay on main domain.
   const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
   const host = (forwardedHost || request.headers.get("host") || request.nextUrl.hostname).split(":")[0].toLowerCase();
   const isPartnerSubdomain = host.endsWith(".vaulttradesve.com") && host !== "www.vaulttradesve.com";
-  if (isPartnerSubdomain && (pathname === "/" || pathname === "/subscription" || pathname === "/products")) {
-    const destination = new URL("https://vaulttradesve.com" + (pathname === "/" ? "/" : pathname === "/products" ? "/subscription?promo=1" : pathname));
+  if (isPartnerSubdomain && pathname === "/") {
+    const destination = request.nextUrl.clone();
+    destination.pathname = "/start";
+    return NextResponse.redirect(destination, 308);
+  }
+  if (isPartnerSubdomain && (pathname === "/subscription" || pathname === "/products")) {
+    const destination = new URL("https://vaulttradesve.com" + (pathname === "/products" ? "/subscription?promo=1" : pathname));
     if (pathname === "/subscription") destination.search = request.nextUrl.search;
-    else if (pathname === "/products") destination.search = "?promo=1";
+    else destination.search = "?promo=1";
     return NextResponse.redirect(destination, 308);
   }
 
