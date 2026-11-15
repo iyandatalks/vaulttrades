@@ -80,7 +80,7 @@ export async function PATCH(request: Request) {
   if ("response" in auth) return auth.response;
   let body: any;
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request body." }, { status: 400 }); }
-  if (typeof body.id !== "string" || !["submitted", "in_progress", "ready", "rejected", "cancelled"].includes(body.status)) {
+  if (typeof body.id !== "string" || (body.action !== "payment_links" && !["submitted", "in_progress", "ready", "rejected", "cancelled"].includes(body.status))) {
     return NextResponse.json({ error: "A valid request ID and status are required." }, { status: 400 });
   }
   if (body.action === "payment_links") {
@@ -107,7 +107,7 @@ export async function PATCH(request: Request) {
       }
     }
     if (!Object.keys(updates).length) return NextResponse.json({ error: "No payment links were supplied." }, { status: 400 });
-    updates["updated_at" as keyof typeof updates] = new Date().toISOString();
+    updates.updated_at = new Date().toISOString();
     const { data, error } = await auth.db.from("member_website_requests").update(updates).eq("id", body.id).select("id,assigned_domain,partner_paypal_nexus_url,partner_paypal_nexus_plus_url,partner_paypal_vortex_url").maybeSingle();
     if (error || !data) return NextResponse.json({ error: "Could not save partner payment links." }, { status: 500 });
     return NextResponse.json({ ok: true, paymentLinks: data });
