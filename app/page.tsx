@@ -33,9 +33,6 @@ export default function HomePage() {
         .vt-sales-hero-inner{position:relative;z-index:1;max-width:790px;padding:100px 0 90px}.vt-sales-hero h1{font-size:clamp(42px,6vw,76px);line-height:1.02;letter-spacing:-.055em;margin:22px 0 20px;font-weight:850}.vt-sales-hero h1 span{color:#d7b45a}.vt-sales-hero p{font-size:17px;line-height:1.8;color:#b9c0cd;max-width:650px}
         .vt-sales-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:30px}.vt-sales-btn{display:inline-flex;align-items:center;justify-content:center;gap:12px;padding:15px 20px;border-radius:4px;font-weight:800;font-size:12px;letter-spacing:.07em;text-transform:uppercase}.vt-sales-btn.gold{background:#d7b45a;color:#090b10}.vt-sales-btn.outline{border:1px solid rgba(215,180,90,.55);color:#f4e8c9}
         .vt-sales-hero-note{margin-top:38px;color:#7e8796;font-size:11px;letter-spacing:.18em}
-        .vt-global-contract-card{position:relative;display:flex;align-items:center;justify-content:space-between;gap:22px;margin-top:22px;max-width:760px;padding:18px 20px;border:1px solid rgba(215,180,90,.48);border-radius:7px;background:linear-gradient(105deg,rgba(215,180,90,.12),rgba(16,21,34,.94) 58%);box-shadow:0 14px 38px rgba(0,0,0,.2)}
-        .vt-global-contract-card-copy{min-width:0}.vt-global-contract-card-label{color:#d7b45a;font-size:9px;font-weight:900;letter-spacing:.16em}.vt-global-contract-card h2{font-size:19px;line-height:1.2;margin:7px 0;color:#f5f2e9}.vt-global-contract-card p{margin:0;color:#aeb7c5;font-size:12px;line-height:1.6;max-width:510px}
-        .vt-global-contract-link{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:12px 14px;border-radius:4px;background:#d7b45a;color:#090b10!important;font-size:10px;font-weight:900;letter-spacing:.05em;text-transform:uppercase}
         .vt-sales-section{padding:92px 0}.vt-sales-section.alt{background:#0c111b;border-top:1px solid #202634;border-bottom:1px solid #202634}
         .vt-sales-heading{max-width:700px;margin-bottom:36px}.vt-sales-heading h2{font-size:clamp(30px,4vw,48px);letter-spacing:-.04em;line-height:1.08;margin:12px 0}.vt-sales-heading p{color:#aab3c2;line-height:1.75;font-size:15px}
         .vt-opportunity-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:30px;align-items:stretch}.vt-opportunity-copy,.vt-calculator{border:1px solid #343022;background:linear-gradient(145deg,#111722,#0a0e16);padding:34px;border-radius:8px}.vt-opportunity-copy h3{font-size:27px;line-height:1.15;margin:15px 0}.vt-opportunity-copy p{color:#aeb7c5;line-height:1.8}.vt-split{display:flex;gap:12px;flex-wrap:wrap;margin:26px 0}.vt-split span{padding:10px 13px;background:#171b22;border:1px solid #343022;border-radius:4px;color:#d9c58f;font-size:12px;font-weight:800;letter-spacing:.05em}
@@ -43,7 +40,7 @@ export default function HomePage() {
         .vt-product-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.vt-product-card{position:relative;min-height:285px;overflow:hidden;padding:25px;border:1px solid #282e39;border-radius:7px;background:linear-gradient(145deg,#121a27,#090d15)}.vt-product-card:before{content:"";position:absolute;right:-45px;top:-65px;width:170px;height:170px;border:1px solid rgba(215,180,90,.17);border-radius:50%;box-shadow:0 0 0 22px rgba(215,180,90,.025),0 0 0 46px rgba(215,180,90,.02)}.vt-product-card>*{position:relative}.vt-product-number{color:#d7b45a;font-size:11px;letter-spacing:.15em}.vt-product-card h3{font-size:23px;line-height:1.15;margin:22px 0 12px}.vt-product-card p{color:#aab3c2;font-size:13px;line-height:1.7}.vt-product-card small{display:block;color:#d7b45a;font-size:9px;letter-spacing:.14em;font-weight:800}.vt-product-link{display:inline-block;margin-top:16px;color:#e2c77e!important;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}.vt-business-strip{display:flex;justify-content:space-between;align-items:center;gap:25px;padding:34px;border:1px solid #343022;background:linear-gradient(105deg,#161a21,#11141c);border-radius:7px}.vt-business-strip h3{font-size:24px;margin:0 0 8px}.vt-business-strip p{color:#aab3c2;line-height:1.65;margin:0;max-width:650px}
         .vt-sales-footer{padding:54px 0;border-top:1px solid #252a33;background:#06080d}.vt-sales-footer-inner{display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap}.vt-sales-footer strong{color:#d7b45a;letter-spacing:.12em}.vt-sales-disclaimer{color:#737d8c;font-size:11px;line-height:1.7;max-width:850px;margin-top:22px}
         @media(max-width:900px){.vt-product-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.vt-opportunity-grid{grid-template-columns:1fr}.vt-sales-hero{min-height:560px}}
-        @media(max-width:600px){.vt-global-contract-card{align-items:flex-start;flex-direction:column}.vt-global-contract-link{width:100%}.vt-sales-wrap{width:min(100% - 30px,1180px)}.vt-sales-hero-inner{padding:78px 0}.vt-product-grid{grid-template-columns:1fr}.vt-sales-section{padding:66px 0}.vt-opportunity-copy,.vt-calculator{padding:24px}.vt-calc-results{grid-template-columns:1fr}.vt-business-strip{align-items:flex-start;flex-direction:column;padding:25px}.vt-sales-btn{width:100%}}
+        @media(max-width:600px){.vt-sales-actions{align-items:stretch}.vt-sales-actions .vt-sales-btn{width:100%}.vt-sales-wrap{width:min(100% - 30px,1180px)}.vt-sales-hero-inner{padding:78px 0}.vt-product-grid{grid-template-columns:1fr}.vt-sales-section{padding:66px 0}.vt-opportunity-copy,.vt-calculator{padding:24px}.vt-calc-results{grid-template-columns:1fr}.vt-business-strip{align-items:flex-start;flex-direction:column;padding:25px}.vt-sales-btn{width:100%}}
       `}</style>
 
       <section className="vt-sales-hero">
@@ -55,15 +52,8 @@ export default function HomePage() {
             <div className="vt-sales-actions">
               <a className="vt-sales-btn gold" href="#products">Explore our products <b>↘</b></a>
               <Link className="vt-sales-btn outline" href="/start">Explore the business opportunity <b>→</b></Link>
+              <a className="vt-sales-btn outline" href={CONTRACTOR_PORTAL_URL} target="_blank" rel="noopener noreferrer">Explore opportunities <b>↗</b></a>
             </div>
-            <a className="vt-global-contract-card" href={CONTRACTOR_PORTAL_URL} target="_blank" rel="noopener noreferrer" aria-label="Explore global contracting opportunities on Contractor Portal">
-              <div className="vt-global-contract-card-copy">
-                <div className="vt-global-contract-card-label">GLOBAL CONTRACTING · ONLINE OPPORTUNITIES</div>
-                <h2>When we're not trading, we're exploring contracts and deals globally.</h2>
-                <p>Interested in online contracting opportunities? Explore the external Contractor Portal and review the opportunities available there.</p>
-              </div>
-              <span className="vt-global-contract-link">Explore opportunities <b>↗</b></span>
-            </a>
             <div className="vt-sales-hero-note">FOCUS · DISCIPLINE · CONSISTENCY</div>
           </div>
         </div>
