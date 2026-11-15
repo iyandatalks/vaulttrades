@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 
 type Promotion = {
   id: string; title: string; description: string; category: string;
@@ -9,9 +10,10 @@ type Promotion = {
 
 const DISMISSED_KEY = "vt_promo_dismissed_v1";
 const SHOWN_KEY = "vt_promo_shown_v1";
+const CONTRACTOR_PORTAL_URL = "https://contractorportal.io/contractor-portal/ID/1220/";
 
 export default function SitePromotionPopup() {
-  const [promotions, setPromotions] = useState<Promotion[]>([]);
+  const pathname = usePathname();
   const [active, setActive] = useState<Promotion | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queueRef = useRef<Promotion[]>([]);
@@ -43,16 +45,26 @@ export default function SitePromotionPopup() {
       .then(data => {
         if (cancelled) return;
         const items = (data.promotions || []) as Promotion[];
-        queueRef.current = items;
-        setPromotions(items);
-        if (items.length) scheduleNext(9000);
+        const contractorPromotion: Promotion = {
+          id: "vt-global-contracting",
+          title: "When we're not trading, we're exploring global contracts and deals.",
+          description: "Explore online contracting opportunities and global business deals through our external Contractor Portal.",
+          category: "GLOBAL CONTRACTING · ONLINE OPPORTUNITIES",
+          image_url: null,
+          cta_text: "Explore opportunities ↗",
+          target_url: CONTRACTOR_PORTAL_URL,
+          display_order: 999,
+        };
+        const homepageItems = pathname === "/" ? [...items, contractorPromotion] : items;
+        queueRef.current = homepageItems;
+        if (homepageItems.length) scheduleNext(9000);
       })
       .catch(() => undefined);
     return () => {
       cancelled = true;
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [scheduleNext]);
+  }, [scheduleNext, pathname]);
 
   function dismiss() {
     if (!active) return;
