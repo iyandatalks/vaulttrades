@@ -110,6 +110,34 @@ export default function StartPage() {
         </div>
         <div className="vts-bottom-note">A clearer process. A chance to learn. Your decision.</div>
       </section>
+
+      <section className="vts-memberships" aria-labelledby="vts-memberships-title">
+        <div className="vts-memberships-inner">
+          <div className="vts-memberships-heading">
+            <div className="vts-kicker">CHOOSE YOUR VAULTTRADES MEMBERSHIP</div>
+            <h2 id="vts-memberships-title">Explore the three <em>membership pathways.</em></h2>
+            <p>Select a plan to continue through the VaultTrades checkout. Your partner reference is carried into checkout, where you can create or sign in to your VaultTrades profile before completing the payment declaration and setup steps.</p>
+          </div>
+          <div className="vts-membership-grid">
+            <article className="vts-membership-card">
+              <span>PLAN 1</span><h3>VaultTrades Nexus</h3><strong>$150 <small>USD · once-off</small></strong>
+              <p>Core VaultTrades membership and Nexus automation pathway.</p>
+              <a href="/membership/checkout?plan=nexus&ref=VT-C4D867E2">Continue to checkout <b>→</b></a>
+            </article>
+            <article className="vts-membership-card featured">
+              <span>PLAN 2</span><h3>VaultTrades Nexus Plus</h3><strong>$250 <small>USD · once-off</small></strong>
+              <p>Expanded membership with additional trading tools and development resources.</p>
+              <a href="/membership/checkout?plan=nexus_plus&ref=VT-C4D867E2">Continue to checkout <b>→</b></a>
+            </article>
+            <article className="vts-membership-card">
+              <span>PLAN 3</span><h3>VaultTrades Vortex</h3><strong>$550 <small>USD · once-off</small></strong>
+              <p>Complete membership pathway with advanced resources and individual mentorship.</p>
+              <a href="/membership/checkout?plan=vortex&ref=VT-C4D867E2">Continue to checkout <b>→</b></a>
+            </article>
+          </div>
+          <p className="vts-memberships-note">Checkout separates the partner membership payment from VaultTrades setup charges. All payments and access remain subject to verification. Trading involves risk; no trading or business income is guaranteed.</p>
+        </div>
+      </section>
       <section className="vts-disclaimer"><strong>Important:</strong> Trading involves risk and losses are possible. No trading profits, business income or reseller commissions are guaranteed. Take time to understand the opportunity and its terms before making a decision.</section>
     </main>
   );
