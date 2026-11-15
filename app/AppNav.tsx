@@ -17,11 +17,18 @@ const adminTabs = [
 
 export default function AppNav() {
   const pathname = usePathname();
+  const [isPartnerSubdomain, setIsPartnerSubdomain] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
   const [hasResellerAccess, setHasResellerAccess] = useState(false);
 
   useEffect(() => {
+    const host = window.location.hostname.toLowerCase();
+    setIsPartnerSubdomain(host.endsWith(".vaulttradesve.com") && host !== "www.vaulttradesve.com");
+  }, []);
+
+  useEffect(() => {
+    if (isPartnerSubdomain) return;
     let active = true;
     fetch("/api/dashboard/access", { cache: "no-store" })
       .then(response => response.ok ? response.json() : { authenticated: false })
@@ -35,7 +42,11 @@ export default function AppNav() {
         if (active) { setSignedIn(false); setIsAdmin(false); }
       });
     return () => { active = false; };
-  }, []);
+  }, [isPartnerSubdomain]);
+
+  // Partner acquisition pages use their own focused branding and funnel navigation.
+  // Do not expose central Home, Products or Sign in links on partner subdomains.
+  if (isPartnerSubdomain) return null;
 
   const tabs = [
     ...publicTabs,
