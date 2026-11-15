@@ -10,7 +10,10 @@ export default function PartnerWebsiteManager() {
   const [profileId,setProfileId] = useState("");
   const [domain,setDomain] = useState("");
   const [requestId,setRequestId] = useState("");
-  const [notes,setNotes] = useState("");\n  const [nexusLink,setNexusLink] = useState("");\n  const [plusLink,setPlusLink] = useState("");\n  const [vortexLink,setVortexLink] = useState("");
+  const [notes,setNotes] = useState("");
+  const [nexusLink,setNexusLink] = useState("");
+  const [plusLink,setPlusLink] = useState("");
+  const [vortexLink,setVortexLink] = useState("");
   const [busy,setBusy] = useState(false);
   const [error,setError] = useState("");
   const [message,setMessage] = useState("");
@@ -29,7 +32,13 @@ export default function PartnerWebsiteManager() {
       setMessage("Website assignment saved. The domain is now linked to the selected partner."); setRequestId(""); setDomain(""); setNotes(""); await load();
     } catch(e) { setError(e instanceof Error?e.message:"Assignment failed."); } finally { setBusy(false); }
   }
-  async function savePaymentLinks(e:React.FormEvent) {\n    e.preventDefault(); if(!requestId){setError("Select the partner website request or assignment first.");return;}\n    setBusy(true);setError("");setMessage("");\n    try { const r=await fetch("/api/admin/partner-websites",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:requestId,action:"payment_links",paymentLinks:{nexus:nexusLink,nexus_plus:plusLink,vortex:vortexLink}})}); const d=await r.json(); if(!r.ok) throw new Error(d.error||"Could not save payment links."); setMessage("Partner PayPal payment links saved. Checkout on this partner domain will now use these links."); await load(); }\n    catch(e){setError(e instanceof Error?e.message:"Could not save payment links.");} finally{setBusy(false);}\n  }\n  async function deactivate(id:string) {
+  async function savePaymentLinks(e:React.FormEvent) {
+    e.preventDefault(); if(!requestId){setError("Select the partner website request or assignment first.");return;}
+    setBusy(true);setError("");setMessage("");
+    try { const r=await fetch("/api/admin/partner-websites",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:requestId,action:"payment_links",paymentLinks:{nexus:nexusLink,nexus_plus:plusLink,vortex:vortexLink}})}); const d=await r.json(); if(!r.ok) throw new Error(d.error||"Could not save payment links."); setMessage("Partner PayPal payment links saved. Checkout on this partner domain will now use these links."); await load(); }
+    catch(e){setError(e instanceof Error?e.message:"Could not save payment links.");} finally{setBusy(false);}
+  }
+  async function deactivate(id:string) {
     if(!window.confirm("Deactivate this website assignment? New leads will no longer be accepted through this domain.")) return;
     setBusy(true); setError(""); setMessage("");
     try { const r=await fetch("/api/admin/partner-websites",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,status:"cancelled"})}); const d=await r.json(); if(!r.ok) throw new Error(d.error||"Could not deactivate."); setMessage("Assignment deactivated."); await load(); }
