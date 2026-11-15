@@ -48,6 +48,27 @@ export default async function MembershipCheckoutPage({ searchParams }: { searchP
   // A domain owner takes precedence; a conflicting query code must not reassign the sale.
   if (domainResellerCode && suppliedResellerCode && suppliedResellerCode !== domainResellerCode) redirect("/start");
   const resellerCode = domainResellerCode || suppliedResellerCode;
+  // Also resolve the assigned payment URL by referral code when checkout has moved to the central VaultTrades hostname.
+  if (!assignedPartnerPaymentUrl && resellerCode) {
+    const adminDb = createAdminClient();
+    const { data: partner } = await adminDb.from("users")
+      .select("id,auth_user_id")
+      .eq("referral_code", resellerCode)
+      .eq("is_active", true)
+      .maybeSingle();
+    if (partner) {
+      let partnerRequestQuery = adminDb.from("member_website_requests")
+        .select("partner_paypal_nexus_url,partner_paypal_nexus_plus_url,partner_paypal_vortex_url")
+        .eq("status", "ready");
+      partnerRequestQuery = partner.auth_user_id
+        ? partnerRequestQuery.eq("auth_user_id", partner.auth_user_id)
+        : partnerRequestQuery.eq("user_id", partner.id);
+      const { data: partnerRequest } = await partnerRequestQuery.maybeSingle();
+      if (partnerRequest) {
+        assignedPartnerPaymentUrl = String(planCode === "nexus" ? partnerRequest.partner_paypal_nexus_url ?? "" : planCode === "nexus_plus" ? partnerRequest.partner_paypal_nexus_plus_url ?? "" : partnerRequest.partner_paypal_vortex_url ?? "").trim();
+      }
+    }
+  }
   const next = "/membership/checkout?plan=" + encodeURIComponent(planCode) + "&ref=" + encodeURIComponent(resellerCode) + (declarationId ? "&declaration=" + encodeURIComponent(declarationId) : "");
   const registrationHref = "/auth/register?next=" + encodeURIComponent(next) + "&ref=" + encodeURIComponent(resellerCode);
 
