@@ -56,6 +56,7 @@ export default async function MembershipCheckoutPage({ searchParams }: { searchP
     plan={plans[planCode]}
     email={user?.email ?? ""}
     resellerCode={resellerCode}
+    assignedPartnerPaymentUrl={assignedPartnerPaymentUrl}
     declarationId={declarationId}
     isAuthenticated={Boolean(user)}
     registrationHref={registrationHref}
