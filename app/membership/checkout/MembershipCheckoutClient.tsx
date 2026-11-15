@@ -111,8 +111,8 @@ export default function MembershipCheckoutClient({ planCode, plan, email, resell
 
     <section className="vt-checkout-section">
       <div className="vt-checkout-section-heading"><span className="vt-checkout-section-number">1</span><div><h2>Pay partner membership fee</h2><p>Pay the partner membership fee using the button below. After payment, return here and confirm the payment details.</p></div></div>
-      {RESELLER_PAYPAL[resellerCode]?.[planCode]
-        ? <a className="vt-checkout-pay" href={RESELLER_PAYPAL[resellerCode][planCode]} target="_blank" rel="noreferrer">{"Pay partner · $" + MRR[planCode].toFixed(2) + " USD"}</a>
+      {partnerPaymentUrl
+        ? <a className="vt-checkout-pay" href={partnerPaymentUrl} target="_blank" rel="noreferrer">{"Pay partner · $" + MRR[planCode].toFixed(2) + " USD"}</a>
         : <div className="vt-checkout-pending"><strong>Partner payment link unavailable</strong><span>Please reopen this checkout using the purchase link supplied by your partner.</span></div>}
       <p className="vt-checkout-note">This payment goes directly to your partner. VaultTrades does not collect this membership fee and will not ask you to pay it again.</p>
     </section>
