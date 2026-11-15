@@ -42,8 +42,37 @@ export async function POST(request: NextRequest) {
     const partnerShareConsent = body.partnerShareConsent === true;
 
     const db = createAdminClient();
+    const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+    const host = (forwardedHost || request.headers.get("host") || "").split(":")[0].toLowerCase();
+    const isPartnerSubdomain = host.endsWith(".vaulttradesve.com") && host !== "www.vaulttradesve.com";
     let partner: { id: string; auth_user_id: string; first_name: string | null; referral_code: string } | null = null;
-    if (partnerCode) {
+
+    // Resolve the partner assigned to this exact subdomain before accepting enquiries.
+    if (isPartnerSubdomain) {
+      const { data: site } = await db.from("member_website_requests")
+        .select("auth_user_id,user_id")
+        .ilike("assigned_domain", host)
+        .maybeSingle();
+      if (site?.auth_user_id) {
+        const { data } = await db.from("users")
+          .select("id,auth_user_id,first_name,referral_code")
+          .eq("auth_user_id", site.auth_user_id)
+          .maybeSingle();
+        if (data?.auth_user_id) partner = data;
+      } else if (site?.user_id) {
+        const { data } = await db.from("users")
+          .select("id,auth_user_id,first_name,referral_code")
+          .eq("id", site.user_id)
+          .maybeSingle();
+        if (data?.auth_user_id) partner = data;
+      }
+      if (!partner) {
+        return NextResponse.json({ error: "This partner website has not yet been assigned to an active VaultTrades partner account. Please contact VaultTrades before accepting enquiries." }, { status: 409 });
+      }
+      if (partnerCode && partner.referral_code?.toUpperCase() !== partnerCode) {
+        return NextResponse.json({ error: "The referral code does not match this partner website." }, { status: 400 });
+      }
+    } else if (partnerCode) {
       const { data } = await db.from("users").select("id,auth_user_id,first_name,referral_code").ilike("referral_code", partnerCode).maybeSingle();
       if (data?.auth_user_id) partner = data;
     }
