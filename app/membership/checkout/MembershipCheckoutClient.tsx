@@ -33,8 +33,8 @@ function Step({ number, complete, title, detail }: { number: number; complete: b
   </div>;
 }
 
-export default function MembershipCheckoutClient({ planCode, plan, email, resellerCode, declarationId, isAuthenticated, registrationHref }: {
-  planCode: PlanCode; plan: Plan; email: string; resellerCode: string; declarationId: string; isAuthenticated: boolean; registrationHref: string;
+export default function MembershipCheckoutClient({ planCode, plan, email, resellerCode, assignedPartnerPaymentUrl, declarationId, isAuthenticated, registrationHref }: {
+  planCode: PlanCode; plan: Plan; email: string; resellerCode: string; assignedPartnerPaymentUrl: string; declarationId: string; isAuthenticated: boolean; registrationHref: string;
 }) {
   const [amount, setAmount] = useState(String(MRR[planCode]));
   const [transactionReference, setTransactionReference] = useState("");
@@ -87,7 +87,7 @@ export default function MembershipCheckoutClient({ planCode, plan, email, resell
     }
   }
 
-  const statuses = paymentStatusData?.payments;
+  const partnerPaymentUrl = assignedPartnerPaymentUrl || RESELLER_PAYPAL[resellerCode]?.[planCode] || "";\n  const statuses = paymentStatusData?.payments;
   const resellerConfirmed = paymentStatusData?.declaration?.reseller_payment_status === "confirmed_by_reseller";
   const declarationSubmitted = Boolean(activeDeclarationId || paymentStatusData?.declaration?.id);
   const setupComplete = statuses?.vaultTradesSetupComplete === true;
@@ -128,7 +128,7 @@ export default function MembershipCheckoutClient({ planCode, plan, email, resell
               <label>Invoice number (optional)<input maxLength={120} value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} placeholder="Enter it if available" /></label>
               <p className="vt-checkout-note">Your payment date and partner website are recorded automatically. By submitting, you confirm that these details accurately describe the payment you made to your partner.</p>
               {error && <p className="vt-checkout-error" role="alert">{error}</p>}
-              <button className="vt-checkout-pay" type="submit" disabled={busy || !RESELLER_PAYPAL[resellerCode]?.[planCode]}>{busy ? "Submitting declaration…" : "Submit partner payment declaration"}</button>
+              <button className="vt-checkout-pay" type="submit" disabled={busy || !partnerPaymentUrl}>{busy ? "Submitting declaration…" : "Submit partner payment declaration"}</button>
             </form>
           : <div className="vt-checkout-pending"><strong>Create and verify your VaultTrades profile first.</strong><span>Once you return from email verification, this declaration form will be available here. Your selected plan and partner details will remain saved.</span><Link className="vt-checkout-secondary-button vt-checkout-link-button" href={registrationHref}>Create your VaultTrades profile</Link></div>}
     </section>
