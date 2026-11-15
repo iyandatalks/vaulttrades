@@ -18,7 +18,7 @@ export async function GET() {
   const auth = await authorize();
   if ("response" in auth) return auth.response;
   const [{ data: requests, error: requestError }, { data: users, error: usersError }] = await Promise.all([
-    auth.db.from("member_website_requests").select("id,user_id,auth_user_id,member_email,domain_preference,preferred_name_1,preferred_name_2,preferred_name_3,custom_domain,status,admin_notes,assigned_domain,submitted_at,updated_at").order("submitted_at", { ascending: false }),
+    auth.db.from("member_website_requests").select("id,user_id,auth_user_id,member_email,domain_preference,preferred_name_1,preferred_name_2,preferred_name_3,custom_domain,status,admin_notes,assigned_domain,partner_paypal_nexus_url,partner_paypal_nexus_plus_url,partner_paypal_vortex_url,submitted_at,updated_at").order("submitted_at", { ascending: false }),
     auth.db.from("users").select("id,auth_user_id,email,first_name,last_name,referral_code,is_active,role").not("auth_user_id", "is", null).not("referral_code", "is", null).order("created_at", { ascending: false }),
   ]);
   if (requestError || usersError) return NextResponse.json({ error: "Could not load partner website records." }, { status: 500 });
@@ -82,6 +82,35 @@ export async function PATCH(request: Request) {
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request body." }, { status: 400 }); }
   if (typeof body.id !== "string" || !["submitted", "in_progress", "ready", "rejected", "cancelled"].includes(body.status)) {
     return NextResponse.json({ error: "A valid request ID and status are required." }, { status: 400 });
+  }
+  if (body.action === "payment_links") {
+    const links = body.paymentLinks && typeof body.paymentLinks === "object" ? body.paymentLinks : {};
+    const fields = {
+      partner_paypal_nexus_url: links.nexus,
+      partner_paypal_nexus_plus_url: links.nexus_plus,
+      partner_paypal_vortex_url: links.vortex,
+    } as const;
+    const updates: Record<string, string | null> = {};
+    for (const [key, value] of Object.entries(fields)) {
+      if (value === undefined) continue;
+      const raw = typeof value === "string" ? value.trim() : "";
+      if (!raw) { updates[key] = null; continue; }
+      try {
+        const url = new URL(raw);
+        const host = url.hostname.toLowerCase();
+        if (url.protocol !== "https:" || !(host === "paypal.com" || host.endsWith(".paypal.com") || host === "paypal.me")) {
+          return NextResponse.json({ error: "Enter a valid HTTPS PayPal payment link for each plan." }, { status: 400 });
+        }
+        updates[key] = url.toString();
+      } catch {
+        return NextResponse.json({ error: "One of the PayPal payment links is not a valid URL." }, { status: 400 });
+      }
+    }
+    if (!Object.keys(updates).length) return NextResponse.json({ error: "No payment links were supplied." }, { status: 400 });
+    updates["updated_at" as keyof typeof updates] = new Date().toISOString();
+    const { data, error } = await auth.db.from("member_website_requests").update(updates).eq("id", body.id).select("id,assigned_domain,partner_paypal_nexus_url,partner_paypal_nexus_plus_url,partner_paypal_vortex_url").maybeSingle();
+    if (error || !data) return NextResponse.json({ error: "Could not save partner payment links." }, { status: 500 });
+    return NextResponse.json({ ok: true, paymentLinks: data });
   }
   const changes: Record<string, unknown> = { status: body.status, updated_at: new Date().toISOString(), reviewed_by: auth.user.id };
   if (body.status === "cancelled") changes.assigned_domain = null;
