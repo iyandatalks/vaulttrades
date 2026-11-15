@@ -29,13 +29,14 @@ export default async function MembershipCheckoutPage({ searchParams }: { searchP
     const { data: site } = await db.from("member_website_requests")
       .select("auth_user_id,user_id")
       .ilike("assigned_domain", host)
+      .eq("status", "approved")
       .maybeSingle();
     let partnerProfile = null as { referral_code: string | null } | null;
     if (site?.auth_user_id) {
-      const { data } = await db.from("users").select("referral_code").eq("auth_user_id", site.auth_user_id).maybeSingle();
+      const { data } = await db.from("users").select("referral_code").eq("auth_user_id", site.auth_user_id).eq("is_active", true).maybeSingle();
       partnerProfile = data;
     } else if (site?.user_id) {
-      const { data } = await db.from("users").select("referral_code").eq("id", site.user_id).maybeSingle();
+      const { data } = await db.from("users").select("referral_code").eq("id", site.user_id).eq("is_active", true).maybeSingle();
       partnerProfile = data;
     }
     domainResellerCode = String(partnerProfile?.referral_code ?? "").trim().toUpperCase();
