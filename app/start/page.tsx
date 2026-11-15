@@ -15,7 +15,7 @@ export default function StartPage() {
   const [whatsappMarketing, setWhatsappMarketing] = useState(false);
   const [partnerShareConsent, setPartnerShareConsent] = useState(false);
   const [paramsHasPartner, setParamsHasPartner] = useState(false);
-  useEffect(() => { setParamsHasPartner(Boolean(new URLSearchParams(window.location.search).get("ref"))); }, []);
+  useEffect(() => { const host = window.location.hostname.toLowerCase(); setParamsHasPartner(Boolean(new URLSearchParams(window.location.search).get("ref")) || (host.endsWith(".vaulttradesve.com") && host !== "www.vaulttradesve.com")); }, []);
   const [website, setWebsite] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
