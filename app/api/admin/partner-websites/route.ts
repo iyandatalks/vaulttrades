@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   const domain = typeof body.domain === "string" ? body.domain.trim().toLowerCase().replace(/^https?:\\/\\//, "").replace(/\\/$/, "") : "";
   const requestId = typeof body.requestId === "string" ? body.requestId : "";
   const notes = typeof body.adminNotes === "string" ? body.adminNotes.trim().slice(0, 2000) : null;
-  if (!profileId || !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.vaulttradesve\\.com$/.test(domain) || domain === "www.vaulttradesve.com") {
+  if (!profileId || !/^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]\\.vaulttradesve\\.com$/.test(domain) || domain === "www.vaulttradesve.com") {
     return NextResponse.json({ error: "Choose a partner and enter a valid partner subdomain, such as partner.vaulttradesve.com." }, { status: 400 });
   }
   const { data: partner, error: partnerError } = await auth.db.from("users").select("id,auth_user_id,email,referral_code,is_active,role").eq("id", profileId).maybeSingle();
@@ -47,8 +47,9 @@ export async function POST(request: Request) {
   const now = new Date().toISOString();
   const values = {
     user_id: partner.id, auth_user_id: partner.auth_user_id, member_email: partner.email,
-    domain_preference: domain, custom_domain: domain, assigned_domain: domain,
-    status: "approved", admin_notes: notes, reviewed_by: auth.user.id, updated_at: now,
+    domain_preference: "vaulttrades_subdomain", custom_domain: null, assigned_domain: domain,
+    preferred_name_1: domain.split(".")[0], preferred_name_2: domain.split(".")[0] + "-alt", preferred_name_3: domain.split(".")[0] + "-site",
+    status: "ready", admin_notes: notes, reviewed_by: auth.user.id, updated_at: now,
   };
   let saved;
   let saveError;
@@ -77,11 +78,11 @@ export async function PATCH(request: Request) {
   if ("response" in auth) return auth.response;
   let body: any;
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request body." }, { status: 400 }); }
-  if (typeof body.id !== "string" || !["pending", "approved", "inactive", "rejected"].includes(body.status)) {
+  if (typeof body.id !== "string" || !["submitted", "in_progress", "ready", "rejected", "cancelled"].includes(body.status)) {
     return NextResponse.json({ error: "A valid request ID and status are required." }, { status: 400 });
   }
   const changes: Record<string, unknown> = { status: body.status, updated_at: new Date().toISOString(), reviewed_by: auth.user.id };
-  if (body.status === "inactive") changes.assigned_domain = null;
+  if (body.status === "cancelled") changes.assigned_domain = null;
   const { data, error } = await auth.db.from("member_website_requests").update(changes).eq("id", body.id).select("id,status,assigned_domain").maybeSingle();
   if (error || !data) return NextResponse.json({ error: "Could not update the website assignment." }, { status: 500 });
   return NextResponse.json({ assignment: data });
