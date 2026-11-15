@@ -19,7 +19,7 @@ const publicPagePaths = [
   "/membership/checkout", "/reseller-return", "/privacy-policy", "/community",
 ];
 const authenticatedPaths = ["/profile", "/dashboard"];
-const adminOnlyPaths = ["/membership", "/partners", "/how-it-works"];
+const adminOnlyPaths = ["/membership", "/partners", "/how-it-works", "/admin/partner-websites"];
 
 const isPath = (pathname: string, path: string) =>
   pathname === path || pathname.startsWith(`${path}/`);
