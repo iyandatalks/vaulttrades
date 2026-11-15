@@ -31,10 +31,10 @@ export async function POST(request: Request) {
   let body: any;
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request body." }, { status: 400 }); }
   const profileId = typeof body.profileId === "string" ? body.profileId : "";
-  const domain = typeof body.domain === "string" ? body.domain.trim().toLowerCase().replace(/^https?:\\/\\//, "").replace(/\\/$/, "") : "";
+  const domain = typeof body.domain === "string" ? body.domain.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/$/, "") : "";
   const requestId = typeof body.requestId === "string" ? body.requestId : "";
   const notes = typeof body.adminNotes === "string" ? body.adminNotes.trim().slice(0, 2000) : null;
-  if (!profileId || !/^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]\\.vaulttradesve\\.com$/.test(domain) || domain === "www.vaulttradesve.com") {
+  if (!profileId || !/^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]\.vaulttradesve\.com$/.test(domain) || domain === "www.vaulttradesve.com") {
     return NextResponse.json({ error: "Choose a partner and enter a valid partner subdomain, such as partner.vaulttradesve.com." }, { status: 400 });
   }
   const { data: partner, error: partnerError } = await auth.db.from("users").select("id,auth_user_id,email,referral_code,is_active,role").eq("id", profileId).maybeSingle();
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
   const values = {
     user_id: partner.id, auth_user_id: partner.auth_user_id, member_email: partner.email,
     domain_preference: "vaulttrades_subdomain", custom_domain: null, assigned_domain: domain,
-    preferred_name_1: domain.split(".")[0], preferred_name_2: domain.split(".")[0] + "-alt", preferred_name_3: domain.split(".")[0] + "-site",
+    preferred_name_1: domain.split(".")[0].slice(0, 30), preferred_name_2: domain.split(".")[0].slice(0, 24) + "-alt", preferred_name_3: domain.split(".")[0].slice(0, 23) + "-site",
     status: "ready", admin_notes: notes, reviewed_by: auth.user.id, updated_at: now,
   };
   let saved;
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
       const result = await auth.db.from("member_website_requests").update(values).eq("id", existing.id).select("id,assigned_domain,status,member_email,auth_user_id,user_id").maybeSingle();
       saved = result.data; saveError = result.error;
     } else {
-      const result = await auth.db.from("member_website_requests").insert({ ...values, preferred_name_1: domain.split(".")[0], submitted_at: now }).select("id,assigned_domain,status,member_email,auth_user_id,user_id").single();
+      const result = await auth.db.from("member_website_requests").insert({ ...values, submitted_at: now }).select("id,assigned_domain,status,member_email,auth_user_id,user_id").single();
       saved = result.data; saveError = result.error;
     }
   }
