@@ -52,17 +52,20 @@ export async function POST(request: NextRequest) {
       const { data: site } = await db.from("member_website_requests")
         .select("auth_user_id,user_id")
         .ilike("assigned_domain", host)
+        .eq("status", "approved")
         .maybeSingle();
       if (site?.auth_user_id) {
         const { data } = await db.from("users")
           .select("id,auth_user_id,first_name,referral_code")
           .eq("auth_user_id", site.auth_user_id)
+          .eq("is_active", true)
           .maybeSingle();
         if (data?.auth_user_id) partner = data;
       } else if (site?.user_id) {
         const { data } = await db.from("users")
           .select("id,auth_user_id,first_name,referral_code")
           .eq("id", site.user_id)
+          .eq("is_active", true)
           .maybeSingle();
         if (data?.auth_user_id) partner = data;
       }
