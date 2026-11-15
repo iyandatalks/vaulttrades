@@ -23,7 +23,8 @@ export default async function MembershipCheckoutPage({ searchParams }: { searchP
   const requestHeaders = await headers();
   const forwardedHost = requestHeaders.get("x-forwarded-host")?.split(",")[0]?.trim();
   const host = (forwardedHost || requestHeaders.get("host") || "").split(":")[0].toLowerCase();
-  let domainResellerCode = "";\n  let assignedPartnerPaymentUrl = "";
+  let domainResellerCode = "";
+  let assignedPartnerPaymentUrl = "";
   if (host.endsWith(".vaulttradesve.com") && host !== "www.vaulttradesve.com") {
     const db = process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : supabase;
     const { data: site } = await db.from("member_website_requests")
@@ -31,7 +32,10 @@ export default async function MembershipCheckoutPage({ searchParams }: { searchP
       .ilike("assigned_domain", host)
       .eq("status", "ready")
       .maybeSingle();
-    if (site) {\n      assignedPartnerPaymentUrl = String(planCode === "nexus" ? site.partner_paypal_nexus_url ?? "" : planCode === "nexus_plus" ? site.partner_paypal_nexus_plus_url ?? "" : site.partner_paypal_vortex_url ?? "").trim();\n    }\n    let partnerProfile = null as { referral_code: string | null } | null;
+    if (site) {
+      assignedPartnerPaymentUrl = String(planCode === "nexus" ? site.partner_paypal_nexus_url ?? "" : planCode === "nexus_plus" ? site.partner_paypal_nexus_plus_url ?? "" : site.partner_paypal_vortex_url ?? "").trim();
+    }
+    let partnerProfile = null as { referral_code: string | null } | null;
     if (site?.auth_user_id) {
       const { data } = await db.from("users").select("referral_code").eq("auth_user_id", site.auth_user_id).eq("is_active", true).maybeSingle();
       partnerProfile = data;
