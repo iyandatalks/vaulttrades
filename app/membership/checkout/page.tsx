@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import MembershipCheckoutClient from "./MembershipCheckoutClient";
 import "./checkout.css";
 
@@ -12,12 +14,35 @@ const plans = {
 export default async function MembershipCheckoutPage({ searchParams }: { searchParams: Promise<{ plan?: string; ref?: string; declaration?: string; token?: string; payment?: string }> }) {
   const params = await searchParams;
   const planCode = params.plan as keyof typeof plans;
-  const resellerCode = String(params.ref ?? "VT-C4D867E2").trim().toUpperCase();
+  const suppliedResellerCode = String(params.ref ?? "").trim().toUpperCase();
   const declarationId = String(params.declaration ?? "").trim();
   if (!planCode || !plans[planCode]) redirect("/plans");
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  const requestHeaders = await headers();
+  const forwardedHost = requestHeaders.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const host = (forwardedHost || requestHeaders.get("host") || "").split(":")[0].toLowerCase();
+  let domainResellerCode = "";
+  if (host.endsWith(".vaulttradesve.com") && host !== "www.vaulttradesve.com") {
+    const db = process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : supabase;
+    const { data: site } = await db.from("member_website_requests")
+      .select("auth_user_id,user_id")
+      .ilike("assigned_domain", host)
+      .maybeSingle();
+    let partnerProfile = null as { referral_code: string | null } | null;
+    if (site?.auth_user_id) {
+      const { data } = await db.from("users").select("referral_code").eq("auth_user_id", site.auth_user_id).maybeSingle();
+      partnerProfile = data;
+    } else if (site?.user_id) {
+      const { data } = await db.from("users").select("referral_code").eq("id", site.user_id).maybeSingle();
+      partnerProfile = data;
+    }
+    domainResellerCode = String(partnerProfile?.referral_code ?? "").trim().toUpperCase();
+  }
+  // A domain owner takes precedence; a conflicting query code must not reassign the sale.
+  if (domainResellerCode && suppliedResellerCode && suppliedResellerCode !== domainResellerCode) redirect("/start");
+  const resellerCode = domainResellerCode || suppliedResellerCode;
   const next = "/membership/checkout?plan=" + encodeURIComponent(planCode) + "&ref=" + encodeURIComponent(resellerCode) + (declarationId ? "&declaration=" + encodeURIComponent(declarationId) : "");
   const registrationHref = "/auth/register?next=" + encodeURIComponent(next) + "&ref=" + encodeURIComponent(resellerCode);
 
