@@ -29,7 +29,7 @@ export default async function MembershipCheckoutPage({ searchParams }: { searchP
     const { data: site } = await db.from("member_website_requests")
       .select("auth_user_id,user_id")
       .ilike("assigned_domain", host)
-      .eq("status", "approved")
+      .eq("status", "ready")
       .maybeSingle();
     let partnerProfile = null as { referral_code: string | null } | null;
     if (site?.auth_user_id) {
