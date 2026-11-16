@@ -11,6 +11,8 @@ type Inputs = {
   selectedWins: number;
 };
 
+type NumericInputKey = Exclude<keyof Inputs, "selectedWins">;
+
 const defaults: Inputs = {
   nexus: 0, nexusPlus: 0, vortex: 0,
   analyzerReferrals: 0, otherProductReferrals: 0, otherProductCommission: 0,
@@ -27,7 +29,7 @@ const clamp = (n: number) => Math.max(0, Number.isFinite(n) ? n : 0);
 export default function EarningPotentialPage() {
   const [v, setV] = useState<Inputs>(defaults);
   const [drafts, setDrafts] = useState<Partial<Record<keyof Inputs, string>>>({});
-  const update = (key: Exclude<keyof Inputs, "selectedWins">) => ({ value: drafts[key] ?? String(v[key]), onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+  const update = (key: NumericInputKey) => ({ value: drafts[key] ?? String(v[key]), onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
       const raw = e.target.value;
       setDrafts(old => ({ ...old, [key]: raw }));
       setV(old => ({ ...old, [key]: raw === "" ? 0 : clamp(Number(raw)) }));
@@ -52,7 +54,7 @@ export default function EarningPotentialPage() {
     return { plans, analyzer, products, affiliates, grossBusiness, netBusiness, scenarios, selectedTrading, combined: netBusiness + selectedTrading.monthly };
   }, [v]);
 
-  const field = (label: string, key: keyof Inputs, suffix?: string, step = "1", help?: string) => (
+  const field = (label: string, key: NumericInputKey, suffix?: string, step = "1", help?: string) => (
     <label className="ep-field">
       <span>{label}</span>
       <div className="ep-input-wrap"><input type="number" min="0" step={step} {...update(key)} /><small>{suffix}</small></div>
