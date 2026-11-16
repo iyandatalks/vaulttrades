@@ -26,8 +26,14 @@ const clamp = (n: number) => Math.max(0, Number.isFinite(n) ? n : 0);
 
 export default function EarningPotentialPage() {
   const [v, setV] = useState<Inputs>(defaults);
-  const set = (key: keyof Inputs, value: string) => setV(old => ({ ...old, [key]: key === "selectedWins" ? Math.min(5, Math.max(0, Number(value) || 0)) : clamp(Number(value)) }));
-  const update = (key: keyof Inputs) => ({ value: v[key], onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => set(key, e.target.value) });
+  const [drafts, setDrafts] = useState<Partial<Record<keyof Inputs, string>>>({});
+  const update = (key: keyof Inputs) => key === "selectedWins"
+    ? { value: v.selectedWins, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setV(old => ({ ...old, selectedWins: Math.min(5, Math.max(0, Number(e.target.value) || 0)) })) }
+    : { value: drafts[key] ?? String(v[key]), onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+        const raw = e.target.value;
+        setDrafts(old => ({ ...old, [key]: raw }));
+        setV(old => ({ ...old, [key]: raw === "" ? 0 : clamp(Number(raw)) }));
+      } };
 
   const result = useMemo(() => {
     const plans = v.nexus * 120 + v.nexusPlus * 200 + v.vortex * 440;
@@ -165,7 +171,7 @@ export default function EarningPotentialPage() {
               <div className="ep-metric"><span>Weekly trading illustration</span><strong>{usd(result.selectedTrading.weekly)}</strong></div>
               <div className="ep-metric"><span>Six-month trading illustration</span><strong>{usd(result.selectedTrading.sixMonths)}</strong></div>
               <div className="ep-metric"><span>Trading result vs account size</span><strong>{num(result.selectedTrading.accountPct,2)}%</strong></div>
-              <button className="ep-reset" style={{width:"100%",marginTop:14}} onClick={()=>setV(defaults)}>RESET ALL ASSUMPTIONS</button>
+              <button className="ep-reset" style={{width:"100%",marginTop:14}} onClick={()=>{setV(defaults);setDrafts({});}}>RESET ALL ASSUMPTIONS</button>
             </div>
             <div className="ep-note">The combined figure adds two different types of illustrative results. Trading is not a business commission. No projection should be presented as a promise, expected return or guarantee.</div>
           </aside>
