@@ -11,7 +11,8 @@ function Field({ label, value, setValue, step = "1" }: { label: string; value: s
 
 export default function OpportunityIncomeSection() {
   const [nexus, setNexus] = useState("0"), [plus, setPlus] = useState("0"), [vortex, setVortex] = useState("0");
-  const [analyzer, setAnalyzer] = useState("0"), [otherReferrals, setOtherReferrals] = useState("0"), [otherCommission, setOtherCommission] = useState("0");
+  const [analyzer, setAnalyzer] = useState("0"), [productReferrals, setProductReferrals] = useState("0"), [productCommission, setProductCommission] = useState("0");
+  const [affiliatePartners, setAffiliatePartners] = useState("0"), [affiliateRevenue, setAffiliateRevenue] = useState("0");
   const [monthlyCosts, setMonthlyCosts] = useState("0"), [websiteCost, setWebsiteCost] = useState("39");
   const [accountSize, setAccountSize] = useState("1000"), [lotSize, setLotSize] = useState("0.01");
   const [winPips, setWinPips] = useState("30"), [lossPips, setLossPips] = useState("30"), [pipValue, setPipValue] = useState("0");
@@ -25,10 +26,11 @@ export default function OpportunityIncomeSection() {
     ];
     const plan = rows.reduce((sum, row) => sum + row.count * row.mrr, 0);
     const analyzerIncome = n(analyzer) * 10;
-    const otherIncome = n(otherReferrals) * n(otherCommission);
-    const gross = plan + analyzerIncome + otherIncome;
-    return { rows, plan, analyzerIncome, otherIncome, gross, costs: n(monthlyCosts), net: gross - n(monthlyCosts), website: n(websiteCost) };
-  }, [nexus, plus, vortex, analyzer, otherReferrals, otherCommission, monthlyCosts, websiteCost]);
+    const productIncome = n(productReferrals) * n(productCommission);
+    const affiliateIncome = n(affiliatePartners) * n(affiliateRevenue) * 0.20;
+    const gross = plan + analyzerIncome + productIncome + affiliateIncome;
+    return { rows, plan, analyzerIncome, productIncome, affiliateIncome, gross, costs: n(monthlyCosts), net: gross - n(monthlyCosts), website: n(websiteCost), affiliatePartners: n(affiliatePartners) };
+  }, [nexus, plus, vortex, analyzer, productReferrals, productCommission, affiliatePartners, affiliateRevenue, monthlyCosts, websiteCost]);
 
   const trading = useMemo(() => {
     const account = n(accountSize), lots = n(lotSize), win = n(winPips), loss = n(lossPips);
@@ -86,17 +88,19 @@ export default function OpportunityIncomeSection() {
             </tbody></table></div>
             <div className="vto-projection-input-grid">
               <Field label="QUALIFYING ANALYZER MONTHLY REFERRALS" value={analyzer} setValue={setAnalyzer} />
-              <Field label="OTHER APPROVED REFERRALS" value={otherReferrals} setValue={setOtherReferrals} />
-              <Field label="APPROVED COMMISSION PER OTHER REFERRAL (USD)" value={otherCommission} setValue={setOtherCommission} step="0.01" />
+              <Field label="OTHER VAULTTRADES PRODUCT REFERRALS" value={productReferrals} setValue={setProductReferrals} />
+              <Field label="APPROVED COMMISSION PER PRODUCT REFERRAL (USD)" value={productCommission} setValue={setProductCommission} step="0.01" />
+              <Field label="AFFILIATE PARTNERS REFERRED" value={affiliatePartners} setValue={setAffiliatePartners} />
+              <Field label="AVERAGE QUALIFYING COMMISSION BASE PER AFFILIATE PARTNER (USD)" value={affiliateRevenue} setValue={setAffiliateRevenue} step="0.01" />
               <Field label="MONTHLY OPERATING COSTS (USD)" value={monthlyCosts} setValue={setMonthlyCosts} step="0.01" />
               <Field label="ONE-OFF WEBSITE SETUP COST (USD)" value={websiteCost} setValue={setWebsiteCost} step="0.01" />
             </div>
-            <div className="vto-projection-note">Analyzer illustration uses $10 per qualifying monthly referral (50% of the $20 monthly access price). Confirm the applicable referral agreement and recurring eligibility before relying on this figure. Other partnerships remain user-entered because their commission terms differ. Website setup is shown separately as a one-off cost and is not deducted from the recurring monthly total.</div>
+            <div className="vto-projection-note">Analyzer illustration uses $10 per qualifying monthly referral (50% of the $20 monthly access price). Other VaultTrades product commissions are editable because product-specific rates must match the applicable referral terms. Affiliate-partner referrals are modelled at your stated 20%: number of qualifying referred partners × average eligible commission base per partner × 20%. Enter the actual qualifying base for each partner; do not use total company revenue unless the affiliate agreement explicitly defines it that way. Website setup is shown separately as a one-off cost and is not deducted from the recurring monthly total.</div>
             <div className="vto-projection-summary-grid">
-              <div><span>MEMBERSHIP COMMISSIONS</span><strong>{money(business.plan)}</strong></div><div><span>ANALYZER ILLUSTRATION</span><strong>{money(business.analyzerIncome)}</strong></div><div><span>OTHER APPROVED REFERRALS</span><strong>{money(business.otherIncome)}</strong></div>
+              <div><span>MEMBERSHIP COMMISSIONS</span><strong>{money(business.plan)}</strong></div><div><span>ANALYZER ILLUSTRATION</span><strong>{money(business.analyzerIncome)}</strong></div><div><span>OTHER PRODUCT COMMISSIONS</span><strong>{money(business.productIncome)}</strong></div><div><span>20% AFFILIATE-PARTNER COMMISSION ({business.affiliatePartners} PARTNERS)</span><strong>{money(business.affiliateIncome)}</strong></div>
               <div className="vto-summary-total"><span>ILLUSTRATIVE MONTHLY GROSS</span><strong>{money(business.gross)}</strong></div><div><span>MONTHLY OPERATING COSTS</span><strong className="vto-negative">−{money(business.costs)}</strong></div><div className="vto-summary-net"><span>ILLUSTRATIVE MONTHLY NET</span><strong>{money(business.net)}</strong></div>
             </div>
-            <div className="vto-projection-note">A person's own membership purchase is not counted as a commission. These calculations represent qualifying referrals attributed to a participant, subject to the actual reseller terms, validation, refunds and payment rules. The one-off website setup cost currently entered is {money(business.website)} and is displayed separately.</div>
+            <div className="vto-projection-note">A person's own membership purchase is not counted as a commission. Partner-plan referrals, VaultTrades product referrals and external affiliate-partner referrals are separate income categories. The 20% affiliate calculation applies only to the qualifying commission base defined by each affiliate agreement, subject to attribution, validation, refunds and payment rules. The one-off website setup cost currently entered is {money(business.website)} and is displayed separately.</div>
           </div>
         ) : (
           <div className="vto-projection-panel">
