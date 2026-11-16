@@ -57,7 +57,7 @@ export default function EarningPotentialPage() {
   const field = (label: string, key: NumericInputKey, suffix?: string, step = "1", help?: string) => (
     <label className="ep-field">
       <span>{label}</span>
-      <div className="ep-input-wrap"><input type="number" min="0" step={step} {...update(key)} /><small>{suffix}</small></div>
+      <div className="ep-input-wrap"><input type="number" min="0" step={step} {...update(key as NumericInputKey)} /><small>{suffix}</small></div>
       {help && <em>{help}</em>}
     </label>
   );
