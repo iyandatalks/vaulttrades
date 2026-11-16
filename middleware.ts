@@ -15,7 +15,7 @@ const featureProtectedPaths: Record<string, string> = {
   "/strategies": "analyzer",
 };
 const publicPagePaths = [
-  "/", "/products", "/start", "/opportunity", "/plans", "/subscription",
+  "/", "/products", "/start", "/opportunity", "/earning-potential", "/plans", "/subscription",
   "/membership/checkout", "/reseller-return", "/privacy-policy", "/community",
 ];
 const authenticatedPaths = ["/profile", "/dashboard"];
