@@ -67,8 +67,8 @@ export default function OpportunityPage() {
         <div className="vto-hero-content">
           <div className="vto-kicker">WELCOME TO THE VAULTTRADES OPPORTUNITY</div>
           <div className="vto-brand">VAULT<span>TRADES</span></div>
-          <h1>A process you can follow.<br /><em>A business you can build.</em></h1>
-          <p className="vto-hero-lead">Explore a structured trading journey alongside a digital opportunity designed to help you develop skills, build connections and grow over time.</p>
+          <h1>An existing digital ecosystem.<br /><em>Human direction. AI-powered work.</em></h1>
+          <p className="vto-hero-lead">Explore a technology-enabled business ecosystem bringing together AI-assisted work, digital products, trading technology and additional pathways to build skills and connections.</p>
           <div className="vto-hero-actions">
             <a className="vto-button vto-button-gold" href="#the-opportunity">EXPLORE THE OPPORTUNITY</a>
             <Link className="vto-button vto-button-outline" href="/plans">SEE HOW TO JOIN</Link>
@@ -97,10 +97,10 @@ export default function OpportunityPage() {
         </div>
         <div className="vto-story-copy">
           <div className="vto-kicker">THE PERSON BEHIND THE OPPORTUNITY</div>
-          <h2>My journey started with a lesson in <span>experience.</span></h2>
-          <p>I entered trading believing it could create a different future. Like many people who begin without enough experience, I made mistakes, lost money and became discouraged. I also explored other business opportunities, but found that many depended heavily on selling without giving me a clear structure to build around.</p>
-          <p>Over time, I came to see that trading and digital business both require more than excitement. They need a process: learning, planning, risk awareness, disciplined execution and honest review. That is the thinking behind the VaultTrades ecosystem.</p>
-          <p>This opportunity is about giving people a structured way to explore trading, digital tools and a business pathway—then decide for themselves whether it fits their goals and circumstances.</p>
+          <h2>My journey taught me the value of <span>human direction.</span></h2>
+          <p>I began by exploring trading and other business opportunities. Along the way, I learned that technology alone is not a business strategy and that excitement is not a substitute for a clear process. I wanted to build something practical: an ecosystem with useful products, tools and pathways that people could understand and work with.</p>
+          <p>My work with AI has reinforced the same lesson. I provide context, explain what I am trying to achieve, share my experience, set direction, review the work and correct it when necessary. AI can help research, organise, draft and handle repetitive tasks, but I remain responsible for the decisions and the standard of the work.</p>
+          <p>That is the thinking behind VaultTrades: bring together an existing digital ecosystem, technology, AI assistance, trading tools and business pathways. People can learn how to use what is already built, develop their own judgement and decide which parts fit their goals and circumstances.</p>
           <div className="vto-story-signoff">FOCUS. DISCIPLINE. CONSISTENCY.</div>
           <Link className="vto-button vto-button-gold vto-story-cta" href="/start">EXPLORE THE OPPORTUNITY <span aria-hidden="true">→</span></Link>
         </div>
@@ -108,8 +108,8 @@ export default function OpportunityPage() {
 
       <section className="vto-intro vto-container" id="the-opportunity">
         <div className="vto-kicker">A DIFFERENT WAY TO THINK ABOUT YOUR NEXT MOVE</div>
-        <h2>More than one pathway.<br /><span>One ecosystem to explore.</span></h2>
-        <p className="vto-lead">VaultTrades brings together personal trading, membership, digital products and a scaling affiliate opportunity. You can explore the different pathways, understand what each involves and decide which membership fits your goals and circumstances.</p>
+        <h2>Technology, products and people.<br /><span>One ecosystem to explore.</span></h2>
+        <p className="vto-lead">VaultTrades brings together AI-supported ways of working, an existing digital product portfolio, trading technology, membership and selected referral partnerships. The opportunity is not about building a product or automation platform from zero; it is about understanding the ecosystem, applying human judgement and choosing how to participate.</p>
         <div className="vto-pillars">
           <article className="vto-pillar"><div className="vto-number">01</div><h3>PERSONAL TRADING</h3><p>Develop a structured approach to the markets, with learning and automation options designed around a defined trading process.</p></article>
           <article className="vto-pillar"><div className="vto-number">02</div><h3>MEMBERSHIP</h3><p>Become part of a wider ecosystem, develop your knowledge and explore the opportunity to build a network over time.</p></article>
