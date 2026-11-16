@@ -97,13 +97,29 @@ export default function OpportunityPage() {
         </div>
         <div className="vto-story-copy">
           <div className="vto-kicker">THE PERSON BEHIND THE OPPORTUNITY</div>
-          <h2>My journey taught me the value of <span>human direction.</span></h2>
-          <p>I began by exploring trading and other business opportunities. Along the way, I learned that technology alone is not a business strategy and that excitement is not a substitute for a clear process. I wanted to build something practical: an ecosystem with useful products, tools and pathways that people could understand and work with.</p>
-          <p>My work with AI has reinforced the same lesson. I provide context, explain what I am trying to achieve, share my experience, set direction, review the work and correct it when necessary. AI can help research, organise, draft and handle repetitive tasks, but I remain responsible for the decisions and the standard of the work.</p>
-          <p>That is the thinking behind VaultTrades: bring together an existing digital ecosystem, technology, AI assistance, trading tools and business pathways. People can learn how to use what is already built, develop their own judgement and decide which parts fit their goals and circumstances.</p>
+          <h2>My journey started with a lesson in <span>experience.</span></h2>
+          <p>I entered trading believing it could create a different future. Like many people who begin without enough experience, I made mistakes, lost money and became discouraged. I also explored other business opportunities, but found that many depended heavily on selling without giving me a clear structure to build around.</p>
+          <p>Over time, I came to see that trading and digital business both require more than excitement. They need a process: learning, planning, risk awareness, disciplined execution and honest review. That is the thinking behind the VaultTrades ecosystem.</p>
+          <p>This opportunity is about giving people a structured way to explore trading, digital tools and a business pathway—then decide for themselves whether it fits their goals and circumstances.</p>
+          <p>My experience working with AI has added another dimension to that journey. I explain the business, share context, set the direction, review the output and correct it when needed. AI can help research, plan, organise and handle repetitive work, while human experience and judgement remain in control.</p>
           <div className="vto-story-signoff">FOCUS. DISCIPLINE. CONSISTENCY.</div>
           <Link className="vto-button vto-button-gold vto-story-cta" href="/start">EXPLORE THE OPPORTUNITY <span aria-hidden="true">→</span></Link>
         </div>
+      </section>
+
+      <section className="vto-automation-range vto-blueprint-range vto-container" id="business-automation-blueprint">
+        <div className="vto-kicker">THE DIGITAL BUSINESS AUTOMATION BLUEPRINT</div>
+        <h2>A connected business process.<br /><span>Not just a collection of tools.</span></h2>
+        <p className="vto-automation-intro">A digital business can be organised around a repeatable blueprint: attract interest, capture enquiries, follow up, onboard people, provide access to products and keep track of partner activity. Automation can connect these steps so that routine work is handled consistently, while people remain responsible for relationships, decisions and oversight.</p>
+        <div className="vto-automation-grid">
+          <article className="vto-automation-card"><span>01 · ATTRACT</span><h3>Traffic & lead capture</h3><p>Present the opportunity clearly and capture enquiries through structured landing pages and forms.</p></article>
+          <article className="vto-automation-card"><span>02 · CONNECT</span><h3>Follow-up & communication</h3><p>Organise responses, reminders and useful information so that interested people know the next step.</p></article>
+          <article className="vto-automation-card"><span>03 · ONBOARD</span><h3>Registration & setup</h3><p>Guide people through the appropriate registration, plan selection and onboarding process.</p></article>
+          <article className="vto-automation-card"><span>04 · DELIVER</span><h3>Products & access</h3><p>Connect eligible members with the relevant digital products, tools, learning and support.</p></article>
+          <article className="vto-automation-card"><span>05 · TRACK</span><h3>Partner & referral activity</h3><p>Keep referral attribution, qualifying activity and commission information organised under the applicable terms.</p></article>
+          <article className="vto-automation-card"><span>06 · IMPROVE</span><h3>Review & optimise</h3><p>Use reporting and human review to identify gaps, improve the process and maintain service quality.</p></article>
+        </div>
+        <p className="vto-automation-note">This is the blueprint for how an organised digital business can operate. It does not mean every step is fully automated for every participant today. Specific workflows, integrations, access and automation features depend on the systems implemented and the relevant membership or service.</p>
       </section>
 
       <section className="vto-intro vto-container" id="the-opportunity">
