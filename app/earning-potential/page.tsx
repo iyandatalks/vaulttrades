@@ -27,13 +27,11 @@ const clamp = (n: number) => Math.max(0, Number.isFinite(n) ? n : 0);
 export default function EarningPotentialPage() {
   const [v, setV] = useState<Inputs>(defaults);
   const [drafts, setDrafts] = useState<Partial<Record<keyof Inputs, string>>>({});
-  const update = (key: keyof Inputs) => key === "selectedWins"
-    ? { value: v.selectedWins, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setV(old => ({ ...old, selectedWins: Math.min(5, Math.max(0, Number(e.target.value) || 0)) })) }
-    : { value: drafts[key] ?? String(v[key]), onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
-        const raw = e.target.value;
-        setDrafts(old => ({ ...old, [key]: raw }));
-        setV(old => ({ ...old, [key]: raw === "" ? 0 : clamp(Number(raw)) }));
-      } };
+  const update = (key: Exclude<keyof Inputs, "selectedWins">) => ({ value: drafts[key] ?? String(v[key]), onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+      const raw = e.target.value;
+      setDrafts(old => ({ ...old, [key]: raw }));
+      setV(old => ({ ...old, [key]: raw === "" ? 0 : clamp(Number(raw)) }));
+    } });
 
   const result = useMemo(() => {
     const plans = v.nexus * 120 + v.nexusPlus * 200 + v.vortex * 440;
@@ -112,7 +110,7 @@ export default function EarningPotentialPage() {
                 {field("AVERAGE PIPS LOST PER LOSS", "losingPips", "pips", "1")}
               </div>
               <div style={{marginTop:18}}><div className="ep-index" style={{marginBottom:10}}>WEEKLY OUTCOME SCENARIOS · FIVE TRADES</div><div className="ep-scenarios">{result.scenarios.map(s=><div className={"ep-scenario "+(v.selectedWins===s.wins?"active":"")} key={s.wins}><b>{s.wins} WINS / {s.losses} LOSSES</b><strong>{usd(s.weekly)}</strong><small>Weekly illustration<br/>Monthly: {usd(s.monthly)}<br/>6 months: {usd(s.sixMonths)}</small></div>)}</div></div>
-              <label className="ep-field" style={{display:"block",marginTop:14}}><span>SELECT THE TRADING SCENARIO TO INCLUDE IN THE COMBINED VIEW</span><select className="ep-select" {...update("selectedWins")}><option value="3">3 wins / 2 losses</option><option value="4">4 wins / 1 loss</option><option value="5">5 wins / 0 losses</option></select></label>
+              <label className="ep-field" style={{display:"block",marginTop:14}}><span>SELECT THE TRADING SCENARIO TO INCLUDE IN THE COMBINED VIEW</span><select className="ep-select" value={v.selectedWins} onChange={e=>setV(old=>({...old,selectedWins:Math.min(5,Math.max(0,Number(e.target.value)||0))}))}><option value="3">3 wins / 2 losses</option><option value="4">4 wins / 1 loss</option><option value="5">5 wins / 0 losses</option></select></label>
               <div className="ep-note" style={{marginTop:13}}>These are outcome examples, not measured win probabilities. Market movement is not the same as pips captured. Actual pip value depends on the instrument, broker contract, account currency and lot size. Results exclude spread, commission, swaps, slippage and tax. Trading can result in losses.</div>
             </section>
 
