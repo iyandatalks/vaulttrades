@@ -89,8 +89,8 @@ export async function DELETE(request: Request) {
 
   let query = db.from("marketing_leads").delete().eq("partner_share_consent", true);
   // Partners can only remove leads assigned to their own referral account.
-  // Admin bulk cleanup is intentionally limited to leads assigned to the admin's own account too.
-  query = query.eq("partner_auth_user_id", user.id);
+  // Admins can moderate any consented business lead from the admin workspace.
+  if (profile.role !== "admin") query = query.eq("partner_auth_user_id", user.id);
   if (!all) query = query.eq("id", id);
   const { data, error } = await query.select("id");
   if (error) {
