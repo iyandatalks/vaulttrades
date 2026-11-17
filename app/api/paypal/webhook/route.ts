@@ -104,8 +104,8 @@ export async function POST(request: Request) {
       }
 
       const eaPlanByAmount: Record<number, string> = { 30: "nexus", 50: "nexus_plus", 110: "vortex" };
-      const component = captureAmount === 39 ? "website_setup" : eaPlanByAmount[captureAmount] ? "ea_setup" : null;
-      if (!component) return NextResponse.json({ received: true, ignored: true, reason: "Capture amount is not a configured VaultTrades setup charge" }, { status: 200 });
+      const component = captureAmount === 10 ? "community_join" : captureAmount === 39 ? "website_setup" : eaPlanByAmount[captureAmount] ? "ea_setup" : null;
+      if (!component) return NextResponse.json({ received: true, ignored: true, reason: "Capture amount is not a configured VaultTrades payment" }, { status: 200 });
 
       const { data: customer } = await admin.from("users")
         .select("id,auth_user_id,email")
@@ -113,6 +113,67 @@ export async function POST(request: Request) {
         .maybeSingle();
       if (!customer?.id || !customer.auth_user_id) {
         return NextResponse.json({ received: true, ignored: true, reason: "PayPal payer does not match a registered VaultTrades profile" }, { status: 200 });
+      }
+
+      if (component === "community_join") {
+        const { data: intent, error: intentError } = await admin.from("community_join_intents")
+          .select("id,user_id,auth_user_id,email,referral_code,referrer_user_id,status")
+          .eq("user_id", customer.id).eq("auth_user_id", customer.auth_user_id)
+          .eq("status", "pending").order("created_at", { ascending: false }).limit(1).maybeSingle();
+        if (intentError) return NextResponse.json({ error: "Unable to match Community payment to its pending join request." }, { status: 500 });
+        if (!intent) return NextResponse.json({ received: true, ignored: true, reason: "No pending Community payment intent matched this PayPal payer. Admin review required." }, { status: 200 });
+
+        const verifiedAt = new Date().toISOString();
+        const { data: recorded, error: recordError } = await admin.from("payment_transactions").insert({
+          auth_user_id: customer.auth_user_id, user_id: customer.id, provider: "paypal",
+          provider_order_id: orderId, provider_capture_id: captureId, amount: 10, currency: "USD",
+          status: "verified", payment_method: "paypal_community_once_off", membership_months: 0,
+          raw_event: { order_type: "community_join_once_off", community_join_intent_id: intent.id, referral_code: intent.referral_code, referrer_user_id: intent.referrer_user_id, payer_email: payerEmail, webhook_event_id: event.id || null, paypal_event: event },
+          verified_at: verifiedAt,
+        }).select("id").single();
+        if (recordError || !recorded) {
+          console.error("Unable to record verified Community joining payment", recordError);
+          return NextResponse.json({ error: "Unable to record the verified Community payment." }, { status: 500 });
+        }
+
+        const { error: licenseError } = await admin.from("product_licenses").upsert({
+          user_id: customer.id, email: customer.email, purchased_product_code: "community_once_off",
+          entitlement_code: "community", status: "active", payment_reference: captureId,
+          approved_at: verifiedAt, start_at: verifiedAt, end_at: null, platform: "web",
+          source_payment_snapshot: { provider: "paypal", payment_method: "paypal_community_once_off", capture_id: captureId, amount: 10, currency: "USD", lifetime: true },
+          updated_at: verifiedAt,
+        }, { onConflict: "payment_reference,entitlement_code" });
+        if (licenseError) return NextResponse.json({ error: "Payment was verified, but Community membership entitlement could not be recorded." }, { status: 500 });
+
+        const { data: existingMember, error: memberLookupError } = await admin.from("community_member_names")
+          .select("auth_user_id").eq("auth_user_id", customer.auth_user_id).maybeSingle();
+        if (memberLookupError) return NextResponse.json({ error: "Payment was verified, but the Community member record could not be checked." }, { status: 500 });
+        if (!existingMember) {
+          const { error: memberInsertError } = await admin.from("community_member_names").insert({
+            auth_user_id: customer.auth_user_id, display_name: "Community Member", is_approved: false,
+          });
+          if (memberInsertError) return NextResponse.json({ error: "Payment was verified, but the Community access review record could not be created." }, { status: 500 });
+        }
+
+        const { error: intentUpdateError } = await admin.from("community_join_intents").update({
+          status: "paid", provider_order_id: orderId, provider_capture_id: captureId,
+          payment_transaction_id: recorded.id, paid_at: verifiedAt, updated_at: verifiedAt,
+        }).eq("id", intent.id).eq("status", "pending");
+        if (intentUpdateError) return NextResponse.json({ error: "Payment was verified, but the Community payment record could not be updated." }, { status: 500 });
+
+        if (intent.referrer_user_id) {
+          const commissionReference = `community:${captureId}`;
+          const { data: existingCommission } = await admin.from("referral_commissions")
+            .select("id").eq("subscription_id", commissionReference).maybeSingle();
+          if (!existingCommission) {
+            const { error: commissionError } = await admin.from("referral_commissions").insert({
+              referrer_id: intent.referrer_user_id, referral_id: null, subscription_id: commissionReference,
+              subscription_amount_usd: 10, commission_rate: 20, commission_amount_usd: 2, status: "pending",
+            });
+            if (commissionError) return NextResponse.json({ error: "Payment and membership were recorded, but partner commission needs admin reconciliation." }, { status: 500 });
+          }
+        }
+        return NextResponse.json({ received: true, verified: true, product: "community_once_off", access: "awaiting_admin_approval", commissionUsd: intent.referrer_user_id ? 2 : 0 }, { status: 200 });
       }
 
       let candidatesQuery = admin.from("reseller_purchase_orders")
