@@ -89,6 +89,15 @@ export default async function MemberPortalPage() {
   const pendingPlanCode = String(pendingOrder?.plan_code ?? "");
   const pendingPlan = pendingOrder && isPlanCode(pendingPlanCode) ? pendingPlanCode : null;
   const plan = activePlan || pendingPlan;
+  const isPartnerRole = profile.role === "partner" || profile.role === "reseller";
+  const { data: partnerPortalOverride } = isPartnerRole
+    ? await db.from("partner_portal_access_overrides").select("decision").eq("auth_user_id", user.id).maybeSingle()
+    : { data: null };
+  const partnerPortalAllowed = isPartnerRole && (
+    partnerPortalOverride?.decision === "grant" ||
+    (partnerPortalOverride?.decision !== "revoke" && Boolean(activePlan))
+  );
+  const partnerAccessOnly = partnerPortalAllowed && !plan;
 
   let referralUrl: string | null = null;
   if (activePlan || isAdmin) {
@@ -100,7 +109,7 @@ export default async function MemberPortalPage() {
     referralUrl = "https://vaulttradesve.com/ref/" + code;
   }
 
-  if (!plan && !isAdmin) {
+  if (!plan && !isAdmin && !partnerPortalAllowed) {
     return <main className="vt-member-shell"><section className="vt-member-empty">
       <span className="vt-member-kicker">MEMBERSHIP REQUIRED</span>
       <h1>Your VaultTrades Knowledge Base</h1>
@@ -143,8 +152,10 @@ export default async function MemberPortalPage() {
     </section>}
     <section className="vt-member-shell" style={{ padding: "10px 24px 0", minHeight: "auto" }}><div className="vt-member-header-actions" style={{ maxWidth: 1320, margin: "0 auto" }}><Link href="/member-portal/business-leads" className="vt-member-button">Open Business Leads ↗</Link></div></section>
     <MemberPortalClient
-      plan={plan ?? "vortex"}
+      plan={plan ?? "nexus"}
       isAdmin={isAdmin}
+      partnerAccessOnly={partnerAccessOnly}
+      accessLabel={partnerAccessOnly ? "VaultTrades Partner Portal" : undefined}
       memberEmail={profile.email ?? user.email ?? ""}
       referralUrl={referralUrl}
       hasJournalToolsAccess={isAdmin || hasJournalToolsAccess}
