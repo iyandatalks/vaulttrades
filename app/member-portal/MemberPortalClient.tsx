@@ -113,12 +113,26 @@ export default function MemberPortalClient({
     window.addEventListener("focus", refreshLicensing);
     return () => { window.clearInterval(interval); window.removeEventListener("focus", refreshLicensing); };
   }, []);
+  const planRank = plan === "vortex" ? 3 : plan === "nexus_plus" ? 2 : 1;
+  const planEligibleSection = (sectionId: string) => {
+    if (sectionId === "nexus-plus" || sectionId === "scaling") return planRank >= 2;
+    if (sectionId === "vortex-manual" || sectionId === "vortex-install") return planRank >= 3;
+    return true;
+  };
   const partnerLearningSections = new Set(["welcome", "community", "trading-room", "mentorship", "scaling", "business", "referrals", "business-leads", "website", "paypal-setup", "resources", "tools", "risk", "faq", "notifications"]);
-  const visibleSections = sections.filter(item => (isAdmin || item.id !== "admin") && (!partnerAccessOnly || partnerLearningSections.has(item.id)));
+  const visibleSections = sections.filter(item =>
+    (isAdmin || item.id !== "admin") &&
+    (!partnerAccessOnly || partnerLearningSections.has(item.id)) &&
+    (partnerAccessOnly || planEligibleSection(item.id))
+  );
   const groups = useMemo(() => {
     const result: { group: string; items: typeof sections[number][] }[] = [];
     const query = topicSearch.trim().toLowerCase();
-    for (const item of sections.filter(item => (isAdmin || item.id !== "admin") && (!partnerAccessOnly || partnerLearningSections.has(item.id)))) {
+    for (const item of sections.filter(item =>
+      (isAdmin || item.id !== "admin") &&
+      (!partnerAccessOnly || partnerLearningSections.has(item.id)) &&
+      (partnerAccessOnly || planEligibleSection(item.id))
+    )) {
       if (query && !item.label.toLowerCase().includes(query) && !item.group.toLowerCase().includes(query)) continue;
       let group = result.find(entry => entry.group === item.group);
       if (!group) { group = { group: item.group, items: [] }; result.push(group); }
