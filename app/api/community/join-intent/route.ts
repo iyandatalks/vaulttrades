@@ -16,6 +16,12 @@ export async function POST(request: Request) {
     if (profileError || !profile?.id || !profile.email) {
       return NextResponse.json({ error: "A verified VaultTrades profile and email are required before payment." }, { status: 400 });
     }
+    const { data: existingCommunityAccess } = await admin.from("product_licenses")
+      .select("id").eq("user_id", profile.id).eq("entitlement_code", "community")
+      .eq("status", "active").is("end_at", null).limit(1).maybeSingle();
+    if (existingCommunityAccess) {
+      return NextResponse.json({ error: "Your $10 once-off Community membership is already recorded. You do not need to pay again. Open the Community workspace to request or review your access." }, { status: 409 });
+    }
 
     let referrerUserId: string | null = null;
     if (referralCode) {
