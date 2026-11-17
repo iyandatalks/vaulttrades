@@ -9,7 +9,7 @@ export default async function JournalPage() {
   if (!user) redirect("/auth/login?next=/journal");
 
   const access = await getProductAccess(user.id);
-  if (!access.anyPaidProduct) redirect("/products");
+  if (!access.tools) redirect("/products");
 
   return <JournalClient />;
 }
