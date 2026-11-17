@@ -77,6 +77,21 @@ export async function GET() {
       : codes.has("nexus") || codes.has("vaulttrades_nexus") ? "nexus"
       : null;
     const reseller = { enabled: Boolean(resellerPlan), plan: resellerPlan };
+    const isPartnerRole = profile.role === "partner" || profile.role === "reseller";
+    const { data: portalOverride } = isPartnerRole
+      ? await admin.from("partner_portal_access_overrides").select("decision,reason,updated_at").eq("auth_user_id", user.id).maybeSingle()
+      : { data: null };
+    const partnerPortalApproved = isPartnerRole && (
+      portalOverride?.decision === "grant" ||
+      (portalOverride?.decision !== "revoke" && Boolean(resellerPlan))
+    );
+    const partnerPortal = {
+      isPartner: isPartnerRole,
+      status: !isPartnerRole ? "not_partner" : portalOverride?.decision === "revoke" ? "revoked" : partnerPortalApproved ? "approved" : "pending",
+      access: partnerPortalApproved,
+      accessSource: portalOverride?.decision ? "manual_override" : resellerPlan ? "automatic" : "awaiting_approval",
+      reason: portalOverride?.reason ?? null,
+    };
 
     const { data: pendingOrder } = await admin.from("reseller_purchase_orders")
       .select("id,plan_code,reseller_payment_status,vaulttrades_payment_status")
@@ -124,6 +139,7 @@ export async function GET() {
       access,
       referral,
       reseller,
+      partnerPortal,
       membershipSetup,
     });
   } catch (error) {
