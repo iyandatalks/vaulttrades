@@ -57,6 +57,14 @@ export default async function MemberPortalPage() {
     MEMBERSHIP_CODES.has(String(license.entitlement_code || "").toLowerCase()) &&
     isCurrent(license.start_at, license.end_at)
   );
+  const hasJournalToolsAccess = (licenses ?? []).some((license: any) =>
+    String(license.entitlement_code || "").toLowerCase() === "journal_tools" &&
+    isCurrent(license.start_at, license.end_at)
+  );
+  const hasAnalyzerAccess = (licenses ?? []).some((license: any) =>
+    String(license.entitlement_code || "").toLowerCase() === "analyzer" &&
+    isCurrent(license.start_at, license.end_at)
+  );
   const isAdmin = profile.role === "admin";
   const membershipCodes = new Set(memberships.map((license: any) => String(license.entitlement_code).toLowerCase()));
   const activePlan = isAdmin || membershipCodes.has("vortex") || membershipCodes.has("vaulttrades_vortex")
@@ -139,6 +147,8 @@ export default async function MemberPortalPage() {
       isAdmin={isAdmin}
       memberEmail={profile.email ?? user.email ?? ""}
       referralUrl={referralUrl}
+      hasJournalToolsAccess={isAdmin || hasJournalToolsAccess}
+      hasAnalyzerAccess={isAdmin || hasAnalyzerAccess}
       licensingRequests={licensingRequests ?? []}
       websiteRequests={websiteRequests ?? []}
       memberNotifications={memberNotifications ?? []}
