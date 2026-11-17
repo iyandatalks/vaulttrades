@@ -321,3 +321,29 @@
 .vt-opportunity .vto-dark-band .vto-split>div>p{color:#c4ccd8}
 .vt-opportunity .vto-dark-band .vto-step h3{color:#f4f6fb}
 .vt-opportunity .vto-dark-band .vto-step p{color:#c4ccd8}
+
+
+/* Opportunity page dark-surface contrast audit.
+   Explicitly keep every text layer readable on dark sections after the shared paper-canvas reset. */
+.vt-opportunity :is(.vto-capital,.vto-pathway-band,.vto-mid-cta,.vto-income-section,.vto-membership,.vto-results,.vto-learning-band,.vto-evidence,.vto-final,.vto-dark-band){
+  color:#f4f6fb;
+}
+.vt-opportunity :is(.vto-capital,.vto-pathway-band,.vto-mid-cta,.vto-income-section,.vto-membership,.vto-results,.vto-learning-band,.vto-evidence,.vto-final) :is(h1,h2,h3,h4,strong,b,summary){
+  color:#f6f4ef;
+}
+.vt-opportunity :is(.vto-capital,.vto-pathway-band,.vto-mid-cta,.vto-income-section,.vto-membership,.vto-results,.vto-learning-band,.vto-evidence,.vto-final) :is(p,li,small){
+  color:#c4ccd8;
+}
+.vt-opportunity :is(.vto-capital,.vto-pathway-band,.vto-mid-cta,.vto-income-section,.vto-membership,.vto-results,.vto-learning-band,.vto-evidence,.vto-final) .vto-kicker{
+  color:#f0d58a;
+}
+.vt-opportunity :is(.vto-capital,.vto-pathway-band,.vto-mid-cta,.vto-income-section,.vto-membership,.vto-results,.vto-learning-band,.vto-evidence,.vto-final) :is(h2,h3) span{
+  color:#f0c75e;
+}
+/* Restore readable contrast on the warm-paper automation introduction. */
+.vt-opportunity .vto-automation-range{color:#171b24}
+.vt-opportunity .vto-automation-range .vto-kicker{color:#8a6415}
+.vt-opportunity .vto-automation-range>h2{color:#171b24}
+.vt-opportunity .vto-automation-intro{color:#424b59}
+.vt-opportunity .vto-automation-card p,
+.vt-opportunity .vto-automation-note{color:#c4ccd8}
