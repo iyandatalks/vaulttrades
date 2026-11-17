@@ -103,14 +103,20 @@ export async function middleware(request: NextRequest) {
   );
 
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user && !hasPartnerAccess && !isPartnerSubdomain) {
+  if (!user) {
+    if (!hasPartnerAccess) {
+      const destination = request.nextUrl.clone();
+      destination.pathname = isPartnerSubdomain ? "/start" : "/contact-partner";
+      destination.search = "";
+      destination.searchParams.set("next", pathname + request.nextUrl.search);
+      return NextResponse.redirect(destination);
+    }
     const destination = request.nextUrl.clone();
-    destination.pathname = "/contact-partner";
+    destination.pathname = "/auth/login";
     destination.search = "";
     destination.searchParams.set("next", pathname + request.nextUrl.search);
     return NextResponse.redirect(destination);
   }
-  if (!user) return new NextResponse(null, { status: 404 });
 
   if (authenticatedPaths.some(path => isPath(pathname, path))) return response;
 
