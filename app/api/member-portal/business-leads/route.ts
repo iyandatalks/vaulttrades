@@ -77,3 +77,26 @@ export async function PATCH(request: Request) {
   if (error || !data) return NextResponse.json({ error: "This lead is not assigned to your business or could not be updated." }, { status: 404 });
   return NextResponse.json({ ok: true, lead: data });
 }
+
+export async function DELETE(request: Request) {
+  const access = await getAccess();
+  if ("response" in access) return access.response;
+  const { db, user, profile } = access;
+  const body = await request.json().catch(() => ({}));
+  const all = body.all === true;
+  const id = typeof body.id === "string" ? body.id.trim() : "";
+  if (!all && !id) return NextResponse.json({ error: "Choose a lead to remove." }, { status: 400 });
+
+  let query = db.from("marketing_leads").delete().eq("partner_share_consent", true);
+  // Partners can only remove leads assigned to their own referral account.
+  // Admin bulk cleanup is intentionally limited to leads assigned to the admin's own account too.
+  query = query.eq("partner_auth_user_id", user.id);
+  if (!all) query = query.eq("id", id);
+  const { data, error } = await query.select("id");
+  if (error) {
+    console.error("Business lead deletion failed:", error.message);
+    return NextResponse.json({ error: "Unable to remove the selected lead(s)." }, { status: 500 });
+  }
+  if (!all && (!data || data.length === 0)) return NextResponse.json({ error: "This lead is not assigned to your business." }, { status: 404 });
+  return NextResponse.json({ ok: true, deleted: data?.length ?? 0 });
+}
