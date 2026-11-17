@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 
 const publicTabs = [
   { href: "/", label: "Home" },
-  { href: "/subscription?promo=1", label: "Products" },
+  { href: "/contact-partner", label: "Products" },
 ];
 
 const adminTabs = [
