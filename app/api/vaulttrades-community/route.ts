@@ -218,9 +218,11 @@ export async function POST(request: Request) {
     if (youtubeUrl) {
       let parsed: URL;
       try { parsed = new URL(youtubeUrl); } catch { return fail("Enter a valid YouTube video link."); }
-      const host = parsed.hostname.toLowerCase().replace(/^www\\./, "");
+      const host = parsed.hostname.toLowerCase().replace("www.", "");
       if (!["youtube.com", "m.youtube.com", "youtu.be", "youtube-nocookie.com"].includes(host)) return fail("Video links must be hosted on YouTube.");
-      if (!parsed.searchParams.get("v") && !parsed.pathname.match(/^\\/(?:embed|shorts)\\/[A-Za-z0-9_-]{6,}/) && host !== "youtu.be") return fail("Choose a valid YouTube video link.");
+      const segments = parsed.pathname.split("/").filter(Boolean);
+      const videoId = host === "youtu.be" ? segments[0] : parsed.searchParams.get("v") || (["embed", "shorts"].includes(segments[0] || "") ? segments[1] : "");
+      if (!videoId || !/^[A-Za-z0-9_-]{6,}$/.test(videoId)) return fail("Choose a valid YouTube video link.");
     }
     const values = { title, content, youtube_url: youtubeUrl || null, sort_order: sortOrder, is_published: isPublished, updated_at: new Date().toISOString() };
     const result = id
