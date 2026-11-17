@@ -6,6 +6,7 @@ type Member = {
   id: string; auth_user_id: string; email: string; first_name: string | null; last_name: string | null;
   role: string | null; display_name: string; community_approved: boolean;
   portal_override: "grant" | "revoke" | "automatic"; portal_override_reason: string;
+  current_plan: "nexus" | "nexus_plus" | "vortex" | null;
 };
 
 export default function AdminAccessManagement() {
@@ -97,7 +98,13 @@ export default function AdminAccessManagement() {
         <span className="status">Role: {member.role || "member"}</span>
         <span className="status">Community: {member.community_approved ? "Approved" : "Not approved"}</span>
         <span className="status">Portal: {member.portal_override === "automatic" ? "Automatic" : `Manual ${member.portal_override}`}</span>
+        <span className="status">Plan: {member.current_plan ? ({ nexus: "Nexus", nexus_plus: "Nexus Plus", vortex: "Vortex" } as const)[member.current_plan] : "Not assigned"}</span>
         <div className="muted">Account ID: {member.auth_user_id}</div>
+        <h4>Membership plan (after payment verification)</h4>
+        <p className="muted">Assign the verified one-time membership plan. This controls Knowledge Base and EA tier eligibility. Monthly Analyzer and Journal + Core Tools subscriptions remain separate.</p>
+        <button disabled={!!busy} onClick={() => void act(member, "assign_membership_plan", { planCode: "nexus" })}>Assign Plan 1 · Nexus</button>
+        <button disabled={!!busy} onClick={() => void act(member, "assign_membership_plan", { planCode: "nexus_plus" })}>Assign Plan 2 · Nexus Plus</button>
+        <button disabled={!!busy} onClick={() => void act(member, "assign_membership_plan", { planCode: "vortex" })}>Assign Plan 3 · Vortex</button>
         <h4>Community access</h4>
         <button disabled={!!busy} onClick={() => void act(member, "community_access", { approved: true, displayName: member.display_name })}>Grant Community</button>
         <button className="danger" disabled={!!busy} onClick={() => void act(member, "community_access", { approved: false, displayName: member.display_name })}>Revoke Community</button>
