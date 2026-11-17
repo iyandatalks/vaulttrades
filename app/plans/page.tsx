@@ -63,17 +63,17 @@ export default function PlansPage() {
             <div className="vt-plan-price">{plan.price}<small> USD</small></div>
             <div className="vt-plan-once">ONE-TIME PACKAGE PRICE · INCLUDES EA SETUP ALLOCATION</div>
             <div className="vt-plan-breakdown">
-              <div><span>Eligible MRR component · 100% reseller commission</span>
+              <div><span>Partner membership payment · 80%</span>
               <strong>${(Number(plan.price.replace("$", "")) * 0.8).toFixed(2)} <small>USD</small></strong></div>
-              <div><span>EA once-off setup · VaultTrades</span><strong>${(Number(plan.price.replace("$", "")) * 0.2).toFixed(2)} <small>USD</small></strong></div>
-              <p>The MRR component is paid to the reseller through their PayPal link. The EA setup component is a separate VaultTrades charge.</p>
+              <div><span>VaultTrades EA setup allocation · 20%</span><strong>${(Number(plan.price.replace("$", "")) * 0.2).toFixed(2)} <small>USD</small></strong></div>
+              <p>These two payments add up to the full one-time package price. The 80% partner payment is made through the referring partner’s PayPal checkout link; the 20% EA setup allocation is paid separately to VaultTrades. No extra EA setup fee is added on top.</p>
             </div>
             <p className="vt-plan-intro">{plan.intro}</p>
             <ul>{plan.features.map((feature) => <li key={feature}><span aria-hidden="true">✓</span>{feature}</li>)}</ul>
             <div className="vt-plan-addon">
               <span>Required personal website setup</span>
               <strong>$39 <small>USD · once-off</small></strong>
-              <p>Required for the reseller programme and charged in addition to membership. A personalised domain is optional; domain purchase, connection and any applicable fees are handled separately.</p>
+              <p>This $39 fee applies only when you join the reseller programme. It is additional to the membership price and covers setup of your personal reseller website. A personalised domain is optional; any domain purchase or connection cost is disclosed separately.</p>
             </div>
             <Link className="vt-plan-select" href={`/membership/checkout?plan=${plan.code}`}>Select this plan <span>→</span></Link>
           </article>
@@ -83,7 +83,7 @@ export default function PlansPage() {
         <h2>Important details</h2>
         <p>Membership fees are once-off. Trading capital is separate and must be funded with your chosen broker. Trading involves risk and losses are possible; trading results and business commissions are not guaranteed.</p>
         <p>Resellers receive 100% commission on the eligible MRR membership component of qualifying sales they personally refer, subject to verification, refunds and the reseller agreement. Separately priced VaultTrades services are excluded from that MRR commission. This is a membership-sale commission, not a guarantee of trading profit.</p>
-        <p>Personal website setup is required for the reseller programme and costs $39 once-off, in addition to the selected membership fee. Using your own personalised domain is optional. If you choose that route, provide the domain details after purchase so VaultTrades can assess and configure the connection. Any domain purchase or connection fee will be disclosed separately before you proceed.</p>
+        <p>If you join the reseller programme, personal website setup costs $39 once-off in addition to your selected membership. This is not an extra membership or EA charge. Using your own personalised domain is optional; any domain purchase or connection fee will be disclosed separately before you proceed.</p>
       </section>
     </main>
   );
