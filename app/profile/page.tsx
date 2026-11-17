@@ -18,7 +18,8 @@ export default function ProfilePage() {
   const [hasResellerProgramme, setHasResellerProgramme] = useState(false);
   const [resellerPlan, setResellerPlan] = useState<string | null>(null);
   const [referral, setReferral] = useState<ReferralState>({ enabled: false, code: null, url: null });
-  const [membershipSetup, setMembershipSetup] = useState<MembershipSetupState>(null);\n  const [partnerPortal, setPartnerPortal] = useState<PartnerPortalState | null>(null);
+  const [membershipSetup, setMembershipSetup] = useState<MembershipSetupState>(null);
+  const [partnerPortal, setPartnerPortal] = useState<PartnerPortalState | null>(null);
 
   useEffect(() => {
     const sb = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
@@ -33,7 +34,8 @@ export default function ProfilePage() {
           setHasWhatsAppSupport(result?.supportWhatsApp === true);
           setHasResellerProgramme(result?.reseller?.enabled === true);
           setResellerPlan(result?.reseller?.plan ?? null);
-          setMembershipSetup(result?.membershipSetup ?? null);\n          setPartnerPortal(result?.partnerPortal ?? null);
+          setMembershipSetup(result?.membershipSetup ?? null);
+          setPartnerPortal(result?.partnerPortal ?? null);
         }
       }
       setLoading(false);
