@@ -102,3 +102,16 @@
   .vt-cw-sessions .vt-calendar-time-fields{grid-template-columns:1fr}
   .vt-cw-sessions .vt-calendar-event{align-items:flex-start;flex-direction:column}
 }
+
+
+/* Approved-member testimonials and administrator reconciliation dashboard */
+.vt-cw-testimonials{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.vt-cw-testimonials article{padding:20px;border:1px solid rgba(212,166,55,.2);border-radius:12px;background:#0a121f}
+.vt-cw-testimonials article>span{color:#e5bd55;font-size:9px;font-weight:900;letter-spacing:.12em}
+.vt-cw-testimonials article p{color:#d6deea;font-size:13px;line-height:1.75;white-space:pre-wrap}
+.vt-cw-testimonials article strong{color:#f5f7fb;font-size:11px}
+.vt-cw-reconciliation-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0 0 18px}
+.vt-cw-reconciliation-grid article{padding:17px;border:1px solid rgba(212,166,55,.2);border-radius:11px;background:#0a121f}
+.vt-cw-reconciliation-grid article span{display:block;color:#aeb9cb;font-size:10px;line-height:1.5}
+.vt-cw-reconciliation-grid article strong{display:block;margin-top:8px;color:#f0ce72;font-size:27px;font-variant-numeric:tabular-nums}
+@media(max-width:700px){.vt-cw-testimonials{grid-template-columns:1fr}.vt-cw-reconciliation-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
