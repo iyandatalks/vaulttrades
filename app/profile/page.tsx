@@ -7,6 +7,7 @@ import { createBrowserClient } from "@supabase/ssr";
 
 type ReferralState = { enabled: boolean; code: string | null; url: string | null };
 type MembershipSetupState = { active: boolean; plan: string; partnerConfirmationPending: boolean } | null;
+type PartnerPortalState = { isPartner: boolean; status: "not_partner" | "pending" | "approved" | "revoked"; access: boolean; accessSource: string; reason: string | null };
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -17,7 +18,7 @@ export default function ProfilePage() {
   const [hasResellerProgramme, setHasResellerProgramme] = useState(false);
   const [resellerPlan, setResellerPlan] = useState<string | null>(null);
   const [referral, setReferral] = useState<ReferralState>({ enabled: false, code: null, url: null });
-  const [membershipSetup, setMembershipSetup] = useState<MembershipSetupState>(null);
+  const [membershipSetup, setMembershipSetup] = useState<MembershipSetupState>(null);\n  const [partnerPortal, setPartnerPortal] = useState<PartnerPortalState | null>(null);
 
   useEffect(() => {
     const sb = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
@@ -32,7 +33,7 @@ export default function ProfilePage() {
           setHasWhatsAppSupport(result?.supportWhatsApp === true);
           setHasResellerProgramme(result?.reseller?.enabled === true);
           setResellerPlan(result?.reseller?.plan ?? null);
-          setMembershipSetup(result?.membershipSetup ?? null);
+          setMembershipSetup(result?.membershipSetup ?? null);\n          setPartnerPortal(result?.partnerPortal ?? null);
         }
       }
       setLoading(false);
@@ -76,6 +77,22 @@ export default function ProfilePage() {
           <article className="vt-info-card"><h3>Manage Partners</h3><p className="muted">Manage the partner catalogue and public partner page.</p><Link className="vt-primary" href="/admin/partners" style={{ display: "inline-block", marginTop: 8 }}>Open Partner Management →</Link></article>
           <article className="vt-info-card"><h3>Revenue Model</h3><p className="muted">Private notes on reseller commissions, product revenue, website services and payment settlement.</p><Link className="vt-primary" href="/admin/revenue-model" style={{ display: "inline-block", marginTop: 8 }}>Open Revenue Model →</Link></article>
         </div>
+      </section>}
+
+      {partnerPortal?.isPartner && <section className="vt-info-card" style={{ marginTop: 24, textAlign: "left", border: "1px solid rgba(212,166,55,.45)" }}>
+        <div className="vt-label">YOUR PARTNER PROFILE</div>
+        <h2 style={{ margin: "10px 0 8px", fontSize: 27 }}>VaultTrades Partner Portal</h2>
+        {partnerPortal.status === "approved" ? <>
+          <p>Your partner access is <strong style={{ color: "#6fd39a" }}>APPROVED</strong>. Sign in with this account whenever you want to continue your partner learning pathway, follow the setup process and use your partner workspace.</p>
+          <Link className="vt-primary" href="/member-portal" style={{ display: "inline-block", marginTop: 10 }}>Open My Partner Portal →</Link>
+          <p className="muted" style={{ marginTop: 10, fontSize: 12 }}>Access source: {partnerPortal.accessSource === "manual_override" ? "Administrator approval" : "Automatic eligibility"}.</p>
+        </> : partnerPortal.status === "revoked" ? <>
+          <p>Your partner account remains registered, but Partner Portal access is currently <strong style={{ color: "#ff8b83" }}>REVOKED</strong> by an administrator. The learning workspace and partner tools are unavailable while this status remains in place.</p>
+          <p className="muted">If you believe this is an error, contact VaultTrades administration and ask for an access review.</p>
+        </> : <>
+          <p>Your partner account is registered. Partner Portal access is currently <strong style={{ color: "#e7c879" }}>PENDING APPROVAL</strong>. You can return to this profile to check your status. The portal link will become available automatically when access is approved.</p>
+          <p className="muted">You do not need a separate website login. Use this same VaultTrades account and password.</p>
+        </>}
       </section>}
 
       {(isAdmin || hasResellerProgramme) && <section className="vt-info-card" style={{ marginTop: 24, textAlign: "left", border: "1px solid rgba(212,166,55,.35)" }}>
