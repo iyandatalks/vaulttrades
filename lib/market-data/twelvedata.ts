@@ -124,7 +124,10 @@ export async function getTwelveDataTimeSeries({ symbol, timeframe, outputsize = 
       }];
     }).slice(-outputsize);
   }
-  const live = await getTwelveDataLatestPrice(normalizedSymbol);
+  // The latest-quote endpoint is supplementary. If it is unavailable or the
+  // account has exhausted quote credits, keep the valid time-series snapshot
+  // usable and fall back to the latest candle close.
+  const live = await getTwelveDataLatestPrice(normalizedSymbol).catch(() => ({ price: null, timestamp: null }));
   const latestClose = candles.at(-1)?.close ?? null;
   return { provider: "twelvedata", symbol: normalizedSymbol, interval, candles, currentPrice: live.price ?? latestClose, currentPriceTimestamp: live.timestamp, fetchedAt: new Date().toISOString() };
 }
