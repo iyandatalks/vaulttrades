@@ -11,7 +11,11 @@ export async function GET() {
   const db = process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : auth;
   const { data: profile } = await db.from("users").select("id,role").eq("auth_user_id", user.id).maybeSingle();
   if (!profile) return NextResponse.json({ hasMembership: false, isAdmin: false }, { status: 200 });
-  if (profile.role === "admin") return NextResponse.json({ hasMembership: true, isAdmin: true, plan: "vortex" });
+  if (profile.role === "admin") return NextResponse.json({ hasMembership: true, isAdmin: true, plan: "vortex", accessSource: "admin" });
+  const { data: override } = await db.from("partner_portal_access_overrides")
+    .select("decision,reason").eq("auth_user_id", user.id).maybeSingle();
+  if (override?.decision === "grant") return NextResponse.json({ hasMembership: true, isAdmin: false, plan: "partner_portal", accessSource: "manual_override" });
+  if (override?.decision === "revoke") return NextResponse.json({ hasMembership: false, isAdmin: false, plan: null, accessSource: "manual_override" });
   const { data: licenses } = await db.from("product_licenses")
     .select("entitlement_code,status,start_at,end_at")
     .eq("user_id", profile.id)
@@ -27,5 +31,5 @@ export async function GET() {
   const plan = codes.has("vortex") || codes.has("vaulttrades_vortex") ? "vortex"
     : codes.has("nexus_plus") || codes.has("vaulttrades_nexus_plus") ? "nexus_plus"
     : codes.has("nexus") || codes.has("vaulttrades_nexus") ? "nexus" : null;
-  return NextResponse.json({ hasMembership: Boolean(plan), isAdmin: false, plan });
+  return NextResponse.json({ hasMembership: Boolean(plan), isAdmin: false, plan, accessSource: "automatic" });
 }
