@@ -120,8 +120,9 @@ export async function GET() {
     }
     const byPlan = Object.fromEntries([...planMembers.entries()].map(([plan, members]) => [plan, members.size]));
     const partnershipMemberIds = new Set((activePartnerProfiles.data ?? []).map(row => row.user_id).filter(Boolean));
+    const knowledgeBaseCodes = new Set(["nexus", "vaulttrades_nexus", "nexus_plus", "vaulttrades_nexus_plus", "vortex", "vaulttrades_vortex"]);
     const knowledgeBaseUsers = new Set(validLicences
-      .filter(row => /knowledge|kb/i.test(row.entitlement_code || ""))
+      .filter(row => knowledgeBaseCodes.has(String(row.entitlement_code || "").toLowerCase()))
       .map(row => row.user_id));
     reconciliation = {
       totalCommunityMembers: allCommunity.count ?? 0,
@@ -137,7 +138,21 @@ export async function GET() {
     const { data: pending } = await db.from("community_member_names")
       .select("auth_user_id,display_name,is_approved,created_at")
       .eq("is_approved", false).order("created_at", { ascending: true }).limit(200);
-    pendingMembers = pending ?? [];
+    const pendingIds = (pending ?? []).map(row => row.auth_user_id);
+    const { data: joinPayments, error: joinPaymentError } = pendingIds.length
+      ? await db.from("community_join_intents").select("auth_user_id,email,status,paid_at,amount,referral_code")
+          .in("auth_user_id", pendingIds).order("created_at", { ascending: false })
+      : { data: [], error: null };
+    if (joinPaymentError) return fail("Community payment reviews could not be loaded.", 500);
+    const latestPaymentByUser = new Map<string, any>();
+    for (const payment of joinPayments ?? []) if (!latestPaymentByUser.has(payment.auth_user_id)) latestPaymentByUser.set(payment.auth_user_id, payment);
+    pendingMembers = (pending ?? []).map(row => ({
+      ...row,
+      email: latestPaymentByUser.get(row.auth_user_id)?.email ?? null,
+      paymentStatus: latestPaymentByUser.get(row.auth_user_id)?.status ?? "no_record",
+      paidAt: latestPaymentByUser.get(row.auth_user_id)?.paid_at ?? null,
+      referralCode: latestPaymentByUser.get(row.auth_user_id)?.referral_code ?? null,
+    }));
     const { data: commentsPending } = await db.from("community_comments")
       .select("id,post_id,auth_user_id,display_name,body,created_at")
       .eq("moderation_status", "pending").order("created_at", { ascending: true }).limit(200);
