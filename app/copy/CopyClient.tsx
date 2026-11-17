@@ -125,7 +125,7 @@ export default function CopyPage() {
             {!signedIn && <Link className="vt-secondary" href="/auth/login?next=/copy">Sign in / Create account</Link>}
           </div>}
           <p style={{ marginTop: 14, marginBottom: 0 }}>
-            <Link href="/how-it-works" className="vt-info-text-link">Learn how Copy Trading works ↗</Link>
+            <Link href="/how-it-works" className="vt-text-link">Learn how Copy Trading works ↗</Link>
           </p>
         </header>
 
