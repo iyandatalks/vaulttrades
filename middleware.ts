@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { getProductAccess } from "@/lib/product-access";
 import { PARTNER_ACCESS_COOKIE, verifyPartnerAccessToken } from "@/lib/partner-access";
 
@@ -151,6 +152,28 @@ export async function middleware(request: NextRequest) {
   if (isPath(pathname, "/member-portal")) {
     if (isAdmin) return response;
     if (!profile?.id) return new NextResponse(null, { status: 404 });
+
+    // Partner Portal approval is a separate entitlement from a paid Nexus licence.
+    // The override table is service-role-only, so read it with a server-side client
+    // after verifying the signed-in user's partner/reseller role above.
+    const isPartnerRole = profile.role === "partner" || profile.role === "reseller";
+    if (isPartnerRole && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      const adminDb = createSupabaseClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY,
+        { auth: { persistSession: false, autoRefreshToken: false } }
+      );
+      const { data: portalOverride } = await adminDb
+        .from("partner_portal_access_overrides")
+        .select("decision")
+        .eq("auth_user_id", user.id)
+        .maybeSingle();
+
+      if (portalOverride?.decision === "grant") return response;
+      if (portalOverride?.decision === "revoke") return new NextResponse(null, { status: 404 });
+    }
+
+    // Preserve the existing automatic access path for active commercial memberships.
     const { data: resellerLicences } = await supabase
       .from("product_licenses")
       .select("entitlement_code,status,start_at,end_at")
