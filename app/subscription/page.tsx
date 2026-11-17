@@ -4,6 +4,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 
 const PRODUCTS = [
+  { code: "journal_tools_monthly", name: "Journal + Core Tools", price: "10.00", suffix: "/month", description: "Trading Journal, AI Coaching, Risk Manager and Funded Account Wealth Builder." },
+  { code: "analyzer_reseller_monthly", name: "Analyzer Access", price: "20.00", suffix: "/month", description: "Optional separate monthly Analyzer access for partners." },
   { code: "analyzer_monthly", name: "Analyzer", price: "73.99", suffix: "/month", description: "Structured chart analysis, strategy conditions and trade planning." },
   { code: "founders_mentorship_once", name: "Founders Mentorship", price: "88.88", suffix: " once off", description: "A focused mentorship program with a 1-hour one-on-one session." },
   { code: "automated_trader_monthly", name: "Copy Trading", price: "99.99", suffix: "/month", description: "VaultTrades copy trading with connected MT5 execution." },
