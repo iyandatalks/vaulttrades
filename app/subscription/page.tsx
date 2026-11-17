@@ -151,7 +151,7 @@ function SubscriptionContent() {
                   </div>
                 )}
 
-                {product.code !== "founders_mentorship_once" && (
+                {(product.code === "analyzer_monthly" || product.code === "automated_trader_monthly") && (
                   <div style={{ marginTop: 16, padding: 14, borderRadius: 10, background: "rgba(220,38,38,.08)", border: "1px solid rgba(220,38,38,.35)" }}>
                     <div style={{ color: "#ff4d4d", fontWeight: 950, fontSize: 14 }}>50% DISCOUNT — CODE VAULT50</div>
                     <div style={{ color: "#aeb5c6", fontSize: 12, marginTop: 5 }}>Valid for the first 6 monthly billing cycles when you qualify through a VaultTrades referral.</div>
