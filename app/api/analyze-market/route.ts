@@ -171,6 +171,9 @@ export async function POST(request: Request) {
     const silverMarket = strategyId === "fibRetracement" && isGoldInstrument
       ? await getTwelveDataTimeSeries({ symbol: "XAG/USD", timeframe, outputsize: 250 }).catch(() => null)
       : null;
+    const fibM5Market = strategyId === "fibRetracement" && timeframe !== "5m"
+      ? await getTwelveDataTimeSeries({ symbol, timeframe: "5m", outputsize: 250 }).catch(() => null)
+      : null;
 
     const selectedIndicators = profileStrategy.defaultIndicators;
     const context = buildAnalyzerMarketContext(market.candles, market.symbol, timeframe, selectedIndicators);
@@ -238,6 +241,7 @@ export async function POST(request: Request) {
     const autoFibEngine = strategyId === "fibRetracement" ? analyzeAutoFibRetrace({
       candles: market.candles.map((c) => ({ time: new Date(c.datetime).getTime(), open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume ?? undefined })),
       silverCandles: silverMarket?.candles.map((c) => ({ time: new Date(c.datetime).getTime(), open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume ?? undefined })),
+      m5Candles: (timeframe === "5m" ? market.candles : fibM5Market?.candles ?? []).map((c) => ({ time: new Date(c.datetime).getTime(), open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume ?? undefined })),
     }) : null;
     const visualOrderBlocks = strategyId === "fibRetracement" && autoFibEngine
       ? [
