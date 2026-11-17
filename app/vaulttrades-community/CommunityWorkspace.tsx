@@ -91,6 +91,7 @@ export default function CommunityWorkspace() {
   const memberPosts = useMemo(() => posts.filter(post => post.category === "member_discussion" || post.category === "new_business_deal"), [posts]);
   const generalPosts = useMemo(() => posts.filter(post => post.category === "general_discussion" || post.category === "opportunity"), [posts]);
   const isAdmin = Boolean(data?.isAdmin);
+  const isPartner = Boolean(data?.isPartner);
 
   if (loading) return <main className="vt-community-workspace"><div className="vt-cw-loading">Loading your Community workspace…</div></main>;
   if (error && !data) return <main className="vt-community-workspace"><div className="vt-cw-loading"><p>{error}</p><button onClick={() => void load()}>Try again</button></div></main>;
@@ -109,7 +110,7 @@ export default function CommunityWorkspace() {
 
   function renderPost(post: Post) {
     const postComments = comments.filter(comment => comment.post_id === post.id);
-    const canComment = post.category === "member_discussion" || post.category === "new_business_deal";
+    const canComment = (isPartner || isAdmin) && (post.category === "member_discussion" || post.category === "new_business_deal");
     return <article className="vt-cw-post" key={post.id}>
       <div className="vt-cw-post-top"><div><span>{post.category === "new_business_deal" ? "NEW BUSINESS DEAL" : post.category.replaceAll("_", " ").toUpperCase()}</span><strong>{post.display_name}</strong></div><small>{new Date(post.created_at).toLocaleString("en-ZA")}</small></div>
       <h3>{post.title}</h3><p>{post.body}</p>
@@ -128,11 +129,11 @@ export default function CommunityWorkspace() {
   return <main className="vt-community-workspace">
     <header className="vt-cw-header">
       <div><span>VAULTTRADES · PRIVATE COMMUNITY</span><h1>Community.</h1><p>Learn together. Share responsibly. Build business through verified progress.</p><small>Signed in as <strong>{data.member?.display_name || "VaultTrades Admin"}</strong> · Your real account identity remains private to other members.</small></div>
-      <div className="vt-cw-header-actions"><Link href="/member-portal" className="vt-cw-back">Knowledge Base</Link>{isAdmin && <span className="vt-cw-admin-tag">ADMINISTRATOR</span>}</div>
+      <div className="vt-cw-header-actions">{(isPartner || isAdmin) && <Link href="/member-portal" className="vt-cw-back">Knowledge Base</Link>}{isAdmin && <span className="vt-cw-admin-tag">ADMINISTRATOR</span>}</div>
     </header>
 
     <nav className="vt-cw-tabs">
-      {[[ "feed", "Community Feed" ],[ "discussions", "Member Discussions" ],[ "deals", "New Business Deals" ],[ "leaderboard", "Business Leaderboard" ],[ "members", "Members" ],[ "sessions", "Sessions & Calendar" ],...(isAdmin ? [[ "admin", "Administration" ]] : [])].map(([value,label]) => <button key={value} className={tab === value ? "active" : ""} onClick={() => setTab(value)}>{label}</button>)}
+      {[[ "feed", "Community Feed" ],[ "discussions", "Member Discussions" ],...(isPartner || isAdmin ? [[ "deals", "New Business Deals" ]] : []),[ "leaderboard", "Business Leaderboard" ],...(isPartner || isAdmin ? [[ "members", "Members" ],[ "sessions", "Sessions & Calendar" ]] : []),...(isAdmin ? [[ "admin", "Administration" ]] : [])].map(([value,label]) => <button key={value} className={tab === value ? "active" : ""} onClick={() => setTab(value)}>{label}</button>)}
     </nav>
 
     {message && <p className="vt-cw-message">{message}</p>}{error && <p className="vt-cw-error">{error}</p>}
@@ -148,7 +149,7 @@ export default function CommunityWorkspace() {
     </section>}
 
     {tab === "discussions" && <section className="vt-cw-column"><div className="vt-cw-section-heading"><div><span>APPROVED MEMBERS</span><h2>Member discussions</h2><p>Posts and comments are moderated before appearing to the Community. General discussion posts remain read-only.</p></div></div>
-      <form className="vt-cw-compose" onSubmit={createPost}><h3>Start a discussion</h3><label>Post type<select value={postCategory} onChange={e => setPostCategory(e.target.value)}><option value="member_discussion">Member discussion</option><option value="new_business_deal">New Business Deal</option></select></label><label>Title<input value={postTitle} onChange={e => setPostTitle(e.target.value)} required maxLength={140} /></label><label>Message<textarea value={postBody} onChange={e => setPostBody(e.target.value)} required minLength={5} maxLength={5000} rows={4} /></label><button disabled={busy}>Submit for moderation</button></form>
+      {isPartner || isAdmin ? <form className="vt-cw-compose" onSubmit={createPost}><h3>Start a discussion</h3><label>Post type<select value={postCategory} onChange={e => setPostCategory(e.target.value)}><option value="member_discussion">Member discussion</option><option value="new_business_deal">New Business Deal</option></select></label><label>Title<input value={postTitle} onChange={e => setPostTitle(e.target.value)} required maxLength={140} /></label><label>Message<textarea value={postBody} onChange={e => setPostBody(e.target.value)} required minLength={5} maxLength={5000} rows={4} /></label><button disabled={busy}>Submit for moderation</button></form> : <div className="vt-cw-empty">You have read-only access to Member Discussions. Partner participation is available through the VaultTrades partnership programme.</div>}
       {memberPosts.length ? memberPosts.map(renderPost) : <div className="vt-cw-empty">No member discussions or business deals have been submitted yet.</div>}
     </section>}
 
