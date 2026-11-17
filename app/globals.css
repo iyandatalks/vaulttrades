@@ -277,3 +277,13 @@ body{
 .vt-info-page .vt-info-hero>p{color:#424b59!important}
 .vt-info-page .vt-info-hero .vt-label{color:#8a6415!important}
 .vt-info-page .vt-info-hero .vt-secondary{color:#171b24!important;background:#fffdf8;border-color:#b9ad91}
+
+
+/* Partner directory: light cards with dark, high-contrast descriptions. */
+.vt-partners-page .vt-info-card{background:#fffdf8!important;border:1px solid #d8cfbd!important;color:#171b24!important;box-shadow:0 8px 24px rgba(36,30,18,.06)}
+.vt-partners-page .vt-info-card h2{color:#171b24!important}
+.vt-partners-page .vt-info-card .vt-label{color:#8a6415!important}
+.vt-partners-page .vt-info-card p,
+.vt-partners-page .vt-info-card p.muted{color:#424b59!important}
+.vt-partners-page .vt-info-card .vt-primary{color:#171b24!important}
+.vt-partners-page .vt-info-card .vt-secondary{background:#fffdf8!important;color:#171b24!important;border-color:#b9ad91!important}
