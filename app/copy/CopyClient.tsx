@@ -124,6 +124,9 @@ export default function CopyPage() {
             <Link className="vt-primary" href="/products?product=copy">View Copy Trading Subscription</Link>
             {!signedIn && <Link className="vt-secondary" href="/auth/login?next=/copy">Sign in / Create account</Link>}
           </div>}
+          <p style={{ marginTop: 14, marginBottom: 0 }}>
+            <Link href="/how-it-works" className="vt-info-text-link">Learn how Copy Trading works ↗</Link>
+          </p>
         </header>
 
         <section className="vt-info-card" style={{ marginTop: 24, border: "1px solid rgba(212,166,55,.35)" }}>
