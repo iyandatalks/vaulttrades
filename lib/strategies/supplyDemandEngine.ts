@@ -66,7 +66,7 @@ export function evaluateSupplyDemand(candles: MarketDataCandle[]): SupplyDemandR
       const displaced=follow.some(x=>x.close>origin.high && x.close>x.open);
       if (displaced) {
         let intact=true, fresh=true;
-        for(let j=i+1;j<c.length;j++){
+        for(let j=i+6;j<c.length-1;j++){
           if(c[j].close<bottom){intact=false;fresh=false;break;}
           if(c[j].low<=top && c[j].high>=bottom) fresh=false;
         }
