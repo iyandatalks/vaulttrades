@@ -347,3 +347,25 @@
 .vt-opportunity .vto-automation-intro{color:#424b59}
 .vt-opportunity .vto-automation-card p,
 .vt-opportunity .vto-automation-note{color:#c4ccd8}
+
+
+/* Contrast guardrails for the Opportunity page: light paper sections use dark ink;
+   dark photographic, process, product and results surfaces use light typography. */
+.vt-opportunity .vto-intro,
+.vt-opportunity .vto-intro :is(h1,h2,h3,h4,strong,b,p,li,small,span){
+  color:#171b24;
+}
+.vt-opportunity .vto-intro .vto-kicker,
+.vt-opportunity .vto-intro .vto-number{color:#8a6415}
+.vt-opportunity :is(.vto-hero,.vto-dark-band,.vto-capital,.vto-pathway-band,.vto-mid-cta,.vto-income-section,.vto-membership,.vto-learning-band,.vto-evidence,.vto-final){
+  color:#f4f6fb;
+}
+.vt-opportunity :is(.vto-hero,.vto-dark-band,.vto-capital,.vto-pathway-band,.vto-mid-cta,.vto-income-section,.vto-membership,.vto-learning-band,.vto-evidence,.vto-final) :is(h1,h2,h3,h4,strong,b){
+  color:#f6f4ef;
+}
+.vt-opportunity :is(.vto-hero,.vto-dark-band,.vto-capital,.vto-pathway-band,.vto-mid-cta,.vto-income-section,.vto-membership,.vto-learning-band,.vto-evidence,.vto-final) :is(p,li,small){
+  color:#cbd3df;
+}
+.vt-opportunity :is(.vto-hero,.vto-dark-band,.vto-capital,.vto-pathway-band,.vto-mid-cta,.vto-income-section,.vto-membership,.vto-learning-band,.vto-evidence,.vto-final) .vto-kicker{
+  color:#f0d58a;
+}
