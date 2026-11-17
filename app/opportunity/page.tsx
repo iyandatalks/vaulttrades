@@ -1,8 +1,6 @@
 import "./opportunity.css";
 import OpportunityIncomeSection from "./OpportunityIncomeSection";
 import Link from "next/link";
-import fs from "node:fs";
-import path from "node:path";
 
 const stages = [
   ["01", "PREPARE", "Understand the market environment, set your priorities and wait for conditions that fit a defined plan."],
@@ -240,105 +238,7 @@ export default function OpportunityPage() {
         </div>
       </section>
 
-      <section className="vto-results vto-results-float" id="results-gallery">
-        <div className="vto-container">
-          <div className="vto-section-heading">
-            <div className="vto-kicker">REAL EXPERIENCES & SUPPORTING RECORDS</div>
-            <h2>Testimonials and <span>certificates.</span></h2>
-            <p>Review the available original trading records and certificates with their dates and context. Each record is presented as historical evidence, not a promise of future results.</p>
-          </div>
-          <div className="vto-evidence-groups">
-            <EvidenceCarousel
-              title="TRADE CERTIFICATES"
-              description="A moving selection of the original trade records, shown as examples of the trading process."
-              items={evidenceGallery.trades}
-              emptyMessage="Trade certificates will appear here when the original records are available."
-            />
-            <EvidenceCarousel
-              title="CHALLENGE & FUNDED-PROFILE CERTIFICATES"
-              description="Examples of challenge milestones and profile progress, kept separate from individual trade records."
-              items={evidenceGallery.certificates}
-              emptyMessage="Challenge and funded-profile certificates will appear here when those records are uploaded."
-            />
-          </div>
-          <p className="vto-results-note">The final certificate gallery will display the original trade records with their actual dates and context. Historical examples are not a forecast or guarantee of future performance.</p>
-        </div>
-      </section>
     </main>
   );
 }
 
-
-function EvidenceCarousel({
-  title,
-  description,
-  items,
-  emptyMessage,
-}: {
-  title: string;
-  description: string;
-  items: { title: string; src: string }[];
-  emptyMessage: string;
-}) {
-  if (!items.length) {
-    return (
-      <section className="vto-evidence-group">
-        <div className="vto-evidence-group-heading">
-          <h3>{title}</h3>
-          <p>{description}</p>
-        </div>
-        <div className="vto-gallery-empty">{emptyMessage}</div>
-      </section>
-    );
-  }
-
-  const loopItems = [...items, ...items];
-  return (
-    <section className="vto-evidence-group">
-      <div className="vto-evidence-group-heading">
-        <h3>{title}</h3>
-        <p>{description}</p>
-      </div>
-      <div
-        className="vto-evidence-marquee"
-        aria-label={title}
-      >
-        <div className="vto-evidence-track">
-          {loopItems.map((item, index) => (
-            <div className="vto-evidence-item" key={`${item.src}-${index}`}>
-              <div className="vto-evidence-image-wrap">
-                <img src={item.src} alt={item.title} loading="lazy" draggable={false} />
-                <span className="vto-evidence-watermark" aria-hidden="true">VAULTTRADES</span>
-              </div>
-              <div className="vto-evidence-caption"><strong>{item.title}</strong></div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function getEvidenceGallery() {
-  const readFolder = (folders: string[]) => folders.flatMap((folder) => {
-    const absolute = path.join(process.cwd(), "public", folder);
-    if (!fs.existsSync(absolute)) return [];
-    return fs.readdirSync(absolute, { withFileTypes: true })
-      .filter((entry: import("node:fs").Dirent) =>
-        entry.isFile() && /\.(png|jpe?g|webp|avif)$/i.test(entry.name)
-      )
-      .sort((a: import("node:fs").Dirent, b: import("node:fs").Dirent) => a.name.localeCompare(b.name))
-      .map((entry: import("node:fs").Dirent) => ({
-        title: path.basename(entry.name, path.extname(entry.name)).replace(/[-_]+/g, " "),
-        src: "/" + path.relative("public", path.join(absolute, entry.name)).split(path.sep).join("/"),
-      }));
-  });
-
-  return {
-    trades: readFolder(["images/marketing/trading-results"]),
-    certificates: readFolder([
-      "images/marketing/certificates",
-      "images/marketing/challenge-progress",
-    ]),
-  };
-}
