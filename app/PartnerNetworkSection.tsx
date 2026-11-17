@@ -42,7 +42,6 @@ export default function PartnerNetworkSection({ compact = false }: { compact?: b
         ) : (
           <p style={{ color: "#c5ccd6", lineHeight: 1.7 }}>There are no active partner websites available right now. Please contact VaultTrades for assistance.</p>
         )}
-        <p style={{ color: "#7e8796", fontSize: 11, marginTop: 18 }}>All active partner websites are listed here as they are approved. When the network grows, the directory will display the full active list, including five or more partners when available.</p>
       </div>
     </section>
   );
