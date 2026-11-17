@@ -25,19 +25,38 @@ export async function GET(request: NextRequest) {
     .order("created_at", { ascending: false }).limit(30);
   if (error) return NextResponse.json({ error: "Member search is temporarily unavailable." }, { status: 500 });
   const ids = (profiles || []).map(row => row.auth_user_id).filter(Boolean);
-  const [community, overrides] = ids.length ? await Promise.all([
+  const [community, overrides, licenses] = ids.length ? await Promise.all([
     context.db.from("community_member_names").select("auth_user_id,display_name,is_approved").in("auth_user_id", ids),
     context.db.from("partner_portal_access_overrides").select("auth_user_id,decision,reason,updated_at").in("auth_user_id", ids),
-  ]) : [{ data: [] as any[] }, { data: [] as any[] }];
-  if (community.error || overrides.error) return NextResponse.json({ error: "Access status could not be loaded." }, { status: 500 });
+    context.db.from("product_licenses").select("user_id,entitlement_code,status,start_at,end_at,source_payment_snapshot")
+      .in("user_id", (profiles || []).map(row => row.id)).in("entitlement_code", ["nexus","vaulttrades_nexus","nexus_plus","vaulttrades_nexus_plus","vortex","vaulttrades_vortex"])
+      .eq("status", "active"),
+  ]) : [{ data: [] as any[] }, { data: [] as any[] }, { data: [] as any[] }];
+  if (community.error || overrides.error || licenses.error) return NextResponse.json({ error: "Access status could not be loaded." }, { status: 500 });
   const communityById = new Map((community.data || []).map(row => [row.auth_user_id, row]));
   const overrideById = new Map((overrides.data || []).map(row => [row.auth_user_id, row]));
+  const planByUserId = new Map<string, "nexus" | "nexus_plus" | "vortex">();
+  const now = Date.now();
+  for (const license of licenses.data || []) {
+    const start = license.start_at ? new Date(license.start_at).getTime() : 0;
+    const end = license.end_at ? new Date(license.end_at).getTime() : Number.POSITIVE_INFINITY;
+    if (!Number.isFinite(start) || start > now || end <= now) continue;
+    const code = String(license.entitlement_code || "").toLowerCase();
+    const plan = code === "vortex" || code === "vaulttrades_vortex" ? "vortex"
+      : code === "nexus_plus" || code === "vaulttrades_nexus_plus" ? "nexus_plus"
+      : code === "nexus" || code === "vaulttrades_nexus" ? "nexus" : null;
+    if (!plan) continue;
+    const rank = { nexus: 1, nexus_plus: 2, vortex: 3 } as const;
+    const current = planByUserId.get(license.user_id);
+    if (!current || rank[plan] > rank[current]) planByUserId.set(license.user_id, plan);
+  }
   return NextResponse.json({ members: (profiles || []).map(profile => ({
     ...profile,
     display_name: communityById.get(profile.auth_user_id)?.display_name || [profile.first_name, profile.last_name].filter(Boolean).join(" ") || profile.email,
     community_approved: communityById.get(profile.auth_user_id)?.is_approved === true,
     portal_override: overrideById.get(profile.auth_user_id)?.decision || "automatic",
     portal_override_reason: overrideById.get(profile.auth_user_id)?.reason || "",
+    current_plan: planByUserId.get(profile.id) || null,
   })) });
 }
 
