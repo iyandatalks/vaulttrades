@@ -17,6 +17,8 @@ type Props = {
   isAdmin: boolean;
   memberEmail: string;
   referralUrl: string | null;
+  hasJournalToolsAccess: boolean;
+  hasAnalyzerAccess: boolean;
   licensingRequests: LicensingRequest[];
   websiteRequests: WebsiteRequest[];
   memberNotifications: MemberNotification[];
@@ -71,7 +73,7 @@ const planNames: Record<Plan, string> = {
 };
 
 export default function MemberPortalClient({
-  plan, isAdmin, memberEmail, referralUrl, licensingRequests, websiteRequests, memberNotifications, xmRegistrationUrl, vpsRegistrationUrl, requestActionsAvailable, licensingActionsAvailable,
+  plan, isAdmin, memberEmail, referralUrl, hasJournalToolsAccess, hasAnalyzerAccess, licensingRequests, websiteRequests, memberNotifications, xmRegistrationUrl, vpsRegistrationUrl, requestActionsAvailable, licensingActionsAvailable,
 }: Props) {
   const [active, setActive] = useState<string>("welcome");
   const [topicSearch, setTopicSearch] = useState("");
@@ -595,19 +597,24 @@ export default function MemberPortalClient({
       case "tools":
         return <>
           <Eyebrow>PLAN-BASED TOOLS</Eyebrow><h1>Your additional tools.</h1>
-          <p className="vt-member-lead">Your portal displays the tools associated with your membership. Tools are protected by account entitlement; a visible link does not replace the required access check.</p>
-          <div className="vt-member-tool-list">
-            <Tool title="Trading Journal" description="Included in the required $10/month Journal and Core Tools subscription." href="/journal" unlocked={false} lockedLabel="Required subscription · $10/month" />
-            <Tool title="Analyzer" description="Optional separate subscription." href="/analyzer" unlocked={false} lockedLabel="Optional subscription · $20/month" />
-            <Tool title="AI Coaching" description="Included in the required $10/month Journal and Core Tools subscription." href="/ai-coach" unlocked={false} lockedLabel="Required subscription · $10/month" />
-            <Tool title="Risk Manager" description="Included in the required $10/month Journal and Core Tools subscription." href="/risk-manager" unlocked={false} lockedLabel="Required subscription · $10/month" />
-            <Tool title="Funded Account Wealth Builder" description="Included in the required $10/month Journal and Core Tools subscription." href="/funded-account-wealth-builder" unlocked={false} lockedLabel="Required subscription · $10/month" />
+          <p className="vt-member-lead">Partners can subscribe to these tools for their own account. Access is granted only after PayPal confirms an active monthly subscription; having a link in this portal does not unlock a tool.</p>
+          <div className="vt-member-pending">
+            <strong>Partner referral link</strong>
+            <span>Share your personal link to introduce new members. Your own tool subscription is separate from referral activity.</span>
+            {referralUrl ? <div className="vt-member-referral"><code>{referralUrl}</code><button type="button" className="vt-member-outline" onClick={copyReferral}>{copied ? "Copied" : "Copy link"}</button></div> : <span>Your referral link is not available yet. Contact VaultTrades support to check your partner profile.</span>}
           </div>
           <div className="vt-member-tool-list">
-            <div className="vt-member-tool"><div><strong>Journal + Risk Management</strong><p>Required tools subscription · $10/month.</p></div><a className="vt-member-tool-link" href="https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-1L8320881F985382FNL4CYUI" target="_blank" rel="noreferrer">Subscribe with PayPal ↗</a></div>
-            <div className="vt-member-tool"><div><strong>Reseller Analyzer Access</strong><p>Optional subscription · $20/month.</p></div><a className="vt-member-tool-link" href="https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-0411991308853042NNHESISY" target="_blank" rel="noreferrer">Subscribe with PayPal ↗</a></div>
+            <Tool title="Trading Journal" description="Included in the required $10/month Journal and Core Tools subscription." href="/journal" unlocked={hasJournalToolsAccess} lockedLabel="Locked · subscribe for $10/month" />
+            <Tool title="Analyzer" description="Optional separate subscription." href="/analyzer" unlocked={hasAnalyzerAccess} lockedLabel="Locked · optional $20/month subscription" />
+            <Tool title="AI Coaching" description="Included in the required $10/month Journal and Core Tools subscription." href="/ai-coach" unlocked={hasJournalToolsAccess} lockedLabel="Locked · subscribe for $10/month" />
+            <Tool title="Risk Manager" description="Included in the required $10/month Journal and Core Tools subscription." href="/risk-manager" unlocked={hasJournalToolsAccess} lockedLabel="Locked · subscribe for $10/month" />
+            <Tool title="Funded Account Wealth Builder" description="Included in the required $10/month Journal and Core Tools subscription." href="/funded-account-wealth-builder" unlocked={hasJournalToolsAccess} lockedLabel="Locked · subscribe for $10/month" />
           </div>
-          <p className="vt-member-note">These VaultTrades PayPal subscriptions are confirmed through the VaultTrades PayPal webhook. Access is activated after the webhook verifies the subscription. Cancellation or failed payment updates access through the same webhook.</p>
+          <div className="vt-member-tool-list">
+            <div className="vt-member-tool"><div><strong>Journal + Core Tools</strong><p>{hasJournalToolsAccess ? "Active · $10/month subscription." : "Required subscription · $10/month. Unlocks Trading Journal, AI Coaching, Risk Manager and Funded Account Wealth Builder."}</p></div>{hasJournalToolsAccess ? <span className="vt-member-plan">Active</span> : <a className="vt-member-tool-link" href="/subscription?product=journal_tools_monthly">Subscribe with PayPal ↗</a>}</div>
+            <div className="vt-member-tool"><div><strong>Analyzer Access</strong><p>{hasAnalyzerAccess ? "Active · $20/month subscription." : "Optional separate subscription · $20/month."}</p></div>{hasAnalyzerAccess ? <span className="vt-member-plan">Active</span> : <a className="vt-member-tool-link" href="/subscription?product=analyzer_reseller_monthly">Subscribe with PayPal ↗</a>}</div>
+          </div>
+          <p className="vt-member-note">Subscriptions are billed monthly through PayPal. Access starts after the verified activation event and is restricted when PayPal reports cancellation, expiry, suspension or failed payment. Analyzer is separate and is not included in the $10 Journal + Core Tools plan.</p>
         </>;
       case "risk":
         return <>
