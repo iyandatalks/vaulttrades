@@ -311,3 +311,13 @@
 .vto-intro .vto-pillars{margin-top:48px}
 .vto-intro :where(p,li,small){opacity:1}
 .vto-intro :where(h2,h3,p,span){text-shadow:none}
+
+
+/* Dark process band: restore light typography after the warm-page text reset. */
+.vt-opportunity .vto-dark-band{color:#f4f6fb}
+.vt-opportunity .vto-dark-band .vto-kicker{color:#f0d58a}
+.vt-opportunity .vto-dark-band h2{color:#f6f4ef}
+.vt-opportunity .vto-dark-band h2 span{color:#f0c75e}
+.vt-opportunity .vto-dark-band .vto-split>div>p{color:#c4ccd8}
+.vt-opportunity .vto-dark-band .vto-step h3{color:#f4f6fb}
+.vt-opportunity .vto-dark-band .vto-step p{color:#c4ccd8}
