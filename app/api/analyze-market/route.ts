@@ -8,6 +8,7 @@ import { evaluateEma20Analyzer } from "../../../lib/strategies/ema20Analyzer";
 import { evaluateSrbOb } from "../../../lib/strategies/srbObEngine";
 import { evaluateLsObr } from "../../../lib/strategies/lsobrEngine";
 import { analyzeAutoFibRetrace } from "../../../lib/strategies/autoFibRetrace";
+import { evaluateSupplyDemand } from "../../../lib/strategies/supplyDemandEngine";
 import { resolveLiquidityTargets } from "../../../lib/market-data/liquidityTargets";
 
 export const runtime = "nodejs";
@@ -162,7 +163,6 @@ export async function POST(request: Request) {
     const providerRoute = getMarketProviderRoute(marketType);
     if (!providerRoute.available) return Response.json({ error: providerRoute.reason || "Market data is unavailable." }, { status: 503 });
     const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey && strategyId !== "ema20") return Response.json({ error: "OpenAI API key is not configured." }, { status: 500 });
 
     const market = await getTwelveDataTimeSeries({ symbol, timeframe, outputsize: strategyId === "ema20" ? 5000 : 250 });
     if (market.candles.length < 40) return Response.json({ error: "Not enough live market history was returned for this symbol/timeframe." }, { status: 422 });
@@ -277,6 +277,7 @@ export async function POST(request: Request) {
       message: autoFibEngine.message,
     } : null;
 
+    const supplyDemandEngine = strategyId === "supplyDemand" ? evaluateSupplyDemand(market.candles) : null;
     const srbObEngine = strategyId === "srbOb" ? evaluateSrbOb(market.candles) : null;
     const lsobrEngine = strategyId === "lsobr" ? evaluateLsObr(market.candles) : null;
     const srbObEngineEvidence = srbObEngine ? {
@@ -410,6 +411,11 @@ Return JSON only.`;
         nextAction: ema20Engine?.reason ?? "WAIT",
         educationalNote: "EMA20 follows the supplied Pine v6 structure, EMA20 pullback/rejection, rejection-break, UT Bot OR SMI confirmation, SAST window and native ATR/RR calculations. No additional OB or generic confluence gate is applied.",
       };
+    } else if (strategyId === "fibRetracement") {
+      ai = { direction:"NO TRADE",decision:"NO TRADE",confidence:autoFibEngine?.confidence??0,marketCondition:context.structure.trend,directionalBias:autoFibEngine?.bias??"NEUTRAL",session:"Derived from market candle timestamps.",higherTimeframe:"Selected timeframe is evaluated independently.",marketStructure:context.structure.trend,support:priceLevels.support,resistance:priceLevels.resistance,recentPriceAction:autoFibEngine?.message??"Auto Fib engine evaluated the supplied candles.",setup:autoFibEngine?.message??"Waiting for valid Fib structure.",confirmedConditions:autoFibEngine?.evidence??[],missingConditions:autoFibEngine?.missingConditions??[],bos:5,choch:5,orderBlock:5,fvg:5,liquiditySweep:5,displacement:5,pipeline:autoFibEngine?.evidence??[],nextZone:"Wait for source-defined Fib flip, active unmitigated OB and entry confirmation.",invalidation:(autoFibEngine?.invalidation??[]).join(" "),entry:null,stopLoss:null,tp1:autoFibEngine?.tp1??null,tp2:autoFibEngine?.tp2??null,finalTp:autoFibEngine?.finalTp??null,nextAction:autoFibEngine?.message??"WAIT",educationalNote:"Auto Fib runs locally. Its source defines projection probability as zero and has no qualifying entry event, so no BUY/SELL or stop-loss is invented." };
+    } else if (strategyId === "supplyDemand") {
+      const sd=supplyDemandEngine!;
+      ai = { direction:sd.direction,decision:sd.direction==="NO TRADE"?"NO TRADE":"TRADE",confidence:sd.confidence,marketCondition:sd.marketCondition,directionalBias:sd.direction==="NO TRADE"?context.structure.trend:sd.direction,session:"Derived from market candle timestamps.",higherTimeframe:"Selected timeframe is the source of truth.",marketStructure:context.structure.trend,support:priceLevels.support,resistance:priceLevels.resistance,recentPriceAction:sd.evidence.join(" ")||"No qualifying fresh-zone reaction on the latest candles.",setup:sd.state==="ENTRY READY"?"Fresh zone retest, liquidity event and displacement confirmed.":"Supply & Demand sequence evaluated from historical zones.",confirmedConditions:sd.evidence,missingConditions:sd.missingConditions,bos:5,choch:5,orderBlock:5,fvg:5,liquiditySweep:5,displacement:5,pipeline:sd.evidence,nextZone:sd.activeZone?`${sd.activeZone.direction} zone ${sd.activeZone.bottom}–${sd.activeZone.top}`:"Wait for a fresh, intact zone.",invalidation:sd.invalidation,entry:sd.entry,stopLoss:sd.stopLoss,tp1:sd.tp1,tp2:sd.tp2,finalTp:sd.finalTp,nextAction:sd.missingConditions[0]??(sd.state==="ENTRY READY"?"Validate the structural setup before execution.":"WAIT for the next required zone event."),educationalNote:"Supply & Demand is calculated locally. A trade requires a fresh intact zone, retest, liquidity sweep/reclaim or rejection, directional displacement and an opposing structural target." };
     } else {
       const response = await fetch("https://api.openai.com/v1/responses", {
         method: "POST",
@@ -428,16 +434,16 @@ Return JSON only.`;
     }
 
     const engineDirection: Direction = ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.direction : "NO TRADE";
-    const direction = strategyId === "ema20" ? engineDirection : strategyId === "srbOb" ? (srbObEngine?.direction ?? "NO TRADE") : strategyId === "lsobr" ? (lsobrEngine?.direction ?? "NO TRADE") : ai.direction as Direction;
-    const entry = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.entry : null) : strategyId === "srbOb" ? (srbObEngine?.entry ?? null) : strategyId === "lsobr" ? (lsobrEngine?.entry ?? null) : (typeof ai.entry === "number" ? ai.entry : null);
-    const stopLoss = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.stopLoss : null) : strategyId === "srbOb" ? (srbObEngine?.stopLoss ?? null) : strategyId === "lsobr" ? (lsobrEngine?.stopLoss ?? null) : (typeof ai.stopLoss === "number" ? ai.stopLoss : null);
-    const finalTp = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.target : null) : strategyId === "srbOb" ? (srbObEngine?.finalTp ?? null) : strategyId === "lsobr" ? (lsobrEngine?.finalTp ?? null) : (typeof ai.finalTp === "number" ? ai.finalTp : typeof ai.tp2 === "number" ? ai.tp2 : null);
-    const minimumRR = strategyId === "ema20" ? 1.81 : strategyId === "srbOb" ? 0.1 : 2;
+    const direction = strategyId === "ema20" ? engineDirection : strategyId === "srbOb" ? (srbObEngine?.direction ?? "NO TRADE") : strategyId === "lsobr" ? (lsobrEngine?.direction ?? "NO TRADE") : strategyId === "supplyDemand" ? (supplyDemandEngine?.direction ?? "NO TRADE") : ai.direction as Direction;
+    const entry = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.entry : null) : strategyId === "srbOb" ? (srbObEngine?.entry ?? null) : strategyId === "lsobr" ? (lsobrEngine?.entry ?? null) : strategyId === "supplyDemand" ? (supplyDemandEngine?.entry ?? null) : (typeof ai.entry === "number" ? ai.entry : null);
+    const stopLoss = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.stopLoss : null) : strategyId === "srbOb" ? (srbObEngine?.stopLoss ?? null) : strategyId === "lsobr" ? (lsobrEngine?.stopLoss ?? null) : strategyId === "supplyDemand" ? (supplyDemandEngine?.stopLoss ?? null) : (typeof ai.stopLoss === "number" ? ai.stopLoss : null);
+    const finalTp = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.target : null) : strategyId === "srbOb" ? (srbObEngine?.finalTp ?? null) : strategyId === "lsobr" ? (lsobrEngine?.finalTp ?? null) : strategyId === "supplyDemand" ? (supplyDemandEngine?.finalTp ?? null) : (typeof ai.finalTp === "number" ? ai.finalTp : typeof ai.tp2 === "number" ? ai.tp2 : null);
+    const minimumRR = strategyId === "ema20" ? 1.81 : strategyId === "srbOb" ? 0.1 : strategyId === "supplyDemand" ? 0.01 : 2;
     const math = tradeMath(direction, entry, stopLoss, finalTp, liveCurrentPrice, minimumRR, strategyId === "ema20" ? 0 : 0.1, strategyId === "ema20" ? Number.POSITIVE_INFINITY : 0.5);
     const strongSmc = [ai.bos, ai.choch, ai.orderBlock, ai.fvg, ai.liquiditySweep, ai.displacement].filter((x: unknown) => typeof x === "number" && x >= 7).length;
     const smcGate = strongSmc >= 2;
-    const analyzerTradeGate = direction !== "NO TRADE" && math.valid && (strategyId === "ema20" || smcGate);
-    const finalDirection: Direction = strategyId === "ema20" ? (analyzerTradeGate ? direction : "NO TRADE") : strategyId === "srbOb" ? (srbObEngine?.direction ?? "NO TRADE") : strategyId === "lsobr" ? (lsobrEngine?.state === "ENTRY READY" && analyzerTradeGate ? (lsobrEngine.direction as Direction) : "NO TRADE") : analyzerTradeGate && ai.decision === "TRADE" ? direction : "NO TRADE";
+    const analyzerTradeGate = direction !== "NO TRADE" && math.valid && (strategyId === "ema20" || strategyId === "supplyDemand" || smcGate);
+    const finalDirection: Direction = strategyId === "ema20" ? (analyzerTradeGate ? direction : "NO TRADE") : strategyId === "srbOb" ? (srbObEngine?.direction ?? "NO TRADE") : strategyId === "lsobr" ? (lsobrEngine?.state === "ENTRY READY" && analyzerTradeGate ? (lsobrEngine.direction as Direction) : "NO TRADE") : strategyId === "supplyDemand" ? (supplyDemandEngine?.state === "ENTRY READY" && analyzerTradeGate ? direction : "NO TRADE") : analyzerTradeGate && ai.decision === "TRADE" ? direction : "NO TRADE";
 
     const nativeEngineOutput = strategyId === "ema20" ? {
       state: ema20Engine?.state,
@@ -480,7 +486,7 @@ Return JSON only.`;
       chart: { candles: market.candles, channel20: channel, orderBlocks: visualOrderBlocks },
       liquidityTargets,
       structure: { ...lockedStructure }, volatility: context.volatility,
-      strategyEngine: strategyId === "lsobr" ? lsobrEngineEvidence : strategyId === "srbOb" ? srbObEngineEvidence : strategyId === "fibRetracement" ? autoFibEngineEvidence : nativeEngineOutput,
+      strategyEngine: strategyId === "lsobr" ? lsobrEngineEvidence : strategyId === "srbOb" ? srbObEngineEvidence : strategyId === "fibRetracement" ? autoFibEngineEvidence : strategyId === "supplyDemand" ? supplyDemandEngine : nativeEngineOutput,
       scanner: strategyId === "ema20" ? {
         projectedDirection: ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.direction : "NO TRADE",
         analysisState: ema20Engine?.state === "TRADE ACTIVE" ? "ACTIVE" : ema20Engine?.state === "SL HIT" ? "NO TRADE" : ema20Engine?.state === "TP HIT" ? "COMPLETED" : "WAITING",
@@ -503,7 +509,7 @@ Return JSON only.`;
       confidence: finalDirection === "NO TRADE" ? Math.min(Number(ai.confidence) || 0, 69) : Number(ai.confidence) || 0,
       setup: ai.setup, marketCondition: ai.marketCondition, marketStructure: ai.marketStructure, recentPriceAction: ai.recentPriceAction,
       confirmedConditions: ai.confirmedConditions,
-      missingConditions: [...(strategyId === "lsobr" ? [...(lsobrEngine?.missingConditions ?? []), ...(!analyzerTradeGate && lsobrEngine?.state === "ENTRY READY" ? ["Universal Analyzer Rules 1–6 did not validate the LSOBR entry."] : [])] : strategyId === "srbOb" ? (srbObEngine?.missingConditions ?? []) : ai.missingConditions), ...(strategyId === "ema20" && ema20Engine?.state === "WAITING" ? [ema20Engine.reason] : []), ...(strategyId !== "ema20" && strongSmc < 2 ? ["Analyzer SMC confluence gate: fewer than two SMC signals scored 7 or higher."] : []), ...(!math.valid && direction !== "NO TRADE" ? [math.rr !== null && math.rr < minimumRR ? `Strategy price validation: R:R is below the selected strategy minimum of 1:${minimumRR}.` : "Strategy price validation: entry/SL/TP geometry did not pass all applicable gates."] : [])],
+      missingConditions: [...(strategyId === "lsobr" ? [...(lsobrEngine?.missingConditions ?? []), ...(!analyzerTradeGate && lsobrEngine?.state === "ENTRY READY" ? ["Universal Analyzer Rules 1–6 did not validate the LSOBR entry."] : [])] : strategyId === "srbOb" ? (srbObEngine?.missingConditions ?? []) : strategyId === "supplyDemand" ? (supplyDemandEngine?.missingConditions ?? []) : ai.missingConditions), ...(strategyId === "ema20" && ema20Engine?.state === "WAITING" ? [ema20Engine.reason] : []), ...(strategyId !== "ema20" && strategyId !== "supplyDemand" && strategyId !== "fibRetracement" && strongSmc < 2 ? ["Analyzer SMC confluence gate: fewer than two SMC signals scored 7 or higher."] : []), ...(!math.valid && direction !== "NO TRADE" ? [math.rr !== null && math.rr < minimumRR ? `Strategy price validation: R:R is below the selected strategy minimum of 1:${minimumRR}.` : "Strategy price validation: entry/SL/TP geometry did not pass all applicable gates."] : [])],
       smcScores: { BOS: ai.bos, CHoCH: ai.choch, OrderBlock: ai.orderBlock, FVG: ai.fvg, LiquiditySweep: ai.liquiditySweep, Displacement: ai.displacement },
       pipeline: ai.pipeline, nextZone: ai.nextZone, invalidation: ai.invalidation,
       entry: strategyId === "lsobr" ? (lsobrEngine?.entry ?? null) : finalDirection === "NO TRADE" ? null : entry, stopLoss: strategyId === "lsobr" ? (lsobrEngine?.stopLoss ?? null) : finalDirection === "NO TRADE" ? null : stopLoss,
