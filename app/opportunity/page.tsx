@@ -56,7 +56,6 @@ const resultStages = [
 ];
 
 export default function OpportunityPage() {
-  const evidenceGallery = getEvidenceGallery();
   return (
     <main className="vt-opportunity">
       <section className="vto-hero">
