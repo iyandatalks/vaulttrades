@@ -291,6 +291,13 @@ export async function POST(request: Request) {
               : new Date().toISOString()));
 
     const exactThirtyDayEnd = new Date(new Date(start).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    const nextBillingTime = product.billingMode === "monthly"
+      ? providerSubscription?.billing_info?.next_billing_time
+      : null;
+    const parsedNextBillingTime = nextBillingTime ? new Date(nextBillingTime).getTime() : NaN;
+    const subscriptionPeriodEnd = Number.isFinite(parsedNextBillingTime) && parsedNextBillingTime > new Date(start).getTime()
+      ? new Date(parsedNextBillingTime).toISOString()
+      : exactThirtyDayEnd;
 
     if (isLifetimeMentorship && status !== "active") {
       const { data: existingLifetime } = await admin
@@ -316,7 +323,7 @@ export async function POST(request: Request) {
     const accessEnd = isLifetimeMentorship && status === "active"
       ? null
       : status === "active"
-        ? exactThirtyDayEnd
+        ? subscriptionPeriodEnd
         : new Date().toISOString();
 
     await admin.from("product_licenses").upsert({
