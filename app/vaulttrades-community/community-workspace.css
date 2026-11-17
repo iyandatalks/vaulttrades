@@ -115,3 +115,52 @@
 .vt-cw-reconciliation-grid article span{display:block;color:#aeb9cb;font-size:10px;line-height:1.5}
 .vt-cw-reconciliation-grid article strong{display:block;margin-top:8px;color:#f0ce72;font-size:27px;font-variant-numeric:tabular-nums}
 @media(max-width:700px){.vt-cw-testimonials{grid-template-columns:1fr}.vt-cw-reconciliation-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+
+/* Community Classroom */
+.vt-cw-classroom{width:100%;min-width:0}
+.vt-cw-classroom-layout{display:grid;grid-template-columns:270px minmax(0,1fr);gap:16px;align-items:start}
+.vt-cw-classroom-sidebar,.vt-cw-classroom-content{min-width:0;border:1px solid rgba(212,166,55,.2);border-radius:13px;background:#080f1a;overflow:hidden}
+.vt-cw-classroom-sidebar-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:17px 15px;border-bottom:1px solid rgba(255,255,255,.08)}
+.vt-cw-classroom-sidebar-head span,.vt-cw-classroom-content-head>span,.vt-cw-classroom-lesson>span{color:#e5bd55;font-size:9px;font-weight:950;letter-spacing:.15em}
+.vt-cw-classroom-sidebar-head strong{color:#8290a5;font-size:9px}
+.vt-cw-classroom-sidebar>button{display:grid;grid-template-columns:28px minmax(0,1fr) 14px;align-items:center;gap:9px;width:100%;padding:14px 13px;border:0;border-bottom:1px solid rgba(255,255,255,.055);background:transparent;color:#c7d0df;text-align:left;cursor:pointer}
+.vt-cw-classroom-sidebar>button:hover,.vt-cw-classroom-sidebar>button.active{background:rgba(212,166,55,.1)}
+.vt-cw-classroom-sidebar>button.active{box-shadow:inset 3px 0 #d4a637;color:#fff}
+.vt-cw-classroom-number{color:#d4a637;font-size:10px;font-weight:900}
+.vt-cw-classroom-topic-name{display:grid;gap:4px;font-size:11px;font-weight:800;line-height:1.45}
+.vt-cw-classroom-topic-name small{color:#d9a84b;font-size:8px;letter-spacing:.08em}
+.vt-cw-classroom-chevron{color:#8794a7;font-size:19px}
+.vt-cw-classroom-content{padding:20px}
+.vt-cw-classroom-content-head{margin-bottom:16px}
+.vt-cw-classroom-content-head h3{margin:7px 0 0;color:#fff;font-size:clamp(20px,3vw,27px);line-height:1.2}
+.vt-cw-classroom-video{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;border:1px solid rgba(212,166,55,.18);border-radius:10px;background:#03070d}
+.vt-cw-classroom-video iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.vt-cw-classroom-video-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;width:100%;aspect-ratio:16/9;border:1px dashed rgba(212,166,55,.28);border-radius:10px;background:radial-gradient(circle at 50% 45%,rgba(212,166,55,.09),transparent 48%),#050b14;text-align:center}
+.vt-cw-classroom-video-placeholder>span{color:#d4a637;font-size:9px;font-weight:950;letter-spacing:.16em}
+.vt-cw-classroom-video-placeholder strong{color:#eaf0f8;font-size:19px}
+.vt-cw-classroom-video-placeholder p{margin:0;color:#8e9bae;font-size:11px}
+.vt-cw-classroom-lesson{padding:20px 2px 2px}
+.vt-cw-classroom-lesson>div{margin-top:11px;color:#c0cad9;font-size:13px;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere}
+.vt-cw-classroom-lesson>a{display:inline-block;margin-top:15px;color:#e5bd55;font-size:11px;font-weight:850;text-decoration:none}
+.vt-cw-classroom-empty,.vt-cw-classroom-empty-main{padding:20px;color:#8f9caf;font-size:11px;line-height:1.7}
+.vt-cw-classroom-empty-main{display:grid;place-content:center;min-height:300px;text-align:center}
+.vt-cw-classroom-empty-main strong{color:#fff;font-size:19px}
+.vt-cw-classroom-empty-main p{margin:7px 0 0}
+.vt-cw-classroom-admin{margin-top:25px}
+.vt-cw-classroom-admin .vt-cw-compose{max-width:none}
+.vt-cw-classroom-admin-fields{display:flex;align-items:center;gap:24px;flex-wrap:wrap}
+.vt-cw-classroom-admin-fields>label:first-child{display:grid;gap:6px;color:#c9d2e0;font-size:11px;font-weight:800}
+.vt-cw-classroom-admin-fields input[type=number]{width:110px;padding:10px;border:1px solid #293548;border-radius:8px;background:#060c16;color:#fff}
+.vt-cw-classroom-admin-fields .vt-cw-classroom-publish{display:flex;align-items:center;gap:8px;color:#c9d2e0;font-size:11px;font-weight:800}
+.vt-cw-classroom-admin-fields .vt-cw-classroom-publish input{width:16px;height:16px;accent-color:#d4a637}
+.vt-cw-classroom-admin-actions,.vt-cw-classroom-manage-list>div>div:last-child{display:flex;gap:8px;flex-wrap:wrap}
+.vt-cw-classroom-admin-actions button,.vt-cw-classroom-manage-list button{padding:10px 13px;border:1px solid #d4a637;border-radius:8px;background:#d4a637;color:#080d15;font-size:10px;font-weight:900;cursor:pointer}
+.vt-cw-classroom-admin-actions button.secondary,.vt-cw-classroom-manage-list button.secondary{border-color:rgba(255,255,255,.2);background:transparent;color:#cbd5e1}
+.vt-cw-classroom-manage-list{display:grid;gap:8px;margin-top:14px}
+.vt-cw-classroom-manage-list>div{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px;border:1px solid rgba(255,255,255,.09);border-radius:9px;background:#0a121f}
+.vt-cw-classroom-manage-list>div>div:first-child{display:grid;gap:5px;min-width:0}
+.vt-cw-classroom-manage-list strong{color:#fff;font-size:11px}
+.vt-cw-classroom-manage-list small{color:#8f9caf;font-size:9px}
+.vt-cw-classroom-manage-list button.danger{border-color:rgba(248,113,113,.4);background:rgba(127,29,29,.2);color:#fca5a5}
+@media(max-width:760px){.vt-cw-classroom-layout{grid-template-columns:1fr}.vt-cw-classroom-sidebar{max-height:250px;overflow:auto}.vt-cw-classroom-sidebar>button{padding:11px 13px}.vt-cw-classroom-content{padding:15px}.vt-cw-classroom-manage-list>div{align-items:flex-start;flex-direction:column}}
