@@ -267,3 +267,13 @@ body{
 .vt-info-page .vt-text-link{color:#f0d58a}
 .vt-info-card{border-color:rgba(212,166,55,.28);background:linear-gradient(145deg,#121b2a,#0b111c)}
 .vt-info-page .vt-secondary{color:#f7f8fb}
+
+
+/* High-contrast text on the warm, light page surfaces. Dark cards keep their light text. */
+.vt-sales .vt-sales-heading h2{color:#171b24!important}
+.vt-sales .vt-sales-heading>p{color:#424b59!important}
+.vt-sales .vt-sales-heading .vt-sales-kicker{color:#8a6415!important}
+.vt-info-page .vt-info-hero h1{color:#171b24!important}
+.vt-info-page .vt-info-hero>p{color:#424b59!important}
+.vt-info-page .vt-info-hero .vt-label{color:#8a6415!important}
+.vt-info-page .vt-info-hero .vt-secondary{color:#171b24!important;background:#fffdf8;border-color:#b9ad91}
