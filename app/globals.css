@@ -236,3 +236,34 @@ body{
 @media(prefers-reduced-motion:reduce){
   body{background-attachment:scroll}
 }
+
+
+/* Accessibility contrast correction — homepage and member workspace.
+   Keep dark/gold styling while ensuring headings, labels and card copy remain legible. */
+.vt-sales{color:#f6f4ef}
+.vt-sales-heading h2,
+.vt-product-card h3,
+.vt-opportunity-copy h3,
+.vt-business-strip h3{color:#f6f4ef}
+.vt-sales-kicker,
+.vt-product-number,
+.vt-product-card small{color:#f0d58a}
+.vt-sales-heading p,
+.vt-product-card p,
+.vt-opportunity-copy p,
+.vt-business-strip p{color:#d0d7e2}
+.vt-product-link{color:#f0d58a!important}
+.vt-sales-hero p{color:#d0d7e2}
+.vt-sales-hero-note{color:#c0c8d4}
+.vt-info-page{color:#f4f6fb}
+.vt-info-page .vt-info-hero h1,
+.vt-info-page .vt-info-card h2,
+.vt-info-page .vt-start h2{color:#f7f8fb}
+.vt-info-page .vt-info-hero p,
+.vt-info-page .vt-info-card p,
+.vt-info-page .vt-start p{color:#d0d7e2}
+.vt-info-page .vt-label,
+.vt-info-page .vt-number{color:#f0d58a}
+.vt-info-page .vt-text-link{color:#f0d58a}
+.vt-info-card{border-color:rgba(212,166,55,.28);background:linear-gradient(145deg,#121b2a,#0b111c)}
+.vt-info-page .vt-secondary{color:#f7f8fb}
