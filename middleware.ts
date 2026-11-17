@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { getProductAccess } from "@/lib/product-access";
+import { PARTNER_ACCESS_COOKIE, verifyPartnerAccessToken } from "@/lib/partner-access";
 
-const paidProtectedPaths = ["/ai-coach", "/journal"];
+const paidProtectedPaths = ["/ai-coach", "/journal", "/risk-manager"];
 const featureProtectedPaths: Record<string, string> = {
   "/analyzer": "analyzer",
   "/scanner-automation": "scanner",
@@ -15,11 +16,11 @@ const featureProtectedPaths: Record<string, string> = {
   "/strategies": "analyzer",
 };
 const publicPagePaths = [
-  "/", "/products", "/start", "/opportunity", "/plans", "/subscription",
-  "/membership/checkout", "/reseller-return", "/privacy-policy", "/community",
+  "/", "/products", "/plans", "/contact-partner", "/reseller-return", "/privacy-policy", "/community",
 ];
 const authenticatedPaths = ["/profile", "/dashboard"];
-const adminOnlyPaths = ["/membership", "/partners", "/how-it-works", "/admin/partner-websites", "/risk-manager"];
+const adminOnlyPaths = ["/membership", "/partners", "/how-it-works", "/admin/partner-websites"];
+const partnerEntryPaths = ["/start", "/opportunity", "/subscription", "/membership/checkout", "/auth/register"];
 
 const isPath = (pathname: string, path: string) =>
   pathname === path || pathname.startsWith(`${path}/`);
@@ -51,6 +52,26 @@ export async function middleware(request: NextRequest) {
     return NextResponse.rewrite(url);
   }
 
+  // Acquisition and checkout journeys must carry a verified, signed partner referral.
+  const hasPartnerAccess = await verifyPartnerAccessToken(request.cookies.get(PARTNER_ACCESS_COOKIE)?.value);
+  if (partnerEntryPaths.some(path => isPath(pathname, path)) && !hasPartnerAccess) {
+    if (isPartnerSubdomain && pathname === "/start") {
+      // Partner landing pages are the only entry point allowed to bootstrap the referral cookie.
+    } else if (isPartnerSubdomain) {
+      const destination = request.nextUrl.clone();
+      destination.pathname = "/start";
+      destination.search = "";
+      destination.searchParams.set("next", pathname + request.nextUrl.search);
+      return NextResponse.redirect(destination);
+    } else {
+      const destination = request.nextUrl.clone();
+      destination.pathname = "/contact-partner";
+      destination.search = "";
+      destination.searchParams.set("next", pathname + request.nextUrl.search);
+      return NextResponse.redirect(destination);
+    }
+  }
+
   // Lead capture is intentionally public. The handler validates consent, input and honeypot.
   if (pathname === "/api/marketing-leads") {
     return request.method === "POST" ? response : new NextResponse(null, { status: 404 });
@@ -76,6 +97,13 @@ export async function middleware(request: NextRequest) {
   );
 
   const { data: { user } } = await supabase.auth.getUser();
+  if (!user && !hasPartnerAccess && !isPartnerSubdomain) {
+    const destination = request.nextUrl.clone();
+    destination.pathname = "/contact-partner";
+    destination.search = "";
+    destination.searchParams.set("next", pathname + request.nextUrl.search);
+    return NextResponse.redirect(destination);
+  }
   if (!user) return new NextResponse(null, { status: 404 });
 
   if (authenticatedPaths.some(path => isPath(pathname, path))) return response;
