@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { getProductAccess } from "@/lib/product-access";
 
-const paidProtectedPaths = ["/ai-coach", "/journal", "/risk-manager"];
+const paidProtectedPaths = ["/ai-coach", "/journal"];
 const featureProtectedPaths: Record<string, string> = {
   "/analyzer": "analyzer",
   "/scanner-automation": "scanner",
@@ -19,7 +19,7 @@ const publicPagePaths = [
   "/membership/checkout", "/reseller-return", "/privacy-policy", "/community",
 ];
 const authenticatedPaths = ["/profile", "/dashboard"];
-const adminOnlyPaths = ["/membership", "/partners", "/how-it-works", "/admin/partner-websites"];
+const adminOnlyPaths = ["/membership", "/partners", "/how-it-works", "/admin/partner-websites", "/risk-manager"];
 
 const isPath = (pathname: string, path: string) =>
   pathname === path || pathname.startsWith(`${path}/`);
