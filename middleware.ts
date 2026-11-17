@@ -138,7 +138,17 @@ export async function middleware(request: NextRequest) {
 
   if (authenticatedPaths.some(path => isPath(pathname, path))) return response;
 
-  const { data: profile, error: profileError } = await supabase
+  // Resolve authorization state with the server-only service client when available.
+  // The public/anon client may be blocked by users-table RLS and incorrectly make an
+  // approved partner appear to have no profile, which previously produced a 404.
+  const accessDb = process.env.SUPABASE_SERVICE_ROLE_KEY
+    ? createSupabaseClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY,
+        { auth: { persistSession: false, autoRefreshToken: false } }
+      )
+    : supabase;
+  const { data: profile, error: profileError } = await accessDb
     .from("users")
     .select("id,license_status,is_active,role")
     .eq("auth_user_id", user.id)
@@ -158,11 +168,7 @@ export async function middleware(request: NextRequest) {
     // after verifying the signed-in user's partner/reseller role above.
     const isPartnerRole = profile.role === "partner" || profile.role === "reseller";
     if (isPartnerRole && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      const adminDb = createSupabaseClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY,
-        { auth: { persistSession: false, autoRefreshToken: false } }
-      );
+      const adminDb = accessDb;
       const { data: portalOverride } = await adminDb
         .from("partner_portal_access_overrides")
         .select("decision")
@@ -174,7 +180,7 @@ export async function middleware(request: NextRequest) {
     }
 
     // Preserve the existing automatic access path for active commercial memberships.
-    const { data: resellerLicences } = await supabase
+    const { data: resellerLicences } = await accessDb
       .from("product_licenses")
       .select("entitlement_code,status,start_at,end_at")
       .eq("user_id", profile.id)
