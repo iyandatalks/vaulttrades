@@ -54,22 +54,28 @@ export async function middleware(request: NextRequest) {
 
   // Acquisition and checkout journeys must carry a verified, signed partner referral.
   const hasPartnerAccess = await verifyPartnerAccessToken(request.cookies.get(PARTNER_ACCESS_COOKIE)?.value);
-  if (partnerEntryPaths.some(path => isPath(pathname, path)) && !hasPartnerAccess) {
-    if (isPartnerSubdomain && pathname === "/start") {
-      // Partner landing pages are the only entry point allowed to bootstrap the referral cookie.
-    } else if (isPartnerSubdomain) {
-      const destination = request.nextUrl.clone();
-      destination.pathname = "/start";
-      destination.search = "";
-      destination.searchParams.set("next", pathname + request.nextUrl.search);
-      return NextResponse.redirect(destination);
+  if (partnerEntryPaths.some(path => isPath(pathname, path))) {
+    if (!hasPartnerAccess) {
+      if (isPartnerSubdomain && pathname === "/start") {
+        // Partner landing pages are the only entry point allowed to bootstrap the referral cookie.
+      } else if (isPartnerSubdomain) {
+        const destination = request.nextUrl.clone();
+        destination.pathname = "/start";
+        destination.search = "";
+        destination.searchParams.set("next", pathname + request.nextUrl.search);
+        return NextResponse.redirect(destination);
+      } else {
+        const destination = request.nextUrl.clone();
+        destination.pathname = "/contact-partner";
+        destination.search = "";
+        destination.searchParams.set("next", pathname + request.nextUrl.search);
+        return NextResponse.redirect(destination);
+      }
     } else {
-      const destination = request.nextUrl.clone();
-      destination.pathname = "/contact-partner";
-      destination.search = "";
-      destination.searchParams.set("next", pathname + request.nextUrl.search);
-      return NextResponse.redirect(destination);
+      // The signed referral cookie is the gate; the destination page handles its own
+      // authentication, checkout and entitlement checks after this point.
     }
+    return response;
   }
 
   // Lead capture is intentionally public. The handler validates consent, input and honeypot.
