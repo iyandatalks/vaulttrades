@@ -9,7 +9,8 @@ type Member = { auth_user_id: string; display_name: string; is_approved: boolean
 type Announcement = { id: string; title: string; body: string; category: string; published_at: string | null; created_at: string };
 type Post = { id: string; auth_user_id: string; display_name: string; category: string; title: string; body: string; deal_stage: string | null; moderation_status: string; participation_points: number; is_featured: boolean; created_at: string };
 type Comment = { id: string; post_id: string; auth_user_id: string; display_name: string; body: string; created_at: string };
-type Leader = { rank: number; display_name: string; verified_deals: number; new: number; contacted: number; qualified: number; converted: number; closed: number };\ntype ClassroomTopic = { id: string; title: string; content: string; youtube_url: string | null; sort_order: number; is_published: boolean; created_at: string; updated_at: string };
+type Leader = { rank: number; display_name: string; verified_deals: number; new: number; contacted: number; qualified: number; converted: number; closed: number };
+type ClassroomTopic = { id: string; title: string; content: string; youtube_url: string | null; sort_order: number; is_published: boolean; created_at: string; updated_at: string };
 
 const stageLabels: Record<string, string> = { new: "New", contacted: "Contacted", qualified: "Qualified", converted: "Converted", closed: "Closed" };
 
@@ -17,12 +18,13 @@ function youtubeEmbedUrl(raw: string | null | undefined) {
   if (!raw) return "";
   try {
     const url = new URL(raw);
-    const host = url.hostname.toLowerCase().replace(/^www\\./, "");
+    const host = url.hostname.toLowerCase().replace("www.", "");
     let videoId = "";
     if (host === "youtu.be") videoId = url.pathname.split("/").filter(Boolean)[0] || "";
     else if (["youtube.com", "m.youtube.com", "youtube-nocookie.com"].includes(host)) {
-      videoId = url.searchParams.get("v") || url.pathname.match(/^\\/(?:embed|shorts)\\/([A-Za-z0-9_-]{6,})/)?.[1] || "";
-    }
+      const parts = url.pathname.split("/").filter(Boolean);
+      const pathVideoId = ["embed", "shorts"].includes(parts[0] || "") ? parts[1] || "" : "";
+      videoId = url.searchParams.get("v") || pathVideoId;
     return /^[A-Za-z0-9_-]{6,}$/.test(videoId) ? `https://www.youtube-nocookie.com/embed/${videoId}` : "";
   } catch { return ""; }
 }
