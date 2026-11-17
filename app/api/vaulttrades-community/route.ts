@@ -13,9 +13,7 @@ async function getContext() {
   const { data: profile } = await db.from("users").select("id,role").eq("auth_user_id", user.id).maybeSingle();
   if (!profile) return { response: NextResponse.json({ error: "Your VaultTrades profile could not be found." }, { status: 404 }) };
   const isAdmin = profile.role === "admin";
-  const { data: referralProfile } = await db.from("referral_profiles")
-    .select("user_id").eq("user_id", user.id).not("activated_at", "is", null).maybeSingle();
-  const isPartner = ["partner", "reseller"].includes(String(profile.role || "").toLowerCase()) || Boolean(referralProfile);
+  const isPartner = ["partner", "reseller"].includes(String(profile.role || "").toLowerCase());
   if (!isAdmin && !isPartner) {
     const { data: featureAccess } = await db.rpc("has_feature_access", {
       p_auth_user_id: user.id, p_feature_code: "community",
@@ -99,15 +97,14 @@ export async function GET() {
   let pendingComments: unknown[] = [];
   let reconciliation: Record<string, unknown> | null = null;
   if (isAdmin) {
-    const [allCommunity, approvedCommunity, pendingCommunity, partnerUsers, activePartnerProfiles, activeLicences] = await Promise.all([
+    const [allCommunity, approvedCommunity, pendingCommunity, partnerUsers, activeLicences] = await Promise.all([
       db.from("community_member_names").select("auth_user_id", { count: "exact", head: true }),
       db.from("community_member_names").select("auth_user_id", { count: "exact", head: true }).eq("is_approved", true),
       db.from("community_member_names").select("auth_user_id", { count: "exact", head: true }).eq("is_approved", false),
       db.from("users").select("id", { count: "exact", head: true }).in("role", ["partner", "reseller"]),
-      db.from("referral_profiles").select("user_id").not("activated_at", "is", null),
       db.from("product_licenses").select("user_id,entitlement_code,purchased_product_code,status,start_at,end_at").eq("status", "active"),
     ]);
-    if ([allCommunity, approvedCommunity, pendingCommunity, partnerUsers, activePartnerProfiles, activeLicences].some(result => result.error)) return fail("Membership reconciliation could not be loaded.", 500);
+    if ([allCommunity, approvedCommunity, pendingCommunity, partnerUsers, activeLicences].some(result => result.error)) return fail("Membership reconciliation could not be loaded.", 500);
     const licences = activeLicences.data ?? [];
     const now = Date.now();
     const validLicences = licences.filter(row => {
@@ -122,7 +119,6 @@ export async function GET() {
       if (row.user_id) planMembers.get(key)!.add(row.user_id);
     }
     const byPlan = Object.fromEntries([...planMembers.entries()].map(([plan, members]) => [plan, members.size]));
-    const partnershipMemberIds = new Set((activePartnerProfiles.data ?? []).map(row => row.user_id).filter(Boolean));
     const knowledgeBaseCodes = new Set(["nexus", "vaulttrades_nexus", "nexus_plus", "vaulttrades_nexus_plus", "vortex", "vaulttrades_vortex"]);
     const knowledgeBaseUsers = new Set(validLicences
       .filter(row => knowledgeBaseCodes.has(String(row.entitlement_code || "").toLowerCase()))
@@ -132,7 +128,7 @@ export async function GET() {
       approvedParticipants: approvedCommunity.count ?? 0,
       exclusiveSectionAccess: approvedCommunity.count ?? 0,
       awaitingReview: pendingCommunity.count ?? 0,
-      partnershipMembers: Math.max(partnerUsers.count ?? 0, partnershipMemberIds.size),
+      partnershipMembers: partnerUsers.count ?? 0,
       knowledgeBaseAccess: knowledgeBaseUsers.size,
       activePlanEntitlements: validLicences.length,
       planAccessCounts: byPlan,
