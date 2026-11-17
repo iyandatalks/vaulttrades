@@ -43,7 +43,7 @@
 .vts-price-parts{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px}
 .vts-price-parts>div{display:flex;flex-direction:column;gap:7px;padding:17px;border:1px solid #e6dfd0;border-radius:10px;background:#faf9f6}
 .vts-price-parts span{color:#8d6a1d;font-size:9px;font-weight:950;letter-spacing:.1em}
-.vts-price-parts strong{color:#171b24;font-size:22px}
+.vts-price-parts strong{color:#171b24;font-size:15px;line-height:1.6}
 .vts-price-parts small{color:#65707d;font-size:10px;line-height:1.55}
 .vts-price-footnote{margin:14px 0 0;color:#586170;font-size:11px;line-height:1.7}
 .vts-website-fee,.vts-separate-tools{margin-top:12px;padding:13px 15px;border-radius:9px;background:#f5f3ed;color:#4f5966;font-size:11px;line-height:1.65}
