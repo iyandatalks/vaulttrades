@@ -111,7 +111,7 @@ export default function BusinessLeadsClient({ isAdmin }: { isAdmin: boolean }) {
             <div className="vt-lead-source"><span className="vt-member-kicker">PLATFORM / SOURCE</span><strong>{lead.source || "Website"}</strong>{lead.campaign && <small>{lead.campaign}</small>}</div>
             <div className="vt-lead-person"><span className="vt-member-kicker">NAME</span><strong>{lead.first_name}</strong><small>{new Date(lead.created_at).toLocaleDateString()}</small></div>
             <div className="vt-lead-email"><span className="vt-member-kicker">EMAIL ADDRESS</span><a href={"mailto:" + encodeURIComponent(lead.email)}>{lead.email}</a></div>
-            <div className="vt-lead-phone"><span className="vt-member-kicker">CELL PHONE</span><a href={"tel:" + lead.cellphone.replace(/[^+\\d]/g, "")}>{lead.cellphone}</a></div>
+            <div className="vt-lead-phone"><span className="vt-member-kicker">CELL PHONE</span><a href={"tel:" + lead.cellphone.replace(/[^+\d]/g, "")}>{lead.cellphone}</a></div>
             <div className="vt-lead-actions"><span className={"vt-lead-status " + lead.partner_status}>{statusOptions.find(x => x[0] === lead.partner_status)?.[1] ?? lead.partner_status}</span>
               <button className="vt-member-outline" onClick={() => beginEdit(lead)}>Follow-up</button>
               <button className="vt-lead-delete" onClick={() => void removeLead(lead.id)} disabled={deleting}>Remove</button>
