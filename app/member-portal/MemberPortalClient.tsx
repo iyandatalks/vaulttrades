@@ -238,7 +238,7 @@ export default function MemberPortalClient({
           <p className="vt-member-note">Use the left-hand topics in order. Supporting materials are added as named links to approved cloud-hosted resources, rather than uploading large files into the website.</p>
         </>;
       case "admin":
-        return isAdmin ? <MemberPortalAdminPanel /> : <><h1>Not available.</h1></>;
+        return isAdmin ? <><div className="vt-member-highlight"><strong>Administrative access controls</strong><span>Manage Community approvals, Partners Portal manual overrides, and partner registration when automated processing needs correction.</span><a className="vt-member-button" href="/admin/access-management">Open Access & Partner Management ↗</a></div><MemberPortalAdminPanel /></> : <><h1>Not available.</h1></>;
       case "notifications":
         return <>
           <Eyebrow>MEMBER UPDATES</Eyebrow><h1>Your notifications.</h1>
