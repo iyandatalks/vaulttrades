@@ -97,7 +97,7 @@ export default async function MemberPortalPage() {
     partnerPortalOverride?.decision === "grant" ||
     (partnerPortalOverride?.decision !== "revoke" && Boolean(activePlan))
   );
-  const partnerAccessOnly = partnerPortalAllowed && !plan;
+  const partnerAccessOnly = partnerPortalAllowed && !activePlan;
 
   let referralUrl: string | null = null;
   if (activePlan || isAdmin) {
