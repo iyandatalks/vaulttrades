@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 
 type Member = {
   id: string; auth_user_id: string; email: string; first_name: string | null; last_name: string | null;
@@ -17,7 +17,7 @@ export default function AdminAccessManagement() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  async function search(event?: React.FormEvent) {
+  async function search(event?: FormEvent) {
     event?.preventDefault();
     setBusy("search"); setError(""); setMessage("");
     try {
@@ -82,7 +82,7 @@ export default function AdminAccessManagement() {
       <h2>Invite a new partner</h2>
       <p className="muted">For someone who has not registered yet. This sends a Supabase account invitation. After they complete registration, search for their email above and use Register Partner to assign the partner role.</p>
       <label>Invitation email<input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="person@example.com" /></label>
-      <button disabled={!email.trim() || busy === "invite"} onClick={() => void act(null, "invite_partner", { email })}>{busy === "invite" ? "Sending…" : "Send partner invitation"}</button>
+      <button disabled={!email.trim() || busy === "inviteinvite_partner"} onClick={() => void act(null, "invite_partner", { email })}>{busy === "invite" ? "Sending…" : "Send partner invitation"}</button>
     </section>
     <section className="panel">
       <label>Administrative note / reason (optional)<input value={reason} onChange={e => setReason(e.target.value)} maxLength={500} placeholder="e.g. Correcting an automated access sync issue" /></label>
