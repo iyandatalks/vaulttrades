@@ -50,7 +50,7 @@ export async function GET() {
     return NextResponse.json({ member: member ?? null, approved: false, announcements: [], posts: [], comments: [], leaderboard: [], members: [], moderationQueue: [] });
   }
 
-  const [announcementsResult, postsResult, commentsResult, membersResult, dealsResult] = await Promise.all([
+  const [announcementsResult, postsResult, commentsResult, membersResult, dealsResult, testimonialsResult] = await Promise.all([
     db.from("community_announcements").select("id,title,body,category,published_at,created_at")
       .eq("is_published", true).order("published_at", { ascending: false }).limit(40),
     db.from("community_discussion_posts")
@@ -63,9 +63,11 @@ export async function GET() {
       .eq("is_approved", true).order("display_name", { ascending: true }).limit(250),
     db.from("community_discussion_posts").select("auth_user_id,display_name,deal_stage")
       .eq("category", "new_business_deal").eq("moderation_status", "approved"),
+    db.from("community_testimonials").select("id,display_name,product_code,testimonial,created_at")
+      .eq("status", "approved").order("created_at", { ascending: false }).limit(100),
   ]);
 
-  for (const result of [announcementsResult, postsResult, commentsResult, membersResult, dealsResult]) {
+  for (const result of [announcementsResult, postsResult, commentsResult, membersResult, dealsResult, testimonialsResult]) {
     if (result.error) {
       console.error("Community workspace read failed:", result.error.message);
       return fail("The community workspace could not be loaded. Please try again.", 500);
@@ -92,7 +94,40 @@ export async function GET() {
   let moderationQueue: unknown[] = [];
   let pendingMembers: unknown[] = [];
   let pendingComments: unknown[] = [];
+  let reconciliation: Record<string, unknown> | null = null;
   if (isAdmin) {
+    const [allCommunity, approvedCommunity, pendingCommunity, partnerUsers, activeLicences] = await Promise.all([
+      db.from("community_member_names").select("auth_user_id", { count: "exact", head: true }),
+      db.from("community_member_names").select("auth_user_id", { count: "exact", head: true }).eq("is_approved", true),
+      db.from("community_member_names").select("auth_user_id", { count: "exact", head: true }).eq("is_approved", false),
+      db.from("users").select("id", { count: "exact", head: true }).in("role", ["partner", "reseller"]),
+      db.from("product_licenses").select("user_id,entitlement_code,purchased_product_code,status,start_at,end_at").eq("status", "active"),
+    ]);
+    const licences = activeLicences.data ?? [];
+    const now = Date.now();
+    const validLicences = licences.filter(row => {
+      const start = row.start_at ? new Date(row.start_at).getTime() : 0;
+      const end = row.end_at ? new Date(row.end_at).getTime() : Number.POSITIVE_INFINITY;
+      return Number.isFinite(start) && start <= now && end > now;
+    });
+    const byPlan: Record<string, number> = {};
+    for (const row of validLicences) {
+      const key = row.purchased_product_code || row.entitlement_code || "unclassified";
+      byPlan[key] = (byPlan[key] || 0) + 1;
+    }
+    const knowledgeBaseUsers = new Set(validLicences
+      .filter(row => /knowledge|kb/i.test(row.entitlement_code || ""))
+      .map(row => row.user_id));
+    reconciliation = {
+      totalCommunityMembers: allCommunity.count ?? 0,
+      approvedParticipants: approvedCommunity.count ?? 0,
+      exclusiveSectionAccess: approvedCommunity.count ?? 0,
+      awaitingReview: pendingCommunity.count ?? 0,
+      partnershipMembers: partnerUsers.count ?? 0,
+      knowledgeBaseAccess: knowledgeBaseUsers.size,
+      activePlanEntitlements: validLicences.length,
+      planAccessCounts: byPlan,
+    };
     moderationQueue = (postsResult.data ?? []).filter(post => post.moderation_status === "pending");
     const { data: pending } = await db.from("community_member_names")
       .select("auth_user_id,display_name,is_approved,created_at")
@@ -112,6 +147,8 @@ export async function GET() {
     leaderboard,
     members: membersResult.data ?? [],
     moderationQueue, pendingMembers, pendingComments,
+    testimonials: testimonialsResult.data ?? [],
+    ...(isAdmin ? { reconciliation } : {}),
   });
 }
 
