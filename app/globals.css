@@ -287,3 +287,9 @@ body{
 .vt-partners-page .vt-info-card p.muted{color:#424b59!important}
 .vt-partners-page .vt-info-card .vt-primary{color:#171b24!important}
 .vt-partners-page .vt-info-card .vt-secondary{background:#fffdf8!important;color:#171b24!important;border-color:#b9ad91!important}
+
+
+/* The separate business-opportunity band is intentionally dark, so its heading and copy stay light. */
+.vt-sales .vt-sales-section.alt .vt-sales-heading h2{color:#f6f4ef!important}
+.vt-sales .vt-sales-section.alt .vt-sales-heading>p{color:#c4ccd8!important}
+.vt-sales .vt-sales-section.alt .vt-sales-heading .vt-sales-kicker{color:#f0d58a!important}
