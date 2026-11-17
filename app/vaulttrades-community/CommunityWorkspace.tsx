@@ -10,7 +10,8 @@ type Announcement = { id: string; title: string; body: string; category: string;
 type Post = { id: string; auth_user_id: string; display_name: string; category: string; title: string; body: string; deal_stage: string | null; moderation_status: string; participation_points: number; is_featured: boolean; created_at: string };
 type Comment = { id: string; post_id: string; auth_user_id: string; display_name: string; body: string; created_at: string };
 type Leader = { rank: number; display_name: string; verified_deals: number; new: number; contacted: number; qualified: number; converted: number; closed: number };
-type ClassroomTopic = { id: string; title: string; content: string; youtube_url: string | null; sort_order: number; is_published: boolean; audience_type: "all_approved" | "all_partners" | "selected_partners"; allowed_auth_user_ids: string[]; created_at: string; updated_at: string };\ntype EligiblePartner = { auth_user_id: string; display_name: string; email: string | null; role: string | null };
+type ClassroomTopic = { id: string; title: string; content: string; youtube_url: string | null; sort_order: number; is_published: boolean; audience_type: "all_approved" | "all_partners" | "selected_partners"; allowed_auth_user_ids: string[]; created_at: string; updated_at: string };
+type EligiblePartner = { auth_user_id: string; display_name: string; email: string | null; role: string | null };
 
 const stageLabels: Record<string, string> = { new: "New", contacted: "Contacted", qualified: "Qualified", converted: "Converted", closed: "Closed" };
 
@@ -49,7 +50,9 @@ export default function CommunityWorkspace() {
   const [classroomContent, setClassroomContent] = useState("");
   const [classroomYoutubeUrl, setClassroomYoutubeUrl] = useState("");
   const [classroomSortOrder, setClassroomSortOrder] = useState("0");
-  const [classroomPublished, setClassroomPublished] = useState(true);\n  const [classroomAudience, setClassroomAudience] = useState<"all_approved" | "all_partners" | "selected_partners">("all_approved");\n  const [classroomPartnerIds, setClassroomPartnerIds] = useState<string[]>([]);
+  const [classroomPublished, setClassroomPublished] = useState(true);
+  const [classroomAudience, setClassroomAudience] = useState<"all_approved" | "all_partners" | "selected_partners">("all_approved");
+  const [classroomPartnerIds, setClassroomPartnerIds] = useState<string[]>([]);
 
   async function load() {
     setLoading(true); setError("");
@@ -115,7 +118,8 @@ export default function CommunityWorkspace() {
   const generalPosts = useMemo(() => posts.filter(post => post.category === "general_discussion" || post.category === "opportunity"), [posts]);
   const isAdmin = Boolean(data?.isAdmin);
   const isPartner = Boolean(data?.isPartner);
-  const classroomTopics: ClassroomTopic[] = data?.classroomTopics ?? [];\n  const eligiblePartners: EligiblePartner[] = data?.eligiblePartners ?? [];
+  const classroomTopics: ClassroomTopic[] = data?.classroomTopics ?? [];
+  const eligiblePartners: EligiblePartner[] = data?.eligiblePartners ?? [];
   const selectedClassroomTopic = classroomTopics.find(topic => topic.id === classroomTopicId) || classroomTopics[0] || null;
   const classroomEmbed = youtubeEmbedUrl(selectedClassroomTopic?.youtube_url);
 
