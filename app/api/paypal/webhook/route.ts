@@ -150,7 +150,7 @@ export async function POST(request: Request) {
         if (memberLookupError) return NextResponse.json({ error: "Payment was verified, but the Community member record could not be checked." }, { status: 500 });
         if (!existingMember) {
           const { error: memberInsertError } = await admin.from("community_member_names").insert({
-            auth_user_id: customer.auth_user_id, display_name: "Community Member", is_approved: false,
+            auth_user_id: customer.auth_user_id, display_name: `Community Member ${customer.auth_user_id.slice(0, 6)}`, is_approved: false,
           });
           if (memberInsertError) return NextResponse.json({ error: "Payment was verified, but the Community access review record could not be created." }, { status: 500 });
         }
