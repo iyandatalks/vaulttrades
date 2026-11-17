@@ -125,7 +125,7 @@ export default function MemberPortalClient({
       group.items.push(item);
     }
     return result;
-  }, [topicSearch, isAdmin]);
+  }, [topicSearch, isAdmin, partnerAccessOnly]);
   const activeSection = visibleSections.find(item => item.id === active) ?? visibleSections[0];
   const activeIndex = visibleSections.findIndex(item => item.id === active) + 1;
   const communityReferralUrl = useMemo(() => {
