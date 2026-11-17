@@ -40,6 +40,32 @@ async function getContext() {
   return { db, user, profile, member, isAdmin, isPartner };
 }
 
+
+async function getEligiblePartners(db: ReturnType<typeof createAdminClient>) {
+  const [rolePartners, resellerLinks] = await Promise.all([
+    db.from("users").select("auth_user_id,first_name,last_name,email,role").in("role", ["partner", "reseller"]).not("auth_user_id", "is", null),
+    db.from("reseller_payment_links").select("auth_user_id").eq("is_active", true).not("auth_user_id", "is", null),
+  ]);
+  if (rolePartners.error || resellerLinks.error) throw new Error("Partner eligibility could not be checked.");
+  const ids = [...new Set([
+    ...(rolePartners.data ?? []).map(row => row.auth_user_id),
+    ...(resellerLinks.data ?? []).map(row => row.auth_user_id),
+  ].filter(Boolean))];
+  if (!ids.length) return [];
+  const [approved, profiles] = await Promise.all([
+    db.from("community_member_names").select("auth_user_id,display_name").eq("is_approved", true).in("auth_user_id", ids),
+    db.from("users").select("auth_user_id,first_name,last_name,email,role").in("auth_user_id", ids),
+  ]);
+  if (approved.error || profiles.error) throw new Error("Partner eligibility could not be checked.");
+  const names = new Map((approved.data ?? []).map(row => [row.auth_user_id, row.display_name]));
+  return (profiles.data ?? []).filter(row => names.has(row.auth_user_id)).map(row => ({
+    auth_user_id: row.auth_user_id,
+    display_name: names.get(row.auth_user_id) || [row.first_name, row.last_name].filter(Boolean).join(" ") || row.email,
+    email: row.email,
+    role: row.role,
+  })).sort((a, b) => String(a.display_name).localeCompare(String(b.display_name)));
+}
+
 function fail(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
 }
@@ -68,7 +94,7 @@ export async function GET() {
       .eq("category", "new_business_deal").eq("moderation_status", "approved"),
     db.from("community_testimonials").select("id,display_name,product_code,testimonial,created_at")
       .eq("status", "approved").order("created_at", { ascending: false }).limit(100),
-    db.from("community_classroom_topics").select("id,title,content,youtube_url,sort_order,is_published,created_at,updated_at")
+    db.from("community_classroom_topics").select("id,title,content,youtube_url,sort_order,is_published,audience_type,allowed_auth_user_ids,created_at,updated_at")
       .order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
   ]);
 
@@ -169,6 +195,18 @@ export async function GET() {
     pendingComments = commentsPending ?? [];
   }
 
+  const eligiblePartners = isAdmin ? await getEligiblePartners(db).catch(error => {
+    console.error("Classroom partner audience load failed:", error);
+    return [];
+  }) : [];
+  const visibleClassroomTopics = (classroomResult.data ?? []).filter(topic => {
+    if (isAdmin) return true;
+    if (!topic.is_published) return false;
+    if (topic.audience_type === "all_approved") return true;
+    if (topic.audience_type === "all_partners") return isPartner;
+    return (topic.allowed_auth_user_ids ?? []).includes(user.id);
+  });
+
   return NextResponse.json({
     member: member ?? null, approved: true, isAdmin,
     announcements: announcementsResult.data ?? [],
@@ -178,7 +216,7 @@ export async function GET() {
     members: isPartner || isAdmin ? (membersResult.data ?? []) : [],
     moderationQueue, pendingMembers, pendingComments,
     testimonials: isPartner || isAdmin ? (testimonialsResult.data ?? []) : [],
-    classroomTopics: (classroomResult.data ?? []).filter(topic => isAdmin || topic.is_published),
+    classroomTopics: visibleClassroomTopics,\n    ...(isAdmin ? { eligiblePartners } : {}),
     isPartner,
     ...(isAdmin ? { reconciliation } : {}),
   });
@@ -214,6 +252,17 @@ export async function POST(request: Request) {
     const youtubeUrl = typeof body.youtubeUrl === "string" ? body.youtubeUrl.trim().slice(0, 500) : "";
     const sortOrder = Number.isFinite(Number(body.sortOrder)) ? Math.max(0, Math.min(10000, Math.trunc(Number(body.sortOrder)))) : 0;
     const isPublished = body.isPublished !== false;
+    const audienceType = ["all_approved", "all_partners", "selected_partners"].includes(body.audienceType) ? body.audienceType : "all_approved";
+    const requestedPartnerIds = Array.isArray(body.allowedAuthUserIds) ? [...new Set(body.allowedAuthUserIds.filter((id: unknown): id is string => typeof id === "string" && /^[0-9a-f-]{36}$/i.test(id)))] : [];
+    if (audienceType === "selected_partners" && requestedPartnerIds.length === 0) return fail("Select at least one eligible partner for this topic.");
+    let allowedAuthUserIds: string[] = [];
+    if (audienceType === "selected_partners") {
+      const eligible = await getEligiblePartners(db).catch(() => null);
+      if (!eligible) return fail("Partner eligibility could not be verified. Please try again.", 500);
+      const eligibleIds = new Set(eligible.map(partner => partner.auth_user_id));
+      if (requestedPartnerIds.some(id => !eligibleIds.has(id))) return fail("One or more selected accounts are not currently eligible Community partners.");
+      allowedAuthUserIds = requestedPartnerIds;
+    }
     if (title.length < 2) return fail("Add a topic title with at least two characters.");
     if (youtubeUrl) {
       let parsed: URL;
@@ -224,7 +273,7 @@ export async function POST(request: Request) {
       const videoId = host === "youtu.be" ? segments[0] : parsed.searchParams.get("v") || (["embed", "shorts"].includes(segments[0] || "") ? segments[1] : "");
       if (!videoId || !/^[A-Za-z0-9_-]{6,}$/.test(videoId)) return fail("Choose a valid YouTube video link.");
     }
-    const values = { title, content, youtube_url: youtubeUrl || null, sort_order: sortOrder, is_published: isPublished, updated_at: new Date().toISOString() };
+    const values = { title, content, youtube_url: youtubeUrl || null, sort_order: sortOrder, is_published: isPublished, audience_type: audienceType, allowed_auth_user_ids: allowedAuthUserIds, updated_at: new Date().toISOString() };
     const result = id
       ? await db.from("community_classroom_topics").update(values).eq("id", id).select("id").maybeSingle()
       : await db.from("community_classroom_topics").insert({ ...values, created_by: user.id }).select("id").single();
