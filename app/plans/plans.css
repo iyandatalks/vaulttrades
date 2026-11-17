@@ -13,3 +13,30 @@
 .vt-plan-breakdown strong{flex:0 0 auto;color:#e5bd55;font-size:16px;white-space:nowrap}
 .vt-plan-breakdown strong small{font-size:9px;letter-spacing:.06em}
 .vt-plan-breakdown p{margin:0;color:#929daf;font-size:10px;line-height:1.6}
+
+/* Match the light membership reading surface used on the opportunity page. */
+.vt-plans{background:#f5f3ed;color:#171b24}
+.vt-plans-header h1{color:#171b24}
+.vt-plans-header h1 span{color:#9b7625}
+.vt-plans-header p{color:#586170}
+.vt-plans-kicker,.vt-plan-number{color:#9b7625}
+.vt-plan-card{background:#fff;border:1px solid #ded8ca;color:#171b24;box-shadow:0 12px 34px rgba(27,31,39,.07)}
+.vt-plan-featured{border-color:#b78a2c;box-shadow:0 15px 38px rgba(99,75,27,.12)}
+.vt-plan-card h2{color:#171b24}
+.vt-plan-price{color:#171b24}
+.vt-plan-price small,.vt-plan-once{color:#92701f}
+.vt-plan-intro{color:#586170}
+.vt-plan-card li{color:#46505d;border-bottom-color:#efede7}
+.vt-plan-card ul{border-top-color:#e9e5dc}
+.vt-plan-breakdown{background:#faf9f6;border-color:#e6dfd0}
+.vt-plan-breakdown span{color:#4f5966}
+.vt-plan-breakdown strong{color:#8d6a1d}
+.vt-plan-breakdown p{color:#586170}
+.vt-plan-addon{background:#f5f3ed;border-color:#e6dfd0}
+.vt-plan-addon span{color:#171b24}
+.vt-plan-addon strong{color:#8d6a1d}
+.vt-plan-addon p{color:#586170}
+.vt-plan-notes{background:#fff;border-color:#ded8ca}
+.vt-plan-notes h2{color:#171b24}
+.vt-plan-notes p{color:#586170}
+.vt-plan-select{background:#d4a637;color:#11151c}

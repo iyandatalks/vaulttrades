@@ -18,3 +18,35 @@
 .vts-memberships-note{max-width:850px;margin:22px auto 0;text-align:center;font-size:10px}
 @media(max-width:800px){.vts-membership-grid{grid-template-columns:1fr}.vts-membership-card h3,.vts-membership-card p{min-height:0}}
 @media(max-width:600px){.vts-memberships{padding:54px 20px}.vts-membership-card{padding:21px}}
+
+/* Clear membership comparison: a lighter reading surface within the dark VaultTrades brand. */
+.vts-memberships{background:#f5f3ed;color:#171b24;border-top:1px solid #e7dfca}
+.vts-memberships-heading .vts-kicker{color:#9b7625}
+.vts-memberships-heading h2{color:#171b24}
+.vts-memberships-heading h2 em{color:#a77b1e}
+.vts-memberships-heading p{color:#586170}
+.vts-membership-card{background:#fff;border:1px solid #ded8ca;color:#171b24;box-shadow:0 12px 34px rgba(27,31,39,.07)}
+.vts-membership-card.featured{border:1.5px solid #b78a2c;box-shadow:0 15px 38px rgba(99,75,27,.12)}
+.vts-membership-card>span{color:#9b7625}
+.vts-membership-card h3{color:#171b24}
+.vts-membership-card>strong{color:#171b24}
+.vts-membership-card>strong small{color:#92701f}
+.vts-membership-card .vts-plan-summary{min-height:72px;color:#586170;font-size:12px;line-height:1.65}
+.vts-membership-card ul{list-style:none;margin:0 0 22px;padding:0;border-top:1px solid #e9e5dc}
+.vts-membership-card li{position:relative;padding:9px 0 9px 19px;border-bottom:1px solid #efede7;color:#46505d;font-size:11px;line-height:1.55}
+.vts-membership-card li:before{content:"✓";position:absolute;left:0;color:#a77b1e;font-weight:900}
+.vts-membership-card a{background:#d4a637;color:#11151c}
+.vts-memberships-note{color:#626b78}
+.vts-price-clarity{max-width:1000px;margin:30px auto 0;padding:26px;border:1px solid #ded8ca;border-radius:14px;background:#fff;color:#171b24}
+.vts-price-clarity h3{margin:0 0 8px;font-size:19px;letter-spacing:-.02em}
+.vts-price-lead{margin:0;color:#586170;font-size:12px;line-height:1.7}
+.vts-price-parts{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px}
+.vts-price-parts>div{display:flex;flex-direction:column;gap:7px;padding:17px;border:1px solid #e6dfd0;border-radius:10px;background:#faf9f6}
+.vts-price-parts span{color:#8d6a1d;font-size:9px;font-weight:950;letter-spacing:.1em}
+.vts-price-parts strong{color:#171b24;font-size:15px;line-height:1.6}
+.vts-price-parts small{color:#65707d;font-size:10px;line-height:1.55}
+.vts-price-footnote{margin:14px 0 0;color:#586170;font-size:11px;line-height:1.7}
+.vts-website-fee,.vts-separate-tools{margin-top:12px;padding:13px 15px;border-radius:9px;background:#f5f3ed;color:#4f5966;font-size:11px;line-height:1.65}
+.vts-website-fee strong,.vts-separate-tools strong{color:#171b24}
+.vts-website-fee b{color:#8d6a1d}
+@media(max-width:600px){.vts-price-clarity{padding:19px}.vts-price-parts{grid-template-columns:1fr}.vts-membership-card .vts-plan-summary{min-height:0}}
