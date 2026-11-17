@@ -25,6 +25,7 @@ function youtubeEmbedUrl(raw: string | null | undefined) {
       const parts = url.pathname.split("/").filter(Boolean);
       const pathVideoId = ["embed", "shorts"].includes(parts[0] || "") ? parts[1] || "" : "";
       videoId = url.searchParams.get("v") || pathVideoId;
+    }
     return /^[A-Za-z0-9_-]{6,}$/.test(videoId) ? `https://www.youtube-nocookie.com/embed/${videoId}` : "";
   } catch { return ""; }
 }
