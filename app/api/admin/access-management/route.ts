@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
     const approved = body.approved === true;
     const { error } = await context.db.from("community_member_names").upsert({
       auth_user_id: authUserId, display_name: displayName, is_approved: approved,
-      created_at: now, updated_at: now,
+      updated_at: now,
     }, { onConflict: "auth_user_id" });
     if (error) return NextResponse.json({ error: "Community access could not be updated." }, { status: 500 });
     await context.db.from("admin_access_management_audit").insert({
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
     } else {
       const { error } = await context.db.from("partner_portal_access_overrides").upsert({
         auth_user_id: authUserId, decision, reason, updated_by: context.user.id,
-        created_at: now, updated_at: now,
+        updated_at: now,
       }, { onConflict: "auth_user_id" });
       if (error) return NextResponse.json({ error: "The Portal access override could not be saved." }, { status: 500 });
     }
