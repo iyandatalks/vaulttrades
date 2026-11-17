@@ -159,7 +159,7 @@ export default function CommunityWorkspace() {
   return <main className="vt-community-workspace">
     <header className="vt-cw-header">
       <div><span>VAULTTRADES · PRIVATE COMMUNITY</span><h1>Community.</h1><p>Learn together. Share responsibly. Build business through verified progress.</p><small>Signed in as <strong>{data.member?.display_name || "VaultTrades Admin"}</strong> · Your real account identity remains private to other members.</small></div>
-      <div className="vt-cw-header-actions">{(isPartner || isAdmin) && <Link href="/member-portal" className="vt-cw-back">Knowledge Base</Link>}{isAdmin && <span className="vt-cw-admin-tag">ADMINISTRATOR</span>}</div>
+      <div className="vt-cw-header-actions">{(isPartner || isAdmin) && <Link href="/member-portal" className="vt-cw-back">Knowledge Base</Link>}{isAdmin && <><Link href="/admin/access-management" className="vt-cw-back">Access & Partner Management</Link><span className="vt-cw-admin-tag">ADMINISTRATOR</span></>}</div>
     </header>
 
     <nav className="vt-cw-tabs">
