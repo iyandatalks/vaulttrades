@@ -89,7 +89,7 @@ export default function PartnersClient() {
     : activeSection === "VaultTrades Product" ? products : activeSection === "Tool" ? tools : [];
 
   return (
-    <main className="vt-info-page">
+    <main className="vt-info-page vt-partners-page">
       <div className="vt-info-wrap" style={{ maxWidth: 1120 }}>
         <header className="vt-info-hero">
           <div className="vt-label">VAULTTRADES PARTNERS</div>
