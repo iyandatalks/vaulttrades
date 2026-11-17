@@ -322,7 +322,7 @@ export default function AnalyzerPage() {
       if (!res.ok) throw new Error(data.error || "Unable to analyze live market data.");
       setResult(data);
       const candles = Array.isArray(data.chart?.candles) ? data.chart.candles : [];
-      if (candles.length >= 30 && strategy !== "srbOb" && strategy !== "lsobr" && strategy !== "ema20") {
+      if (candles.length >= 30 && strategy !== "srbOb" && strategy !== "lsobr" && strategy !== "ema20" && strategy !== "fibRetracement" && strategy !== "supplyDemand") {
         setScannerLoading(true);
         try {
           const scannerRes = await fetch("/api/ai-scanner", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
