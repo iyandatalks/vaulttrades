@@ -13,7 +13,10 @@ async function getContext() {
   const { data: profile } = await db.from("users").select("id,role").eq("auth_user_id", user.id).maybeSingle();
   if (!profile) return { response: NextResponse.json({ error: "Your VaultTrades profile could not be found." }, { status: 404 }) };
   const isAdmin = profile.role === "admin";
-  if (!isAdmin) {
+  const { data: referralProfile } = await db.from("referral_profiles")
+    .select("user_id").eq("user_id", user.id).not("activated_at", "is", null).maybeSingle();
+  const isPartner = ["partner", "reseller"].includes(String(profile.role || "").toLowerCase()) || Boolean(referralProfile);
+  if (!isAdmin && !isPartner) {
     const { data: featureAccess } = await db.rpc("has_feature_access", {
       p_auth_user_id: user.id, p_feature_code: "community",
     });
@@ -34,7 +37,7 @@ async function getContext() {
   }
   const { data: member } = await db.from("community_member_names")
     .select("auth_user_id,display_name,is_approved").eq("auth_user_id", user.id).maybeSingle();
-  return { db, user, profile, member, isAdmin };
+  return { db, user, profile, member, isAdmin, isPartner };
 }
 
 function fail(message: string, status = 400) {
@@ -44,7 +47,7 @@ function fail(message: string, status = 400) {
 export async function GET() {
   const context = await getContext();
   if ("response" in context) return context.response;
-  const { db, user, member, isAdmin } = context;
+  const { db, user, member, isAdmin, isPartner } = context;
 
   if (!isAdmin && !member?.is_approved) {
     return NextResponse.json({ member: member ?? null, approved: false, announcements: [], posts: [], comments: [], leaderboard: [], members: [], moderationQueue: [] });
@@ -165,9 +168,10 @@ export async function GET() {
     posts: visiblePosts,
     comments: commentsResult.data ?? [],
     leaderboard,
-    members: membersResult.data ?? [],
+    members: isPartner || isAdmin ? (membersResult.data ?? []) : [],
     moderationQueue, pendingMembers, pendingComments,
-    testimonials: testimonialsResult.data ?? [],
+    testimonials: isPartner || isAdmin ? (testimonialsResult.data ?? []) : [],
+    isPartner,
     ...(isAdmin ? { reconciliation } : {}),
   });
 }
@@ -175,7 +179,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const context = await getContext();
   if ("response" in context) return context.response;
-  const { db, user, member, isAdmin } = context;
+  const { db, user, member, isAdmin, isPartner } = context;
   const body = await request.json().catch(() => ({}));
   const action = typeof body.action === "string" ? body.action : "";
 
@@ -195,6 +199,7 @@ export async function POST(request: Request) {
   if (!approved) return fail("Community access is awaiting administrator approval.", 403);
 
   if (action === "create_post") {
+    if (!isPartner && !isAdmin) return fail("Partner access is required to publish in Community discussions.", 403);
     const category = typeof body.category === "string" ? body.category : "";
     const title = typeof body.title === "string" ? body.title.trim().slice(0, 140) : "";
     const postBody = typeof body.body === "string" ? body.body.trim().slice(0, 5000) : "";
@@ -211,6 +216,7 @@ export async function POST(request: Request) {
   }
 
   if (action === "create_comment") {
+    if (!isPartner && !isAdmin) return fail("Community member discussions are read-only for this membership.", 403);
     const postId = typeof body.postId === "string" ? body.postId : "";
     const commentBody = typeof body.body === "string" ? body.body.trim().slice(0, 3000) : "";
     if (!postId || commentBody.length < 1) return fail("Write a comment before submitting.");
