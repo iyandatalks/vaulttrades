@@ -9,9 +9,23 @@ type Member = { auth_user_id: string; display_name: string; is_approved: boolean
 type Announcement = { id: string; title: string; body: string; category: string; published_at: string | null; created_at: string };
 type Post = { id: string; auth_user_id: string; display_name: string; category: string; title: string; body: string; deal_stage: string | null; moderation_status: string; participation_points: number; is_featured: boolean; created_at: string };
 type Comment = { id: string; post_id: string; auth_user_id: string; display_name: string; body: string; created_at: string };
-type Leader = { rank: number; display_name: string; verified_deals: number; new: number; contacted: number; qualified: number; converted: number; closed: number };
+type Leader = { rank: number; display_name: string; verified_deals: number; new: number; contacted: number; qualified: number; converted: number; closed: number };\ntype ClassroomTopic = { id: string; title: string; content: string; youtube_url: string | null; sort_order: number; is_published: boolean; created_at: string; updated_at: string };
 
 const stageLabels: Record<string, string> = { new: "New", contacted: "Contacted", qualified: "Qualified", converted: "Converted", closed: "Closed" };
+
+function youtubeEmbedUrl(raw: string | null | undefined) {
+  if (!raw) return "";
+  try {
+    const url = new URL(raw);
+    const host = url.hostname.toLowerCase().replace(/^www\\./, "");
+    let videoId = "";
+    if (host === "youtu.be") videoId = url.pathname.split("/").filter(Boolean)[0] || "";
+    else if (["youtube.com", "m.youtube.com", "youtube-nocookie.com"].includes(host)) {
+      videoId = url.searchParams.get("v") || url.pathname.match(/^\\/(?:embed|shorts)\\/([A-Za-z0-9_-]{6,})/)?.[1] || "";
+    }
+    return /^[A-Za-z0-9_-]{6,}$/.test(videoId) ? `https://www.youtube-nocookie.com/embed/${videoId}` : "";
+  } catch { return ""; }
+}
 
 export default function CommunityWorkspace() {
   const [data, setData] = useState<any>(null);
@@ -27,6 +41,12 @@ export default function CommunityWorkspace() {
   const [announcementBody, setAnnouncementBody] = useState("");
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const [classroomTopicId, setClassroomTopicId] = useState("");
+  const [classroomTitle, setClassroomTitle] = useState("");
+  const [classroomContent, setClassroomContent] = useState("");
+  const [classroomYoutubeUrl, setClassroomYoutubeUrl] = useState("");
+  const [classroomSortOrder, setClassroomSortOrder] = useState("0");
+  const [classroomPublished, setClassroomPublished] = useState(true);
 
   async function load() {
     setLoading(true); setError("");
@@ -92,6 +112,9 @@ export default function CommunityWorkspace() {
   const generalPosts = useMemo(() => posts.filter(post => post.category === "general_discussion" || post.category === "opportunity"), [posts]);
   const isAdmin = Boolean(data?.isAdmin);
   const isPartner = Boolean(data?.isPartner);
+  const classroomTopics: ClassroomTopic[] = data?.classroomTopics ?? [];
+  const selectedClassroomTopic = classroomTopics.find(topic => topic.id === classroomTopicId) || classroomTopics[0] || null;
+  const classroomEmbed = youtubeEmbedUrl(selectedClassroomTopic?.youtube_url);
 
   if (loading) return <main className="vt-community-workspace"><div className="vt-cw-loading">Loading your Community workspace…</div></main>;
   if (error && !data) return <main className="vt-community-workspace"><div className="vt-cw-loading"><p>{error}</p><button onClick={() => void load()}>Try again</button></div></main>;
@@ -133,7 +156,7 @@ export default function CommunityWorkspace() {
     </header>
 
     <nav className="vt-cw-tabs">
-      {[[ "feed", "Community Feed" ],[ "discussions", "Member Discussions" ],...(isPartner || isAdmin ? [[ "deals", "New Business Deals" ]] : []),[ "leaderboard", "Business Leaderboard" ],...(isPartner || isAdmin ? [[ "members", "Members" ],[ "sessions", "Sessions & Calendar" ]] : []),...(isAdmin ? [[ "admin", "Administration" ]] : [])].map(([value,label]) => <button key={value} className={tab === value ? "active" : ""} onClick={() => setTab(value)}>{label}</button>)}
+      {[[ "feed", "Community Feed" ],[ "discussions", "Member Discussions" ],...(isPartner || isAdmin ? [[ "deals", "New Business Deals" ]] : []),[ "leaderboard", "Business Leaderboard" ],...(isPartner || isAdmin ? [[ "members", "Members" ],[ "sessions", "Sessions & Calendar" ]] : []),[ "classroom", "Classroom" ],...(isAdmin ? [[ "admin", "Administration" ]] : [])].map(([value,label]) => <button key={value} className={tab === value ? "active" : ""} onClick={() => setTab(value)}>{label}</button>)}
     </nav>
 
     {message && <p className="vt-cw-message">{message}</p>}{error && <p className="vt-cw-error">{error}</p>}
@@ -168,6 +191,38 @@ export default function CommunityWorkspace() {
       <div className="vt-cw-section-heading"><div><span>REAL EXPERIENCES & SUPPORTING RECORDS</span><h2>Testimonials and certificates</h2><p>Approved Community participants can review shared experiences and supporting records. Historical examples are not a promise of future results.</p></div></div>
       <div className="vt-cw-testimonials">{(data.testimonials || []).map((item: any) => <article key={item.id}><span>{item.product_code || "COMMUNITY EXPERIENCE"}</span><p>{item.testimonial}</p><strong>{item.display_name}</strong></article>)}</div>
       {!(data.testimonials || []).length && <div className="vt-cw-empty">Approved testimonials will appear here when available. Original trade and challenge certificates are reserved for this approved-participants area and will be added to the secure evidence library.</div>}
+    </section>}
+
+    {tab === "classroom" && <section className="vt-cw-classroom">
+      <div className="vt-cw-section-heading"><div><span>VAULTTRADES LEARNING SPACE</span><h2>Classroom</h2><p>Select a topic from the left to open its learning material and video lesson.</p></div></div>
+      <div className="vt-cw-classroom-layout">
+        <aside className="vt-cw-classroom-sidebar">
+          <div className="vt-cw-classroom-sidebar-head"><span>LESSON TOPICS</span><strong>{classroomTopics.filter(topic => topic.is_published).length} topics</strong></div>
+          {classroomTopics.map((topic, index) => <button key={topic.id} type="button" className={selectedClassroomTopic?.id === topic.id ? "active" : ""} onClick={() => setClassroomTopicId(topic.id)}>
+            <span className="vt-cw-classroom-number">{String(index + 1).padStart(2, "0")}</span><span className="vt-cw-classroom-topic-name">{topic.title}{!topic.is_published && <small>DRAFT · ADMIN ONLY</small>}</span><span className="vt-cw-classroom-chevron">›</span>
+          </button>)}
+          {!classroomTopics.length && <p className="vt-cw-classroom-empty">No lessons have been added yet.</p>}
+        </aside>
+        <article className="vt-cw-classroom-content">
+          {selectedClassroomTopic ? <>
+            <div className="vt-cw-classroom-content-head"><span>CLASSROOM TOPIC</span><h3>{selectedClassroomTopic.title}</h3></div>
+            {classroomEmbed ? <div className="vt-cw-classroom-video"><iframe src={classroomEmbed} title={selectedClassroomTopic.title + " video lesson"} loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen /></div> : <div className="vt-cw-classroom-video-placeholder"><span>VIDEO LESSON</span><strong>Video space</strong><p>A YouTube video will appear here when one is linked to this topic.</p></div>}
+            <div className="vt-cw-classroom-lesson"><span>TOPIC CONTENT</span><div>{selectedClassroomTopic.content ? selectedClassroomTopic.content : "Learning content for this topic will be published here."}</div>{selectedClassroomTopic.youtube_url && <a href={selectedClassroomTopic.youtube_url} target="_blank" rel="noreferrer">Open video on YouTube ↗</a>}</div>
+          </> : <div className="vt-cw-classroom-empty-main"><strong>Your classroom is ready.</strong><p>Lessons will appear here as the administrator adds topics.</p></div>}
+        </article>
+      </div>
+      {isAdmin && <section className="vt-cw-classroom-admin">
+        <div className="vt-cw-section-heading"><div><span>ADMINISTRATOR CONTROLS</span><h2>Manage Classroom topics</h2><p>Create a topic, add its lesson content and paste a YouTube link. The video remains hosted by YouTube.</p></div></div>
+        <form className="vt-cw-compose" onSubmit={event => { event.preventDefault(); void submitAction({ action: "classroom_save", id: classroomTopicId || undefined, title: classroomTitle, content: classroomContent, youtubeUrl: classroomYoutubeUrl, sortOrder: classroomSortOrder, isPublished: classroomPublished }).then(ok => { if (ok) { setClassroomTopicId(""); setClassroomTitle(""); setClassroomContent(""); setClassroomYoutubeUrl(""); setClassroomSortOrder("0"); setClassroomPublished(true); } }); }}>
+          <h3>{classroomTopicId ? "Edit topic" : "Add a new topic"}</h3>
+          <label>Topic title<input value={classroomTitle} onChange={e => setClassroomTitle(e.target.value)} required minLength={2} maxLength={140} placeholder="e.g. Understanding market structure" /></label>
+          <label>Topic content<textarea value={classroomContent} onChange={e => setClassroomContent(e.target.value)} maxLength={12000} rows={7} placeholder="Write the lesson notes and learning material for this topic…" /></label>
+          <label>YouTube video link<input type="url" value={classroomYoutubeUrl} onChange={e => setClassroomYoutubeUrl(e.target.value)} placeholder="https://www.youtube.com/watch?v=…" /></label>
+          <div className="vt-cw-classroom-admin-fields"><label>Display order<input type="number" min="0" max="10000" value={classroomSortOrder} onChange={e => setClassroomSortOrder(e.target.value)} /></label><label className="vt-cw-classroom-publish"><input type="checkbox" checked={classroomPublished} onChange={e => setClassroomPublished(e.target.checked)} /> Publish topic to Community</label></div>
+          <div className="vt-cw-classroom-admin-actions"><button disabled={busy}>{busy ? "Saving…" : classroomTopicId ? "Save topic changes" : "Add topic to Classroom"}</button>{classroomTopicId && <button type="button" className="secondary" onClick={() => { setClassroomTopicId(""); setClassroomTitle(""); setClassroomContent(""); setClassroomYoutubeUrl(""); setClassroomSortOrder("0"); setClassroomPublished(true); }}>Cancel edit</button>}</div>
+        </form>
+        {classroomTopics.length > 0 && <div className="vt-cw-classroom-manage-list">{classroomTopics.map(topic => <div key={topic.id}><div><strong>{topic.title}</strong><small>{topic.is_published ? "Published" : "Draft"} · {topic.youtube_url ? "YouTube linked" : "No video link"}</small></div><div><button type="button" className="secondary" onClick={() => { setClassroomTopicId(topic.id); setClassroomTitle(topic.title); setClassroomContent(topic.content); setClassroomYoutubeUrl(topic.youtube_url || ""); setClassroomSortOrder(String(topic.sort_order)); setClassroomPublished(topic.is_published); }}>Edit</button><button type="button" className="danger" onClick={() => { if (window.confirm("Remove this Classroom topic?")) void submitAction({ action: "classroom_delete", id: topic.id }).then(ok => { if (ok && classroomTopicId === topic.id) { setClassroomTopicId(""); setClassroomTitle(""); setClassroomContent(""); setClassroomYoutubeUrl(""); } }); }}>Remove</button></div></div>)}</div>}
+      </section>}
     </section>}
 
     {tab === "sessions" && <section className="vt-cw-column vt-cw-sessions"><CommunityCalendar isAdmin={isAdmin} /></section>}
