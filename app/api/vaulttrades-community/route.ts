@@ -96,13 +96,15 @@ export async function GET() {
   let pendingComments: unknown[] = [];
   let reconciliation: Record<string, unknown> | null = null;
   if (isAdmin) {
-    const [allCommunity, approvedCommunity, pendingCommunity, partnerUsers, activeLicences] = await Promise.all([
+    const [allCommunity, approvedCommunity, pendingCommunity, partnerUsers, activePartnerProfiles, activeLicences] = await Promise.all([
       db.from("community_member_names").select("auth_user_id", { count: "exact", head: true }),
       db.from("community_member_names").select("auth_user_id", { count: "exact", head: true }).eq("is_approved", true),
       db.from("community_member_names").select("auth_user_id", { count: "exact", head: true }).eq("is_approved", false),
       db.from("users").select("id", { count: "exact", head: true }).in("role", ["partner", "reseller"]),
+      db.from("referral_profiles").select("user_id").not("activated_at", "is", null),
       db.from("product_licenses").select("user_id,entitlement_code,purchased_product_code,status,start_at,end_at").eq("status", "active"),
     ]);
+    if ([allCommunity, approvedCommunity, pendingCommunity, partnerUsers, activePartnerProfiles, activeLicences].some(result => result.error)) return fail("Membership reconciliation could not be loaded.", 500);
     const licences = activeLicences.data ?? [];
     const now = Date.now();
     const validLicences = licences.filter(row => {
@@ -110,11 +112,14 @@ export async function GET() {
       const end = row.end_at ? new Date(row.end_at).getTime() : Number.POSITIVE_INFINITY;
       return Number.isFinite(start) && start <= now && end > now;
     });
-    const byPlan: Record<string, number> = {};
+    const planMembers = new Map<string, Set<string>>();
     for (const row of validLicences) {
       const key = row.purchased_product_code || row.entitlement_code || "unclassified";
-      byPlan[key] = (byPlan[key] || 0) + 1;
+      if (!planMembers.has(key)) planMembers.set(key, new Set<string>());
+      if (row.user_id) planMembers.get(key)!.add(row.user_id);
     }
+    const byPlan = Object.fromEntries([...planMembers.entries()].map(([plan, members]) => [plan, members.size]));
+    const partnershipMemberIds = new Set((activePartnerProfiles.data ?? []).map(row => row.user_id).filter(Boolean));
     const knowledgeBaseUsers = new Set(validLicences
       .filter(row => /knowledge|kb/i.test(row.entitlement_code || ""))
       .map(row => row.user_id));
@@ -123,7 +128,7 @@ export async function GET() {
       approvedParticipants: approvedCommunity.count ?? 0,
       exclusiveSectionAccess: approvedCommunity.count ?? 0,
       awaitingReview: pendingCommunity.count ?? 0,
-      partnershipMembers: partnerUsers.count ?? 0,
+      partnershipMembers: Math.max(partnerUsers.count ?? 0, partnershipMemberIds.size),
       knowledgeBaseAccess: knowledgeBaseUsers.size,
       activePlanEntitlements: validLicences.length,
       planAccessCounts: byPlan,
