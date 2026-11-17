@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "../../lib/supabase/server";
 import { getProductAccess } from "../../lib/product-access";
 import RiskManager from "../components/RiskManager";
@@ -9,7 +9,7 @@ export default async function RiskManagerPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/auth/login?next=/risk-manager");
   const access = await getProductAccess(user.id);
-  if (!access.anyPaidProduct) redirect("/dashboard");
+  if (!access.admin) notFound();
   return <main className="vt-info-page"><div className="vt-info-wrap">
     <header className="vt-info-hero"><div className="vt-label">SHARED MEMBER TOOL</div><h1>Risk Manager</h1><p>Available to members with active VaultTrades access. Size positions from defined account risk, stop distance and available margin.</p></header>
     <RiskManager />
