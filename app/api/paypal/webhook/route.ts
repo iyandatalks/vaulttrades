@@ -137,7 +137,7 @@ export async function POST(request: Request) {
         }
 
         const { error: licenseError } = await admin.from("product_licenses").upsert({
-          user_id: customer.id, email: customer.email, purchased_product_code: "community_once_off",
+          user_id: customer.id, email: customer.email, purchased_product_code: "skool_once",
           entitlement_code: "community", status: "active", payment_reference: captureId,
           approved_at: verifiedAt, start_at: verifiedAt, end_at: null, platform: "web",
           source_payment_snapshot: { provider: "paypal", payment_method: "paypal_community_once_off", capture_id: captureId, amount: 10, currency: "USD", lifetime: true },
