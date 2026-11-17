@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     const referralCode = String(body?.referralCode || "").trim().toUpperCase().slice(0, 64);
     const admin = createAdminClient();
     const { data: profile, error: profileError } = await admin
-      .from("users").select("id,email").eq("auth_user_id", user.id).maybeSingle();
+      .from("users").select("id,email,referred_by").eq("auth_user_id", user.id).maybeSingle();
     if (profileError || !profile?.id || !profile.email) {
       return NextResponse.json({ error: "A verified VaultTrades profile and email are required before payment." }, { status: 400 });
     }
@@ -23,10 +23,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Your $10 once-off Community membership is already recorded. You do not need to pay again. Open the Community workspace to request or review your access." }, { status: 409 });
     }
 
+    const attributionCode = referralCode || String(profile.referred_by || "").trim().toUpperCase();
     let referrerUserId: string | null = null;
-    if (referralCode) {
+    if (attributionCode) {
       const { data: referrer } = await admin.from("users")
-        .select("auth_user_id,role").eq("referral_code", referralCode)
+        .select("auth_user_id,role").eq("referral_code", attributionCode)
         .in("role", ["partner", "reseller"]).maybeSingle();
       if (referrer?.auth_user_id && referrer.auth_user_id !== user.id) referrerUserId = referrer.auth_user_id;
     }
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
       user_id: profile.id,
       auth_user_id: user.id,
       email: String(profile.email).trim().toLowerCase(),
-      referral_code: referrerUserId ? referralCode : null,
+      referral_code: referrerUserId ? attributionCode : null,
       referrer_user_id: referrerUserId,
       amount: 10,
       currency: "USD",
