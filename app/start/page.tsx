@@ -173,8 +173,8 @@ export default function StartPage() {
             <h3>Exactly what the package price covers</h3>
             <p className="vts-price-lead">The amount shown on each plan is the full one-time membership package price. It is paid in two clearly identified parts:</p>
             <div className="vts-price-parts">
-              <div><span>80% · PARTNER MEMBERSHIP PAYMENT</span><strong>$120 / $200 / $440</strong><small>Paid through the referring partner's PayPal checkout link.</small></div>
-              <div><span>20% · VAULTTRADES EA SETUP</span><strong>$30 / $50 / $110</strong><small>Paid separately to VaultTrades for the EA setup allocation.</small></div>
+              <div><span>80% · PARTNER PAYMENT / ELIGIBLE RESELLER COMMISSION</span><strong>Nexus $120 · Plus $200 · Vortex $440</strong><small>Paid through the referring partner's PayPal checkout link.</small></div>
+              <div><span>20% · VAULTTRADES EA SETUP ALLOCATION</span><strong>Nexus $30 · Plus $50 · Vortex $110</strong><small>Paid separately to VaultTrades for the EA setup allocation.</small></div>
             </div>
             <p className="vts-price-footnote">The two payments add up to the selected membership price: $150, $250 or $550. There is no additional EA setup fee on top of that package price.</p>
             <div className="vts-website-fee"><strong>Joining the reseller programme?</strong> Personal website setup is an additional <b>$39 USD once-off</b>. This fee applies to the reseller programme and is not included in the membership price. A personalised domain is optional and any domain-related cost is disclosed separately.</div>
