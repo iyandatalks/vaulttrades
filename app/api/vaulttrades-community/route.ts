@@ -13,7 +13,9 @@ async function getContext() {
   const { data: profile } = await db.from("users").select("id,role").eq("auth_user_id", user.id).maybeSingle();
   if (!profile) return { response: NextResponse.json({ error: "Your VaultTrades profile could not be found." }, { status: 404 }) };
   const isAdmin = profile.role === "admin";
-  const isPartner = ["partner", "reseller"].includes(String(profile.role || "").toLowerCase());
+  const { data: resellerLink } = await db.from("reseller_payment_links")
+    .select("id").eq("auth_user_id", user.id).eq("is_active", true).limit(1).maybeSingle();
+  const isPartner = ["partner", "reseller"].includes(String(profile.role || "").toLowerCase()) || Boolean(resellerLink);
   if (!isAdmin && !isPartner) {
     const { data: featureAccess } = await db.rpc("has_feature_access", {
       p_auth_user_id: user.id, p_feature_code: "community",
@@ -97,15 +99,16 @@ export async function GET() {
   let pendingComments: unknown[] = [];
   let reconciliation: Record<string, unknown> | null = null;
   if (isAdmin) {
-    const [allCommunity, approvedCommunity, pendingCommunity, partnerUsers, activeLicences] = await Promise.all([
+    const [allCommunity, approvedCommunity, pendingCommunity, partnerUsers, resellerLinks, activeLicences] = await Promise.all([
       db.from("community_member_names").select("auth_user_id", { count: "exact", head: true }),
       db.from("community_member_names").select("auth_user_id", { count: "exact", head: true }).eq("is_approved", true),
       db.from("community_member_names").select("auth_user_id", { count: "exact", head: true }).eq("is_approved", false),
       db.from("users").select("auth_user_id", { count: "exact" }).in("role", ["partner", "reseller"]),
+      db.from("reseller_payment_links").select("auth_user_id").eq("is_active", true).not("auth_user_id", "is", null),
       db.from("product_licenses").select("user_id,entitlement_code,purchased_product_code,status,start_at,end_at").eq("status", "active"),
     ]);
-    if ([allCommunity, approvedCommunity, pendingCommunity, partnerUsers, activeLicences].some(result => result.error)) return fail("Membership reconciliation could not be loaded.", 500);
-    const partnerAuthIds = (partnerUsers.data ?? []).map(row => row.auth_user_id).filter(Boolean);
+    if ([allCommunity, approvedCommunity, pendingCommunity, partnerUsers, resellerLinks, activeLicences].some(result => result.error)) return fail("Membership reconciliation could not be loaded.", 500);
+    const partnerAuthIds = [...new Set([...(partnerUsers.data ?? []).map(row => row.auth_user_id), ...(resellerLinks.data ?? []).map(row => row.auth_user_id)].filter(Boolean))];
     const approvedPartnerResult = partnerAuthIds.length
       ? await db.from("community_member_names").select("auth_user_id", { count: "exact", head: true })
           .eq("is_approved", true).in("auth_user_id", partnerAuthIds)
@@ -134,7 +137,7 @@ export async function GET() {
       approvedParticipants: approvedCommunity.count ?? 0,
       exclusiveSectionAccess: approvedPartnerResult.count ?? 0,
       awaitingReview: pendingCommunity.count ?? 0,
-      partnershipMembers: partnerUsers.count ?? 0,
+      partnershipMembers: partnerAuthIds.length,
       knowledgeBaseAccess: knowledgeBaseUsers.size,
       activePlanEntitlements: validLicences.length,
       planAccessCounts: byPlan,
