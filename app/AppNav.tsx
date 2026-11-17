@@ -10,7 +10,6 @@ const publicTabs = [
 ];
 
 const adminTabs = [
-  { href: "/how-it-works", label: "How It Works" },
   { href: "/partners", label: "Partners" },
   { href: "/member-portal", label: "Knowledge Base" },
 ];
