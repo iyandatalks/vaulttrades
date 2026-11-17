@@ -131,22 +131,56 @@ export default function StartPage() {
           </div>
           <div className="vts-membership-grid">
             <article className="vts-membership-card">
-              <span>PLAN 1</span><h3>VaultTrades Nexus</h3><strong>$150 <small>USD · once-off</small></strong>
-              <p>Core VaultTrades membership and Nexus automation pathway.</p>
-              <a href={"/membership/checkout?plan=nexus" + (resolvedPartnerCode ? "&ref=" + encodeURIComponent(resolvedPartnerCode) : "")}>Continue to checkout <b>→</b></a>
+              <span>PLAN 1 · CORE MEMBERSHIP</span><h3>VaultTrades Nexus</h3><strong>$150 <small>USD · once-off</small></strong>
+              <p className="vts-plan-summary">Your starting package for the core VaultTrades trading and business pathway.</p>
+              <ul>
+                <li>Nexus automation product</li>
+                <li>Trading guidance and learning resources</li>
+                <li>Free member community access</li>
+                <li>Basics of Trading lessons and reseller Knowledge Base</li>
+                <li>Access to the membership reseller opportunity</li>
+              </ul>
+              <a href={"/membership/checkout?plan=nexus" + (resolvedPartnerCode ? "&ref=" + encodeURIComponent(resolvedPartnerCode) : "")}>Choose Nexus <b>→</b></a>
             </article>
             <article className="vts-membership-card featured">
-              <span>PLAN 2</span><h3>VaultTrades Nexus Plus</h3><strong>$250 <small>USD · once-off</small></strong>
-              <p>Expanded membership with additional trading tools and development resources.</p>
-              <a href={"/membership/checkout?plan=nexus_plus" + (resolvedPartnerCode ? "&ref=" + encodeURIComponent(resolvedPartnerCode) : "")}>Continue to checkout <b>→</b></a>
+              <span>PLAN 2 · EXPANDED TOOLS</span><h3>VaultTrades Nexus Plus</h3><strong>$250 <small>USD · once-off</small></strong>
+              <p className="vts-plan-summary">Everything in Nexus, plus the Nexus Plus automation product and expanded trading-development resources.</p>
+              <ul>
+                <li>Everything included in Nexus</li>
+                <li>Nexus Plus automation product</li>
+                <li>Additional trading indicators and tools</li>
+                <li>Trading development and scaling resources</li>
+                <li>Analyzer is optional at $20/month, separately</li>
+                <li>Journal and core tools require a separate $10/month package</li>
+              </ul>
+              <a href={"/membership/checkout?plan=nexus_plus" + (resolvedPartnerCode ? "&ref=" + encodeURIComponent(resolvedPartnerCode) : "")}>Choose Nexus Plus <b>→</b></a>
             </article>
             <article className="vts-membership-card">
-              <span>PLAN 3</span><h3>VaultTrades Vortex</h3><strong>$550 <small>USD · once-off</small></strong>
-              <p>Complete membership pathway with advanced resources and individual mentorship.</p>
-              <a href={"/membership/checkout?plan=vortex" + (resolvedPartnerCode ? "&ref=" + encodeURIComponent(resolvedPartnerCode) : "")}>Continue to checkout <b>→</b></a>
+              <span>PLAN 3 · COMPLETE PACKAGE</span><h3>VaultTrades Vortex</h3><strong>$550 <small>USD · once-off</small></strong>
+              <p className="vts-plan-summary">The most complete package, combining all three automation products with advanced trading and development support.</p>
+              <ul>
+                <li>Everything included in Nexus and Nexus Plus</li>
+                <li>All three automation products: Nexus, Nexus Plus and Vortex</li>
+                <li>Full risk-management resources and both trading indicators</li>
+                <li>Advanced trading and business-scaling resources</li>
+                <li>Expanded affiliate-development guidance</li>
+                <li>One-on-one mentorship</li>
+              </ul>
+              <a href={"/membership/checkout?plan=vortex" + (resolvedPartnerCode ? "&ref=" + encodeURIComponent(resolvedPartnerCode) : "")}>Choose Vortex <b>→</b></a>
             </article>
           </div>
-          <p className="vts-memberships-note">Checkout separates the partner membership payment from VaultTrades setup charges. All payments and access remain subject to verification. Trading involves risk; no trading or business income is guaranteed.</p>
+          <div className="vts-price-clarity">
+            <h3>Exactly what the package price covers</h3>
+            <p className="vts-price-lead">The amount shown on each plan is the full one-time membership package price. It is paid in two clearly identified parts:</p>
+            <div className="vts-price-parts">
+              <div><span>80% · PARTNER MEMBERSHIP PAYMENT</span><strong>$120 / $200 / $440</strong><small>Paid through the referring partner's PayPal checkout link.</small></div>
+              <div><span>20% · VAULTTRADES EA SETUP</span><strong>$30 / $50 / $110</strong><small>Paid separately to VaultTrades for the EA setup allocation.</small></div>
+            </div>
+            <p className="vts-price-footnote">The two payments add up to the selected membership price: $150, $250 or $550. There is no additional EA setup fee on top of that package price.</p>
+            <div className="vts-website-fee"><strong>Joining the reseller programme?</strong> Personal website setup is an additional <b>$39 USD once-off</b>. This fee applies to the reseller programme and is not included in the membership price. A personalised domain is optional and any domain-related cost is disclosed separately.</div>
+            <div className="vts-separate-tools"><strong>Separate monthly tools:</strong> Analyzer ($20/month) and the Journal/core-tools package ($10/month) are not included in Nexus Plus or Vortex package pricing unless explicitly stated in a separate offer.</div>
+          </div>
+          <p className="vts-memberships-note">Choose the package based on the products and support you want included. Payments and access remain subject to verification. Trading involves risk; no trading or business income is guaranteed.</p>
         </div>
       </section>
       <section className="vts-disclaimer"><strong>Important:</strong> Trading involves risk and losses are possible. No trading profits, business income or reseller commissions are guaranteed. Take time to understand the opportunity and its terms before making a decision.</section>
