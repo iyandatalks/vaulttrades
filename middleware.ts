@@ -3,8 +3,11 @@ import { createServerClient } from "@supabase/ssr";
 import { getProductAccess } from "@/lib/product-access";
 import { PARTNER_ACCESS_COOKIE, verifyPartnerAccessToken } from "@/lib/partner-access";
 
-const paidProtectedPaths = ["/ai-coach", "/journal", "/risk-manager"];
 const featureProtectedPaths: Record<string, string> = {
+  "/journal": "journal_tools",
+  "/ai-coach": "journal_tools",
+  "/risk-manager": "journal_tools",
+  "/funded-account-wealth-builder": "journal_tools",
   "/analyzer": "analyzer",
   "/scanner-automation": "scanner",
   "/automated-trader": "automation",
@@ -55,6 +58,20 @@ export async function middleware(request: NextRequest) {
   // Acquisition and checkout journeys must carry a verified, signed partner referral.
   const hasPartnerAccess = await verifyPartnerAccessToken(request.cookies.get(PARTNER_ACCESS_COOKIE)?.value);
   if (partnerEntryPaths.some(path => isPath(pathname, path))) {
+    if (!hasPartnerAccess && pathname === "/subscription") {
+      const subscriptionAuth = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { cookies: { getAll() { return request.cookies.getAll(); }, setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            request.cookies.set(name, value);
+            response.cookies.set(name, value, options);
+          });
+        } } }
+      );
+      const { data: { user: subscriber } } = await subscriptionAuth.auth.getUser();
+      if (subscriber) return response;
+    }
     if (!hasPartnerAccess) {
       if (isPartnerSubdomain && pathname === "/start") {
         // Partner landing pages are the only entry point allowed to bootstrap the referral cookie.
@@ -157,6 +174,7 @@ export async function middleware(request: NextRequest) {
     let allowed = false;
 
     if (featureCode === "analyzer") allowed = access.analyzer;
+    else if (featureCode === "journal_tools") allowed = access.tools;
     else if (featureCode === "copy_trading") allowed = access.copy;
     else if (featureCode === "founders_mentorship") allowed = access.foundersMentorship;
     else if (featureCode === "referral") allowed = access.anyPaidProduct;
@@ -195,18 +213,6 @@ export async function middleware(request: NextRequest) {
       destination.pathname = "/subscription";
       destination.search = "";
       destination.searchParams.set("required", featureCode);
-      return NextResponse.redirect(destination);
-    }
-    return response;
-  }
-
-  if (paidProtectedPaths.some(path => isPath(pathname, path))) {
-    if (isAdmin) return response;
-    const access = await getProductAccess(user.id);
-    if (!access.anyPaidProduct) {
-      const destination = request.nextUrl.clone();
-      destination.pathname = "/subscription";
-      destination.search = "";
       return NextResponse.redirect(destination);
     }
     return response;
