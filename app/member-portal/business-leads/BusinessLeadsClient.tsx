@@ -29,6 +29,7 @@ export default function BusinessLeadsClient({ isAdmin }: { isAdmin: boolean }) {
   const [message, setMessage] = useState("");
   const [partnerCode, setPartnerCode] = useState("");
   const [copiedLink, setCopiedLink] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   async function load() {
     setLoading(true); setError("");
@@ -45,6 +46,29 @@ export default function BusinessLeadsClient({ isAdmin }: { isAdmin: boolean }) {
   const visible = useMemo(() => filter === "all" ? leads : leads.filter(x => x.partner_status === filter), [leads, filter]);
   function beginEdit(lead: Lead) { setEditing(lead.id); setDraftStatus(lead.partner_status); setDraftNotes(lead.partner_notes ?? ""); setMessage(""); }
   async function copyLeadLink() { await navigator.clipboard.writeText(`https://vaulttradesve.com/start?ref=${partnerCode}`); setCopiedLink(true); window.setTimeout(() => setCopiedLink(false), 1800); }
+  async function removeLead(id: string) {
+    if (!window.confirm("Remove this lead from your business leads? This cannot be undone.")) return;
+    setDeleting(true); setMessage("");
+    try {
+      const response = await fetch("/api/member-portal/business-leads", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to remove lead.");
+      setMessage("Lead removed."); await load();
+    } catch (e) { setMessage(e instanceof Error ? e.message : "Unable to remove lead."); }
+    finally { setDeleting(false); }
+  }
+  async function removeAllLeads() {
+    if (!leads.length || !window.confirm("Delete ALL leads currently assigned to your business? This cannot be undone.")) return;
+    setDeleting(true); setMessage("");
+    try {
+      const response = await fetch("/api/member-portal/business-leads", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ all: true }) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to clear leads.");
+      setMessage(`Removed ${data.deleted ?? 0} leads.`); await load();
+    } catch (e) { setMessage(e instanceof Error ? e.message : "Unable to clear leads."); }
+    finally { setDeleting(false); }
+  }
+
   async function save(id: string) {
     setSaving(true); setMessage("");
     try {
@@ -75,7 +99,7 @@ export default function BusinessLeadsClient({ isAdmin }: { isAdmin: boolean }) {
             <div className="vt-lead-metric" key={label}><span>{label}</span><strong>{value}</strong></div>)}
         </div>
         <div className="vt-lead-toolbar">
-          <div><span className="vt-member-kicker">YOUR PROSPECT PIPELINE</span><h2>Enquiries and follow-up</h2></div>
+          <div><span className="vt-member-kicker">YOUR PROSPECT PIPELINE</span><h2>Enquiries and follow-up</h2></div><button className="vt-lead-delete-all" onClick={() => void removeAllLeads()} disabled={deleting || leads.length === 0}>Delete all leads</button>
           <select value={filter} onChange={e => setFilter(e.target.value)} aria-label="Filter leads">
             <option value="all">All statuses</option>{statusOptions.map(([value,label]) => <option key={value} value={value}>{label}</option>)}
           </select>
@@ -83,16 +107,20 @@ export default function BusinessLeadsClient({ isAdmin }: { isAdmin: boolean }) {
         {error && <div className="vt-member-pending"><strong>Could not load leads</strong><span>{error}</span><button className="vt-member-button" onClick={() => void load()}>Retry</button></div>}
         {loading ? <p>Loading your business leads…</p> : !error && visible.length === 0 ?
           <div className="vt-member-pending"><strong>No attributed enquiries yet.</strong><span>When someone submits the VaultTrades opportunity form through your tracked partner link and agrees to share their details with your business, the enquiry will appear here.</span></div> :
-          <div className="vt-lead-list">{visible.map(lead => <article className="vt-lead-card" key={lead.id}>
-            <div className="vt-lead-card-head"><div><span className="vt-member-kicker">{new Date(lead.created_at).toLocaleDateString()}</span><h3>{lead.first_name}</h3><small>{lead.partner_display_name || "Partner enquiry"}{lead.partner_code ? " · " + lead.partner_code : ""}</small></div>
-              <span className={"vt-lead-status " + lead.partner_status}>{statusOptions.find(x => x[0] === lead.partner_status)?.[1] ?? lead.partner_status}</span></div>
-            <div className="vt-lead-contact"><a href={"mailto:" + encodeURIComponent(lead.email)}>{lead.email}</a><a href={"tel:" + lead.cellphone.replace(/[^+\d]/g, "")}>{lead.cellphone}</a><a href={"https://wa.me/" + lead.cellphone.replace(/\D/g, "")} target="_blank" rel="noreferrer">WhatsApp ↗</a></div>
-            <div className="vt-lead-meta"><span>Source: {lead.source}</span>{lead.campaign && <span>Campaign: {lead.campaign}</span>}</div>
-            {editing === lead.id ? <div className="vt-lead-editor">
+          <div className="vt-lead-list">{visible.map(lead => <article className="vt-lead-row" key={lead.id}>
+            <div className="vt-lead-source"><span className="vt-member-kicker">PLATFORM / SOURCE</span><strong>{lead.source || "Website"}</strong>{lead.campaign && <small>{lead.campaign}</small>}</div>
+            <div className="vt-lead-person"><span className="vt-member-kicker">NAME</span><strong>{lead.first_name}</strong><small>{new Date(lead.created_at).toLocaleDateString()}</small></div>
+            <div className="vt-lead-email"><span className="vt-member-kicker">EMAIL ADDRESS</span><a href={"mailto:" + encodeURIComponent(lead.email)}>{lead.email}</a></div>
+            <div className="vt-lead-phone"><span className="vt-member-kicker">CELL PHONE</span><a href={"tel:" + lead.cellphone.replace(/[^+\\d]/g, "")}>{lead.cellphone}</a></div>
+            <div className="vt-lead-actions"><span className={"vt-lead-status " + lead.partner_status}>{statusOptions.find(x => x[0] === lead.partner_status)?.[1] ?? lead.partner_status}</span>
+              <button className="vt-member-outline" onClick={() => beginEdit(lead)}>Follow-up</button>
+              <button className="vt-lead-delete" onClick={() => void removeLead(lead.id)} disabled={deleting}>Remove</button>
+            </div>
+            {editing === lead.id && <div className="vt-lead-editor">
               <label>Follow-up status<select value={draftStatus} onChange={e => setDraftStatus(e.target.value)}>{statusOptions.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-              <label>Private business follow-up notes<textarea value={draftNotes} onChange={e => setDraftNotes(e.target.value)} maxLength={2000} rows={3} placeholder="Record the last contact, next step or prospect questions. These notes are visible to your business and VaultTrades administrators."/></label>
+              <label>Private business follow-up notes<textarea value={draftNotes} onChange={e => setDraftNotes(e.target.value)} maxLength={2000} rows={2} placeholder="Record the last contact, next step or prospect questions."/></label>
               <div><button className="vt-member-button" onClick={() => void save(lead.id)} disabled={saving}>{saving ? "Saving…" : "Save follow-up"}</button><button className="vt-member-outline" onClick={() => setEditing(null)}>Cancel</button></div>
-            </div> : <div className="vt-lead-followup"><p>{lead.partner_notes || "No follow-up notes recorded."}</p><button className="vt-member-outline" onClick={() => beginEdit(lead)}>Update follow-up</button></div>}
+            </div>}
           </article>)}</div>}
         {message && <p className="vt-member-submit-message" role="status">{message}</p>}
         <p className="vt-member-note">Prospect contact details are private business information. Use them only for the purpose covered by the prospect's consent. Existing unassigned leads are not automatically allocated to a partner.</p>
