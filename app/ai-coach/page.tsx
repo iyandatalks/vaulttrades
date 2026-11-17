@@ -9,7 +9,7 @@ export default async function AICoachPage() {
   if (!user) redirect("/auth/login?next=/ai-coach");
 
   const access = await getProductAccess(user.id);
-  if (!access.anyPaidProduct) redirect("/products");
+  if (!access.tools) redirect("/products");
 
   return <AICoachClient />;
 }
