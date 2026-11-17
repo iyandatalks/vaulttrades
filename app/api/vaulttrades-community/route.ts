@@ -254,7 +254,7 @@ export async function POST(request: Request) {
     const sortOrder = Number.isFinite(Number(body.sortOrder)) ? Math.max(0, Math.min(10000, Math.trunc(Number(body.sortOrder)))) : 0;
     const isPublished = body.isPublished !== false;
     const audienceType = ["all_approved", "all_partners", "selected_partners"].includes(body.audienceType) ? body.audienceType : "all_approved";
-    const requestedPartnerIds = Array.isArray(body.allowedAuthUserIds) ? [...new Set(body.allowedAuthUserIds.filter((id: unknown): id is string => typeof id === "string" && /^[0-9a-f-]{36}$/i.test(id)))] : [];
+    const requestedPartnerIds: string[] = Array.isArray(body.allowedAuthUserIds) ? Array.from(new Set<string>(body.allowedAuthUserIds.filter((id: unknown): id is string => typeof id === "string" && /^[0-9a-f-]{36}$/i.test(id)))) : [];
     if (audienceType === "selected_partners" && requestedPartnerIds.length === 0) return fail("Select at least one eligible partner for this topic.");
     let allowedAuthUserIds: string[] = [];
     if (audienceType === "selected_partners") {
