@@ -163,10 +163,31 @@ export default function CommunityWorkspace() {
       {!data.leaderboard?.length && <div className="vt-cw-empty">The leaderboard will populate when the first New Business Deal stage has been verified by an administrator.</div>}
     </section>}
 
-    {tab === "members" && <section className="vt-cw-column"><div className="vt-cw-section-heading"><div><span>APPROVED PARTICIPANTS</span><h2>Community members</h2><p>Only the approved display names chosen by members appear here. Real account identities remain private.</p></div></div><div className="vt-cw-member-grid">{(data.members || []).map((item: Member) => <div key={item.auth_user_id}><span>{item.display_name.slice(0,1).toUpperCase()}</span><strong>{item.display_name}</strong></div>)}</div></section>}
+    {tab === "members" && <section className="vt-cw-column"><div className="vt-cw-section-heading"><div><span>APPROVED PARTICIPANTS</span><h2>Community members</h2><p>Only approved participants can view this area. Member display names are shown; real account identities remain private.</p></div></div><div className="vt-cw-member-grid">{(data.members || []).map((item: Member) => <div key={item.auth_user_id}><span>{item.display_name.slice(0,1).toUpperCase()}</span><strong>{item.display_name}</strong></div>)}</div>
+      <div className="vt-cw-section-heading"><div><span>REAL EXPERIENCES & SUPPORTING RECORDS</span><h2>Testimonials and certificates</h2><p>Approved Community participants can review shared experiences and supporting records. Historical examples are not a promise of future results.</p></div></div>
+      <div className="vt-cw-testimonials">{(data.testimonials || []).map((item: any) => <article key={item.id}><span>{item.product_code || "COMMUNITY EXPERIENCE"}</span><p>{item.testimonial}</p><strong>{item.display_name}</strong></article>)}</div>
+      {!(data.testimonials || []).length && <div className="vt-cw-empty">Approved testimonials will appear here when available. Original trade and challenge certificates are reserved for this approved-participants area and will be added to the secure evidence library.</div>}
+    </section>}
 
     {tab === "sessions" && <section className="vt-cw-column vt-cw-sessions"><CommunityCalendar isAdmin={isAdmin} /></section>}
 
+    {tab === "admin" && isAdmin && <section className="vt-cw-column">
+      <div className="vt-cw-section-heading"><div><span>MEMBERSHIP RECONCILIATION</span><h2>Community access overview</h2><p>Live counts from member approvals and active product entitlements. Only VaultTrades administrators can see this dashboard.</p></div></div>
+      <div className="vt-cw-reconciliation-grid">
+        {[
+          ["Total Community members", data.reconciliation?.totalCommunityMembers],
+          ["Approved participants", data.reconciliation?.approvedParticipants],
+          ["Exclusive section access", data.reconciliation?.exclusiveSectionAccess],
+          ["Knowledge Base access", data.reconciliation?.knowledgeBaseAccess],
+          ["Partnership members", data.reconciliation?.partnershipMembers],
+          ["Awaiting access review", data.reconciliation?.awaitingReview],
+        ].map(([label,value]) => <article key={String(label)}><span>{label}</span><strong>{Number(value ?? 0).toLocaleString()}</strong></article>)}
+      </div>
+      <div className="vt-cw-panel"><span>ACTIVE PLAN ENTITLEMENTS</span><h3>Access by plan</h3>
+        {Object.entries(data.reconciliation?.planAccessCounts || {}).map(([plan,count]) => <div className="vt-cw-admin-row" key={plan}><strong>{plan.replaceAll("_"," ")}</strong><b>{count as number}</b></div>)}
+        {!Object.keys(data.reconciliation?.planAccessCounts || {}).length && <p>No active product licences are currently recorded.</p>}
+      </div>
+    </section>}
     {tab === "admin" && isAdmin && <section className="vt-cw-grid"><div className="vt-cw-main">
       <form className="vt-cw-compose" onSubmit={publishAnnouncement}><h3>Publish a Community announcement</h3><label>Title<input value={announcementTitle} onChange={e => setAnnouncementTitle(e.target.value)} required maxLength={140} /></label><label>Announcement<textarea value={announcementBody} onChange={e => setAnnouncementBody(e.target.value)} required maxLength={5000} rows={4} /></label><button disabled={busy}>Publish announcement</button></form>
       <form className="vt-cw-compose" onSubmit={createAdminPost}><h3>Publish a read-only Community post</h3><label>Post category<select value={postCategory === "opportunity" ? "opportunity" : "general_discussion"} onChange={e => setPostCategory(e.target.value)}><option value="general_discussion">General discussion</option><option value="opportunity">Opportunity</option></select></label><label>Title<input value={postTitle} onChange={e => setPostTitle(e.target.value)} required maxLength={140} /></label><label>Post<textarea value={postBody} onChange={e => setPostBody(e.target.value)} required maxLength={5000} rows={4} /></label><button disabled={busy}>Publish post</button></form>
