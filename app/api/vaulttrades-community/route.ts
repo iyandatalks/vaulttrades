@@ -216,7 +216,8 @@ export async function GET() {
     members: isPartner || isAdmin ? (membersResult.data ?? []) : [],
     moderationQueue, pendingMembers, pendingComments,
     testimonials: isPartner || isAdmin ? (testimonialsResult.data ?? []) : [],
-    classroomTopics: visibleClassroomTopics,\n    ...(isAdmin ? { eligiblePartners } : {}),
+    classroomTopics: visibleClassroomTopics,
+    ...(isAdmin ? { eligiblePartners } : {}),
     isPartner,
     ...(isAdmin ? { reconciliation } : {}),
   });
