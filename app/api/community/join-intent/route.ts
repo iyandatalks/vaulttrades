@@ -25,9 +25,10 @@ export async function POST(request: Request) {
 
     let referrerUserId: string | null = null;
     if (referralCode) {
-      const { data: referrer } = await admin.from("referral_profiles")
-        .select("user_id").eq("referral_code", referralCode).not("activated_at", "is", null).maybeSingle();
-      if (referrer?.user_id && referrer.user_id !== profile.id) referrerUserId = referrer.user_id;
+      const { data: referrer } = await admin.from("users")
+        .select("auth_user_id,role").eq("referral_code", referralCode)
+        .in("role", ["partner", "reseller"]).maybeSingle();
+      if (referrer?.auth_user_id && referrer.auth_user_id !== user.id) referrerUserId = referrer.auth_user_id;
     }
 
     const { data: existing } = await admin.from("community_join_intents")
