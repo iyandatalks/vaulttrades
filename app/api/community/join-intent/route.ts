@@ -27,9 +27,13 @@ export async function POST(request: Request) {
     let referrerUserId: string | null = null;
     if (attributionCode) {
       const { data: referrer } = await admin.from("users")
-        .select("auth_user_id,role").eq("referral_code", attributionCode)
-        .in("role", ["partner", "reseller"]).maybeSingle();
-      if (referrer?.auth_user_id && referrer.auth_user_id !== user.id) referrerUserId = referrer.auth_user_id;
+        .select("auth_user_id,role").eq("referral_code", attributionCode).maybeSingle();
+      if (referrer?.auth_user_id && referrer.auth_user_id !== user.id) {
+        const roleIsPartner = ["partner", "reseller"].includes(String(referrer.role || "").toLowerCase());
+        const { data: activeResellerLink } = roleIsPartner ? { data: { id: "role" } } : await admin.from("reseller_payment_links")
+          .select("id").eq("auth_user_id", referrer.auth_user_id).eq("is_active", true).limit(1).maybeSingle();
+        if (roleIsPartner || activeResellerLink) referrerUserId = referrer.auth_user_id;
+      }
     }
 
     const { data: existing } = await admin.from("community_join_intents")
