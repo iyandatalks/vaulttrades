@@ -387,12 +387,13 @@ export async function POST(request: Request) {
         ? subscriptionPeriodEnd
         : new Date().toISOString();
 
-    await admin.from("product_licenses").upsert({
+    const licenseStatus = status === "active" ? "active" : "revoked";
+    const { error: licenseUpdateError } = await admin.from("product_licenses").upsert({
       user_id: profile.id,
       email: profile.email,
       purchased_product_code: product.code,
       entitlement_code: product.entitlement,
-      status: status === "active" ? "active" : status,
+      status: licenseStatus,
       payment_reference: subscriptionId,
       approved_at: status === "active" ? new Date().toISOString() : null,
       start_at: start,
@@ -410,6 +411,10 @@ export async function POST(request: Request) {
       },
       updated_at: new Date().toISOString(),
     }, { onConflict: "payment_reference,entitlement_code" });
+    if (licenseUpdateError) {
+      console.error("Unable to reconcile PayPal subscription licence", licenseUpdateError);
+      return NextResponse.json({ error: "PayPal status was received, but membership access could not be reconciled." }, { status: 500 });
+    }
 
     await grantFeature(admin, profile.id, product.entitlement, start, accessEnd, status);
 
