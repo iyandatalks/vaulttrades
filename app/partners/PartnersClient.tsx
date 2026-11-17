@@ -63,6 +63,8 @@ export default function PartnersClient() {
     }
   }, [activeSection]);
   const shareUrl = typeof window !== "undefined" ? window.location.href : "https://vaulttradesve.com/partners";
+  const communityReferralQuery = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("ref")
+    ? `?ref=${encodeURIComponent(new URLSearchParams(window.location.search).get("ref") || "")}` : "";
 
   const copyLink = async () => {
     await navigator.clipboard.writeText(shareUrl);
@@ -86,7 +88,7 @@ export default function PartnersClient() {
     ? catalogue
         .filter((item) => item.category === activeSection && Boolean(item.referral_url?.trim()))
         .map((item) => ({ ...item, url: item.referral_url }))
-    : activeSection === "VaultTrades Product" ? products : activeSection === "Tool" ? tools : [];
+    : activeSection === "VaultTrades Product" ? [...products, { name: "VaultTrades Community", description: "Introduce people to the VaultTrades Community. The $10 once-off joining payment can generate a $2 partner commission after verified payment and attribution.", url: `/community/join${communityReferralQuery}` }] : activeSection === "Tool" ? tools : [];
 
   return (
     <main className="vt-info-page vt-partners-page">
