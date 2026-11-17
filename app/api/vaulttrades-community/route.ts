@@ -101,10 +101,16 @@ export async function GET() {
       db.from("community_member_names").select("auth_user_id", { count: "exact", head: true }),
       db.from("community_member_names").select("auth_user_id", { count: "exact", head: true }).eq("is_approved", true),
       db.from("community_member_names").select("auth_user_id", { count: "exact", head: true }).eq("is_approved", false),
-      db.from("users").select("id", { count: "exact", head: true }).in("role", ["partner", "reseller"]),
+      db.from("users").select("auth_user_id", { count: "exact" }).in("role", ["partner", "reseller"]),
       db.from("product_licenses").select("user_id,entitlement_code,purchased_product_code,status,start_at,end_at").eq("status", "active"),
     ]);
     if ([allCommunity, approvedCommunity, pendingCommunity, partnerUsers, activeLicences].some(result => result.error)) return fail("Membership reconciliation could not be loaded.", 500);
+    const partnerAuthIds = (partnerUsers.data ?? []).map(row => row.auth_user_id).filter(Boolean);
+    const approvedPartnerResult = partnerAuthIds.length
+      ? await db.from("community_member_names").select("auth_user_id", { count: "exact", head: true })
+          .eq("is_approved", true).in("auth_user_id", partnerAuthIds)
+      : { count: 0, error: null };
+    if (approvedPartnerResult.error) return fail("Exclusive Community access counts could not be loaded.", 500);
     const licences = activeLicences.data ?? [];
     const now = Date.now();
     const validLicences = licences.filter(row => {
@@ -126,7 +132,7 @@ export async function GET() {
     reconciliation = {
       totalCommunityMembers: allCommunity.count ?? 0,
       approvedParticipants: approvedCommunity.count ?? 0,
-      exclusiveSectionAccess: approvedCommunity.count ?? 0,
+      exclusiveSectionAccess: approvedPartnerResult.count ?? 0,
       awaitingReview: pendingCommunity.count ?? 0,
       partnershipMembers: partnerUsers.count ?? 0,
       knowledgeBaseAccess: knowledgeBaseUsers.size,
