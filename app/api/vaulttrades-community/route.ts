@@ -53,7 +53,7 @@ export async function GET() {
     return NextResponse.json({ member: member ?? null, approved: false, announcements: [], posts: [], comments: [], leaderboard: [], members: [], moderationQueue: [] });
   }
 
-  const [announcementsResult, postsResult, commentsResult, membersResult, dealsResult, testimonialsResult] = await Promise.all([
+  const [announcementsResult, postsResult, commentsResult, membersResult, dealsResult, testimonialsResult, classroomResult] = await Promise.all([
     db.from("community_announcements").select("id,title,body,category,published_at,created_at")
       .eq("is_published", true).order("published_at", { ascending: false }).limit(40),
     db.from("community_discussion_posts")
@@ -68,9 +68,11 @@ export async function GET() {
       .eq("category", "new_business_deal").eq("moderation_status", "approved"),
     db.from("community_testimonials").select("id,display_name,product_code,testimonial,created_at")
       .eq("status", "approved").order("created_at", { ascending: false }).limit(100),
+    db.from("community_classroom_topics").select("id,title,content,youtube_url,sort_order,is_published,created_at,updated_at")
+      .order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
   ]);
 
-  for (const result of [announcementsResult, postsResult, commentsResult, membersResult, dealsResult, testimonialsResult]) {
+  for (const result of [announcementsResult, postsResult, commentsResult, membersResult, dealsResult, testimonialsResult, classroomResult]) {
     if (result.error) {
       console.error("Community workspace read failed:", result.error.message);
       return fail("The community workspace could not be loaded. Please try again.", 500);
@@ -176,6 +178,7 @@ export async function GET() {
     members: isPartner || isAdmin ? (membersResult.data ?? []) : [],
     moderationQueue, pendingMembers, pendingComments,
     testimonials: isPartner || isAdmin ? (testimonialsResult.data ?? []) : [],
+    classroomTopics: (classroomResult.data ?? []).filter(topic => isAdmin || topic.is_published),
     isPartner,
     ...(isAdmin ? { reconciliation } : {}),
   });
@@ -202,6 +205,39 @@ export async function POST(request: Request) {
 
   const approved = isAdmin || Boolean(member?.is_approved);
   if (!approved) return fail("Community access is awaiting administrator approval.", 403);
+
+  if (action === "classroom_save") {
+    if (!isAdmin) return fail("Only VaultTrades administrators can manage Classroom lessons.", 403);
+    const id = typeof body.id === "string" ? body.id : "";
+    const title = typeof body.title === "string" ? body.title.trim().slice(0, 140) : "";
+    const content = typeof body.content === "string" ? body.content.trim().slice(0, 12000) : "";
+    const youtubeUrl = typeof body.youtubeUrl === "string" ? body.youtubeUrl.trim().slice(0, 500) : "";
+    const sortOrder = Number.isFinite(Number(body.sortOrder)) ? Math.max(0, Math.min(10000, Math.trunc(Number(body.sortOrder)))) : 0;
+    const isPublished = body.isPublished !== false;
+    if (title.length < 2) return fail("Add a topic title with at least two characters.");
+    if (youtubeUrl) {
+      let parsed: URL;
+      try { parsed = new URL(youtubeUrl); } catch { return fail("Enter a valid YouTube video link."); }
+      const host = parsed.hostname.toLowerCase().replace(/^www\\./, "");
+      if (!["youtube.com", "m.youtube.com", "youtu.be", "youtube-nocookie.com"].includes(host)) return fail("Video links must be hosted on YouTube.");
+      if (!parsed.searchParams.get("v") && !parsed.pathname.match(/^\\/(?:embed|shorts)\\/[A-Za-z0-9_-]{6,}/) && host !== "youtu.be") return fail("Choose a valid YouTube video link.");
+    }
+    const values = { title, content, youtube_url: youtubeUrl || null, sort_order: sortOrder, is_published: isPublished, updated_at: new Date().toISOString() };
+    const result = id
+      ? await db.from("community_classroom_topics").update(values).eq("id", id).select("id").maybeSingle()
+      : await db.from("community_classroom_topics").insert({ ...values, created_by: user.id }).select("id").single();
+    if (result.error || !result.data) return fail("The Classroom topic could not be saved.", 500);
+    return NextResponse.json({ ok: true, message: "Classroom topic saved.", id: result.data.id });
+  }
+
+  if (action === "classroom_delete") {
+    if (!isAdmin) return fail("Only VaultTrades administrators can manage Classroom lessons.", 403);
+    const id = typeof body.id === "string" ? body.id : "";
+    if (!id) return fail("Choose a Classroom topic to remove.");
+    const { error } = await db.from("community_classroom_topics").delete().eq("id", id);
+    if (error) return fail("The Classroom topic could not be removed.", 500);
+    return NextResponse.json({ ok: true, message: "Classroom topic removed." });
+  }
 
   if (action === "create_post") {
     if (!isPartner && !isAdmin) return fail("Partner access is required to publish in Community discussions.", 403);
