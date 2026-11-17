@@ -72,6 +72,42 @@ export async function POST(request: NextRequest) {
   if (targetError || !target) return NextResponse.json({ error: "The selected VaultTrades account could not be found." }, { status: 404 });
   if (target.role === "admin" && action === "register_partner") return NextResponse.json({ error: "An administrator account cannot be changed into a partner account." }, { status: 400 });
 
+  if (action === "assign_membership_plan") {
+    const planCode = typeof body.planCode === "string" ? body.planCode : "";
+    const plans = {
+      nexus: { name: "VaultTrades Nexus", productCode: "vaulttrades_nexus_once" },
+      nexus_plus: { name: "VaultTrades Nexus Plus", productCode: "vaulttrades_nexus_plus_once" },
+      vortex: { name: "VaultTrades Vortex", productCode: "vaulttrades_vortex_once" },
+    } as const;
+    if (!(planCode in plans)) return NextResponse.json({ error: "Choose Nexus, Nexus Plus or Vortex." }, { status: 400 });
+    const plan = plans[planCode as keyof typeof plans];
+    const { data: previous, error: previousError } = await context.db.from("product_licenses")
+      .select("id").eq("user_id", target.id)
+      .in("entitlement_code", ["nexus", "vaulttrades_nexus", "nexus_plus", "vaulttrades_nexus_plus", "vortex", "vaulttrades_vortex"])
+      .eq("status", "active").contains("source_payment_snapshot", { source: "admin_manual_grant" });
+    if (previousError) return NextResponse.json({ error: "Existing manual plan access could not be checked." }, { status: 500 });
+    if (previous?.length) {
+      const { error } = await context.db.from("product_licenses").update({
+        status: "revoked", end_at: now, approved_by: context.user.id, updated_at: now,
+      }).in("id", previous.map(row => row.id));
+      if (error) return NextResponse.json({ error: "The previous manually assigned plan could not be replaced." }, { status: 500 });
+    }
+    const { error: insertError } = await context.db.from("product_licenses").insert({
+      user_id: target.id, email: target.email,
+      purchased_product_code: plan.productCode, entitlement_code: planCode, status: "active",
+      payment_reference: `admin-plan:${context.user.id}:${crypto.randomUUID()}`,
+      approved_at: now, approved_by: context.user.id, start_at: now, end_at: null, platform: "web",
+      source_payment_snapshot: { source: "admin_manual_grant", granted_by: context.user.id, membership_plan: planCode, plan_name: plan.name, reason },
+      updated_at: now,
+    });
+    if (insertError) return NextResponse.json({ error: "The membership plan could not be assigned.", details: insertError.message }, { status: 500 });
+    await context.db.from("admin_access_management_audit").insert({
+      target_auth_user_id: authUserId, action: "assign_membership_plan",
+      details: { planCode, planName: plan.name, replacedManualAssignments: previous?.length ?? 0, reason }, performed_by: context.user.id,
+    });
+    return NextResponse.json({ ok: true, message: `${plan.name} assigned to ${target.email}. Separate monthly tool subscriptions and Partner Portal approval remain independent.` });
+  }
+
   if (action === "community_access") {
     const displayName = (typeof body.displayName === "string" ? body.displayName.trim() : "").slice(0, 48)
       || [target.first_name, target.last_name].filter(Boolean).join(" ") || target.email;
