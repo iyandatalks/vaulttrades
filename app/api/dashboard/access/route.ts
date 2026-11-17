@@ -81,15 +81,15 @@ export async function GET() {
     const { data: portalOverride } = isPartnerRole
       ? await admin.from("partner_portal_access_overrides").select("decision,reason,updated_at").eq("auth_user_id", user.id).maybeSingle()
       : { data: null };
-    const partnerPortalApproved = isPartnerRole && (
-      portalOverride?.decision === "grant" ||
-      (portalOverride?.decision !== "revoke" && Boolean(resellerPlan))
-    );
+    // Partner Portal approval is independent of commercial Nexus/Nexus Plus/Vortex licences.
+    // Until the partnership-plan/monthly-operating-cost source is wired to a verified entitlement,
+    // only an explicit admin override can approve this partner portal.
+    const partnerPortalApproved = isPartnerRole && portalOverride?.decision === "grant";
     const partnerPortal = {
       isPartner: isPartnerRole,
       status: !isPartnerRole ? "not_partner" : portalOverride?.decision === "revoke" ? "revoked" : partnerPortalApproved ? "approved" : "pending",
       access: partnerPortalApproved,
-      accessSource: portalOverride?.decision ? "manual_override" : resellerPlan ? "automatic" : "awaiting_approval",
+      accessSource: portalOverride?.decision ? "manual_override" : "awaiting_approval",
       reason: portalOverride?.reason ?? null,
     };
 
