@@ -2,17 +2,17 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import PartnerNetworkSection from "./PartnerNetworkSection";
 
 const products = [
-  { number: "01", name: "VaultTrades Analyzer", type: "MARKET ANALYSIS", description: "A structured analysis environment built around market context, strategy conditions and disciplined trade planning.", detail: "For traders who want a defined process before considering execution.", href: "/subscription?product=analyzer_monthly", action: "Explore Analyzer access", visual: "analyzer" },
-  { number: "02", name: "Trading Tools & Resources", type: "TRADER WORKSPACE", description: "Practical resources for risk planning, trade journaling, trading psychology and decision-making.", detail: "Tools designed to support a process—not replace your judgement.", href: "/subscription", action: "Explore access options", visual: "tools" },
-  { number: "03", name: "VaultTrades Winning Strategy", type: "STRATEGY FRAMEWORK", description: "A structured approach combining market structure, institutional footprints and defined price levels.", detail: "A framework for evaluation, not a promise of winning trades.", href: "/plans", action: "Explore VaultTrades pathways", visual: "strategy" },
-  { number: "04", name: "Copy Trading", type: "MT5 EXECUTION TECHNOLOGY", description: "A subscription-based copy-trading service designed for supported MetaTrader 5 accounts.", detail: "Broker compatibility and account requirements are checked during onboarding.", href: "/subscription?product=automated_trader_monthly", action: "Explore Copy Trading", visual: "copy" },
-  { number: "05", name: "Founders Mentorship", type: "EDUCATION & DEVELOPMENT", description: "A guided learning programme focused on trading structure, risk awareness and disciplined development.", detail: "A separate educational purchase with its own access entitlement.", href: "/subscription?product=founders_mentorship_once", action: "Explore mentorship", visual: "education" },
+  { number: "01", name: "VaultTrades Analyzer", type: "MARKET ANALYSIS", description: "A structured analysis environment built around market context, strategy conditions and disciplined trade planning.", detail: "For traders who want a defined process before considering execution.", href: "/contact-partner", action: "Explore Analyzer access", visual: "analyzer" },
+  { number: "02", name: "Trading Tools & Resources", type: "TRADER WORKSPACE", description: "Practical resources for risk planning, trade journaling, trading psychology and decision-making.", detail: "Tools designed to support a process—not replace your judgement.", href: "/contact-partner", action: "Explore access options", visual: "tools" },
+  { number: "03", name: "VaultTrades Winning Strategy", type: "STRATEGY FRAMEWORK", description: "A structured approach combining market structure, institutional footprints and defined price levels.", detail: "A framework for evaluation, not a promise of winning trades.", href: "/contact-partner", action: "Explore VaultTrades pathways", visual: "strategy" },
+  { number: "04", name: "Copy Trading", type: "MT5 EXECUTION TECHNOLOGY", description: "A subscription-based copy-trading service designed for supported MetaTrader 5 accounts.", detail: "Broker compatibility and account requirements are checked during onboarding.", href: "/contact-partner", action: "Explore Copy Trading", visual: "copy" },
+  { number: "05", name: "Founders Mentorship", type: "EDUCATION & DEVELOPMENT", description: "A guided learning programme focused on trading structure, risk awareness and disciplined development.", detail: "A separate educational purchase with its own access entitlement.", href: "/contact-partner", action: "Explore mentorship", visual: "education" },
   { number: "06", name: "VaultTrades Community", type: "ONLINE COMMUNITY", description: "An online environment for structured learning, accountability and responsible trading development.", detail: "Community materials and member spaces remain private to eligible members.", href: "/subscription?product=founders_mentorship_once", action: "Explore membership", visual: "community" },
 ];
 
-const CONTRACTOR_PORTAL_URL = "https://contractorportal.io/contractor-portal/ID/1220/";
 
 export default function HomePage() {
   const [sales, setSales] = useState(10);
@@ -51,13 +51,15 @@ export default function HomePage() {
             <p>VaultTrades brings together in-house trading technology, practical digital resources and education—alongside an optional business opportunity for people interested in representing selected digital programmes.</p>
             <div className="vt-sales-actions">
               <a className="vt-sales-btn gold" href="#products">Explore our products <b>↘</b></a>
-              <Link className="vt-sales-btn outline" href="/start">Explore the business opportunity <b>→</b></Link>
-              <a className="vt-sales-btn outline" href={CONTRACTOR_PORTAL_URL} target="_blank" rel="noopener noreferrer">Explore opportunities <b>↗</b></a>
+              <Link className="vt-sales-btn outline" href="/contact-partner">Explore the business opportunity <b>→</b></Link>
+              <a className="vt-sales-btn outline" href="/contact-partner">Contact an authorised partner <b>↗</b></a>
             </div>
             <div className="vt-sales-hero-note">FOCUS · DISCIPLINE · CONSISTENCY</div>
           </div>
         </div>
       </section>
+
+      <PartnerNetworkSection compact />
 
       <section className="vt-sales-section">
         <div className="vt-sales-wrap">
@@ -94,7 +96,7 @@ export default function HomePage() {
               <p>The opportunity is separate from purchasing trading tools. It is designed for people interested in building a customer network around selected digital products, with the programme terms, eligibility and onboarding explained before joining.</p>
               <div className="vt-split"><span>100% ELIGIBLE MRR COMMISSION</span><span>SEPARATE VAULTTRADES SERVICES</span></div>
               <p>Illustrative headline split only. Actual eligibility, qualifying products, transaction treatment, refunds and payout terms are governed by the reseller agreement.</p>
-              <Link className="vt-sales-btn outline" href="/start">View the opportunity <b>→</b></Link>
+              <Link className="vt-sales-btn outline" href="/contact-partner">View the opportunity <b>→</b></Link>
             </div>
             <div className="vt-calculator">
               <div className="vt-sales-kicker">SALES POTENTIAL CALCULATOR</div>
@@ -122,7 +124,7 @@ export default function HomePage() {
         <div className="vt-sales-wrap">
           <div className="vt-business-strip">
             <div><div className="vt-sales-kicker">LEARN BEFORE YOU DECIDE</div><h3>Want to understand how the opportunity works?</h3><p>Start with a short enquiry. You can review the opportunity information and applicable plans before deciding whether to proceed. Submitting an enquiry does not commit you to a purchase.</p></div>
-            <Link className="vt-sales-btn gold" href="/start">Get the overview <b>→</b></Link>
+            <Link className="vt-sales-btn gold" href="/contact-partner">Contact a partner <b>→</b></Link>
           </div>
         </div>
       </section>
