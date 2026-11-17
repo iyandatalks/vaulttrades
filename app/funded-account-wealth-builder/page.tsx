@@ -9,7 +9,7 @@ export default async function FundedAccountWealthBuilderPage() {
   if (!user) redirect("/auth/login?next=/funded-account-wealth-builder");
 
   const access = await getProductAccess(user.id);
-  if (!access.anyPaidProduct) redirect("/products");
+  if (!access.tools) redirect("/products");
 
   return <WealthBuilderClient />;
 }
