@@ -26,6 +26,8 @@ type Props = {
   vpsRegistrationUrl: string;
   requestActionsAvailable: boolean;
   licensingActionsAvailable: boolean;
+  partnerAccessOnly?: boolean;
+  accessLabel?: string;
 };
 
 const sections = [
@@ -73,7 +75,7 @@ const planNames: Record<Plan, string> = {
 };
 
 export default function MemberPortalClient({
-  plan, isAdmin, memberEmail, referralUrl, hasJournalToolsAccess, hasAnalyzerAccess, licensingRequests, websiteRequests, memberNotifications, xmRegistrationUrl, vpsRegistrationUrl, requestActionsAvailable, licensingActionsAvailable,
+  plan, isAdmin, memberEmail, referralUrl, hasJournalToolsAccess, hasAnalyzerAccess, licensingRequests, websiteRequests, memberNotifications, xmRegistrationUrl, vpsRegistrationUrl, requestActionsAvailable, licensingActionsAvailable, partnerAccessOnly = false, accessLabel,
 }: Props) {
   const [active, setActive] = useState<string>("welcome");
   const [topicSearch, setTopicSearch] = useState("");
@@ -111,11 +113,12 @@ export default function MemberPortalClient({
     window.addEventListener("focus", refreshLicensing);
     return () => { window.clearInterval(interval); window.removeEventListener("focus", refreshLicensing); };
   }, []);
-  const visibleSections = sections.filter(item => isAdmin || item.id !== "admin");
+  const partnerLearningSections = new Set(["welcome", "community", "trading-room", "mentorship", "scaling", "business", "referrals", "business-leads", "website", "paypal-setup", "resources", "tools", "risk", "faq", "notifications"]);
+  const visibleSections = sections.filter(item => (isAdmin || item.id !== "admin") && (!partnerAccessOnly || partnerLearningSections.has(item.id)));
   const groups = useMemo(() => {
     const result: { group: string; items: typeof sections[number][] }[] = [];
     const query = topicSearch.trim().toLowerCase();
-    for (const item of sections.filter(item => isAdmin || item.id !== "admin")) {
+    for (const item of sections.filter(item => (isAdmin || item.id !== "admin") && (!partnerAccessOnly || partnerLearningSections.has(item.id)))) {
       if (query && !item.label.toLowerCase().includes(query) && !item.group.toLowerCase().includes(query)) continue;
       let group = result.find(entry => entry.group === item.group);
       if (!group) { group = { group: item.group, items: [] }; result.push(group); }
@@ -221,7 +224,7 @@ export default function MemberPortalClient({
           <p className="vt-member-lead">This is your central guide to getting started, activating your personalised EA, learning how to use your membership and building your VaultTrades business.</p>
           <div className="vt-member-highlight">
             <strong>Your membership</strong>
-            <span>{planNames[plan]}{isAdmin ? " · Administrator access" : ""}</span>
+            <span>{accessLabel || planNames[plan]}{isAdmin ? " · Administrator access" : ""}</span>
             <small>{memberEmail}</small>
           </div>
           <h2>Follow the process in order</h2>
@@ -660,7 +663,7 @@ export default function MemberPortalClient({
     <main className="vt-member-shell">
       <header className="vt-member-header">
         <div><span className="vt-member-kicker">VAULTTRADES MEMBER WORKSPACE</span><h1>Knowledge Base</h1><p>One place for onboarding, EA licensing, learning and business resources.</p></div>
-        <div className="vt-member-header-actions"><span className="vt-member-plan">{planNames[plan]}</span><Link href="/member-portal/reseller-onboarding" className="vt-member-outline">Reseller onboarding</Link><Link href="/member-portal/reseller-payments" className="vt-member-outline">Payment verification</Link><Link href="/profile" className="vt-member-outline">My profile</Link></div>
+        <div className="vt-member-header-actions"><span className="vt-member-plan">{accessLabel || planNames[plan]}</span><Link href="/member-portal/reseller-onboarding" className="vt-member-outline">Reseller onboarding</Link><Link href="/member-portal/reseller-payments" className="vt-member-outline">Payment verification</Link><Link href="/profile" className="vt-member-outline">My profile</Link></div>
       </header>
       <div className="vt-member-layout">
         <aside className="vt-member-sidebar" aria-label="Knowledge Base topics">
