@@ -164,3 +164,17 @@
 .vt-cw-classroom-manage-list small{color:#8f9caf;font-size:9px}
 .vt-cw-classroom-manage-list button.danger{border-color:rgba(248,113,113,.4);background:rgba(127,29,29,.2);color:#fca5a5}
 @media(max-width:760px){.vt-cw-classroom-layout{grid-template-columns:1fr}.vt-cw-classroom-sidebar{max-height:250px;overflow:auto}.vt-cw-classroom-sidebar>button{padding:11px 13px}.vt-cw-classroom-content{padding:15px}.vt-cw-classroom-manage-list>div{align-items:flex-start;flex-direction:column}}
+
+
+.vt-cw-classroom-admin .vt-cw-compose>label select{width:100%;padding:11px 12px;border:1px solid #344155;border-radius:8px;background:#070e19;color:#f4f6fb;font-size:12px}
+.vt-cw-classroom-partner-picker{display:grid;gap:11px;padding:14px;border:1px solid rgba(212,166,55,.25);border-radius:10px;background:#080f1a}
+.vt-cw-classroom-partner-picker>div:first-child{display:grid;gap:5px}
+.vt-cw-classroom-partner-picker>div:first-child strong{color:#f4f6fb;font-size:12px}
+.vt-cw-classroom-partner-picker>div:first-child small,.vt-cw-classroom-partner-list label small{color:#9ba8ba;font-size:10px;line-height:1.5}
+.vt-cw-classroom-partner-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;max-height:250px;overflow:auto}
+.vt-cw-classroom-partner-list label{display:flex;align-items:flex-start;gap:9px;padding:10px;border:1px solid rgba(255,255,255,.08);border-radius:8px;background:#0b1523;cursor:pointer}
+.vt-cw-classroom-partner-list input{flex:0 0 auto;width:15px;height:15px;margin-top:2px;accent-color:#d4a637}
+.vt-cw-classroom-partner-list label span{display:grid;gap:3px;min-width:0}
+.vt-cw-classroom-partner-list label strong{color:#edf2f9;font-size:10px;overflow-wrap:anywhere}
+.vt-cw-classroom-no-partners{margin:0;color:#e6bd55;font-size:11px}
+@media(max-width:650px){.vt-cw-classroom-partner-list{grid-template-columns:1fr}}
