@@ -79,6 +79,7 @@ export default function MemberPortalClient({
   const [topicSearch, setTopicSearch] = useState("");
   const [knowledgeResources, setKnowledgeResources] = useState<KnowledgeResource[]>([]);
   const [copied, setCopied] = useState(false);
+  const [communityCopied, setCommunityCopied] = useState(false);
   const [requests, setRequests] = useState<LicensingRequest[]>(licensingRequests);
   const [mt5Login, setMt5Login] = useState("");
   const [brokerServer, setBrokerServer] = useState("");
@@ -124,12 +125,27 @@ export default function MemberPortalClient({
   }, [topicSearch, isAdmin]);
   const activeSection = visibleSections.find(item => item.id === active) ?? visibleSections[0];
   const activeIndex = visibleSections.findIndex(item => item.id === active) + 1;
+  const communityReferralUrl = useMemo(() => {
+    if (!referralUrl) return "https://vaulttradesve.com/community/join";
+    try {
+      const code = new URL(referralUrl).pathname.split("/").filter(Boolean).pop() || "";
+      return `https://vaulttradesve.com/community/join${code ? `?ref=${encodeURIComponent(code)}` : ""}`;
+    } catch {
+      return "https://vaulttradesve.com/community/join";
+    }
+  }, [referralUrl]);
 
   async function copyReferral() {
     if (!referralUrl) return;
     await navigator.clipboard.writeText(referralUrl);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1800);
+  }
+
+  async function copyCommunityReferral() {
+    await navigator.clipboard.writeText(communityReferralUrl);
+    setCommunityCopied(true);
+    window.setTimeout(() => setCommunityCopied(false), 1800);
   }
 
   async function submitLicensingRequest(event: FormEvent<HTMLFormElement>) {
@@ -532,6 +548,7 @@ export default function MemberPortalClient({
           <Eyebrow>YOUR PERSONAL LINK</Eyebrow><h1>Share your VaultTrades referral link.</h1>
           <p className="vt-member-lead">Your referral link identifies people who visit VaultTrades through your introduction. Share it with people who may be interested in the membership and explain the products honestly.</p>
           {referralUrl ? <div className="vt-member-referral"><code>{referralUrl}</code><button type="button" className="vt-member-outline" onClick={copyReferral}>{copied ? "Copied" : "Copy link"}</button></div> : <div className="vt-member-pending"><strong>Referral link not available</strong><span>Contact support if your member referral link has not been generated.</span></div>}
+          <div className="vt-member-highlight"><strong>Additional referral income · VaultTrades Community</strong><span>Share the $10 once-off Community joining option as an additional offer. Eligible partners receive a $2 commission (20%) after PayPal verifies the payment and the referral is attributed to your partner account.</span><div className="vt-member-referral"><code>{communityReferralUrl}</code><button type="button" className="vt-member-outline" onClick={() => void copyCommunityReferral()}>{communityCopied ? "Copied" : "Copy Community link"}</button></div><a className="vt-member-tool-link" href={communityReferralUrl}>Preview Community joining page ↗</a></div>
           <h2>A simple daily business habit</h2><ol><li>Think of people who may genuinely benefit from the products.</li><li>Share your referral link and invite them to review the opportunity.</li><li>Explain the plan differences and answer questions accurately.</li><li>Follow up without pressure and respect each person's decision.</li></ol>
           <p className="vt-member-note">Start by introducing the opportunity to five people who may be interested. This is a suggested activity target, not a promise of sales or income. Commission terms and eligibility are governed by the final reseller programme rules.</p>
         </>;
