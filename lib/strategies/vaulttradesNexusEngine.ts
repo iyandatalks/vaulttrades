@@ -52,12 +52,12 @@ const TIMEFRAME_MINUTES: Record<string, number> = {
 
 function parseTime(value: string, timeZone = "UTC"): number {
   const normalized = value.includes("T") ? value : value.replace(" ", "T");
-  const explicitZone = /(?:Z|[+-]\\d{2}:?\\d{2})$/i.test(normalized);
+  const explicitZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(normalized);
   if (explicitZone) return Date.parse(normalized);
 
   // Intraday candles are requested in UTC. Daily+ bars ignore that parameter
   // and arrive in exchange-local time, so convert their wall-clock values.
-  const match = normalized.match(/^(\\d{4})-(\\d{2})-(\\d{2})(?:T(\\d{2}):(\\d{2})(?::(\\d{2}))?)?$/);
+  const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?)?$/);
   if (!match) return Date.parse(normalized + "Z");
   const [, y, mo, d, h = "00", mi = "00", s = "00"] = match;
   const targetLocalAsUtc = Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s));
