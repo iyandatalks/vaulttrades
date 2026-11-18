@@ -6,6 +6,7 @@ import ema20Rules from "./ema20";
 import emaAutomatedRules from "./emaAutomated";
 import continuationRules from "./continuation";
 import supplyDemandRules from "./supplyDemand";
+import vaultTradesNexusRules from "./vaulttradesNexus";
 import observing714Rules from "./714Observing";
 import sweepEngulfingStrategy from "./sweepEngulfing";
 import swingDevelopingStrategy from "./swingDeveloping";
@@ -24,6 +25,7 @@ export const STRATEGIES: Readonly<Record<StrategyId, StrategyDefinition>> = {
   emaAutomated: { rules: emaAutomatedRules },
   continuation: { rules: continuationRules },
   supplyDemand: { rules: supplyDemandRules },
+  vaulttradesNexus: { rules: vaultTradesNexusRules },
   "714Observing": { rules: observing714Rules },
   sweepEngulfing: { rules: sweepEngulfingStrategy.rules },
   swingDeveloping: { rules: swingDevelopingStrategy.rules },
@@ -47,6 +49,7 @@ export const STRATEGY_LIST: readonly StrategyDefinition[] = [
   STRATEGIES.ema20,
   STRATEGIES.emaAutomated,
   STRATEGIES.supplyDemand,
+  STRATEGIES.vaulttradesNexus,
   STRATEGIES.institutional,
   STRATEGIES.adaptiveExecution,
   STRATEGIES.adaptiveAutomated,
@@ -65,6 +68,7 @@ export { default as ema20Rules } from "./ema20";
 export { default as emaAutomatedRules } from "./emaAutomated";
 export { default as continuationRules } from "./continuation";
 export { default as supplyDemandRules } from "./supplyDemand";
+export { default as vaultTradesNexusRules } from "./vaulttradesNexus";
 export { default as observing714Rules } from "./714Observing";
 export { default as sweepEngulfingStrategy } from "./sweepEngulfing";
 export { default as swingDevelopingStrategy } from "./swingDeveloping";
@@ -75,6 +79,8 @@ export { default as adaptiveAutomatedRules } from "./adaptiveAutomated";
 export { default as m15DualRules } from "./m15DualRules";
 export { default as srbObRules } from "./srbOb";
 export { default as lsobrRules } from "./lsobr";
+export { evaluateVaultTradesNexus } from "./vaulttradesNexusEngine";
+export type { VaultTradesNexusResult, NexusTrade, NexusCandle } from "./vaulttradesNexusEngine";
 export { evaluateLsObr } from "./lsobrEngine";
 export type { LSOBRResult } from "./lsobrEngine";
 export { evaluateM15DualEngine } from "./m15DualEngine";
