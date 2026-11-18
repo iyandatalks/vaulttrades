@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 import PortfolioGoalOverview from "./PortfolioGoalOverview";
 
@@ -68,7 +69,11 @@ const startOfWeek = (dateString: string) => {
 
 const currencySymbol = (currency: Currency) => currency === "ZAR" ? "R" : currency === "EUR" ? "€" : currency === "GBP" ? "£" : "$";
 
-export default function JournalClient() {
+type AnalyzerJournalDraft = { symbol: string; strategy: string; direction: "BUY" | "SELL"; entry: number; sl: number; tp1: number; lotSize: number; riskAmount: number; riskPercent: number; timeframe: string; accountType: "Personal" | "Funded"; currency: Currency; fundedAccountId: string; accountSize: number; propFirm: string; programName: string; accountStage: string; platform: string; accountReference: string };
+
+export default function JournalClient({ initialDraft = null }: { initialDraft?: AnalyzerJournalDraft | null }) {
+  const router = useRouter();
+  const [pendingDraft, setPendingDraft] = useState<AnalyzerJournalDraft | null>(initialDraft);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [fundedAccounts, setFundedAccounts] = useState<FundedJournalAccount[]>([]);
   const [firmName, setFirmName] = useState("");
@@ -173,6 +178,13 @@ export default function JournalClient() {
   useEffect(() => {
     void load();
   }, []);
+
+  useEffect(() => {
+    if (!initialDraft) return;
+    setPendingDraft(initialDraft);
+    setForm((current) => ({ ...current, tradeDate: todaySast(), account: initialDraft.accountType, currency: initialDraft.currency, session: "—", symbol: initialDraft.symbol, strategy: initialDraft.strategy, result: "OPEN", pnl: "0", emotion: "", fundedAccountId: initialDraft.fundedAccountId || "" }));
+    if (initialDraft.fundedAccountId) setSelectedFirmId(initialDraft.fundedAccountId);
+  }, [initialDraft]);
 
   const createFundedAccount = async () => {
     setAccountError("");
@@ -288,16 +300,23 @@ export default function JournalClient() {
       total: pnl,
       emotion: form.emotion.trim(),
       note: form.emotion.trim(),
-      direction: existingEntry?.direction ?? null,
-      entry: existingEntry?.entry ?? null, sl: existingEntry?.sl ?? null,
-      tp: existingEntry?.tp ?? null, tp2: existingEntry?.tp2 ?? null, tp3: existingEntry?.tp3 ?? null,
-      lot_size: existingEntry?.lot_size ?? null, risk_amount: existingEntry?.risk_amount ?? null,
-      risk_percent: existingEntry?.risk_percent ?? null, platform: existingEntry?.platform ?? null,
-      prop_firm: existingEntry?.prop_firm ?? null, program_name: existingEntry?.program_name ?? null,
-      account_stage: existingEntry?.account_stage ?? null, timeframe: existingEntry?.timeframe ?? null,
-      journal_source: existingEntry?.journal_source ?? null,
+      direction: existingEntry?.direction ?? pendingDraft?.direction ?? null,
+      entry: existingEntry?.entry ?? pendingDraft?.entry ?? null, sl: existingEntry?.sl ?? pendingDraft?.sl ?? null,
+      tp: existingEntry?.tp ?? pendingDraft?.tp1 ?? null, tp2: existingEntry?.tp2 ?? null, tp3: existingEntry?.tp3 ?? null,
+      lot_size: existingEntry?.lot_size ?? pendingDraft?.lotSize ?? null, risk_amount: existingEntry?.risk_amount ?? pendingDraft?.riskAmount ?? null,
+      risk_percent: existingEntry?.risk_percent ?? pendingDraft?.riskPercent ?? null, platform: existingEntry?.platform ?? pendingDraft?.platform ?? null,
+      prop_firm: existingEntry?.prop_firm ?? pendingDraft?.propFirm ?? null, program_name: existingEntry?.program_name ?? pendingDraft?.programName ?? null,
+      account_stage: existingEntry?.account_stage ?? pendingDraft?.accountStage ?? null, timeframe: existingEntry?.timeframe ?? pendingDraft?.timeframe ?? null,
+      journal_source: existingEntry?.journal_source ?? (pendingDraft ? "Analyzer" : null),
+      trade_status: pendingDraft ? "PLANNED" : (form.result === "OPEN" ? "OPEN" : "CLOSED"),
       data: { ...(existingEntry?.data ?? {}), account: form.account,
-        currency: form.account === "Funded" ? ((fundedAccounts.find((a) => a.id === (form.fundedAccountId || selectedFirmId))?.currency as Currency) ?? "USD") : form.currency },
+        source: pendingDraft ? "analyzer" : (existingEntry?.data?.source ?? "manual"),
+        account_size: pendingDraft?.accountSize ?? existingEntry?.data?.account_size ?? null,
+        risk_amount: pendingDraft?.riskAmount ?? existingEntry?.data?.risk_amount ?? null,
+        risk_percent: pendingDraft?.riskPercent ?? existingEntry?.data?.risk_percent ?? null,
+        lot_size: pendingDraft?.lotSize ?? existingEntry?.data?.lot_size ?? null,
+        account_reference: pendingDraft?.accountReference ?? existingEntry?.data?.account_reference ?? null,
+        currency: form.account === "Funded" ? ((fundedAccounts.find((a) => a.id === (form.fundedAccountId || selectedFirmId))?.currency as Currency) ?? pendingDraft?.currency ?? "USD") : form.currency },
       
     };
 
@@ -312,6 +331,7 @@ export default function JournalClient() {
     }
 
     setEditingId(null);
+    if (pendingDraft) { setPendingDraft(null); router.replace("/journal"); }
     setForm({
       tradeDate: todaySast(),
       account: "Personal",
@@ -327,6 +347,12 @@ export default function JournalClient() {
     setSaved(true);
     setTimeout(() => setSaved(false), 1800);
     await load();
+  };
+
+  const discardDraft = () => {
+    setPendingDraft(null);
+    setForm({ tradeDate: todaySast(), account: "Personal", currency: "ZAR", session: "Asia", symbol: "XAUUSD", strategy: "EMA20", result: "WIN", pnl: "", emotion: "", fundedAccountId: "" });
+    router.replace("/journal");
   };
 
   const edit = (e: Entry) => {
@@ -504,7 +530,8 @@ export default function JournalClient() {
           })}
         </div>}
         <div className="section-label" style={{ marginTop: 24 }}>TRADING JOURNAL · DAILY RECORD</div>
-        <h1 className="title">Trading Journal</h1>
+<h1 className="title">Trading Journal</h1>
+        {pendingDraft && <div className="condition-box" style={{ marginTop: 12, marginBottom: 12 }}><strong>Review your trade</strong><p className="muted" style={{ margin: "8px 0" }}>{pendingDraft.direction} · {pendingDraft.symbol} · {pendingDraft.strategy} · {pendingDraft.timeframe}</p><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 10 }}><div><b>Entry</b><div>{pendingDraft.entry}</div></div><div><b>Stop Loss</b><div>{pendingDraft.sl}</div></div><div><b>Take Profit</b><div>{pendingDraft.tp1}</div></div><div><b>Lot Size</b><div>{pendingDraft.lotSize}</div></div><div><b>Risk</b><div>{pendingDraft.riskAmount.toFixed(2)} ({pendingDraft.riskPercent.toFixed(2)}%)</div></div></div><p className="muted" style={{ marginBottom: 0 }}>Save this entry to your Journal or discard it.</p></div>}
         <p className="muted">
           Keep the record simple: date, account, session, instrument, strategy,
           result, P&amp;L and how you felt before/after the trade. Your entries
@@ -621,13 +648,14 @@ export default function JournalClient() {
 
         <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
           <button className="primary" onClick={() => void save()}>
-            {editingId ? "Update Entry" : "Save Trade"}
+            {editingId ? "Update Entry" : pendingDraft ? "Save Journal Entry" : "Save Trade"}
           </button>
           {editingId && (
             <button className="secondary" onClick={() => setEditingId(null)}>
               Cancel
             </button>
           )}
+          {pendingDraft && !editingId && <button className="secondary" onClick={discardDraft}>Discard Draft</button>}
         </div>
         {saved && (
           <div className="condition-box" style={{ marginTop: 10 }}>
@@ -799,7 +827,7 @@ export default function JournalClient() {
                     <td style={{ padding: 8, whiteSpace: "nowrap" }}>{e.lot_size != null ? e.lot_size : "—"}{e.risk_amount != null ? " · $"+Number(e.risk_amount).toFixed(2) : ""}</td>
                     <td style={{ padding: 8 }}>{e.risk_percent != null ? Number(e.risk_percent).toFixed(2)+"%" : "—"}</td>
                     <td style={{ padding: 8 }}>{e.platform ?? "—"}{e.phase ? " · "+e.phase : ""}{e.account_reference ? <div className="muted">Ref: {e.account_reference}</div> : null}</td>
-                    <td style={{ padding: 8 }}>{e.journal_source === "risk_manager" || e.journal_source === "Risk Manager" ? "Risk Manager" : "Manual"}</td>
+                    <td style={{ padding: 8 }}>{e.journal_source === "risk_manager" || e.journal_source === "Risk Manager" ? "Risk Manager" : e.journal_source === "Analyzer" ? "Analyzer" : "Manual"}</td>
                     <td style={{ padding: 8 }}>{e.result}</td>
                     <td style={{ padding: 8 }}>
                       {currencySymbol(e.currency)}{e.pnl.toFixed(2)}
