@@ -194,8 +194,11 @@ export async function POST(request: Request) {
     // and do not use a mid-bar quote to declare a Pine stop/target exit.
     const ema20Candles = strategyId === "ema20" ? completedEma20Candles(market.candles, timeframe) : [];
     const ema20Engine = strategyId === "ema20" ? evaluateEma20Analyzer(ema20Candles, timeframe) : null;
-    const nexusCandles = strategyId === "vaulttradesNexus" ? completedEma20Candles(market.candles, timeframe) : [];
-    const nexusEngine = strategyId === "vaulttradesNexus" ? evaluateVaultTradesNexus(nexusCandles, { timeframe }) : null;
+    // Nexus filters completed bars internally: intraday data is UTC-normalized,
+    // while daily+ bars are returned in the exchange's local calendar.
+    const nexusEngine = strategyId === "vaulttradesNexus"
+      ? evaluateVaultTradesNexus(market.candles, { timeframe, exchangeTimezone: market.exchangeTimezone })
+      : null;
     const ema20Bar = ema20Engine?.engine ?? null;
     const ema20EngineEvidence = ema20Engine ? {
       source: "EMA20_MORNING_TRADES_PINE_V6",
@@ -500,6 +503,7 @@ Return JSON only.`;
       invalidation: ema20EngineEvidence?.invalidation ?? "",
     } : strategyId === "vaulttradesNexus" ? {
       source: "VAULTTRADES_NEXUS_PINE_V6",
+      exchangeTimezone: nexusEngine?.exchangeTimezone ?? market.exchangeTimezone,
       state: nexusEngine?.state ?? "WAITING",
       signal: nexusEngine?.direction ?? "NO TRADE",
       entry, stopLoss, finalTp,
