@@ -81,7 +81,9 @@ function parseTime(value: string, timeZone = "UTC"): number {
 
 function exchangeDay(value: string, timeZone: string, dailyBar: boolean): string {
   if (dailyBar) return value.slice(0, 10);
-  const timestamp = parseTime(value, timeZone);
+  // Intraday candle labels are UTC wall-clock values; convert that instant
+  // to the instrument timezone only when deriving the exchange calendar day.
+  const timestamp = parseTime(value, "UTC");
   if (!Number.isFinite(timestamp)) return "";
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone, year: "numeric", month: "2-digit", day: "2-digit",
@@ -151,9 +153,9 @@ export function evaluateVaultTradesNexus(
   const now = options.now ?? Date.now();
   const candles = [...input]
     .filter((candle) => [candle.open, candle.high, candle.low, candle.close].every(Number.isFinite))
-    .sort((a, b) => parseTime(a.datetime) - parseTime(b.datetime))
+    .sort((a, b) => parseTime(a.datetime, dailyBar ? exchangeTimezone : "UTC") - parseTime(b.datetime, dailyBar ? exchangeTimezone : "UTC"))
     .filter((candle) => {
-      const openedAt = parseTime(candle.datetime, exchangeTimezone);
+      const openedAt = parseTime(candle.datetime, dailyBar ? exchangeTimezone : "UTC");
       return Number.isFinite(openedAt) && openedAt + minutes * 60_000 <= now;
     });
 
