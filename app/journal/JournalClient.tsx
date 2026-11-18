@@ -400,7 +400,7 @@ export default function JournalClient({ initialDraft = null }: { initialDraft?: 
 
   const currentWeek = startOfWeek(todaySast());
   const weekly = useMemo(() => {
-    const week = entries.filter((e) => e.trade_date >= currentWeek);
+    const week = entries.filter((e) => e.trade_date >= currentWeek && e.trade_status !== "PLANNED");
     const summarize = (account: Account, currency: Currency) => {
       const rows = week.filter(
         (e) => e.account_type === account && e.currency === currency
@@ -426,7 +426,7 @@ export default function JournalClient({ initialDraft = null }: { initialDraft?: 
         (statsAccount === "Personal · ZAR" && e.account_type === "Personal" && e.currency === "ZAR") ||
         (statsAccount === "Personal · USD" && e.account_type === "Personal" && e.currency === "USD") ||
         (statsAccount === "Funded · USD" && e.account_type === "Funded" && !e.funded_account_id && e.currency === "USD") || (fundedAccounts.some((a) => a.id === statsAccount) && e.funded_account_id === statsAccount);
-      return accountMatch && e.trade_date?.startsWith(`${year}-${String(month).padStart(2, "0")}`);
+      return accountMatch && e.trade_status !== "PLANNED" && e.trade_date?.startsWith(`${year}-${String(month).padStart(2, "0")}`);
     });
   }, [entries, statsAccount, statsMonth, fundedAccounts]);
 
@@ -437,7 +437,7 @@ export default function JournalClient({ initialDraft = null }: { initialDraft?: 
         (statsAccount === "Personal · ZAR" && e.account_type === "Personal" && e.currency === "ZAR") ||
         (statsAccount === "Personal · USD" && e.account_type === "Personal" && e.currency === "USD") ||
         (statsAccount === "Funded · USD" && e.account_type === "Funded" && !e.funded_account_id && e.currency === "USD") || (fundedAccounts.some((a) => a.id === statsAccount) && e.funded_account_id === statsAccount);
-      return accountMatch && e.trade_date?.startsWith(statsYear);
+      return accountMatch && e.trade_status !== "PLANNED" && e.trade_date?.startsWith(statsYear);
     });
   }, [entries, statsAccount, statsYear, fundedAccounts]);
 
@@ -840,7 +840,7 @@ export default function JournalClient({ initialDraft = null }: { initialDraft?: 
                     <td style={{ padding: 8 }}>{e.risk_percent != null ? Number(e.risk_percent).toFixed(2)+"%" : "—"}</td>
                     <td style={{ padding: 8 }}>{e.platform ?? "—"}{e.phase ? " · "+e.phase : ""}{e.account_reference ? <div className="muted">Ref: {e.account_reference}</div> : null}</td>
                     <td style={{ padding: 8 }}>{e.journal_source === "risk_manager" || e.journal_source === "Risk Manager" ? "Risk Manager" : e.journal_source === "Analyzer" ? "Analyzer" : "Manual"}</td>
-                    <td style={{ padding: 8 }}>{e.result}</td>
+                    <td style={{ padding: 8 }}>{e.trade_status === "PLANNED" ? "PLANNED" : e.result}</td>
                     <td style={{ padding: 8 }}>
                       {currencySymbol(e.currency)}{e.pnl.toFixed(2)}
                     </td>
