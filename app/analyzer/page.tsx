@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ANALYZER_STRATEGIES, ANALYZER_STRATEGY_MAP } from "../../lib/strategies/analyzerProfiles";
 import { LiveMarketChart } from "./LiveMarketChart";
 
@@ -95,7 +96,7 @@ type Result = {
   educationalNote?: string;
   qualityChecks?: { smcStrongCount?: number; rrValid?: boolean; slDistanceValid?: boolean; entryDistanceValid?: boolean; universalTradeGate?: boolean };
   scanner?: Scanner;
-  strategyEngine?: { source?: string; state?: string; signal?: string; direction?: string; buyConfluence?: number; sellConfluence?: number; silverDataAvailable?: boolean; silver?: { close: number | null; ma: number | null; maSlope: string; flow: string; structure: string; volumeExpansion: boolean; flowSupportsBuy: boolean; flowSupportsSell: boolean; structureSupportsBuy: boolean; structureSupportsSell: boolean; volumeSupportsBuy: boolean; volumeSupportsSell: boolean }; confluenceBreakdown?: { buy: Record<string, { available: boolean; passed: boolean; points: number; weight: number }>; sell: Record<string, { available: boolean; passed: boolean; points: number; weight: number }>; buyPenalty: number; sellPenalty: number }; trend?: string; sweptLiquidity?: number | null; rejectionExtreme?: number | null; sweepTime?: string | null; mssTime?: string | null; confirmationTime?: string | null; entry?: number | null; stopLoss?: number | null; finalTp?: number | null; rangeHigh?: number | null; rangeLow?: number | null; window?: string | null; fibLevel?: number; score?: number; breakoutPrice?: number | null; breakoutTime?: string | null; breakoutDirection?: "BUY" | "SELL" | null; confluence?: { macroTrend: string; fastTrend: string; rsi: number | null; rsiAligned: boolean | null; volumeRatio: number | null; volumeGood: boolean; rangeSize: number; rangeAtrRatio: number | null; longScore: number; shortScore: number; dxy: string; silver: string; gate: string }; evidence?: string[]; missingConditions?: string[]; liquidityTarget?: number | null; orderBlock?: { direction: string; top: number; bottom: number } | null; riskReward?: number | null; invalidation?: string; ema20?: number | null; slowEMA?: number | null; atr?: number | null; bullStructure?: boolean; bearStructure?: boolean; bullTouch?: boolean; bearTouch?: boolean; bullReject?: boolean; bearReject?: boolean; bullMABreak?: boolean; bearMABreak?: boolean; utBull?: boolean; utBear?: boolean; smiBull?: boolean; smiBear?: boolean; confirmation?: { long: number; short: number } };
+  strategyEngine?: { source?: string; state?: string; signal?: string; direction?: string; performance?: { tradesTaken: number; closedTrades: number; openTrades: number; winners: number; losers: number; winRate: number; profitFactor: number | null; totalR: number }; openTrades?: Array<{ direction: "BUY" | "SELL"; entry: number; stopLoss: number; takeProfit: number; entryTime: string; entryDay: string; status: string }>; closedTrades?: Array<{ direction: "BUY" | "SELL"; entry: number; stopLoss: number; takeProfit: number; entryTime: string; entryDay: string; status: string }>; buyConfluence?: number; sellConfluence?: number; silverDataAvailable?: boolean; silver?: { close: number | null; ma: number | null; maSlope: string; flow: string; structure: string; volumeExpansion: boolean; flowSupportsBuy: boolean; flowSupportsSell: boolean; structureSupportsBuy: boolean; structureSupportsSell: boolean; volumeSupportsBuy: boolean; volumeSupportsSell: boolean }; confluenceBreakdown?: { buy: Record<string, { available: boolean; passed: boolean; points: number; weight: number }>; sell: Record<string, { available: boolean; passed: boolean; points: number; weight: number }>; buyPenalty: number; sellPenalty: number }; trend?: string; sweptLiquidity?: number | null; rejectionExtreme?: number | null; sweepTime?: string | null; mssTime?: string | null; confirmationTime?: string | null; entry?: number | null; stopLoss?: number | null; finalTp?: number | null; rangeHigh?: number | null; rangeLow?: number | null; window?: string | null; fibLevel?: number; score?: number; breakoutPrice?: number | null; breakoutTime?: string | null; breakoutDirection?: "BUY" | "SELL" | null; confluence?: { macroTrend: string; fastTrend: string; rsi: number | null; rsiAligned: boolean | null; volumeRatio: number | null; volumeGood: boolean; rangeSize: number; rangeAtrRatio: number | null; longScore: number; shortScore: number; dxy: string; silver: string; gate: string }; evidence?: string[]; missingConditions?: string[]; liquidityTarget?: number | null; orderBlock?: { direction: string; top: number; bottom: number } | null; riskReward?: number | null; invalidation?: string; ema20?: number | null; slowEMA?: number | null; atr?: number | null; bullStructure?: boolean; bearStructure?: boolean; bullTouch?: boolean; bearTouch?: boolean; bullReject?: boolean; bearReject?: boolean; bullMABreak?: boolean; bearMABreak?: boolean; utBull?: boolean; utBear?: boolean; smiBull?: boolean; smiBear?: boolean; confirmation?: { long: number; short: number } };
 };
 
 const TIMEFRAMES: Timeframe[] = ["1m", "5m", "10m", "15m", "30m", "1H", "4H", "1D", "1W", "1M"];
@@ -107,11 +108,11 @@ const DEFAULT_SYMBOLS: Record<MarketType, string[]> = {
   STOCKS: ["AAPL", "MSFT", "NVDA", "TSLA", "AMZN"],
   SYNTHETIC: ["V75", "V100", "Boom 1000", "Crash 1000"],
 };
-const PUBLIC_STRATEGY_IDS = ["fibRetracement", "ema20", "supplyDemand"] as const;
+const PUBLIC_STRATEGY_IDS = ["fibRetracement", "ema20", "vaulttradesNexus"] as const;
 const PUBLIC_STRATEGY_LABELS: Record<string, string> = {
-  fibRetracement: "1. VaultTrades | Auto Fib Retrace + OB",
-  ema20: "2. VaultTrades | EMA20",
-  supplyDemand: "3. VaultTrades | Supply and Demand",
+  fibRetracement: "VaultTrades | Auto Fib Retrace + OB",
+  ema20: "VaultTrades | EMA20",
+  vaulttradesNexus: "VaultTrades Nexus",
 };
 const fmt = (v: number | null | undefined) => v == null || !Number.isFinite(v) ? "—" : v.toLocaleString(undefined, { maximumFractionDigits: 5 });
 
@@ -255,6 +256,7 @@ function PriceLevel({ label, value, kind }: { label: string; value: number | nul
 }
 
 export default function AnalyzerPage() {
+  const router = useRouter();
   const [marketType, setMarketType] = useState<MarketType>("FOREX");
   const [symbol, setSymbol] = useState("XAU/USD");
   const [timeframe, setTimeframe] = useState<Timeframe>("15m");
@@ -405,10 +407,21 @@ export default function AnalyzerPage() {
   const pendingSourceStates = ["WAITING", "BUILDING", "INCOMPLETE RANGE", "ARMED", "LIMIT WAIT", "FIB RETEST DETECTED", "SETUP", "DEVELOPING", "WATCHING", "ENTRY READY"];
   const terminalNoTrade = ["CANCELLED", "CANCELED", "EXPIRED", "REJECTED", "INVALIDATED", "COMPLETED", "STOP HIT", "TARGET HIT", "SL_HIT", "TP_HIT", "NO TRADE"].includes(rawLifecycleState)
     || ((strategy === "lsobr" ? (rawLifecycleState === "ENTRY READY" && result?.decision === "NO TRADE") || ["REJECTED", "CANCELLED", "CANCELED", "EXPIRED", "INVALIDATED", "NO TRADE"].includes(rawLifecycleState) : strategy === "srbOb" ? ["REJECTED", "CANCELLED", "CANCELED", "EXPIRED", "INVALIDATED", "NO TRADE"].includes(rawLifecycleState) : result?.decision === "NO TRADE" && !tradeIsRunning && !s?.waitReason && !s?.statusMessage));
-  const scannerStatus = tradeIsRunning ? "TRADE ACTIVE" : s?.cycleStatus === "TP_HIT" ? "TRADE COMPLETED" : terminalNoTrade ? "NO TRADE" : "WAIT";
+  const scannerStatus = strategy === "vaulttradesNexus"
+    ? s?.cycleStatus === "ACTIVE" ? "TRADE ACTIVE" : s?.cycleStatus === "TP_HIT" ? "TAKE PROFIT HIT" : s?.cycleStatus === "SL_HIT" ? "STOP LOSS HIT" : "WAITING FOR TRADE"
+    : tradeIsRunning ? "TRADE ACTIVE" : s?.cycleStatus === "TP_HIT" ? "TAKE PROFIT HIT" : terminalNoTrade ? "NO TRADE" : "WAITING FOR TRADE";
   const scannerEntry = (strategy === "srbOb" || strategy === "lsobr") ? result?.strategyEngine?.entry : (actualEntry ?? projectedEntry);
   const scannerStop = (strategy === "srbOb" || strategy === "lsobr") ? result?.strategyEngine?.stopLoss : projectedSL;
   const scannerTp1 = (strategy === "srbOb" || strategy === "lsobr") ? result?.strategyEngine?.finalTp : projectedTp1;
+  const openRiskManager = (trade?: { direction: "BUY" | "SELL"; entry: number; stopLoss: number; takeProfit: number }) => {
+    const selectedEntry = trade?.entry ?? scannerEntry;
+    const selectedStop = trade?.stopLoss ?? scannerStop;
+    const selectedTarget = trade?.takeProfit ?? scannerTp1;
+    const selectedDirection = trade?.direction ?? displayDirection;
+    if (selectedEntry == null || selectedStop == null || selectedTarget == null || !selectedDirection || selectedDirection === "NO TRADE") return;
+    const params = new URLSearchParams({ source: "analyzer", symbol, timeframe, strategy: result?.strategy?.name || strategyDisplayName(strategy), direction: selectedDirection, entry: String(selectedEntry), sl: String(selectedStop), tp1: String(selectedTarget) });
+    router.push("/risk-manager?" + params.toString());
+  };
   const scannerTp2 = (strategy === "srbOb" || strategy === "lsobr") ? null : projectedTp2;
   const rawReasons = (strategy === "srbOb" || strategy === "lsobr")
     ? [...(result?.strategyEngine?.missingConditions ?? []), ...(strategy === "lsobr" && result?.decision === "NO TRADE" ? (result?.missingConditions ?? []) : []), ...(!result?.strategyEngine?.missingConditions?.length ? [result?.strategyEngine?.invalidation].filter((x): x is string => Boolean(x)) : [])]
@@ -444,12 +457,12 @@ export default function AnalyzerPage() {
       : "ENTRY NOT CONFIRMED";
 
   return <main className="shell">
-    <header className="header"><div className="brand-block"><img src="/vaulttrades-logo.png" alt="VaultTrades" className="logo"/><div className="tagline">Built by Traders.</div><div className="slogan">Focus, discipline, consistency.</div></div><div className="badge">AI SCANNER</div></header>
+    <header className="header"><div className="brand-block"><img src="/vaulttrades-logo.png" alt="VaultTrades" className="logo"/><div className="tagline">Built by Traders.</div><div className="slogan">Focus, discipline, consistency.</div></div><div className="badge">ANALYZER</div></header>
 
     <section className="card">
       <div className="section-label">LIVE MARKET</div>
       <h1 className="title">Analyze the market, not a screenshot</h1>
-      <p className="muted">Select the market, timeframe and strategy. EMA20 follows the supplied Pine v6 signal conditions and native price calculations without additional Order Block or generic confluence gates. Other strategies retain their existing Analyzer validation and AI Scanner layers.</p>
+      <p className="muted">Select a market, timeframe and strategy.</p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12, marginTop: 18 }}>
         <label className="muted">Market<select value={marketType} disabled={loading} onChange={e => changeMarket(e.target.value as MarketType)} style={{ width: "100%", marginTop: 7, padding: 13, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}>{MARKET_TYPES.map(m => <option key={m} value={m}>{m === "SYNTHETIC" ? "Synthetic indices" : m.charAt(0) + m.slice(1).toLowerCase()}</option>)}</select></label>
         <label className="muted">Symbol<input value={symbol} disabled={loading || marketType === "SYNTHETIC"} onChange={e => setSymbol(e.target.value)} list="symbols" placeholder="e.g. XAU/USD" style={{ width: "100%", marginTop: 7, padding: 13, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}/><datalist id="symbols">{DEFAULT_SYMBOLS[marketType].map(s => <option key={s} value={s}/>)}</datalist></label>
@@ -461,94 +474,56 @@ export default function AnalyzerPage() {
       <div className="section-label">STRATEGY</div>
       <h2 className="title">Choose the strategy first</h2>
       <select value={strategy} disabled={loading} onChange={e => { setStrategy(e.target.value); setResult(null); setLockedTrade(null); }} style={{ width: "100%", marginTop: 14, padding: 14, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}>{PUBLIC_STRATEGY_IDS.map(id => <option key={id} value={id}>{PUBLIC_STRATEGY_LABELS[id]}</option>)}</select>
-      <div className="condition-box" style={{ marginTop: 14 }}><strong>{strategyDisplayName(strategy)}</strong><p className="muted">{strategy === "fibRetracement" ? "Institutional liquidity and structure, prior order blocks, CHOCH-based projection, and timeframe-adjusted Fibonacci retracement levels (61.8%, 68.1%, 78.6%, 88%). The Fib level alone never confirms an entry." : strategy === "ema20" ? "Pine v6 EMA20 pullback and confirmation sequence: persistent structure → EMA20 touch/rejection → rejection high/low break → UT Bot OR SMI confirmation. One accepted trade per timeframe per SAST day; the original Entry, SL and TP remain locked until the trade closes." : strategy === "supplyDemand" ? "Independent supply and demand zone strategy. Zone reach, reaction, hold and flip are validated separately." : strategy === "lsobr" ? "Liquidity sweep → fixed pre-existing order-block rejection → confirmed MSS → completed close out of the OB. Entry is allowed only between the fixed OB and swept liquidity; stop is beyond the OB and target is the next valid opposing liquidity pool. No SRB opening-window conditions apply." : strategy === "srbOb" ? "Independent session-range breakout and order-block strategy. Breakouts arm a wick-anchored Fibonacci pullback; the breakout candle is not an entry." : "Strategy-specific rules are loaded from the selected strategy profile."}</p><p className="muted">EMA20 is validated by its Pine-defined signal sequence and daily trade lifecycle only. No extra Order Block or generic SMC qualification is applied. Other strategies retain their existing universal validation layer.</p></div>
+      <div className="condition-box" style={{ marginTop: 14 }}><strong>{strategyDisplayName(strategy)}</strong></div>
     </section>
 
-    <section className="card"><div className="actions"><button className="primary" type="button" disabled={loading || marketType === "SYNTHETIC"} onClick={() => void runAnalysis()}>{loading ? "Analyzing live market..." : "Analyze Live Market"}</button></div>{marketType === "SYNTHETIC" && <div className="condition-box" style={{ marginTop: 12 }}><strong>Synthetic market connection</strong><p className="muted">This route deliberately does not substitute another provider. Connect the Synthetic/Broker provider before enabling synthetic analysis.</p></div>}{error && <div className="error-box" style={{ marginTop: 12 }}><strong>Analysis Error</strong><p className="muted">{error}</p></div>}</section>
+    <section className="card"><div className="actions"><button className="primary" type="button" disabled={loading || marketType === "SYNTHETIC"} onClick={() => void runAnalysis()}>{loading ? "Analyzing live market..." : "Analyze Live Market"}</button></div>{marketType === "SYNTHETIC" && <div className="condition-box" style={{ marginTop: 12 }}><strong>Market data unavailable</strong><p className="muted">Please select another market or try again later.</p></div>}{error && <div className="error-box" style={{ marginTop: 12 }}><strong>Market data unavailable</strong><p className="muted">Please try again later.</p></div>}</section>
 
     {result && <>
       <section className="card"><div className="section-label">LIVE CHART</div><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}><div><h2 className="title" style={{ marginBottom: 3 }}>{result.market?.asset}</h2><div className="muted">{result.market?.timeframe} · Current price {fmt(result.market?.currentPrice)}</div></div><div className="condition-box" style={{ padding: "10px 14px" }}><strong>Strategy: {strategyDisplayName(result.strategy?.id, result.strategy?.name)}</strong></div></div><LiveMarketChart candles={result.chart?.candles || []} channel={result.chart?.channel20} liquidityTargets={s?.liquidityTargets ?? result.liquidityTargets} orderBlocks={result.chart?.orderBlocks ?? []} orderBlock={strategy === "lsobr" ? result.strategyEngine?.orderBlock ?? null : null} /></section>
 
-      {strategy === "lsobr" && result.strategyEngine && <section className="card" style={{ border: "1px solid rgba(212,166,55,.4)" }}>
-        <div className="section-label">LSOBR ENGINE · LIVE SOURCE STATE</div>
-        <h2 className="title">{result.strategyEngine.state || "WAITING"} · {result.strategyEngine.direction || "NO TRADE"}</h2>
-        <p className="muted">Independent liquidity-sweep and fixed order-block strategy. This engine does not evaluate SRB session windows or SRB Fibonacci pullbacks.</p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10, marginTop: 14 }}>
-          <PriceLevel label="SWEPT LIQUIDITY" value={result.strategyEngine.sweptLiquidity} kind="orange" />
-          <PriceLevel label="OB TOP · FIXED" value={result.strategyEngine.orderBlock?.top ?? null} kind="orange" />
-          <PriceLevel label="OB BOTTOM · FIXED" value={result.strategyEngine.orderBlock?.bottom ?? null} kind="orange" />
-          <PriceLevel label="REJECTION EXTREME" value={result.strategyEngine.rejectionExtreme} kind="orange" />
-          <PriceLevel label="ENTRY" value={result.strategyEngine.entry} kind="entry" />
-          <PriceLevel label="STOP LOSS" value={result.strategyEngine.stopLoss} kind="sl" />
-          <PriceLevel label="OPPOSING LIQUIDITY TP" value={result.strategyEngine.finalTp} kind="tp" />
-        </div>
-        <div className="condition-box" style={{ marginTop: 12 }}>
-          <strong>Confirmed LSOBR evidence</strong>
-          <p className="muted">{result.strategyEngine.evidence?.join(" · ") || "No LSOBR sequence condition has been confirmed yet."}</p>
-          {result.strategyEngine.missingConditions?.length ? <p className="muted">Next required condition: {result.strategyEngine.missingConditions.join(" · ")}</p> : null}
-          <p className="muted">Sweep: {result.strategyEngine.sweepTime || "Not confirmed"} · MSS: {result.strategyEngine.mssTime || "Not confirmed"} · OB exit close: {result.strategyEngine.confirmationTime || "Not confirmed"}</p>
-          <p className="muted">DXY / Silver 61.8% Fib confluence: not provided by the current market-data feed; not counted as confirmation.</p>
-          <p className="muted">Invalidation: {result.strategyEngine.invalidation || "No active setup."}</p>
-        </div>
-      </section>}
-      {strategy === "fibRetracement" && result.strategyEngine && <section className="card" style={{ border: "1px solid rgba(212,166,55,.4)" }}>
-        <div className="section-label">AUTO FIB + OB · LIVE CONFLUENCE</div>
-        <h2 className="title">Weighted score · BUY {result.strategyEngine.buyConfluence ?? 0}/100 · SELL {result.strategyEngine.sellConfluence ?? 0}/100</h2>
-        <p className="muted">Silver flow is inverse to Gold. Falling Silver supports Gold BUY; rising Silver supports Gold SELL. Missing inputs are excluded from the score denominator.</p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10, marginTop: 14 }}>
-          <PriceLevel label="SILVER / XAGUSD" value={result.strategyEngine.silver?.close ?? null} kind="orange" />
-          <PriceLevel label="SILVER MA(50)" value={result.strategyEngine.silver?.ma ?? null} kind="orange" />
-          <PriceLevel label="BUY CONFLUENCE" value={result.strategyEngine.buyConfluence ?? null} kind="entry" />
-          <PriceLevel label="SELL CONFLUENCE" value={result.strategyEngine.sellConfluence ?? null} kind="sl" />
-        </div>
-        <div className="condition-box" style={{ marginTop: 12 }}>
-          <strong>Silver evidence</strong>
-          <p className="muted">Feed: {result.strategyEngine.silverDataAvailable ? "XAG/USD live data loaded" : "Unavailable — Silver components excluded"} · Flow: {result.strategyEngine.silver?.flow ?? "UNAVAILABLE"} · MA slope: {result.strategyEngine.silver?.maSlope ?? "UNAVAILABLE"} · Structure: {result.strategyEngine.silver?.structure ?? "UNAVAILABLE"} · Volume expansion: {result.strategyEngine.silver?.volumeExpansion ? "YES" : "NO"}</p>
-          <strong>Weighted components</strong>
-          <p className="muted">{Object.entries(result.strategyEngine.confluenceBreakdown?.buy ?? {}).map(([name, item]) => `${name}: ${item.points}/${item.weight}${item.available ? "" : " (unavailable)"}`).join(" · ") || "Component breakdown unavailable."}</p>
-          <p className="muted">Opposing Silver-flow penalty: BUY −{result.strategyEngine.confluenceBreakdown?.buyPenalty ?? 0} · SELL −{result.strategyEngine.confluenceBreakdown?.sellPenalty ?? 0}</p>
-        </div>
-      </section>}
-      {strategy === "ema20" && result.strategyEngine && <section className="card" style={{ border: "1px solid rgba(212,166,55,.4)" }}>
-        <div className="section-label">EMA20 ENGINE · PINE SOURCE STATE</div>
-        <h2 className="title">{result.strategyEngine.state || "WAITING"} · {result.strategyEngine.signal || "NO TRADE"}</h2>
-        <p className="muted">Pine v6 sequence: confirmed HH/HL or LH/LL structure → EMA20 touch/rejection → close beyond the stored rejection high/low within the confirmation window → UT Bot OR SMI confirmation. New entries are allowed from 00:00–10:45 SAST using bar close time; one accepted trade per timeframe per SAST day. Open trades remain managed after the window.</p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: 10, marginTop: 14 }}>
-          <PriceLevel label="EMA20" value={result.strategyEngine.ema20} kind="orange" />
-          <PriceLevel label="SLOW EMA CONTEXT" value={result.strategyEngine.slowEMA} kind="orange" />
-          <PriceLevel label="ATR(14)" value={result.strategyEngine.atr} kind="orange" />
-          <PriceLevel label="SOURCE ENTRY" value={result.strategyEngine.entry} kind="entry" />
-          <PriceLevel label="SOURCE STOP" value={result.strategyEngine.stopLoss} kind="sl" />
-          <PriceLevel label="SOURCE TARGET" value={result.strategyEngine.finalTp} kind="tp" />
-        </div>
-        <div className="condition-box" style={{ marginTop: 12 }}>
-          <strong>Confirmation score · Long {result.strategyEngine.confirmation?.long ?? 0}/2 · Short {result.strategyEngine.confirmation?.short ?? 0}/2</strong>
-          <p className="muted">{result.strategyEngine.evidence?.join(" · ") || "No active source confirmations on the latest candle."}</p>
-          {result.strategyEngine.missingConditions?.length ? <p className="muted">Setup conditions: {result.strategyEngine.missingConditions.join(" · ")}</p> : null}
-          <p className="muted">Invalidation: {result.strategyEngine.invalidation || "No active rejection setup."}</p>
-        </div>
-      </section>}
-      <section className="card execution-card" style={{ border: "1px solid rgba(212,166,55,.28)", background: "linear-gradient(145deg, rgba(10,16,30,.98), rgba(5,8,18,.98))" }}>
-        <div className="section-label">AI SCANNER</div>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", alignItems: "center" }}><div><h2 className="title" style={{ marginBottom: 4 }}>{scannerStatus}</h2><div className="muted">{(strategy === "lsobr" ? result.strategyEngine?.trend : s?.trend) || result.marketCondition || "Market state"} · {s?.institutionalActivity ? `Institutional activity: ${s.institutionalActivity}` : result.market?.directionalBias}</div></div><div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}><div style={{ minWidth: 135, textAlign: "center", padding: 12, borderRadius: 12, background: "rgba(212,166,55,.10)", border: "1px solid rgba(212,166,55,.35)" }}><span className="muted">QUALITY</span><div style={{ fontSize: 28, fontWeight: 900 }}>{Math.round(result.confidence ?? 0)}<span style={{ fontSize: 15 }}>/100</span></div></div><div style={{ minWidth: 135, textAlign: "center", padding: 12, borderRadius: 12, background: "rgba(45,125,255,.10)", border: "1px solid rgba(45,125,255,.35)" }}><span className="muted">PROJECTED PROBABILITY</span><div style={{ fontSize: 28, fontWeight: 900 }}>{s?.projectedProbability ?? "—"}<span style={{ fontSize: 15 }}>{s?.projectedProbability != null ? "%" : ""}</span></div></div></div></div>
-        <div style={{ marginTop: 15 }}><strong>Trend</strong><p>{s?.trendReason || result.marketStructure}</p><strong>Market-development status</strong><p style={{ marginTop: 6 }}><b>{marketDevelopmentStatus}</b></p><p className="muted">{marketDevelopmentDetail}</p>{scannerReason.length > 1 ? <ul style={{ marginTop: 8, paddingLeft: 22 }}>{scannerReason.map((reason, index) => <li key={index} style={{ marginBottom: 6 }}>{reason}</li>)}</ul> : null}</div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 10, marginTop: 16, alignItems: "start" }}>
+      {strategy === "vaulttradesNexus" ? <section className="card execution-card" style={{ border: "1px solid rgba(212,166,55,.28)", background: "linear-gradient(145deg, rgba(10,16,30,.98), rgba(5,8,18,.98))" }}>
+        <div className="section-label">TRADE STATUS</div>
+        {result.strategyEngine?.openTrades?.length ? <>
+          <h2 className="title" style={{ marginBottom: 12 }}>TRADE ACTIVE</h2>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(250px,1fr))", gap: 12 }}>
+            {result.strategyEngine.openTrades.map((trade) => <div className="condition-box" key={trade.entryTime}>
+              <strong style={{ fontSize: 18, color: trade.direction === "BUY" ? "#35c98a" : "#f06b72" }}>{trade.direction}</strong>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8, marginTop: 10 }}>
+                <PriceLevel label="ENTRY" value={trade.entry} kind="entry" />
+                <PriceLevel label="STOP LOSS" value={trade.stopLoss} kind="sl" />
+                <PriceLevel label="TAKE PROFIT" value={trade.takeProfit} kind="tp" />
+              </div>
+              <div className="muted" style={{ marginTop: 8, fontSize: 11 }}>{trade.entryDay}</div>
+              <button className="primary" type="button" style={{ marginTop: 12 }} onClick={() => openRiskManager(trade)}>Calculate Lot Size</button>
+            </div>)}
+          </div>
+        </> : <h2 className="title" style={{ marginBottom: 12 }}>{scannerStatus}</h2>}
+      </section> : <section className="card execution-card" style={{ border: "1px solid rgba(212,166,55,.28)", background: "linear-gradient(145deg, rgba(10,16,30,.98), rgba(5,8,18,.98))" }}>
+        <div className="section-label">TRADE STATUS</div>
+        <h2 className="title" style={{ marginBottom: 12 }}>{scannerStatus}</h2>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10, marginTop: 12 }}>
           <PriceLevel label="ENTRY" value={scannerEntry} kind="entry" />
           <PriceLevel label="STOP LOSS" value={scannerStop} kind="sl" />
-          <PriceLevel label="TP1" value={scannerTp1} kind="tp" />
-          <PriceLevel label="TP2" value={scannerTp2} kind="tp" />
+          <PriceLevel label="TAKE PROFIT" value={scannerTp1} kind="tp" />
         </div>
-
-        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginTop: 12 }}>
-          <div className="execution-item" style={{ minWidth: 180 }}><span>TRADE STATUS</span><strong>{tradeStatus}</strong></div>
+        {scannerEntry != null && scannerStop != null && scannerTp1 != null && s?.cycleStatus === "ACTIVE" && <div style={{ marginTop: 16 }}>
+          <button className="primary" type="button" onClick={() => openRiskManager()}>Calculate Lot Size</button>
+        </div>}
+      </section>}
+      {strategy === "vaulttradesNexus" && result.strategyEngine?.performance && <section className="card">
+        <div className="section-label">PERFORMANCE</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 10 }}>
+          {[
+            ["Trades", result.strategyEngine.performance.tradesTaken],
+            ["Win Rate", result.strategyEngine.performance.winRate.toFixed(1) + "%"],
+            ["Profit Factor", result.strategyEngine.performance.profitFactor == null ? "—" : result.strategyEngine.performance.profitFactor.toFixed(2)],
+            ["Total R", (result.strategyEngine.performance.totalR > 0 ? "+" : "") + result.strategyEngine.performance.totalR.toFixed(2) + "R"],
+            ["Open", result.strategyEngine.performance.openTrades],
+          ].map(([label, value]) => <div key={label} className="condition-box"><strong>{label}</strong><div style={{ fontSize: 20, fontWeight: 900, marginTop: 5 }}>{value}</div></div>)}
         </div>
-      </section>
-
-      <section className="card"><div className="section-label">SHARED LIQUIDITY TARGETS</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 12 }}><div className="condition-box"><strong>BUY-SIDE LIQUIDITY</strong><div style={{ fontSize: 22, fontWeight: 900, marginTop: 6 }}>{fmt((s?.liquidityTargets ?? result.liquidityTargets)?.buySide?.price)}</div><p className="muted">{(s?.liquidityTargets ?? result.liquidityTargets)?.buySide?.source?.replaceAll("_", " ") || "No confirmed target above current price"}</p></div><div className="condition-box"><strong>SELL-SIDE LIQUIDITY</strong><div style={{ fontSize: 22, fontWeight: 900, marginTop: 6 }}>{fmt((s?.liquidityTargets ?? result.liquidityTargets)?.sellSide?.price)}</div><p className="muted">{(s?.liquidityTargets ?? result.liquidityTargets)?.sellSide?.source?.replaceAll("_", " ") || "No confirmed target below current price"}</p></div><div className="condition-box"><strong>ACTIVE TRADE TARGET</strong><div style={{ fontSize: 22, fontWeight: 900, marginTop: 6 }}>{fmt(s?.opposingLiquidityTarget)}</div><p className="muted">Shared confirmed-swing liquidity reference. Entry confirmation remains strategy-specific.</p></div></div></section>\n\n
-
-      <section className="card"><div className="section-label">VALIDATION</div><div className="condition-box"><strong>{validationStatus}</strong><p className="muted">{s?.entryConfirmation ? "The selected strategy's required entry trigger has occurred on its confirmation timeframe." : validationStatus === "RE-ENTRY NOT CONFIRMED" ? "The market direction and setup context are established, but a fresh entry or re-entry trigger has not yet satisfied the selected strategy's rules." : "No entry is confirmed until the selected strategy's required setup and entry-trigger conditions are satisfied."}</p></div></section>
+      </section>}
     </>}
-    {scannerLoading && result && <div className="muted" style={{ textAlign: "center", padding: 10 }}>AI Scanner is profiling volume, institutional activity and projected market path…</div>}
+    {scannerLoading && result && <div className="muted" style={{ textAlign: "center", padding: 10 }}>Updating market data…</div>}
   </main>;
 }

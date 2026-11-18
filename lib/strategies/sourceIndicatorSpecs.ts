@@ -34,6 +34,10 @@ export const SOURCE_INDICATORS: Record<StrategyId, readonly SourceIndicatorSpec[
   ],
   killZone: [],
   supplyDemand: [],
+  vaulttradesNexus: [
+    { name: "Moving Average Channel", purpose: "SMA of candle highs and lows for directional entry", parameters: "SMA(high, 20) and SMA(low, 20)", required: true },
+    { name: "ATR", purpose: "Stop-loss distance and fixed reward target", parameters: "ATR(14); stop multiplier 2.0; target 1.5R", required: true },
+  ],
   "714Observing": [
     { name: "ATR", purpose: "Observation displacement, S/R merging, execution tolerance and displacement", parameters: "Source ATR; multiple thresholds including 0.30, 0.15, 0.40 ATR", required: true },
     { name: "EMA", purpose: "EMA20 confirmation and bias context", parameters: "EMA 20", required: true },

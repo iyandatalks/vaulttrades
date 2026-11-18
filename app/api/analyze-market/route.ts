@@ -9,6 +9,7 @@ import { evaluateSrbOb } from "../../../lib/strategies/srbObEngine";
 import { evaluateLsObr } from "../../../lib/strategies/lsobrEngine";
 import { analyzeAutoFibRetrace } from "../../../lib/strategies/autoFibRetrace";
 import { evaluateSupplyDemand } from "../../../lib/strategies/supplyDemandEngine";
+import { evaluateVaultTradesNexus } from "../../../lib/strategies/vaulttradesNexusEngine";
 import { resolveLiquidityTargets } from "../../../lib/market-data/liquidityTargets";
 
 export const runtime = "nodejs";
@@ -164,7 +165,7 @@ export async function POST(request: Request) {
     if (!providerRoute.available) return Response.json({ error: providerRoute.reason || "Market data is unavailable." }, { status: 503 });
     const apiKey = process.env.OPENAI_API_KEY;
 
-    const market = await getTwelveDataTimeSeries({ symbol, timeframe, outputsize: strategyId === "ema20" ? 5000 : 250 });
+    const market = await getTwelveDataTimeSeries({ symbol, timeframe, outputsize: strategyId === "ema20" || strategyId === "vaulttradesNexus" ? 5000 : 250 });
     if (market.candles.length < 40) return Response.json({ error: "Not enough live market history was returned for this symbol/timeframe." }, { status: 422 });
     // Silver is fetched only for the Auto Fib strategy on Gold instruments; all other Analyzer requests retain their existing provider-call count.
     const isGoldInstrument = /XAU|GOLD/.test(symbol.replace(/[^A-Z]/g, ""));
@@ -193,6 +194,8 @@ export async function POST(request: Request) {
     // and do not use a mid-bar quote to declare a Pine stop/target exit.
     const ema20Candles = strategyId === "ema20" ? completedEma20Candles(market.candles, timeframe) : [];
     const ema20Engine = strategyId === "ema20" ? evaluateEma20Analyzer(ema20Candles, timeframe) : null;
+    const nexusCandles = strategyId === "vaulttradesNexus" ? completedEma20Candles(market.candles, timeframe) : [];
+    const nexusEngine = strategyId === "vaulttradesNexus" ? evaluateVaultTradesNexus(nexusCandles, { timeframe }) : null;
     const ema20Bar = ema20Engine?.engine ?? null;
     const ema20EngineEvidence = ema20Engine ? {
       source: "EMA20_MORNING_TRADES_PINE_V6",
@@ -243,7 +246,7 @@ export async function POST(request: Request) {
       silverCandles: silverMarket?.candles.map((c) => ({ time: new Date(c.datetime).getTime(), open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume ?? undefined })),
       m5Candles: (timeframe === "5m" ? market.candles : fibM5Market?.candles ?? []).map((c) => ({ time: new Date(c.datetime).getTime(), open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume ?? undefined })),
     }) : null;
-    const visualOrderBlocks = strategyId === "fibRetracement" && autoFibEngine
+    const visualOrderBlocks = strategyId === "vaulttradesNexus" ? [] : strategyId === "fibRetracement" && autoFibEngine
       ? [
           ...(autoFibEngine.orderBlocks.bullish.active && !autoFibEngine.orderBlocks.bullish.mitigated && !autoFibEngine.orderBlocks.bullish.breaker && autoFibEngine.orderBlocks.bullish.high != null && autoFibEngine.orderBlocks.bullish.low != null
             ? [{ direction:"BULLISH", top:autoFibEngine.orderBlocks.bullish.high, bottom:autoFibEngine.orderBlocks.bullish.low, label:"ACTIVE BULLISH OB · UNMITIGATED", state:"ACTIVE" }] : []),
@@ -417,6 +420,21 @@ Return JSON only.`;
       };
     } else if (strategyId === "fibRetracement") {
       ai = { direction:"NO TRADE",decision:"NO TRADE",confidence:autoFibEngine?.confidence??0,marketCondition:context.structure.trend,directionalBias:autoFibEngine?.bias??"NEUTRAL",session:"Derived from market candle timestamps.",higherTimeframe:"Selected timeframe is evaluated independently.",marketStructure:context.structure.trend,support:priceLevels.support,resistance:priceLevels.resistance,recentPriceAction:autoFibEngine?.message??"Auto Fib engine evaluated the supplied candles.",setup:autoFibEngine?.message??"Waiting for valid Fib structure.",confirmedConditions:autoFibEngine?.evidence??[],missingConditions:autoFibEngine?.missingConditions??[],bos:5,choch:5,orderBlock:5,fvg:5,liquiditySweep:5,displacement:5,pipeline:autoFibEngine?.evidence??[],nextZone:"Wait for source-defined Fib flip, active unmitigated OB and entry confirmation.",invalidation:(autoFibEngine?.invalidation??[]).join(" "),entry:null,stopLoss:null,tp1:autoFibEngine?.tp1??null,tp2:autoFibEngine?.tp2??null,finalTp:autoFibEngine?.finalTp??null,nextAction:autoFibEngine?.message??"WAIT",educationalNote:"Auto Fib runs locally. Its source defines projection probability as zero and has no qualifying entry event, so no BUY/SELL or stop-loss is invented." };
+    } else if (strategyId === "vaulttradesNexus") {
+      const active = nexusEngine?.state === "TRADE ACTIVE";
+      ai = {
+        direction: active ? nexusEngine!.direction : "NO TRADE", decision: active ? "TRADE" : "NO TRADE",
+        confidence: active ? 80 : 0, marketCondition: context.structure.trend ?? "Market",
+        directionalBias: active ? nexusEngine!.direction : "NEUTRAL", session: "SAST",
+        higherTimeframe: "Selected timeframe", marketStructure: context.structure.trend ?? "Market",
+        support: priceLevels.support, resistance: priceLevels.resistance, recentPriceAction: "",
+        setup: active ? "TRADE ACTIVE" : "WAITING FOR TRADE", confirmedConditions: [], missingConditions: [],
+        bos: 5, choch: 5, orderBlock: 5, fvg: 5, liquiditySweep: 5, displacement: 5,
+        pipeline: [], nextZone: "", invalidation: "", entry: nexusEngine?.entry ?? null,
+        stopLoss: nexusEngine?.stopLoss ?? null, tp1: nexusEngine?.takeProfit ?? null,
+        tp2: nexusEngine?.takeProfit ?? null, finalTp: nexusEngine?.takeProfit ?? null,
+        nextAction: active ? "TRADE ACTIVE" : "WAITING FOR TRADE", educationalNote: "",
+      };
     } else if (strategyId === "supplyDemand") {
       const sd=supplyDemandEngine!;
       ai = { direction:sd.direction,decision:sd.direction==="NO TRADE"?"NO TRADE":"TRADE",confidence:sd.confidence,marketCondition:sd.marketCondition,directionalBias:sd.direction==="NO TRADE"?context.structure.trend:sd.direction,session:"Derived from market candle timestamps.",higherTimeframe:"Selected timeframe is the source of truth.",marketStructure:context.structure.trend,support:priceLevels.support,resistance:priceLevels.resistance,recentPriceAction:sd.evidence.join(" ")||"No qualifying fresh-zone reaction on the latest candles.",setup:sd.state==="ENTRY READY"?"Fresh zone retest, liquidity event and displacement confirmed.":"Supply & Demand sequence evaluated from historical zones.",confirmedConditions:sd.evidence,missingConditions:sd.missingConditions,bos:5,choch:5,orderBlock:5,fvg:5,liquiditySweep:5,displacement:5,pipeline:sd.evidence,nextZone:sd.activeZone?`${sd.activeZone.direction} zone ${sd.activeZone.bottom}–${sd.activeZone.top}`:"Wait for a fresh, intact zone.",invalidation:sd.invalidation,entry:sd.entry,stopLoss:sd.stopLoss,tp1:sd.tp1,tp2:sd.tp2,finalTp:sd.finalTp,nextAction:sd.missingConditions[0]??(sd.state==="ENTRY READY"?"Validate the structural setup before execution.":"WAIT for the next required zone event."),educationalNote:"Supply & Demand is calculated locally. A trade requires a fresh intact zone, retest, liquidity sweep/reclaim or rejection, directional displacement and an opposing structural target." };
@@ -438,16 +456,16 @@ Return JSON only.`;
     }
 
     const engineDirection: Direction = ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.direction : "NO TRADE";
-    const direction = strategyId === "ema20" ? engineDirection : strategyId === "srbOb" ? (srbObEngine?.direction ?? "NO TRADE") : strategyId === "lsobr" ? (lsobrEngine?.direction ?? "NO TRADE") : strategyId === "supplyDemand" ? (supplyDemandEngine?.direction ?? "NO TRADE") : ai.direction as Direction;
-    const entry = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.entry : null) : strategyId === "srbOb" ? (srbObEngine?.entry ?? null) : strategyId === "lsobr" ? (lsobrEngine?.entry ?? null) : strategyId === "supplyDemand" ? (supplyDemandEngine?.entry ?? null) : (typeof ai.entry === "number" ? ai.entry : null);
-    const stopLoss = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.stopLoss : null) : strategyId === "srbOb" ? (srbObEngine?.stopLoss ?? null) : strategyId === "lsobr" ? (lsobrEngine?.stopLoss ?? null) : strategyId === "supplyDemand" ? (supplyDemandEngine?.stopLoss ?? null) : (typeof ai.stopLoss === "number" ? ai.stopLoss : null);
-    const finalTp = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.target : null) : strategyId === "srbOb" ? (srbObEngine?.finalTp ?? null) : strategyId === "lsobr" ? (lsobrEngine?.finalTp ?? null) : strategyId === "supplyDemand" ? (supplyDemandEngine?.finalTp ?? null) : (typeof ai.finalTp === "number" ? ai.finalTp : typeof ai.tp2 === "number" ? ai.tp2 : null);
-    const minimumRR = strategyId === "ema20" ? 1.81 : strategyId === "srbOb" ? 0.1 : strategyId === "supplyDemand" ? 0.01 : 2;
-    const math = tradeMath(direction, entry, stopLoss, finalTp, liveCurrentPrice, minimumRR, strategyId === "ema20" || strategyId === "supplyDemand" ? 0 : 0.1, strategyId === "ema20" || strategyId === "supplyDemand" ? Number.POSITIVE_INFINITY : 0.5);
+    const direction = strategyId === "ema20" ? engineDirection : strategyId === "vaulttradesNexus" ? (nexusEngine?.direction ?? "NO TRADE") : strategyId === "srbOb" ? (srbObEngine?.direction ?? "NO TRADE") : strategyId === "lsobr" ? (lsobrEngine?.direction ?? "NO TRADE") : strategyId === "supplyDemand" ? (supplyDemandEngine?.direction ?? "NO TRADE") : ai.direction as Direction;
+    const entry = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.entry : null) : strategyId === "vaulttradesNexus" ? (nexusEngine?.entry ?? null) : strategyId === "srbOb" ? (srbObEngine?.entry ?? null) : strategyId === "lsobr" ? (lsobrEngine?.entry ?? null) : strategyId === "supplyDemand" ? (supplyDemandEngine?.entry ?? null) : (typeof ai.entry === "number" ? ai.entry : null);
+    const stopLoss = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.stopLoss : null) : strategyId === "vaulttradesNexus" ? (nexusEngine?.stopLoss ?? null) : strategyId === "srbOb" ? (srbObEngine?.stopLoss ?? null) : strategyId === "lsobr" ? (lsobrEngine?.stopLoss ?? null) : strategyId === "supplyDemand" ? (supplyDemandEngine?.stopLoss ?? null) : (typeof ai.stopLoss === "number" ? ai.stopLoss : null);
+    const finalTp = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.target : null) : strategyId === "vaulttradesNexus" ? (nexusEngine?.takeProfit ?? null) : strategyId === "srbOb" ? (srbObEngine?.finalTp ?? null) : strategyId === "lsobr" ? (lsobrEngine?.finalTp ?? null) : strategyId === "supplyDemand" ? (supplyDemandEngine?.finalTp ?? null) : (typeof ai.finalTp === "number" ? ai.finalTp : typeof ai.tp2 === "number" ? ai.tp2 : null);
+    const minimumRR = strategyId === "vaulttradesNexus" ? 1.5 : strategyId === "ema20" ? 1.81 : strategyId === "srbOb" ? 0.1 : strategyId === "supplyDemand" ? 0.01 : 2;
+    const math = tradeMath(direction, entry, stopLoss, finalTp, liveCurrentPrice, minimumRR, strategyId === "ema20" || strategyId === "supplyDemand" || strategyId === "vaulttradesNexus" ? 0 : 0.1, strategyId === "ema20" || strategyId === "supplyDemand" || strategyId === "vaulttradesNexus" ? Number.POSITIVE_INFINITY : 0.5);
     const strongSmc = [ai.bos, ai.choch, ai.orderBlock, ai.fvg, ai.liquiditySweep, ai.displacement].filter((x: unknown) => typeof x === "number" && x >= 7).length;
     const smcGate = strongSmc >= 2;
-    const analyzerTradeGate = direction !== "NO TRADE" && math.valid && (strategyId === "ema20" || strategyId === "supplyDemand" || smcGate);
-    const finalDirection: Direction = strategyId === "ema20" ? (analyzerTradeGate ? direction : "NO TRADE") : strategyId === "srbOb" ? (srbObEngine?.direction ?? "NO TRADE") : strategyId === "lsobr" ? (lsobrEngine?.state === "ENTRY READY" && analyzerTradeGate ? (lsobrEngine.direction as Direction) : "NO TRADE") : strategyId === "supplyDemand" ? (supplyDemandEngine?.state === "ENTRY READY" && analyzerTradeGate ? direction : "NO TRADE") : analyzerTradeGate && ai.decision === "TRADE" ? direction : "NO TRADE";
+    const analyzerTradeGate = direction !== "NO TRADE" && math.valid && (strategyId === "ema20" || strategyId === "vaulttradesNexus" || strategyId === "supplyDemand" || smcGate);
+    const finalDirection: Direction = strategyId === "ema20" || strategyId === "vaulttradesNexus" ? (analyzerTradeGate ? direction : "NO TRADE") : strategyId === "srbOb" ? (srbObEngine?.direction ?? "NO TRADE") : strategyId === "lsobr" ? (lsobrEngine?.state === "ENTRY READY" && analyzerTradeGate ? (lsobrEngine.direction as Direction) : "NO TRADE") : strategyId === "supplyDemand" ? (supplyDemandEngine?.state === "ENTRY READY" && analyzerTradeGate ? direction : "NO TRADE") : analyzerTradeGate && ai.decision === "TRADE" ? direction : "NO TRADE";
 
     const nativeEngineOutput = strategyId === "ema20" ? {
       state: ema20Engine?.state,
@@ -480,6 +498,17 @@ Return JSON only.`;
       evidence: ema20EngineEvidence?.evidence ?? [],
       missingConditions: ema20EngineEvidence?.missingConditions ?? [],
       invalidation: ema20EngineEvidence?.invalidation ?? "",
+    } : strategyId === "vaulttradesNexus" ? {
+      source: "VAULTTRADES_NEXUS_PINE_V6",
+      state: nexusEngine?.state ?? "WAITING",
+      signal: nexusEngine?.direction ?? "NO TRADE",
+      entry, stopLoss, finalTp,
+      riskReward: 1.5,
+      signalTime: nexusEngine?.signalTime ?? null,
+      signalDay: nexusEngine?.signalDay ?? null,
+      performance: nexusEngine?.performance ?? null,
+      openTrades: nexusEngine?.openTrades ?? [],
+      closedTrades: nexusEngine?.closedTrades ?? [],
     } : null;
 
     return Response.json({
@@ -491,7 +520,23 @@ Return JSON only.`;
       liquidityTargets,
       structure: { ...lockedStructure }, volatility: context.volatility,
       strategyEngine: strategyId === "lsobr" ? lsobrEngineEvidence : strategyId === "srbOb" ? srbObEngineEvidence : strategyId === "fibRetracement" ? autoFibEngineEvidence : strategyId === "supplyDemand" ? supplyDemandEngine : nativeEngineOutput,
-      scanner: strategyId === "ema20" ? {
+      scanner: strategyId === "vaulttradesNexus" ? {
+        projectedDirection: nexusEngine?.direction ?? "NO TRADE",
+        analysisState: nexusEngine?.state === "TRADE ACTIVE" ? "ACTIVE" : nexusEngine?.state === "TP HIT" || nexusEngine?.state === "SL HIT" ? "COMPLETED" : "WAITING",
+        statusMessage: nexusEngine?.state ?? "WAITING FOR TRADE",
+        cycleStatus: nexusEngine?.state === "TRADE ACTIVE" ? "ACTIVE" : nexusEngine?.state === "SL HIT" ? "SL_HIT" : nexusEngine?.state === "TP HIT" ? "TP_HIT" : "WAITING",
+        actualEntry: nexusEngine?.entry ?? null,
+        projectedEntry: nexusEngine?.entry ?? null,
+        projectedStopLoss: nexusEngine?.stopLoss ?? null,
+        projectedTp1: nexusEngine?.takeProfit ?? null,
+        projectedTp2: null,
+        projectedFinalTp: nexusEngine?.takeProfit ?? null,
+        stopHit: nexusEngine?.state === "SL HIT",
+        entryConfirmation: nexusEngine?.state === "TRADE ACTIVE",
+        strategyConditionsMet: nexusEngine?.state === "TRADE ACTIVE",
+        isExecutable: nexusEngine?.state === "TRADE ACTIVE",
+        waitReason: "", tradeReason: "",
+      } : strategyId === "ema20" ? {
         projectedDirection: ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.direction : "NO TRADE",
         analysisState: ema20Engine?.state === "TRADE ACTIVE" ? "ACTIVE" : ema20Engine?.state === "SL HIT" ? "NO TRADE" : ema20Engine?.state === "TP HIT" ? "COMPLETED" : "WAITING",
         statusMessage: ema20Engine?.reason ?? "WAIT — awaiting a valid Pine EMA20 signal.",
