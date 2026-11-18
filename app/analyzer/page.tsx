@@ -96,7 +96,7 @@ type Result = {
   educationalNote?: string;
   qualityChecks?: { smcStrongCount?: number; rrValid?: boolean; slDistanceValid?: boolean; entryDistanceValid?: boolean; universalTradeGate?: boolean };
   scanner?: Scanner;
-  strategyEngine?: { source?: string; state?: string; signal?: string; direction?: string; performance?: { tradesTaken: number; closedTrades: number; openTrades: number; winners: number; losers: number; winRate: number; profitFactor: number | null; totalR: number }; openTrades?: Array<{ direction: "BUY" | "SELL"; entry: number; stopLoss: number; takeProfit: number; entryTime: string; entryDay: string; status: string }>; closedTrades?: Array<{ direction: "BUY" | "SELL"; entry: number; stopLoss: number; takeProfit: number; entryTime: string; entryDay: string; status: string }>; buyConfluence?: number; sellConfluence?: number; silverDataAvailable?: boolean; silver?: { close: number | null; ma: number | null; maSlope: string; flow: string; structure: string; volumeExpansion: boolean; flowSupportsBuy: boolean; flowSupportsSell: boolean; structureSupportsBuy: boolean; structureSupportsSell: boolean; volumeSupportsBuy: boolean; volumeSupportsSell: boolean }; confluenceBreakdown?: { buy: Record<string, { available: boolean; passed: boolean; points: number; weight: number }>; sell: Record<string, { available: boolean; passed: boolean; points: number; weight: number }>; buyPenalty: number; sellPenalty: number }; trend?: string; sweptLiquidity?: number | null; rejectionExtreme?: number | null; sweepTime?: string | null; mssTime?: string | null; confirmationTime?: string | null; entry?: number | null; stopLoss?: number | null; finalTp?: number | null; rangeHigh?: number | null; rangeLow?: number | null; window?: string | null; fibLevel?: number; score?: number; breakoutPrice?: number | null; breakoutTime?: string | null; breakoutDirection?: "BUY" | "SELL" | null; confluence?: { macroTrend: string; fastTrend: string; rsi: number | null; rsiAligned: boolean | null; volumeRatio: number | null; volumeGood: boolean; rangeSize: number; rangeAtrRatio: number | null; longScore: number; shortScore: number; dxy: string; silver: string; gate: string }; evidence?: string[]; missingConditions?: string[]; liquidityTarget?: number | null; orderBlock?: { direction: string; top: number; bottom: number } | null; riskReward?: number | null; invalidation?: string; ema20?: number | null; slowEMA?: number | null; atr?: number | null; bullStructure?: boolean; bearStructure?: boolean; bullTouch?: boolean; bearTouch?: boolean; bullReject?: boolean; bearReject?: boolean; bullMABreak?: boolean; bearMABreak?: boolean; utBull?: boolean; utBear?: boolean; smiBull?: boolean; smiBear?: boolean; confirmation?: { long: number; short: number } };
+  strategyEngine?: { source?: string; state?: string; signal?: string; direction?: string; performance?: { tradesTaken: number; closedTrades: number; openTrades: number; winners: number; losers: number; winRate: number; profitFactor: number | null; totalR: number }; openTrades?: Array<{ direction: "BUY" | "SELL"; entry: number; stopLoss: number; takeProfit: number; entryTime: string; entryDay: string; status: string }>; closedTrades?: Array<{ direction: "BUY" | "SELL"; entry: number; stopLoss: number; takeProfit: number; entryTime: string; entryDay: string; status: string; exitTime?: string; exitPrice?: number }>; latestClosedTrade?: { direction: "BUY" | "SELL"; entry: number; stopLoss: number; takeProfit: number; entryTime: string; entryDay: string; status: string; exitTime?: string; exitPrice?: number } | null; statusReason?: string; buyConfluence?: number; sellConfluence?: number; silverDataAvailable?: boolean; silver?: { close: number | null; ma: number | null; maSlope: string; flow: string; structure: string; volumeExpansion: boolean; flowSupportsBuy: boolean; flowSupportsSell: boolean; structureSupportsBuy: boolean; structureSupportsSell: boolean; volumeSupportsBuy: boolean; volumeSupportsSell: boolean }; confluenceBreakdown?: { buy: Record<string, { available: boolean; passed: boolean; points: number; weight: number }>; sell: Record<string, { available: boolean; passed: boolean; points: number; weight: number }>; buyPenalty: number; sellPenalty: number }; trend?: string; sweptLiquidity?: number | null; rejectionExtreme?: number | null; sweepTime?: string | null; mssTime?: string | null; confirmationTime?: string | null; entry?: number | null; stopLoss?: number | null; finalTp?: number | null; rangeHigh?: number | null; rangeLow?: number | null; window?: string | null; fibLevel?: number; score?: number; breakoutPrice?: number | null; breakoutTime?: string | null; breakoutDirection?: "BUY" | "SELL" | null; confluence?: { macroTrend: string; fastTrend: string; rsi: number | null; rsiAligned: boolean | null; volumeRatio: number | null; volumeGood: boolean; rangeSize: number; rangeAtrRatio: number | null; longScore: number; shortScore: number; dxy: string; silver: string; gate: string }; evidence?: string[]; missingConditions?: string[]; liquidityTarget?: number | null; orderBlock?: { direction: string; top: number; bottom: number } | null; riskReward?: number | null; invalidation?: string; ema20?: number | null; slowEMA?: number | null; atr?: number | null; bullStructure?: boolean; bearStructure?: boolean; bullTouch?: boolean; bearTouch?: boolean; bullReject?: boolean; bearReject?: boolean; bullMABreak?: boolean; bearMABreak?: boolean; utBull?: boolean; utBear?: boolean; smiBull?: boolean; smiBear?: boolean; confirmation?: { long: number; short: number } };
 };
 
 const TIMEFRAMES: Timeframe[] = ["1m", "5m", "10m", "15m", "30m", "1H", "4H", "1D", "1W", "1M"];
@@ -324,7 +324,7 @@ export default function AnalyzerPage() {
       if (!res.ok) throw new Error(data.error || "Unable to analyze live market data.");
       setResult(data);
       const candles = Array.isArray(data.chart?.candles) ? data.chart.candles : [];
-      if (candles.length >= 30 && strategy !== "srbOb" && strategy !== "lsobr" && strategy !== "ema20" && strategy !== "fibRetracement" && strategy !== "supplyDemand") {
+      if (candles.length >= 30 && strategy !== "srbOb" && strategy !== "lsobr" && strategy !== "ema20" && strategy !== "fibRetracement" && strategy !== "supplyDemand" && strategy !== "vaulttradesNexus") {
         setScannerLoading(true);
         try {
           const scannerRes = await fetch("/api/ai-scanner", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
@@ -486,19 +486,48 @@ export default function AnalyzerPage() {
         <div className="section-label">TRADE STATUS</div>
         {result.strategyEngine?.openTrades?.length ? <>
           <h2 className="title" style={{ marginBottom: 12 }}>TRADE ACTIVE</h2>
+          <p className="muted" style={{ marginTop: 0 }}>{result.strategyEngine.statusReason}</p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(250px,1fr))", gap: 12 }}>
-            {result.strategyEngine.openTrades.map((trade) => <div className="condition-box" key={trade.entryTime}>
-              <strong style={{ fontSize: 18, color: trade.direction === "BUY" ? "#35c98a" : "#f06b72" }}>{trade.direction}</strong>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8, marginTop: 10 }}>
-                <PriceLevel label="ENTRY" value={trade.entry} kind="entry" />
-                <PriceLevel label="STOP LOSS" value={trade.stopLoss} kind="sl" />
-                <PriceLevel label="TAKE PROFIT" value={trade.takeProfit} kind="tp" />
-              </div>
-              <div className="muted" style={{ marginTop: 8, fontSize: 11 }}>{trade.entryDay}</div>
-              <button className="primary" type="button" style={{ marginTop: 12 }} onClick={() => openRiskManager(trade)}>Calculate Lot Size</button>
-            </div>)}
+            {result.strategyEngine.openTrades.map((trade) => {
+              const currentPrice = Number(result.market?.currentPrice);
+              const hasCurrentPrice = Number.isFinite(currentPrice);
+              const moveFromEntry = hasCurrentPrice ? (trade.direction === "BUY" ? currentPrice - trade.entry : trade.entry - currentPrice) : null;
+              const distanceToTarget = hasCurrentPrice ? (trade.direction === "BUY" ? trade.takeProfit - currentPrice : currentPrice - trade.takeProfit) : null;
+              const distanceToStop = hasCurrentPrice ? (trade.direction === "BUY" ? currentPrice - trade.stopLoss : trade.stopLoss - currentPrice) : null;
+              return <div className="condition-box" key={trade.entryTime}>
+                <strong style={{ fontSize: 18, color: trade.direction === "BUY" ? "#35c98a" : "#f06b72" }}>{trade.direction} · TRADE ACTIVE</strong>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8, marginTop: 10 }}>
+                  <PriceLevel label="ENTRY" value={trade.entry} kind="entry" />
+                  <PriceLevel label="STOP LOSS" value={trade.stopLoss} kind="sl" />
+                  <PriceLevel label="TAKE PROFIT" value={trade.takeProfit} kind="tp" />
+                </div>
+                <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>Signal date: {trade.entryDay} · Entry time: {trade.entryTime}</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(125px,1fr))", gap: 8, marginTop: 10 }}>
+                  <div className="condition-box"><strong>CURRENT PRICE</strong><div style={{ marginTop: 5 }}>{hasCurrentPrice ? fmt(currentPrice) : "Unavailable"}</div></div>
+                  <div className="condition-box"><strong>MOVE FROM ENTRY</strong><div style={{ marginTop: 5 }}>{moveFromEntry == null ? "—" : (moveFromEntry > 0 ? "+" : "") + fmt(moveFromEntry)}</div></div>
+                  <div className="condition-box"><strong>DISTANCE TO TP</strong><div style={{ marginTop: 5 }}>{distanceToTarget == null ? "—" : fmt(distanceToTarget)}</div></div>
+                  <div className="condition-box"><strong>DISTANCE TO SL</strong><div style={{ marginTop: 5 }}>{distanceToStop == null ? "—" : fmt(distanceToStop)}</div></div>
+                </div>
+                <button className="primary" type="button" style={{ marginTop: 12 }} onClick={() => openRiskManager(trade)}>Calculate Lot Size</button>
+              </div>;
+            })}
           </div>
-        </> : <h2 className="title" style={{ marginBottom: 12 }}>{scannerStatus}</h2>}
+        </> : result.strategyEngine?.latestClosedTrade ? <>
+          <h2 className="title" style={{ marginBottom: 8 }}>{result.strategyEngine.latestClosedTrade.status === "TP_HIT" ? "TAKE PROFIT HIT" : "STOP LOSS HIT"}</h2>
+          <p className="muted" style={{ marginTop: 0 }}>{result.strategyEngine.statusReason}</p>
+          <div className="condition-box">
+            <strong style={{ color: result.strategyEngine.latestClosedTrade.direction === "BUY" ? "#35c98a" : "#f06b72" }}>{result.strategyEngine.latestClosedTrade.direction} · TRADE CLOSED</strong>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8, marginTop: 10 }}>
+              <PriceLevel label="ENTRY" value={result.strategyEngine.latestClosedTrade.entry} kind="entry" />
+              <PriceLevel label="STOP LOSS" value={result.strategyEngine.latestClosedTrade.stopLoss} kind="sl" />
+              <PriceLevel label="TAKE PROFIT" value={result.strategyEngine.latestClosedTrade.takeProfit} kind="tp" />
+            </div>
+            <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>Entry: {result.strategyEngine.latestClosedTrade.entryTime} · Exit: {result.strategyEngine.latestClosedTrade.exitTime ?? "Completed candle"} · Exit price: {fmt(result.strategyEngine.latestClosedTrade.exitPrice)}</div>
+          </div>
+        </> : <>
+          <h2 className="title" style={{ marginBottom: 8 }}>WAITING FOR VALID SIGNAL</h2>
+          <p className="muted" style={{ marginTop: 0 }}>{result.strategyEngine?.statusReason ?? "No valid signal has been generated from a completed candle yet."}</p>
+        </>}
       </section> : <section className="card execution-card" style={{ border: "1px solid rgba(212,166,55,.28)", background: "linear-gradient(145deg, rgba(10,16,30,.98), rgba(5,8,18,.98))" }}>
         <div className="section-label">TRADE STATUS</div>
         <h2 className="title" style={{ marginBottom: 12 }}>{scannerStatus}</h2>
