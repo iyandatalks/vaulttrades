@@ -110,9 +110,9 @@ const DEFAULT_SYMBOLS: Record<MarketType, string[]> = {
 };
 const PUBLIC_STRATEGY_IDS = ["fibRetracement", "ema20", "vaulttradesNexus"] as const;
 const PUBLIC_STRATEGY_LABELS: Record<string, string> = {
-  fibRetracement: "1. VaultTrades | Auto Fib Retrace + OB",
-  ema20: "2. VaultTrades | EMA20",
-  vaulttradesNexus: "3. VaultTrades Nexus",
+  fibRetracement: "VaultTrades | Auto Fib Retrace + OB",
+  ema20: "VaultTrades | EMA20",
+  vaulttradesNexus: "VaultTrades Nexus",
 };
 const fmt = (v: number | null | undefined) => v == null || !Number.isFinite(v) ? "—" : v.toLocaleString(undefined, { maximumFractionDigits: 5 });
 
@@ -415,7 +415,7 @@ export default function AnalyzerPage() {
   const scannerTp1 = (strategy === "srbOb" || strategy === "lsobr") ? result?.strategyEngine?.finalTp : projectedTp1;
   const openRiskManager = () => {
     if (scannerEntry == null || scannerStop == null || scannerTp1 == null || !displayDirection || displayDirection === "NO TRADE") return;
-    const params = new URLSearchParams({ source: "analyzer", symbol, timeframe, strategy: strategyDisplayName(strategy), direction: displayDirection, entry: String(scannerEntry), sl: String(scannerStop), tp1: String(scannerTp1) });
+    const params = new URLSearchParams({ source: "analyzer", symbol, timeframe, strategy: result?.strategy?.name || strategyDisplayName(strategy), direction: displayDirection, entry: String(scannerEntry), sl: String(scannerStop), tp1: String(scannerTp1) });
     router.push("/risk-manager?" + params.toString());
   };
   const scannerTp2 = (strategy === "srbOb" || strategy === "lsobr") ? null : projectedTp2;
