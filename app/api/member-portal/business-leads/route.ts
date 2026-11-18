@@ -12,17 +12,28 @@ async function getAccess() {
   const db = createAdminClient();
   const { data: profile } = await db.from("users").select("id,email,role,referral_code").eq("auth_user_id", user.id).maybeSingle();
   if (!profile) return { response: NextResponse.json({ error: "PROFILE_NOT_FOUND" }, { status: 404 }) };
+
   if (profile.role !== "admin") {
-    const { data: licences } = await db.from("product_licenses")
-      .select("entitlement_code,start_at,end_at,status")
-      .eq("user_id", profile.id).eq("status", "active").in("entitlement_code", MEMBERSHIP_CODES);
-    const now = Date.now();
-    const eligible = (licences ?? []).some(row => {
-      const start = row.start_at ? new Date(row.start_at).getTime() : 0;
-      const end = row.end_at ? new Date(row.end_at).getTime() : Number.POSITIVE_INFINITY;
-      return Number.isFinite(start) && start <= now && end > now;
-    });
-    if (!eligible) return { response: NextResponse.json({ error: "MEMBERSHIP_REQUIRED" }, { status: 403 }) };
+    const isPartnerRole = profile.role === "partner" || profile.role === "reseller";
+    const { data: portalOverride } = isPartnerRole
+      ? await db.from("partner_portal_access_overrides").select("decision").eq("auth_user_id", user.id).maybeSingle()
+      : { data: null };
+    if (isPartnerRole && portalOverride?.decision === "revoke") {
+      return { response: NextResponse.json({ error: "PARTNER_PORTAL_ACCESS_REVOKED" }, { status: 403 }) };
+    }
+    const hasPartnerPortalGrant = isPartnerRole && portalOverride?.decision === "grant";
+    if (!hasPartnerPortalGrant) {
+      const { data: licences } = await db.from("product_licenses")
+        .select("entitlement_code,start_at,end_at,status")
+        .eq("user_id", profile.id).eq("status", "active").in("entitlement_code", MEMBERSHIP_CODES);
+      const now = Date.now();
+      const eligible = (licences ?? []).some(row => {
+        const start = row.start_at ? new Date(row.start_at).getTime() : 0;
+        const end = row.end_at ? new Date(row.end_at).getTime() : Number.POSITIVE_INFINITY;
+        return Number.isFinite(start) && start <= now && end > now;
+      });
+      if (!eligible) return { response: NextResponse.json({ error: "MEMBERSHIP_REQUIRED" }, { status: 403 }) };
+    }
   }
   if (!profile.referral_code) {
     const referralCode = `VT-${crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase()}`;
@@ -88,8 +99,6 @@ export async function DELETE(request: Request) {
   if (!all && !id) return NextResponse.json({ error: "Choose a lead to remove." }, { status: 400 });
 
   let query = db.from("marketing_leads").delete().eq("partner_share_consent", true);
-  // Partners can only remove leads assigned to their own referral account.
-  // Admins can moderate any consented business lead from the admin workspace.
   if (profile.role !== "admin") query = query.eq("partner_auth_user_id", user.id);
   if (!all) query = query.eq("id", id);
   const { data, error } = await query.select("id");

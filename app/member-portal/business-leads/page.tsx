@@ -17,17 +17,26 @@ export default async function BusinessLeadsPage() {
   const { data: profile } = await db.from("users").select("id,role,referral_code").eq("auth_user_id", user.id).maybeSingle();
   if (!profile) redirect("/profile");
   const isAdmin = profile.role === "admin";
-  if (!isAdmin) {
+  const isPartnerRole = profile.role === "partner" || profile.role === "reseller";
+  const { data: portalOverride } = isPartnerRole
+    ? await db.from("partner_portal_access_overrides").select("decision").eq("auth_user_id", user.id).maybeSingle()
+    : { data: null };
+  const hasPartnerPortalGrant = isPartnerRole && portalOverride?.decision === "grant";
+  const partnerPortalRevoked = isPartnerRole && portalOverride?.decision === "revoke";
+
+  if (!isAdmin && !hasPartnerPortalGrant && !partnerPortalRevoked) {
     const { data: licences } = await db.from("product_licenses").select("entitlement_code,start_at,end_at,status")
       .eq("user_id", profile.id).eq("status", "active").in("entitlement_code", CODES);
     const now = Date.now();
     const allowed = (licences ?? []).some(x => {
       const start = x.start_at ? new Date(x.start_at).getTime() : 0;
       const end = x.end_at ? new Date(x.end_at).getTime() : Number.POSITIVE_INFINITY;
-      return start <= now && end > now;
+      return Number.isFinite(start) && start <= now && end > now;
     });
     if (!allowed) redirect("/plans");
   }
+  if (partnerPortalRevoked) redirect("/");
+
   let referralCode = profile.referral_code as string | null;
   if (!referralCode) {
     referralCode = "VT-" + randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase();
