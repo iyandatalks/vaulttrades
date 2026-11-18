@@ -135,6 +135,7 @@ export function evaluateVaultTradesNexus(
   let lastSignalDay: string | null = null;
   let lastSignalTime: string | null = null;
   let lastClosedStatus: "TP HIT" | "SL HIT" | null = null;
+  let lastClosedBarIndex = -1;
 
   for (let i = 0; i < candles.length; i++) {
     const candle = candles[i];
@@ -160,6 +161,7 @@ export function evaluateVaultTradesNexus(
         };
         closedTrades.push(closed);
         lastClosedStatus = won ? "TP HIT" : "SL HIT";
+        lastClosedBarIndex = i;
         openTrades.splice(tradeIndex, 1);
       }
     }
@@ -203,7 +205,7 @@ export function evaluateVaultTradesNexus(
   const totalR = closedTrades.reduce((sum, trade) => sum + (trade.resultR ?? 0), 0);
 
   return {
-    state: active ? "TRADE ACTIVE" : lastClosedStatus ?? "WAITING",
+    state: active ? "TRADE ACTIVE" : lastClosedBarIndex === candles.length - 1 ? (lastClosedStatus ?? "WAITING") : "WAITING",
     direction: active?.direction ?? "NO TRADE",
     entry: active?.entry ?? null,
     stopLoss: active?.stopLoss ?? null,
@@ -220,7 +222,7 @@ export function evaluateVaultTradesNexus(
       winners,
       losers,
       winRate: closedTrades.length ? (winners / closedTrades.length) * 100 : 0,
-      profitFactor: grossLossR > 0 ? grossProfitR / grossLossR : grossProfitR > 0 ? null : null,
+      profitFactor: grossLossR > 0 ? grossProfitR / grossLossR : grossProfitR > 0 ? Number.POSITIVE_INFINITY : null,
       totalR,
     },
   };
