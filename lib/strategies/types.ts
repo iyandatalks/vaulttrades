@@ -6,6 +6,7 @@ export type StrategyId =
   | "emaAutomated"
   | "continuation"
   | "supplyDemand"
+  | "vaulttradesNexus"
   | "714Observing"
   | "sweepEngulfing"
   | "swingDeveloping"
