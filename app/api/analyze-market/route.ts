@@ -507,6 +507,8 @@ Return JSON only.`;
       signalTime: nexusEngine?.signalTime ?? null,
       signalDay: nexusEngine?.signalDay ?? null,
       performance: nexusEngine?.performance ?? null,
+      openTrades: nexusEngine?.openTrades ?? [],
+      closedTrades: nexusEngine?.closedTrades ?? [],
     } : null;
 
     return Response.json({
