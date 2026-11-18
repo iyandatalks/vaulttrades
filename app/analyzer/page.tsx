@@ -96,7 +96,7 @@ type Result = {
   educationalNote?: string;
   qualityChecks?: { smcStrongCount?: number; rrValid?: boolean; slDistanceValid?: boolean; entryDistanceValid?: boolean; universalTradeGate?: boolean };
   scanner?: Scanner;
-  strategyEngine?: { source?: string; state?: string; signal?: string; direction?: string; performance?: { tradesTaken: number; closedTrades: number; openTrades: number; winners: number; losers: number; winRate: number; profitFactor: number | null; totalR: number }; buyConfluence?: number; sellConfluence?: number; silverDataAvailable?: boolean; silver?: { close: number | null; ma: number | null; maSlope: string; flow: string; structure: string; volumeExpansion: boolean; flowSupportsBuy: boolean; flowSupportsSell: boolean; structureSupportsBuy: boolean; structureSupportsSell: boolean; volumeSupportsBuy: boolean; volumeSupportsSell: boolean }; confluenceBreakdown?: { buy: Record<string, { available: boolean; passed: boolean; points: number; weight: number }>; sell: Record<string, { available: boolean; passed: boolean; points: number; weight: number }>; buyPenalty: number; sellPenalty: number }; trend?: string; sweptLiquidity?: number | null; rejectionExtreme?: number | null; sweepTime?: string | null; mssTime?: string | null; confirmationTime?: string | null; entry?: number | null; stopLoss?: number | null; finalTp?: number | null; rangeHigh?: number | null; rangeLow?: number | null; window?: string | null; fibLevel?: number; score?: number; breakoutPrice?: number | null; breakoutTime?: string | null; breakoutDirection?: "BUY" | "SELL" | null; confluence?: { macroTrend: string; fastTrend: string; rsi: number | null; rsiAligned: boolean | null; volumeRatio: number | null; volumeGood: boolean; rangeSize: number; rangeAtrRatio: number | null; longScore: number; shortScore: number; dxy: string; silver: string; gate: string }; evidence?: string[]; missingConditions?: string[]; liquidityTarget?: number | null; orderBlock?: { direction: string; top: number; bottom: number } | null; riskReward?: number | null; invalidation?: string; ema20?: number | null; slowEMA?: number | null; atr?: number | null; bullStructure?: boolean; bearStructure?: boolean; bullTouch?: boolean; bearTouch?: boolean; bullReject?: boolean; bearReject?: boolean; bullMABreak?: boolean; bearMABreak?: boolean; utBull?: boolean; utBear?: boolean; smiBull?: boolean; smiBear?: boolean; confirmation?: { long: number; short: number } };
+  strategyEngine?: { source?: string; state?: string; signal?: string; direction?: string; performance?: { tradesTaken: number; closedTrades: number; openTrades: number; winners: number; losers: number; winRate: number; profitFactor: number | null; totalR: number }; openTrades?: Array<{ direction: "BUY" | "SELL"; entry: number; stopLoss: number; takeProfit: number; entryTime: string; entryDay: string; status: string }>; closedTrades?: Array<{ direction: "BUY" | "SELL"; entry: number; stopLoss: number; takeProfit: number; entryTime: string; entryDay: string; status: string }>; buyConfluence?: number; sellConfluence?: number; silverDataAvailable?: boolean; silver?: { close: number | null; ma: number | null; maSlope: string; flow: string; structure: string; volumeExpansion: boolean; flowSupportsBuy: boolean; flowSupportsSell: boolean; structureSupportsBuy: boolean; structureSupportsSell: boolean; volumeSupportsBuy: boolean; volumeSupportsSell: boolean }; confluenceBreakdown?: { buy: Record<string, { available: boolean; passed: boolean; points: number; weight: number }>; sell: Record<string, { available: boolean; passed: boolean; points: number; weight: number }>; buyPenalty: number; sellPenalty: number }; trend?: string; sweptLiquidity?: number | null; rejectionExtreme?: number | null; sweepTime?: string | null; mssTime?: string | null; confirmationTime?: string | null; entry?: number | null; stopLoss?: number | null; finalTp?: number | null; rangeHigh?: number | null; rangeLow?: number | null; window?: string | null; fibLevel?: number; score?: number; breakoutPrice?: number | null; breakoutTime?: string | null; breakoutDirection?: "BUY" | "SELL" | null; confluence?: { macroTrend: string; fastTrend: string; rsi: number | null; rsiAligned: boolean | null; volumeRatio: number | null; volumeGood: boolean; rangeSize: number; rangeAtrRatio: number | null; longScore: number; shortScore: number; dxy: string; silver: string; gate: string }; evidence?: string[]; missingConditions?: string[]; liquidityTarget?: number | null; orderBlock?: { direction: string; top: number; bottom: number } | null; riskReward?: number | null; invalidation?: string; ema20?: number | null; slowEMA?: number | null; atr?: number | null; bullStructure?: boolean; bearStructure?: boolean; bullTouch?: boolean; bearTouch?: boolean; bullReject?: boolean; bearReject?: boolean; bullMABreak?: boolean; bearMABreak?: boolean; utBull?: boolean; utBear?: boolean; smiBull?: boolean; smiBear?: boolean; confirmation?: { long: number; short: number } };
 };
 
 const TIMEFRAMES: Timeframe[] = ["1m", "5m", "10m", "15m", "30m", "1H", "4H", "1D", "1W", "1M"];
@@ -413,9 +413,13 @@ export default function AnalyzerPage() {
   const scannerEntry = (strategy === "srbOb" || strategy === "lsobr") ? result?.strategyEngine?.entry : (actualEntry ?? projectedEntry);
   const scannerStop = (strategy === "srbOb" || strategy === "lsobr") ? result?.strategyEngine?.stopLoss : projectedSL;
   const scannerTp1 = (strategy === "srbOb" || strategy === "lsobr") ? result?.strategyEngine?.finalTp : projectedTp1;
-  const openRiskManager = () => {
-    if (scannerEntry == null || scannerStop == null || scannerTp1 == null || !displayDirection || displayDirection === "NO TRADE") return;
-    const params = new URLSearchParams({ source: "analyzer", symbol, timeframe, strategy: result?.strategy?.name || strategyDisplayName(strategy), direction: displayDirection, entry: String(scannerEntry), sl: String(scannerStop), tp1: String(scannerTp1) });
+  const openRiskManager = (trade?: { direction: "BUY" | "SELL"; entry: number; stopLoss: number; takeProfit: number }) => {
+    const selectedEntry = trade?.entry ?? scannerEntry;
+    const selectedStop = trade?.stopLoss ?? scannerStop;
+    const selectedTarget = trade?.takeProfit ?? scannerTp1;
+    const selectedDirection = trade?.direction ?? displayDirection;
+    if (selectedEntry == null || selectedStop == null || selectedTarget == null || !selectedDirection || selectedDirection === "NO TRADE") return;
+    const params = new URLSearchParams({ source: "analyzer", symbol, timeframe, strategy: result?.strategy?.name || strategyDisplayName(strategy), direction: selectedDirection, entry: String(selectedEntry), sl: String(selectedStop), tp1: String(selectedTarget) });
     router.push("/risk-manager?" + params.toString());
   };
   const scannerTp2 = (strategy === "srbOb" || strategy === "lsobr") ? null : projectedTp2;
@@ -478,7 +482,24 @@ export default function AnalyzerPage() {
     {result && <>
       <section className="card"><div className="section-label">LIVE CHART</div><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}><div><h2 className="title" style={{ marginBottom: 3 }}>{result.market?.asset}</h2><div className="muted">{result.market?.timeframe} · Current price {fmt(result.market?.currentPrice)}</div></div><div className="condition-box" style={{ padding: "10px 14px" }}><strong>Strategy: {strategyDisplayName(result.strategy?.id, result.strategy?.name)}</strong></div></div><LiveMarketChart candles={result.chart?.candles || []} channel={result.chart?.channel20} liquidityTargets={s?.liquidityTargets ?? result.liquidityTargets} orderBlocks={result.chart?.orderBlocks ?? []} orderBlock={strategy === "lsobr" ? result.strategyEngine?.orderBlock ?? null : null} /></section>
 
-      <section className="card execution-card" style={{ border: "1px solid rgba(212,166,55,.28)", background: "linear-gradient(145deg, rgba(10,16,30,.98), rgba(5,8,18,.98))" }}>
+      {strategy === "vaulttradesNexus" ? <section className="card execution-card" style={{ border: "1px solid rgba(212,166,55,.28)", background: "linear-gradient(145deg, rgba(10,16,30,.98), rgba(5,8,18,.98))" }}>
+        <div className="section-label">TRADE STATUS</div>
+        {result.strategyEngine?.openTrades?.length ? <>
+          <h2 className="title" style={{ marginBottom: 12 }}>TRADE ACTIVE</h2>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(250px,1fr))", gap: 12 }}>
+            {result.strategyEngine.openTrades.map((trade) => <div className="condition-box" key={trade.entryTime}>
+              <strong style={{ fontSize: 18, color: trade.direction === "BUY" ? "#35c98a" : "#f06b72" }}>{trade.direction}</strong>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8, marginTop: 10 }}>
+                <PriceLevel label="ENTRY" value={trade.entry} kind="entry" />
+                <PriceLevel label="STOP LOSS" value={trade.stopLoss} kind="sl" />
+                <PriceLevel label="TAKE PROFIT" value={trade.takeProfit} kind="tp" />
+              </div>
+              <div className="muted" style={{ marginTop: 8, fontSize: 11 }}>{trade.entryDay}</div>
+              <button className="primary" type="button" style={{ marginTop: 12 }} onClick={() => openRiskManager(trade)}>Calculate Lot Size</button>
+            </div>)}
+          </div>
+        </> : <h2 className="title" style={{ marginBottom: 12 }}>{scannerStatus}</h2>}
+      </section> : <section className="card execution-card" style={{ border: "1px solid rgba(212,166,55,.28)", background: "linear-gradient(145deg, rgba(10,16,30,.98), rgba(5,8,18,.98))" }}>
         <div className="section-label">TRADE STATUS</div>
         <h2 className="title" style={{ marginBottom: 12 }}>{scannerStatus}</h2>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10, marginTop: 12 }}>
@@ -487,9 +508,9 @@ export default function AnalyzerPage() {
           <PriceLevel label="TAKE PROFIT" value={scannerTp1} kind="tp" />
         </div>
         {scannerEntry != null && scannerStop != null && scannerTp1 != null && s?.cycleStatus === "ACTIVE" && <div style={{ marginTop: 16 }}>
-          <button className="primary" type="button" onClick={openRiskManager}>Calculate Lot Size</button>
+          <button className="primary" type="button" onClick={() => openRiskManager()}>Calculate Lot Size</button>
         </div>}
-      </section>
+      </section>}
       {strategy === "vaulttradesNexus" && result.strategyEngine?.performance && <section className="card">
         <div className="section-label">PERFORMANCE</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 10 }}>
