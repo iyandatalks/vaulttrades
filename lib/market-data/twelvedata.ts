@@ -67,7 +67,7 @@ export async function getTwelveDataInstruments(marketType: "FOREX" | "INDICES" |
   return Array.from(unique.values());
 }
 
-export async function getTwelveDataTimeSeries({ symbol, timeframe, outputsize = 120 }: { symbol: string; timeframe: string; outputsize?: number }): Promise<MarketDataSnapshot> {
+export async function getTwelveDataTimeSeries({ symbol, timeframe, outputsize = 120, normalizeToUtc = false }: { symbol: string; timeframe: string; outputsize?: number; normalizeToUtc?: boolean }): Promise<MarketDataSnapshot> {
   const interval = timeframe === "10m" ? "10min" : toTwelveDataInterval(timeframe);
   if (!interval) throw new Error(`Unsupported Twelve Data timeframe: ${timeframe}`);
   // Twelve Data has no native 10-minute interval. Build completed M10 bars
@@ -91,9 +91,12 @@ export async function getTwelveDataTimeSeries({ symbol, timeframe, outputsize = 
   }
 
   const requestSize = timeframe === "10m" ? Math.min(Math.max(outputsize * 2, 20), 5000) : Math.min(Math.max(outputsize, 20), 5000);
-  // Normalize intraday timestamps to UTC. Twelve Data ignores this setting
-  // for daily, weekly and monthly bars, which remain exchange-local.
-  const payload = await twelveDataJson("time_series", { symbol: normalizedSymbol, interval: requestInterval, outputsize: String(requestSize), format: "JSON", timezone: "UTC" });
+  // Normalize timestamps to UTC only for Nexus, whose daily limiter must use
+  // the exchange's actual calendar date. Other Analyzer strategies retain
+  // their existing provider timestamp convention.
+  const seriesParams: Record<string, string> = { symbol: normalizedSymbol, interval: requestInterval, outputsize: String(requestSize), format: "JSON" };
+  if (normalizeToUtc) seriesParams.timezone = "UTC";
+  const payload = await twelveDataJson("time_series", seriesParams);
   const values = Array.isArray(payload?.values) ? payload.values : [];
   const baseCandles: MarketDataCandle[] = values
     .map((row: Record<string, unknown>) => ({ datetime: String(row.datetime ?? ""), open: finiteNumber(row.open), high: finiteNumber(row.high), low: finiteNumber(row.low), close: finiteNumber(row.close), volume: finiteNumber(row.volume) }))
