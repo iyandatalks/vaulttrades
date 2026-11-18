@@ -32,6 +32,7 @@ export type VaultTradesNexusResult = {
   closedTrades: NexusTrade[];
   latestClosedTrade: NexusTrade | null;
   statusReason: string;
+  exchangeTimezone: string;
   performance: {
     tradesTaken: number;
     closedTrades: number;
@@ -49,20 +50,43 @@ const TIMEFRAME_MINUTES: Record<string, number> = {
   "1H": 60, "4H": 240, "1D": 1440, "1W": 10080, "1M": 43200,
 };
 
-function parseTime(value: string): number {
+function parseTime(value: string, timeZone = "UTC"): number {
   const normalized = value.includes("T") ? value : value.replace(" ", "T");
   const explicitZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(normalized);
-  return Date.parse(explicitZone ? normalized : normalized + "Z");
+  if (explicitZone) return Date.parse(normalized);
+
+  // Intraday candles are requested in UTC. Daily+ bars ignore that parameter
+  // and arrive in exchange-local time, so convert their wall-clock values.
+  const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?)?$/);
+  if (!match) return Date.parse(normalized + "Z");
+  const [, y, mo, d, h = "00", mi = "00", s = "00"] = match;
+  const targetLocalAsUtc = Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s));
+  let epoch = targetLocalAsUtc;
+  try {
+    const formatter = new Intl.DateTimeFormat("en-GB", {
+      timeZone, year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+    });
+    for (let i = 0; i < 3; i++) {
+      const parts = formatter.formatToParts(new Date(epoch));
+      const get = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? 0);
+      const representedLocalAsUtc = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), get("second"));
+      epoch -= representedLocalAsUtc - targetLocalAsUtc;
+    }
+    return epoch;
+  } catch {
+    return Date.parse(normalized + "Z");
+  }
 }
 
-function sastDay(value: string): string {
-  const timestamp = parseTime(value);
+function exchangeDay(value: string, timeZone: string, dailyBar: boolean): string {
+  if (dailyBar) return value.slice(0, 10);
+  // Intraday candle labels are UTC wall-clock values; convert that instant
+  // to the instrument timezone only when deriving the exchange calendar day.
+  const timestamp = parseTime(value, "UTC");
   if (!Number.isFinite(timestamp)) return "";
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Africa/Johannesburg",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
+    timeZone, year: "numeric", month: "2-digit", day: "2-digit",
   }).formatToParts(new Date(timestamp));
   const get = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
   return get("year") + "-" + get("month") + "-" + get("day");
@@ -101,8 +125,9 @@ function atr(candles: NexusCandle[], period: number): Array<number | null> {
 
 /**
  * Pine-equivalent VaultTrades Nexus calculation.
- * Only completed candles are evaluated. Each SAST calendar day can create
- * one signal. Existing trades are checked before a new signal is considered.
+ * Only completed candles are evaluated. Each instrument exchange-calendar day
+ * can create at most one entry. A new entry is blocked while a prior trade is
+ * still open. Existing trades are managed before new entries are considered.
  * If SL and TP are touched in the same candle, SL is recorded first.
  */
 export function evaluateVaultTradesNexus(
@@ -114,19 +139,23 @@ export function evaluateVaultTradesNexus(
     atrMultiplier?: number;
     riskReward?: number;
     now?: number;
+    exchangeTimezone?: string;
   } = {},
 ): VaultTradesNexusResult {
   const maPeriod = options.maPeriod ?? 20;
   const atrPeriod = options.atrPeriod ?? 14;
   const atrMultiplier = options.atrMultiplier ?? 2;
   const riskReward = options.riskReward ?? 1.5;
-  const minutes = TIMEFRAME_MINUTES[options.timeframe ?? "5m"] ?? 5;
+  const timeframe = options.timeframe ?? "5m";
+  const minutes = TIMEFRAME_MINUTES[timeframe] ?? 5;
+  const exchangeTimezone = options.exchangeTimezone || "UTC";
+  const dailyBar = ["1D", "1W", "1M"].includes(timeframe);
   const now = options.now ?? Date.now();
   const candles = [...input]
     .filter((candle) => [candle.open, candle.high, candle.low, candle.close].every(Number.isFinite))
-    .sort((a, b) => parseTime(a.datetime) - parseTime(b.datetime))
+    .sort((a, b) => parseTime(a.datetime, dailyBar ? exchangeTimezone : "UTC") - parseTime(b.datetime, dailyBar ? exchangeTimezone : "UTC"))
     .filter((candle) => {
-      const openedAt = parseTime(candle.datetime);
+      const openedAt = parseTime(candle.datetime, dailyBar ? exchangeTimezone : "UTC");
       return Number.isFinite(openedAt) && openedAt + minutes * 60_000 <= now;
     });
 
@@ -138,11 +167,9 @@ export function evaluateVaultTradesNexus(
   const closedTrades: NexusTrade[] = [];
   let lastSignalDay: string | null = null;
   let lastSignalTime: string | null = null;
-  let lastClosedStatus: "TP HIT" | "SL HIT" | null = null;
-
   for (let i = 0; i < candles.length; i++) {
     const candle = candles[i];
-    const day = sastDay(candle.datetime);
+    const day = exchangeDay(candle.datetime, exchangeTimezone, dailyBar);
     const currentAtr = atrValues[i];
 
     // Match the Pine source: manage existing trades before looking for a new entry.
@@ -165,12 +192,13 @@ export function evaluateVaultTradesNexus(
           exitPrice: won ? trade.takeProfit : trade.stopLoss,
         };
         closedTrades.push(closed);
-        lastClosedStatus = won ? "TP HIT" : "SL HIT";
         openTrades.splice(tradeIndex, 1);
       }
     }
 
-    if (!day || lastSignalDay === day || currentAtr == null || !Number.isFinite(currentAtr) || currentAtr <= 0) continue;
+    // One entry per exchange date. Never stack a second position while an
+    // earlier trade remains open, even if that position crosses midnight.
+    if (!day || lastSignalDay === day || openTrades.length > 0 || currentAtr == null || !Number.isFinite(currentAtr) || currentAtr <= 0) continue;
     const upper = maHigh[i];
     const lower = maLow[i];
     if (upper == null || lower == null) continue;
@@ -211,12 +239,12 @@ export function evaluateVaultTradesNexus(
         ? "SL HIT"
         : "WAITING";
   const statusReason = active
-    ? "The Pine strategy trade remains open. It will stay active until its stop loss or take profit is reached on a completed candle."
+    ? "The trade remains active until its stop loss or take profit is reached on a completed candle. The one-entry-per-day limit does not interrupt trade management."
     : latestClosedTrade?.status === "TP_HIT"
-      ? "Take profit was reached. The trade is closed; the daily signal limit still applies."
+      ? "Take profit was reached and the trade is closed. A maximum of one entry is permitted per instrument exchange-calendar day."
       : latestClosedTrade?.status === "SL_HIT"
-        ? "Stop loss was reached. The trade is closed; the daily signal limit still applies."
-        : "No valid entry has triggered on a completed candle yet. A BUY requires the close above both 20-period SMA High and SMA Low; a SELL requires the close below both.";
+        ? "Stop loss was reached and the trade is closed. A maximum of one entry is permitted per instrument exchange-calendar day."
+        : "No valid entry has triggered on a completed candle yet. A BUY requires the close above both 20-period SMA High and SMA Low; a SELL requires the close below both. The daily entry allowance resets at the instrument's exchange-calendar date, not at a fixed South African time.";
   const winners = closedTrades.filter((trade) => trade.resultR != null && trade.resultR > 0).length;
   const losers = closedTrades.filter((trade) => trade.resultR != null && trade.resultR < 0).length;
   const grossProfitR = closedTrades.reduce((sum, trade) => sum + Math.max(0, trade.resultR ?? 0), 0);
@@ -236,6 +264,7 @@ export function evaluateVaultTradesNexus(
     closedTrades,
     latestClosedTrade,
     statusReason,
+    exchangeTimezone,
     performance: {
       tradesTaken: openTrades.length + closedTrades.length,
       closedTrades: closedTrades.length,

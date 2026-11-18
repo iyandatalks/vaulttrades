@@ -2,7 +2,7 @@ export type TwelveDataInterval =
   | "1min" | "5min" | "10min" | "15min" | "30min" | "1h" | "4h" | "1day" | "1week" | "1month";
 export type MarketDataCandle = { datetime: string; open: number; high: number; low: number; close: number; volume: number | null };
 export type MarketInstrument = { symbol: string; name: string; type: string; exchange?: string; currency?: string };
-export type MarketDataSnapshot = { provider: "twelvedata"; symbol: string; interval: TwelveDataInterval; candles: MarketDataCandle[]; currentPrice: number | null; currentPriceTimestamp: string | null; fetchedAt: string };
+export type MarketDataSnapshot = { provider: "twelvedata"; symbol: string; interval: TwelveDataInterval; exchangeTimezone: string; candles: MarketDataCandle[]; currentPrice: number | null; currentPriceTimestamp: string | null; fetchedAt: string };
 
 const BASE_URL = "https://api.twelvedata.com";
 const INTERVALS: Record<string, TwelveDataInterval> = { "1m": "1min", "5m": "5min", "15m": "15min", "30m": "30min", "1H": "1h", "4H": "4h", "1D": "1day", "1W": "1week", "1M": "1month" };
@@ -67,7 +67,7 @@ export async function getTwelveDataInstruments(marketType: "FOREX" | "INDICES" |
   return Array.from(unique.values());
 }
 
-export async function getTwelveDataTimeSeries({ symbol, timeframe, outputsize = 120 }: { symbol: string; timeframe: string; outputsize?: number }): Promise<MarketDataSnapshot> {
+export async function getTwelveDataTimeSeries({ symbol, timeframe, outputsize = 120, normalizeToUtc = false }: { symbol: string; timeframe: string; outputsize?: number; normalizeToUtc?: boolean }): Promise<MarketDataSnapshot> {
   const interval = timeframe === "10m" ? "10min" : toTwelveDataInterval(timeframe);
   if (!interval) throw new Error(`Unsupported Twelve Data timeframe: ${timeframe}`);
   // Twelve Data has no native 10-minute interval. Build completed M10 bars
@@ -91,7 +91,12 @@ export async function getTwelveDataTimeSeries({ symbol, timeframe, outputsize = 
   }
 
   const requestSize = timeframe === "10m" ? Math.min(Math.max(outputsize * 2, 20), 5000) : Math.min(Math.max(outputsize, 20), 5000);
-  const payload = await twelveDataJson("time_series", { symbol: normalizedSymbol, interval: requestInterval, outputsize: String(requestSize), format: "JSON" });
+  // Normalize timestamps to UTC only for Nexus, whose daily limiter must use
+  // the exchange's actual calendar date. Other Analyzer strategies retain
+  // their existing provider timestamp convention.
+  const seriesParams: Record<string, string> = { symbol: normalizedSymbol, interval: requestInterval, outputsize: String(requestSize), format: "JSON" };
+  if (normalizeToUtc) seriesParams.timezone = "UTC";
+  const payload = await twelveDataJson("time_series", seriesParams);
   const values = Array.isArray(payload?.values) ? payload.values : [];
   const baseCandles: MarketDataCandle[] = values
     .map((row: Record<string, unknown>) => ({ datetime: String(row.datetime ?? ""), open: finiteNumber(row.open), high: finiteNumber(row.high), low: finiteNumber(row.low), close: finiteNumber(row.close), volume: finiteNumber(row.volume) }))
@@ -129,5 +134,8 @@ export async function getTwelveDataTimeSeries({ symbol, timeframe, outputsize = 
   // usable and fall back to the latest candle close.
   const live = await getTwelveDataLatestPrice(normalizedSymbol).catch(() => ({ price: null, timestamp: null }));
   const latestClose = candles.at(-1)?.close ?? null;
-  return { provider: "twelvedata", symbol: normalizedSymbol, interval, candles, currentPrice: live.price ?? latestClose, currentPriceTimestamp: live.timestamp, fetchedAt: new Date().toISOString() };
+  const exchangeTimezone = typeof payload?.meta?.exchange_timezone === "string" && payload.meta.exchange_timezone
+    ? payload.meta.exchange_timezone
+    : "UTC";
+  return { provider: "twelvedata", symbol: normalizedSymbol, interval, exchangeTimezone, candles, currentPrice: live.price ?? latestClose, currentPriceTimestamp: live.timestamp, fetchedAt: new Date().toISOString() };
 }
