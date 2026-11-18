@@ -509,6 +509,8 @@ Return JSON only.`;
       performance: nexusEngine?.performance ?? null,
       openTrades: nexusEngine?.openTrades ?? [],
       closedTrades: nexusEngine?.closedTrades ?? [],
+      latestClosedTrade: nexusEngine?.latestClosedTrade ?? null,
+      statusReason: nexusEngine?.statusReason ?? "No valid signal has been generated from a completed candle yet.",
     } : null;
 
     return Response.json({
@@ -535,7 +537,7 @@ Return JSON only.`;
         entryConfirmation: nexusEngine?.state === "TRADE ACTIVE",
         strategyConditionsMet: nexusEngine?.state === "TRADE ACTIVE",
         isExecutable: nexusEngine?.state === "TRADE ACTIVE",
-        waitReason: "", tradeReason: "",
+        waitReason: nexusEngine?.statusReason ?? "", tradeReason: nexusEngine?.state === "TRADE ACTIVE" ? "Trade remains open until the Pine-defined stop loss or take profit is reached." : "",
       } : strategyId === "ema20" ? {
         projectedDirection: ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.direction : "NO TRADE",
         analysisState: ema20Engine?.state === "TRADE ACTIVE" ? "ACTIVE" : ema20Engine?.state === "SL HIT" ? "NO TRADE" : ema20Engine?.state === "TP HIT" ? "COMPLETED" : "WAITING",
