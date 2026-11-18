@@ -101,6 +101,7 @@ export default function JournalClient({ initialDraft = null }: { initialDraft?: 
     pnl: "",
     emotion: "",
     fundedAccountId: "",
+    entry: "", sl: "", tp: "", lotSize: "",
   });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -182,7 +183,7 @@ export default function JournalClient({ initialDraft = null }: { initialDraft?: 
   useEffect(() => {
     if (!initialDraft) return;
     setPendingDraft(initialDraft);
-    setForm((current) => ({ ...current, tradeDate: todaySast(), account: initialDraft.accountType, currency: initialDraft.currency, session: "—", symbol: initialDraft.symbol, strategy: initialDraft.strategy, result: "OPEN", pnl: "0", emotion: "", fundedAccountId: initialDraft.fundedAccountId || "" }));
+    setForm((current) => ({ ...current, tradeDate: todaySast(), account: initialDraft.accountType, currency: initialDraft.currency, session: "—", symbol: initialDraft.symbol, strategy: initialDraft.strategy, result: "OPEN", pnl: "0", emotion: "", fundedAccountId: initialDraft.fundedAccountId || "", entry: String(initialDraft.entry), sl: String(initialDraft.sl), tp: String(initialDraft.tp1), lotSize: String(initialDraft.lotSize) }));
     if (initialDraft.fundedAccountId) setSelectedFirmId(initialDraft.fundedAccountId);
   }, [initialDraft]);
 
@@ -300,9 +301,9 @@ export default function JournalClient({ initialDraft = null }: { initialDraft?: 
       emotion: form.emotion.trim(),
       note: form.emotion.trim(),
       direction: existingEntry?.direction ?? pendingDraft?.direction ?? null,
-      entry: existingEntry?.entry ?? pendingDraft?.entry ?? null, sl: existingEntry?.sl ?? pendingDraft?.sl ?? null,
-      tp: existingEntry?.tp ?? pendingDraft?.tp1 ?? null, tp2: existingEntry?.tp2 ?? null, tp3: existingEntry?.tp3 ?? null,
-      lot_size: existingEntry?.lot_size ?? pendingDraft?.lotSize ?? null, risk_amount: existingEntry?.risk_amount ?? pendingDraft?.riskAmount ?? null,
+      entry: form.entry.trim() !== "" ? Number(form.entry) : (existingEntry?.entry ?? pendingDraft?.entry ?? null), sl: form.sl.trim() !== "" ? Number(form.sl) : (existingEntry?.sl ?? pendingDraft?.sl ?? null),
+      tp: form.tp.trim() !== "" ? Number(form.tp) : (existingEntry?.tp ?? pendingDraft?.tp1 ?? null), tp2: existingEntry?.tp2 ?? null, tp3: existingEntry?.tp3 ?? null,
+      lot_size: form.lotSize.trim() !== "" ? Number(form.lotSize) : (existingEntry?.lot_size ?? pendingDraft?.lotSize ?? null), risk_amount: existingEntry?.risk_amount ?? pendingDraft?.riskAmount ?? null,
       risk_percent: existingEntry?.risk_percent ?? pendingDraft?.riskPercent ?? null, platform: existingEntry?.platform ?? pendingDraft?.platform ?? null,
       prop_firm: existingEntry?.prop_firm ?? pendingDraft?.propFirm ?? null, program_name: existingEntry?.program_name ?? pendingDraft?.programName ?? null,
       account_stage: existingEntry?.account_stage ?? pendingDraft?.accountStage ?? null, timeframe: existingEntry?.timeframe ?? pendingDraft?.timeframe ?? null,
@@ -313,7 +314,7 @@ export default function JournalClient({ initialDraft = null }: { initialDraft?: 
         account_size: pendingDraft?.accountSize ?? existingEntry?.data?.account_size ?? null,
         risk_amount: pendingDraft?.riskAmount ?? existingEntry?.data?.risk_amount ?? null,
         risk_percent: pendingDraft?.riskPercent ?? existingEntry?.data?.risk_percent ?? null,
-        lot_size: pendingDraft?.lotSize ?? existingEntry?.data?.lot_size ?? null,
+        lot_size: form.lotSize.trim() !== "" ? Number(form.lotSize) : (pendingDraft?.lotSize ?? existingEntry?.data?.lot_size ?? null),
         account_reference: pendingDraft?.accountReference ?? existingEntry?.data?.account_reference ?? null,
         currency: form.account === "Funded" ? ((fundedAccounts.find((a) => a.id === (form.fundedAccountId || selectedFirmId))?.currency as Currency) ?? pendingDraft?.currency ?? "USD") : form.currency },
       
@@ -342,6 +343,7 @@ export default function JournalClient({ initialDraft = null }: { initialDraft?: 
       pnl: "",
       emotion: "",
       fundedAccountId: selectedFirmId,
+      entry: "", sl: "", tp: "", lotSize: "",
     });
     setSaved(true);
     setTimeout(() => setSaved(false), 1800);
@@ -367,6 +369,7 @@ export default function JournalClient({ initialDraft = null }: { initialDraft?: 
       pnl: String(e.pnl),
       emotion: e.emotion,
       fundedAccountId: e.funded_account_id ?? "",
+      entry: e.entry == null ? "" : String(e.entry), sl: e.sl == null ? "" : String(e.sl), tp: e.tp == null ? "" : String(e.tp), lotSize: e.lot_size == null ? "" : String(e.lot_size),
     });
     if (e.funded_account_id) setSelectedFirmId(e.funded_account_id);
   };
@@ -633,6 +636,13 @@ export default function JournalClient({ initialDraft = null }: { initialDraft?: 
               placeholder="0.00"
             />
           </label>
+
+          {(pendingDraft || editingId) && <>
+            <label className="muted">Entry price<input className="coach-question" type="number" step="any" value={form.entry} onChange={(e) => set("entry", e.target.value)} /></label>
+            <label className="muted">Stop Loss<input className="coach-question" type="number" step="any" value={form.sl} onChange={(e) => set("sl", e.target.value)} /></label>
+            <label className="muted">Take Profit<input className="coach-question" type="number" step="any" value={form.tp} onChange={(e) => set("tp", e.target.value)} /></label>
+            <label className="muted">Lot Size<input className="coach-question" type="number" step="any" value={form.lotSize} onChange={(e) => set("lotSize", e.target.value)} /></label>
+          </>}
 
           <label className="muted">
             Emotion / short note
