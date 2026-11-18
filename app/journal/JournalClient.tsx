@@ -295,7 +295,6 @@ export default function JournalClient({ initialDraft = null }: { initialDraft?: 
       symbol: form.symbol.trim(),
       strategy: form.strategy.trim() || "Other",
       result: form.result,
-      trade_status: form.result === "OPEN" ? "OPEN" : "CLOSED",
       pnl,
       total: pnl,
       emotion: form.emotion.trim(),
