@@ -324,7 +324,7 @@ export default function AnalyzerPage() {
       if (!res.ok) throw new Error(data.error || "Unable to analyze live market data.");
       setResult(data);
       const candles = Array.isArray(data.chart?.candles) ? data.chart.candles : [];
-      if (candles.length >= 30 && strategy !== "srbOb" && strategy !== "lsobr" && strategy !== "ema20" && strategy !== "fibRetracement" && strategy !== "supplyDemand") {
+      if (candles.length >= 30 && strategy !== "srbOb" && strategy !== "lsobr" && strategy !== "ema20" && strategy !== "fibRetracement" && strategy !== "supplyDemand" && strategy !== "vaulttradesNexus") {
         setScannerLoading(true);
         try {
           const scannerRes = await fetch("/api/ai-scanner", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
@@ -486,19 +486,48 @@ export default function AnalyzerPage() {
         <div className="section-label">TRADE STATUS</div>
         {result.strategyEngine?.openTrades?.length ? <>
           <h2 className="title" style={{ marginBottom: 12 }}>TRADE ACTIVE</h2>
+          <p className="muted" style={{ marginTop: 0 }}>{result.strategyEngine.statusReason}</p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(250px,1fr))", gap: 12 }}>
-            {result.strategyEngine.openTrades.map((trade) => <div className="condition-box" key={trade.entryTime}>
-              <strong style={{ fontSize: 18, color: trade.direction === "BUY" ? "#35c98a" : "#f06b72" }}>{trade.direction}</strong>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8, marginTop: 10 }}>
-                <PriceLevel label="ENTRY" value={trade.entry} kind="entry" />
-                <PriceLevel label="STOP LOSS" value={trade.stopLoss} kind="sl" />
-                <PriceLevel label="TAKE PROFIT" value={trade.takeProfit} kind="tp" />
-              </div>
-              <div className="muted" style={{ marginTop: 8, fontSize: 11 }}>{trade.entryDay}</div>
-              <button className="primary" type="button" style={{ marginTop: 12 }} onClick={() => openRiskManager(trade)}>Calculate Lot Size</button>
-            </div>)}
+            {result.strategyEngine.openTrades.map((trade) => {
+              const currentPrice = Number(result.market?.currentPrice);
+              const hasCurrentPrice = Number.isFinite(currentPrice);
+              const moveFromEntry = hasCurrentPrice ? (trade.direction === "BUY" ? currentPrice - trade.entry : trade.entry - currentPrice) : null;
+              const distanceToTarget = hasCurrentPrice ? (trade.direction === "BUY" ? trade.takeProfit - currentPrice : currentPrice - trade.takeProfit) : null;
+              const distanceToStop = hasCurrentPrice ? (trade.direction === "BUY" ? currentPrice - trade.stopLoss : trade.stopLoss - currentPrice) : null;
+              return <div className="condition-box" key={trade.entryTime}>
+                <strong style={{ fontSize: 18, color: trade.direction === "BUY" ? "#35c98a" : "#f06b72" }}>{trade.direction} · TRADE ACTIVE</strong>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8, marginTop: 10 }}>
+                  <PriceLevel label="ENTRY" value={trade.entry} kind="entry" />
+                  <PriceLevel label="STOP LOSS" value={trade.stopLoss} kind="sl" />
+                  <PriceLevel label="TAKE PROFIT" value={trade.takeProfit} kind="tp" />
+                </div>
+                <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>Signal date: {trade.entryDay} · Entry time: {trade.entryTime}</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(125px,1fr))", gap: 8, marginTop: 10 }}>
+                  <div className="condition-box"><strong>CURRENT PRICE</strong><div style={{ marginTop: 5 }}>{hasCurrentPrice ? fmt(currentPrice) : "Unavailable"}</div></div>
+                  <div className="condition-box"><strong>MOVE FROM ENTRY</strong><div style={{ marginTop: 5 }}>{moveFromEntry == null ? "—" : (moveFromEntry > 0 ? "+" : "") + fmt(moveFromEntry)}</div></div>
+                  <div className="condition-box"><strong>DISTANCE TO TP</strong><div style={{ marginTop: 5 }}>{distanceToTarget == null ? "—" : fmt(distanceToTarget)}</div></div>
+                  <div className="condition-box"><strong>DISTANCE TO SL</strong><div style={{ marginTop: 5 }}>{distanceToStop == null ? "—" : fmt(distanceToStop)}</div></div>
+                </div>
+                <button className="primary" type="button" style={{ marginTop: 12 }} onClick={() => openRiskManager(trade)}>Calculate Lot Size</button>
+              </div>;
+            })}
           </div>
-        </> : <h2 className="title" style={{ marginBottom: 12 }}>{scannerStatus}</h2>}
+        </> : result.strategyEngine?.latestClosedTrade ? <>
+          <h2 className="title" style={{ marginBottom: 8 }}>{result.strategyEngine.latestClosedTrade.status === "TP_HIT" ? "TAKE PROFIT HIT" : "STOP LOSS HIT"}</h2>
+          <p className="muted" style={{ marginTop: 0 }}>{result.strategyEngine.statusReason}</p>
+          <div className="condition-box">
+            <strong style={{ color: result.strategyEngine.latestClosedTrade.direction === "BUY" ? "#35c98a" : "#f06b72" }}>{result.strategyEngine.latestClosedTrade.direction} · TRADE CLOSED</strong>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8, marginTop: 10 }}>
+              <PriceLevel label="ENTRY" value={result.strategyEngine.latestClosedTrade.entry} kind="entry" />
+              <PriceLevel label="STOP LOSS" value={result.strategyEngine.latestClosedTrade.stopLoss} kind="sl" />
+              <PriceLevel label="TAKE PROFIT" value={result.strategyEngine.latestClosedTrade.takeProfit} kind="tp" />
+            </div>
+            <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>Entry: {result.strategyEngine.latestClosedTrade.entryTime} · Exit: {result.strategyEngine.latestClosedTrade.exitTime ?? "Completed candle"} · Exit price: {fmt(result.strategyEngine.latestClosedTrade.exitPrice)}</div>
+          </div>
+        </> : <>
+          <h2 className="title" style={{ marginBottom: 8 }}>WAITING FOR VALID SIGNAL</h2>
+          <p className="muted" style={{ marginTop: 0 }}>{result.strategyEngine?.statusReason ?? "No valid signal has been generated from a completed candle yet."}</p>
+        </>}
       </section> : <section className="card execution-card" style={{ border: "1px solid rgba(212,166,55,.28)", background: "linear-gradient(145deg, rgba(10,16,30,.98), rgba(5,8,18,.98))" }}>
         <div className="section-label">TRADE STATUS</div>
         <h2 className="title" style={{ marginBottom: 12 }}>{scannerStatus}</h2>
