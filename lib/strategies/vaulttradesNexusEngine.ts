@@ -15,6 +15,8 @@ export type NexusTrade = {
   entryDay: string;
   status: "OPEN" | "TP_HIT" | "SL_HIT";
   resultR: number | null;
+  exitTime?: string;
+  exitPrice?: number;
 };
 
 export type VaultTradesNexusResult = {
@@ -28,6 +30,8 @@ export type VaultTradesNexusResult = {
   signalDay: string | null;
   openTrades: NexusTrade[];
   closedTrades: NexusTrade[];
+  latestClosedTrade: NexusTrade | null;
+  statusReason: string;
   performance: {
     tradesTaken: number;
     closedTrades: number;
@@ -135,7 +139,6 @@ export function evaluateVaultTradesNexus(
   let lastSignalDay: string | null = null;
   let lastSignalTime: string | null = null;
   let lastClosedStatus: "TP HIT" | "SL HIT" | null = null;
-  let lastClosedBarIndex = -1;
 
   for (let i = 0; i < candles.length; i++) {
     const candle = candles[i];
@@ -158,10 +161,11 @@ export function evaluateVaultTradesNexus(
           ...trade,
           status: won ? "TP_HIT" : "SL_HIT",
           resultR: won ? riskReward : -1,
+          exitTime: candle.datetime,
+          exitPrice: won ? trade.takeProfit : trade.stopLoss,
         };
         closedTrades.push(closed);
         lastClosedStatus = won ? "TP HIT" : "SL HIT";
-        lastClosedBarIndex = i;
         openTrades.splice(tradeIndex, 1);
       }
     }
@@ -198,6 +202,21 @@ export function evaluateVaultTradesNexus(
   }
 
   const active = openTrades.length ? openTrades[openTrades.length - 1] : null;
+  const latestClosedTrade = closedTrades.length ? closedTrades[closedTrades.length - 1] : null;
+  const state: VaultTradesNexusResult["state"] = active
+    ? "TRADE ACTIVE"
+    : latestClosedTrade?.status === "TP_HIT"
+      ? "TP HIT"
+      : latestClosedTrade?.status === "SL_HIT"
+        ? "SL HIT"
+        : "WAITING";
+  const statusReason = active
+    ? "The Pine strategy trade remains open. It will stay active until its stop loss or take profit is reached on a completed candle."
+    : latestClosedTrade?.status === "TP_HIT"
+      ? "Take profit was reached. The trade is closed; the daily signal limit still applies."
+      : latestClosedTrade?.status === "SL_HIT"
+        ? "Stop loss was reached. The trade is closed; the daily signal limit still applies."
+        : "No valid entry has triggered on a completed candle yet. A BUY requires the close above both 20-period SMA High and SMA Low; a SELL requires the close below both.";
   const winners = closedTrades.filter((trade) => trade.resultR != null && trade.resultR > 0).length;
   const losers = closedTrades.filter((trade) => trade.resultR != null && trade.resultR < 0).length;
   const grossProfitR = closedTrades.reduce((sum, trade) => sum + Math.max(0, trade.resultR ?? 0), 0);
@@ -205,7 +224,7 @@ export function evaluateVaultTradesNexus(
   const totalR = closedTrades.reduce((sum, trade) => sum + (trade.resultR ?? 0), 0);
 
   return {
-    state: active ? "TRADE ACTIVE" : lastClosedBarIndex === candles.length - 1 ? (lastClosedStatus ?? "WAITING") : "WAITING",
+    state,
     direction: active?.direction ?? "NO TRADE",
     entry: active?.entry ?? null,
     stopLoss: active?.stopLoss ?? null,
@@ -215,6 +234,8 @@ export function evaluateVaultTradesNexus(
     signalDay: active?.entryDay ?? lastSignalDay,
     openTrades,
     closedTrades,
+    latestClosedTrade,
+    statusReason,
     performance: {
       tradesTaken: openTrades.length + closedTrades.length,
       closedTrades: closedTrades.length,
