@@ -311,6 +311,9 @@ export default function JournalClient({ initialDraft = null }: { initialDraft?: 
       trade_status: pendingDraft ? "PLANNED" : (form.result === "OPEN" ? "OPEN" : "CLOSED"),
       data: { ...(existingEntry?.data ?? {}), account: form.account,
         source: pendingDraft ? "analyzer" : (existingEntry?.data?.source ?? "manual"),
+        entry: form.entry.trim() !== "" ? Number(form.entry) : (pendingDraft?.entry ?? existingEntry?.data?.entry ?? null),
+        stop_loss: form.sl.trim() !== "" ? Number(form.sl) : (pendingDraft?.sl ?? existingEntry?.data?.stop_loss ?? null),
+        take_profit: form.tp.trim() !== "" ? Number(form.tp) : (pendingDraft?.tp1 ?? existingEntry?.data?.take_profit ?? null),
         account_size: pendingDraft?.accountSize ?? existingEntry?.data?.account_size ?? null,
         risk_amount: pendingDraft?.riskAmount ?? existingEntry?.data?.risk_amount ?? null,
         risk_percent: pendingDraft?.riskPercent ?? existingEntry?.data?.risk_percent ?? null,
@@ -352,7 +355,7 @@ export default function JournalClient({ initialDraft = null }: { initialDraft?: 
 
   const discardDraft = () => {
     setPendingDraft(null);
-    setForm({ tradeDate: todaySast(), account: "Personal", currency: "ZAR", session: "Asia", symbol: "XAUUSD", strategy: "EMA20", result: "WIN", pnl: "", emotion: "", fundedAccountId: "" });
+    setForm({ tradeDate: todaySast(), account: "Personal", currency: "ZAR", session: "Asia", symbol: "XAUUSD", strategy: "EMA20", result: "WIN", pnl: "", emotion: "", fundedAccountId: "", entry: "", sl: "", tp: "", lotSize: "" });
     router.replace("/journal");
   };
 
