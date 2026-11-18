@@ -165,7 +165,7 @@ export async function POST(request: Request) {
     if (!providerRoute.available) return Response.json({ error: providerRoute.reason || "Market data is unavailable." }, { status: 503 });
     const apiKey = process.env.OPENAI_API_KEY;
 
-    const market = await getTwelveDataTimeSeries({ symbol, timeframe, outputsize: strategyId === "ema20" || strategyId === "vaulttradesNexus" ? 5000 : 250 });
+    const market = await getTwelveDataTimeSeries({ symbol, timeframe, outputsize: strategyId === "ema20" || strategyId === "vaulttradesNexus" ? 5000 : 250, normalizeToUtc: strategyId === "vaulttradesNexus" });
     if (market.candles.length < 40) return Response.json({ error: "Not enough live market history was returned for this symbol/timeframe." }, { status: 422 });
     // Silver is fetched only for the Auto Fib strategy on Gold instruments; all other Analyzer requests retain their existing provider-call count.
     const isGoldInstrument = /XAU|GOLD/.test(symbol.replace(/[^A-Z]/g, ""));
