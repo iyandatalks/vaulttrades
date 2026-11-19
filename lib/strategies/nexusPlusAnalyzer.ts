@@ -44,7 +44,7 @@ const ATR_MULTIPLIERS: Record<string, number> = {
 
 function sastTime(datetime: string, timeframe: string) {
   const normalized = datetime.includes("T") ? datetime : datetime.replace(" ", "T");
-  const hasZone = /(?:Z|[+-]\\d{2}:?\\d{2})$/i.test(normalized);
+  const hasZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(normalized);
   const opened = new Date(hasZone ? normalized : normalized + "Z");
   if (!Number.isFinite(opened.getTime())) return null;
   const closed = new Date(opened.getTime() + (TF_MINUTES[timeframe] ?? 0) * 60_000);
@@ -85,7 +85,7 @@ type H4AuthoritySnapshot = { closedAt: number; direction: Direction | "NEUTRAL";
 
 function candleOpenMs(datetime: string): number | null {
   const normalized = datetime.includes("T") ? datetime : datetime.replace(" ", "T");
-  const hasZone = /(?:Z|[+-]\\d{2}:?\\d{2})$/i.test(normalized);
+  const hasZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(normalized);
   const value = Date.parse(hasZone ? normalized : normalized + "Z");
   return Number.isFinite(value) ? value : null;
 }
