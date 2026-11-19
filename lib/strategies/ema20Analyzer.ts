@@ -171,7 +171,6 @@ export function evaluateEma20Analyzer(
   }
 
   if (lastCompletedToday) {
-    const sameDay = lastCompletedToday.entryDay === currentSastDay;
     return {
       state: lastCompletedToday.status, direction: lastCompletedToday.direction,
       entry: lastCompletedToday.entry, stopLoss: lastCompletedToday.stopLoss,
