@@ -658,6 +658,7 @@ Return JSON only.`;
     } : null;
 
     return Response.json({
+      dataSource: marketDataSource,
       market: { type: marketType, asset: market.symbol, timeframe, currentPrice: liveCurrentPrice, directionalBias: ai.directionalBias, session: ai.session },
       strategy: { id: strategyId, name: profileStrategy.name, category: profileStrategy.category },
       sourceIndicators: profileStrategy.indicatorSpecs,
