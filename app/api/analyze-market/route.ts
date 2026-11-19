@@ -29,6 +29,10 @@ const EMA20_TIMEFRAME_MINUTES: Record<string, number> = {
 };
 
 type OandaPrice = { o: string; h: string; l: string; c: string };
+function getOandaPriceComponent() {
+  const value = (process.env.OANDA_PRICE_COMPONENT ?? "M").toUpperCase();
+  return ["M", "B", "A"].includes(value) ? value : "M";
+}
 function toOandaInstrument(symbol: string) {
   const normalized = symbol.toUpperCase().replace(/^OANDA:/, "").replace(/[^A-Z]/g, "");
   if (normalized === "GOLD") return "XAU_USD";
@@ -45,8 +49,7 @@ async function getOandaCandles(symbol: string, timeframe: string, count: number)
   if (!g) return null;
   const environment = (process.env.OANDA_ENVIRONMENT ?? "live").toLowerCase();
   const baseUrl = environment === "practice" ? "https://api-fxpractice.oanda.com" : "https://api-fxtrade.oanda.com";
-  const configuredPrice = (process.env.OANDA_PRICE_COMPONENT ?? "M").toUpperCase();
-  const priceComponent = ["M", "B", "A"].includes(configuredPrice) ? configuredPrice : "M";
+  const priceComponent = getOandaPriceComponent();
   const params = new URLSearchParams({ granularity: g, count: String(Math.min(5000, Math.max(100, count))), price: priceComponent });
   const response = await fetch(`${baseUrl}/v3/accounts/${encodeURIComponent(accountId)}/instruments/${instrument}/candles?${params.toString()}`, {
     headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
@@ -208,7 +211,7 @@ export async function POST(request: Request) {
       ? await getOandaCandles(symbol, "1m", 5000).catch(() => null)
       : null;
     const marketDataSource = oandaPrimaryCandles?.length
-      ? `OANDA v20 (${(process.env.OANDA_PRICE_COMPONENT ?? "M").toUpperCase()})`
+      ? `OANDA v20 (${getOandaPriceComponent()})`
       : oandaConfigured && strategyId === "vortex" ? "Twelve Data fallback (OANDA unavailable)" : "Twelve Data";
     const market = oandaPrimaryCandles?.length
       ? ({
