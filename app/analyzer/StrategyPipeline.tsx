@@ -21,20 +21,22 @@ const score = (result: PipelineResult, key: keyof NonNullable<PipelineResult["sm
 const scoreText = (result: PipelineResult, key: keyof NonNullable<PipelineResult["smcScores"]>, label: string) => { const value = score(result, key); return value == null ? `${label}: not clearly scored` : `${label}: ${value}/10`; };
 function evidence(result: PipelineResult, label: string, preferred?: string[]) { const candidates = [...(preferred || []), ...(result.confirmedConditions || []), ...(result.missingConditions || [])].filter(Boolean); const hit = candidates.find(x => x.toLowerCase().includes(label.toLowerCase())); return hit || "No explicit confirmation recorded."; }
 
-function priceDecimals(value: number): number {
+function priceDecimals(value: number, symbol = ""): number {
+  const normalized = symbol.toUpperCase().replace(/[^A-Z]/g, "");
+  const isMetal = /^(XAU|XAG|XPT|XPD)/.test(normalized);
+  const isForexPair = normalized.length === 6 && /^[A-Z]{6}$/.test(normalized) && !isMetal;
+  if (isForexPair) return normalized.endsWith("JPY") ? 3 : 5;
   const abs = Math.abs(value);
-  if (abs >= 1000) return 2;
-  if (abs >= 100) return 2;
-  if (abs >= 10) return 3;
-  if (abs >= 1) return 4;
+  if (abs >= 1) return 2;
   return 5;
 }
 
-const fmt = (value: number | null | undefined) => value == null || !Number.isFinite(value)
+const fmt = (value: number | null | undefined, symbol = "") => value == null || !Number.isFinite(value)
   ? "—"
-  : value.toLocaleString(undefined, { minimumFractionDigits: priceDecimals(value), maximumFractionDigits: priceDecimals(value) });
+  : value.toLocaleString(undefined, { minimumFractionDigits: priceDecimals(value, symbol), maximumFractionDigits: priceDecimals(value, symbol) });
 
 function priceMap(result: PipelineResult): Stage[] {
+  const symbol = result.market?.asset || "";
   const s = result.marketData?.structure;
   const atr = s && result.marketData?.volatility?.atr != null && Number.isFinite(result.marketData.volatility.atr) ? result.marketData.volatility.atr : null;
   const support = s?.support ?? null;
@@ -44,9 +46,9 @@ function priceMap(result: PipelineResult): Stage[] {
   const projectedLow = result.projection?.zoneLow ?? null;
   const projectedHigh = result.projection?.zoneHigh ?? null;
   const currentZone = projectedLow != null && projectedHigh != null && projectedHigh > projectedLow
-    ? `${fmt(projectedLow)} – ${fmt(projectedHigh)}`
+    ? `${fmt(projectedLow, symbol)} – ${fmt(projectedHigh, symbol)}`
     : hasDistinctLevels
-      ? `${fmt(support)} – ${fmt(resistance)}`
+      ? `${fmt(support, symbol)} – ${fmt(resistance, symbol)}`
       : "No strategy-specific setup zone confirmed yet.";
   const upperLow = resistance;
   const upperHigh = resistance != null && range != null ? resistance + Math.max(range * 0.5, atr ?? 0) : null;
@@ -54,18 +56,19 @@ function priceMap(result: PipelineResult): Stage[] {
   const lowerLow = support != null && range != null ? support - Math.max(range * 0.5, atr ?? 0) : null;
 
   return [
-    { label: "Support", value: support != null ? fmt(support) : "No reliable structural support identified" },
-    { label: "Resistance", value: resistance != null ? fmt(resistance) : "No reliable structural resistance identified" },
-    { label: "Break above", value: upperLow != null && upperHigh != null ? `Close above ${fmt(upperLow)} → next structural area ${fmt(upperLow)} – ${fmt(upperHigh)}` : "Await a confirmed resistance level." },
-    { label: "Break below", value: lowerLow != null && lowerHigh != null ? `Close below ${fmt(lowerHigh)} → next structural area ${fmt(lowerLow)} – ${fmt(lowerHigh)}` : "Await a confirmed support level." },
+    { label: "Support", value: support != null ? fmt(support, symbol) : "No reliable structural support identified" },
+    { label: "Resistance", value: resistance != null ? fmt(resistance, symbol) : "No reliable structural resistance identified" },
+    { label: "Break above", value: upperLow != null && upperHigh != null ? `Close above ${fmt(upperLow, symbol)} → next structural area ${fmt(upperLow, symbol)} – ${fmt(upperHigh, symbol)}` : "Await a confirmed resistance level." },
+    { label: "Break below", value: lowerLow != null && lowerHigh != null ? `Close below ${fmt(lowerHigh, symbol)} → next structural area ${fmt(lowerLow, symbol)} – ${fmt(lowerHigh, symbol)}` : "Await a confirmed support level." },
     { label: "Current setup zone", value: currentZone },
   ];
 }
 
 function buildStages(result: PipelineResult): Stage[] {
+  const symbol = result.market?.asset || "";
   const id = result.strategy?.id || "";
   const a = result.strategyAnalysis;
-  const zone = result.projection?.zoneLow != null && result.projection?.zoneHigh != null ? `${fmt(result.projection.zoneLow)} – ${fmt(result.projection.zoneHigh)}` : "No reliable setup zone identified";
+  const zone = result.projection?.zoneLow != null && result.projection?.zoneHigh != null ? `${fmt(result.projection.zoneLow, symbol)} – ${fmt(result.projection.zoneHigh, symbol)}` : "No reliable setup zone identified";
   const bias = text(result.market?.directionalBias, "Neutral / unclear");
   const map = priceMap(result);
   const base: Stage[] = [];
