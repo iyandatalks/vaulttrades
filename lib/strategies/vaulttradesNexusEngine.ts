@@ -92,6 +92,23 @@ function exchangeDay(value: string, timeZone: string, dailyBar: boolean): string
   return get("year") + "-" + get("month") + "-" + get("day");
 }
 
+
+function sastMinuteAtBarClose(value: string, timeframeMinutes: number, dailyBar: boolean, exchangeTimezone: string): number | null {
+  const openedAt = parseTime(value, dailyBar ? exchangeTimezone : "UTC");
+  if (!Number.isFinite(openedAt)) return null;
+  const closedAt = openedAt + timeframeMinutes * 60_000;
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Africa/Johannesburg",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(closedAt));
+  const get = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? NaN);
+  const hour = get("hour");
+  const minute = get("minute");
+  return Number.isFinite(hour) && Number.isFinite(minute) ? hour * 60 + minute : null;
+}
+
 function sma(values: number[], period: number): Array<number | null> {
   const output: Array<number | null> = Array(values.length).fill(null);
   let sum = 0;
@@ -125,10 +142,11 @@ function atr(candles: NexusCandle[], period: number): Array<number | null> {
 
 /**
  * Pine-equivalent VaultTrades Nexus calculation.
- * Only completed candles are evaluated. Sequential entries are permitted
- * whenever a fresh source-defined signal occurs after the prior position closes.
- * Only one position may be open at a time. Existing trades are managed before
- * new entries are considered. If SL and TP are touched in one candle, SL wins.
+ * Only completed candles are evaluated. New entries are permitted only from
+ * 07:05 through 10:44 SAST; the entry window closes at 10:45 SAST.
+ * Multiple sequential entries are permitted within that window after a prior
+ * position closes. Only one position may be open at a time. Existing trades
+ * remain managed outside the entry window. If SL and TP are touched in one candle, SL wins.
  */
 export function evaluateVaultTradesNexus(
   input: NexusCandle[],
@@ -196,8 +214,11 @@ export function evaluateVaultTradesNexus(
       }
     }
 
-    // No daily entry cap. Never stack a second position while one is active.
-    if (!day || openTrades.length > 0 || currentAtr == null || !Number.isFinite(currentAtr) || currentAtr <= 0) continue;
+    // Nexus has a SAST entry window, not a one-trade-per-day limit.
+    // Positions already open are managed above even after the window closes.
+    const sastCloseMinute = sastMinuteAtBarClose(candle.datetime, minutes, dailyBar, exchangeTimezone);
+    const entryWindowOpen = sastCloseMinute !== null && sastCloseMinute >= 7 * 60 + 5 && sastCloseMinute < 10 * 60 + 45;
+    if (!day || !entryWindowOpen || openTrades.length > 0 || currentAtr == null || !Number.isFinite(currentAtr) || currentAtr <= 0) continue;
     const upper = maHigh[i];
     const lower = maLow[i];
     if (upper == null || lower == null) continue;
@@ -243,7 +264,7 @@ export function evaluateVaultTradesNexus(
       ? "Take profit was reached and the trade is closed. A fresh qualifying signal may open the next sequential trade."
       : latestClosedTrade?.status === "SL_HIT"
         ? "Stop loss was reached and the trade is closed. A fresh qualifying signal may open the next sequential trade."
-        : "No valid entry has triggered on a completed candle yet. A BUY requires the close above both 20-period SMA High and SMA Low; a SELL requires the close below both. There is no daily entry cap; only one position may be active at a time.";
+        : "No valid entry has triggered inside the 07:05–10:45 SAST entry window. A BUY requires the close above both 20-period SMA High and SMA Low; a SELL requires the close below both. Multiple sequential entries are allowed inside the window; only one position may be active at a time.";
   const winners = closedTrades.filter((trade) => trade.resultR != null && trade.resultR > 0).length;
   const losers = closedTrades.filter((trade) => trade.resultR != null && trade.resultR < 0).length;
   const grossProfitR = closedTrades.reduce((sum, trade) => sum + Math.max(0, trade.resultR ?? 0), 0);
