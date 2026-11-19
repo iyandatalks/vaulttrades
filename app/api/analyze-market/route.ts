@@ -44,7 +44,7 @@ async function getOandaCandles(symbol: string, timeframe: string, count: number)
   const accountId = process.env.OANDA_ACCOUNT_ID;
   const instrument = toOandaInstrument(symbol);
   if (!token || !accountId || !instrument) return null;
-  const granularity: Record<string, string> = { "1m": "M1", "5m": "M5" };
+  const granularity: Record<string, string> = { "1m": "M1", "5m": "M5", "15m": "M15" };
   const g = granularity[timeframe];
   if (!g) return null;
   const environment = (process.env.OANDA_ENVIRONMENT ?? "live").toLowerCase();
@@ -65,6 +65,15 @@ async function getOandaCandles(symbol: string, timeframe: string, count: number)
     if (![open, high, low, close].every(Number.isFinite)) return [];
     return [{ datetime: row.time, open, high, low, close, volume: typeof row.volume === "number" ? row.volume : null }];
   });
+}
+
+async function getVortexFeed(symbol: string, timeframe: "1m" | "5m" | "15m", oandaConfigured: boolean) {
+  if (oandaConfigured) {
+    const oandaCandles = await getOandaCandles(symbol, timeframe, 5000).catch(() => null);
+    if (oandaCandles?.length) return { candles: oandaCandles, source: `OANDA v20 (${getOandaPriceComponent()})` };
+  }
+  const fallback = await getTwelveDataTimeSeries({ symbol, timeframe, outputsize: 5000, normalizeToUtc: true });
+  return { candles: fallback.candles, source: "Twelve Data" };
 }
 
 function completedEma20Candles(candles: MarketDataCandle[], timeframe: string) {
@@ -196,7 +205,7 @@ export async function POST(request: Request) {
     const marketType = validMarket(body.marketType) ? body.marketType : "FOREX";
     const requestedTimeframe = validTimeframe(body.timeframe) ? body.timeframe : "15m";
     const strategyId = clean(body.strategy);
-    const timeframe = strategyId === "vortex" ? "1m" : requestedTimeframe;
+    const timeframe = strategyId === "vortex" ? (["1m", "5m", "15m"].includes(requestedTimeframe) ? requestedTimeframe : "1m") : requestedTimeframe;
     const symbol = clean(body.symbol).toUpperCase();
     const profileStrategy = ANALYZER_STRATEGY_MAP[strategyId];
     if (!profileStrategy) return Response.json({ error: "Invalid strategy selected." }, { status: 400 });
@@ -208,7 +217,7 @@ export async function POST(request: Request) {
     const apiKey = process.env.OPENAI_API_KEY;
 
     const oandaPrimaryCandles = strategyId === "vortex" && oandaConfigured
-      ? await getOandaCandles(symbol, "1m", 5000).catch(() => null)
+      ? await getOandaCandles(symbol, timeframe, 5000).catch(() => null)
       : null;
     const marketDataSource = oandaPrimaryCandles?.length
       ? `OANDA v20 (${getOandaPriceComponent()})`
@@ -217,7 +226,7 @@ export async function POST(request: Request) {
       ? ({
           provider: "oanda",
           symbol: toOandaInstrument(symbol) ?? symbol,
-          interval: timeframe === "5m" ? "5min" : "1min",
+          interval: timeframe === "5m" ? "5min" : timeframe === "15m" ? "15min" : "1min",
           currentPrice: oandaPrimaryCandles[oandaPrimaryCandles.length - 1]?.close ?? null,
           currentPriceTimestamp: oandaPrimaryCandles[oandaPrimaryCandles.length - 1]?.datetime ?? null,
           fetchedAt: new Date().toISOString(),
@@ -228,19 +237,24 @@ export async function POST(request: Request) {
     if (market.candles.length < 40) return Response.json({ error: "Not enough live market history was returned for this symbol/timeframe." }, { status: 422 });
     // Silver is optional confluence for Auto Fib and Vortex on Gold instruments.
     const isGoldInstrument = /XAU|GOLD/.test(symbol.replace(/[^A-Z]/g, ""));
-    const silverMarket = (strategyId === "fibRetracement" || strategyId === "vortex") && isGoldInstrument
-      ? strategyId === "vortex" && marketDataSource.startsWith("OANDA v20")
-        ? { candles: await getOandaCandles("XAGUSD", "1m", 5000).catch(() => null) ?? [] }
-        : await getTwelveDataTimeSeries({ symbol: "XAG/USD", timeframe, outputsize: strategyId === "vortex" ? 5000 : 250, normalizeToUtc: strategyId === "vortex" }).catch(() => null)
+    const silverMarket = strategyId === "fibRetracement" && isGoldInstrument
+      ? await getTwelveDataTimeSeries({ symbol: "XAG/USD", timeframe, outputsize: 250 }).catch(() => null)
       : null;
     const fibM5Market = strategyId === "fibRetracement" && timeframe !== "5m"
       ? await getTwelveDataTimeSeries({ symbol, timeframe: "5m", outputsize: 250 }).catch(() => null)
       : null;
-    const vortexM5Market = strategyId === "vortex"
-      ? marketDataSource.startsWith("OANDA v20")
-        ? { candles: await getOandaCandles(symbol, "5m", 5000).catch(() => null) ?? [] }
-        : await getTwelveDataTimeSeries({ symbol, timeframe: "5m", outputsize: 5000, normalizeToUtc: true }).catch(() => null)
+    const vortexM1Feed = strategyId === "vortex"
+      ? timeframe === "1m" ? { candles: market.candles, source: marketDataSource } : await getVortexFeed(symbol, "1m", oandaConfigured)
       : null;
+    const vortexM5Feed = strategyId === "vortex"
+      ? timeframe === "5m" ? { candles: market.candles, source: marketDataSource } : await getVortexFeed(symbol, "5m", oandaConfigured)
+      : null;
+    const vortexM15Feed = strategyId === "vortex"
+      ? timeframe === "15m" ? { candles: market.candles, source: marketDataSource } : await getVortexFeed(symbol, "15m", oandaConfigured)
+      : null;
+    const vortexSilverM1Feed = strategyId === "vortex" && isGoldInstrument ? await getVortexFeed("XAG/USD", "1m", oandaConfigured).catch(() => ({ candles: [], source: "Unavailable" })) : null;
+    const vortexSilverM5Feed = strategyId === "vortex" && isGoldInstrument ? await getVortexFeed("XAG/USD", "5m", oandaConfigured).catch(() => ({ candles: [], source: "Unavailable" })) : null;
+    const vortexSilverM15Feed = strategyId === "vortex" && isGoldInstrument ? await getVortexFeed("XAG/USD", "15m", oandaConfigured).catch(() => ({ candles: [], source: "Unavailable" })) : null;
     const nexusPlusH4Market = strategyId === "ema20" && (EMA20_TIMEFRAME_MINUTES[timeframe] ?? 0) < 240
       ? await getTwelveDataTimeSeries({ symbol, timeframe: "4H", outputsize: 1500, normalizeToUtc: true }).catch(() => null)
       : null;
@@ -273,13 +287,32 @@ export async function POST(request: Request) {
     const nexusEngine = strategyId === "vaulttradesNexus"
       ? evaluateVaultTradesNexus(market.candles, { timeframe, exchangeTimezone: market.exchangeTimezone })
       : null;
-    const vortexEngine = strategyId === "vortex" ? evaluateVortex({
-      m1Candles: completedEma20Candles(market.candles, "1m").map(c => ({ time: Date.parse(c.datetime), open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume ?? undefined })),
-      m5Candles: completedEma20Candles(vortexM5Market?.candles ?? [], "5m").map(c => ({ time: Date.parse(c.datetime), open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume ?? undefined })),
-      silverCandles: completedEma20Candles(silverMarket?.candles ?? [], "1m").map(c => ({ time: Date.parse(c.datetime), open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume ?? undefined })),
-      lotSize: Number.isFinite(Number(body.lotSize)) && Number(body.lotSize) >= 0.01 ? Math.floor(Number(body.lotSize) * 100) / 100 : 0.05,
-      tickSize: /XAU|XAG/.test(symbol.replace(/[^A-Z]/g, "")) ? 0.01 : /JPY/.test(symbol.replace(/[^A-Z]/g, "")) ? 0.001 : marketType === "FOREX" ? 0.00001 : 0.01,
-    }) : null;
+    const toVortexCandles = (candles: MarketDataCandle[], tf: "1m" | "5m" | "15m") => completedEma20Candles(candles, tf).map(c => ({
+      time: Date.parse(c.datetime), open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume ?? undefined,
+    }));
+    const vortexLotSize = Number.isFinite(Number(body.lotSize)) && Number(body.lotSize) >= 0.01 ? Math.floor(Number(body.lotSize) * 100) / 100 : 0.05;
+    const vortexTickSize = /XAU|XAG/.test(symbol.replace(/[^A-Z]/g, "")) ? 0.01 : /JPY/.test(symbol.replace(/[^A-Z]/g, "")) ? 0.001 : marketType === "FOREX" ? 0.00001 : 0.01;
+    const vortexEngines = strategyId === "vortex" ? {
+      "1m": evaluateVortex({
+        m1Candles: toVortexCandles(vortexM1Feed?.candles ?? [], "1m"),
+        m5Candles: toVortexCandles(vortexM5Feed?.candles ?? [], "5m"),
+        silverCandles: toVortexCandles(vortexSilverM1Feed?.candles ?? [], "1m"),
+        timeframe: "1m", confirmationTimeframe: "5m", lotSize: vortexLotSize, tickSize: vortexTickSize,
+      }),
+      "5m": evaluateVortex({
+        m1Candles: toVortexCandles(vortexM5Feed?.candles ?? [], "5m"),
+        m5Candles: toVortexCandles(vortexM5Feed?.candles ?? [], "5m"),
+        silverCandles: toVortexCandles(vortexSilverM5Feed?.candles ?? [], "5m"),
+        timeframe: "5m", confirmationTimeframe: "5m", lotSize: vortexLotSize, tickSize: vortexTickSize,
+      }),
+      "15m": evaluateVortex({
+        m1Candles: toVortexCandles(vortexM15Feed?.candles ?? [], "15m"),
+        m5Candles: toVortexCandles(vortexM15Feed?.candles ?? [], "15m"),
+        silverCandles: toVortexCandles(vortexSilverM15Feed?.candles ?? [], "15m"),
+        timeframe: "15m", confirmationTimeframe: "15m", lotSize: vortexLotSize, tickSize: vortexTickSize,
+      }),
+    } : null;
+    const vortexEngine = vortexEngines ? vortexEngines[timeframe as "1m" | "5m" | "15m"] : null;
     const ema20Bar = ema20Engine?.engine ?? null;
     const ema20EngineEvidence = ema20Engine ? {
       source: "VAULTTRADES_NEXUS_PLUS_PINE_V6",
@@ -514,16 +547,16 @@ Return JSON only.`;
         direction: active ? vortexEngine!.direction : "NO TRADE", decision: active ? "TRADE" : "NO TRADE",
         confidence: active ? vortexEngine!.score : 0, marketCondition: context.structure.trend ?? "Market",
         directionalBias: active ? vortexEngine!.direction : "NEUTRAL", session: "New York Silver Bullet windows",
-        higherTimeframe: "M5 confirmation", marketStructure: context.structure.trend ?? "Market",
+        higherTimeframe: "M1, M5 and M15 are evaluated as independent trade engines.", marketStructure: context.structure.trend ?? "Market",
         support: priceLevels.support, resistance: priceLevels.resistance,
         recentPriceAction: vortexEngine?.statusReason ?? "",
         setup: vortexEngine?.state ?? "WAITING", confirmedConditions: vortexEngine?.evidence ?? [],
         missingConditions: vortexEngine?.missingConditions ?? [], bos: 5, choch: 5, orderBlock: 5, fvg: 5, liquiditySweep: 5, displacement: 5,
-        pipeline: vortexEngine?.evidence ?? [], nextZone: "M1 pullback at 68.1%, 78.6% or 88% with M5 displacement confirmation",
+        pipeline: vortexEngine?.evidence ?? [], nextZone: `${timeframe.toUpperCase()} pullback at 68.1%, 78.6% or 88% with its own timeframe displacement confirmation`,
         invalidation: vortexEngine?.invalidation ?? "", entry: vortexEngine?.entry ?? null,
         stopLoss: vortexEngine?.stopLoss ?? null, tp1: vortexEngine?.tp1 ?? null, tp2: vortexEngine?.tp2 ?? null,
-        finalTp: vortexEngine?.tp5 ?? null, nextAction: vortexEngine?.statusReason ?? "WAIT",
-        educationalNote: "VaultTrades Vortex is deterministic: M1 execution, M5 displacement confirmation, preferred 68.1% / 78.6% / 88% Fib hierarchy, opposing target OB stop, and five targets. Default lot is 0.05; 0.01–0.04 closes fully at TP1.",
+        finalTp: vortexEngine?.tp3 ?? null, nextAction: vortexEngine?.statusReason ?? "WAIT",
+        educationalNote: "VaultTrades Vortex evaluates M1, M5 and M15 as independent strategies. Each timeframe has its own Fib setup, order-block-wick stop, and TP1–TP3 ladder. M1 additionally uses completed M5 displacement confirmation. Default lot is 0.05; 0.01–0.04 closes fully at TP1.",
       };
     } else if (strategyId === "vaulttradesNexus") {
       const active = nexusEngine?.state === "TRADE ACTIVE";
@@ -564,7 +597,7 @@ Return JSON only.`;
     const direction = strategyId === "ema20" ? engineDirection : strategyId === "vortex" ? (vortexEngine?.state === "TRADE ACTIVE" ? vortexEngine.direction : "NO TRADE") : strategyId === "vaulttradesNexus" ? (nexusEngine?.direction ?? "NO TRADE") : strategyId === "srbOb" ? (srbObEngine?.direction ?? "NO TRADE") : strategyId === "lsobr" ? (lsobrEngine?.direction ?? "NO TRADE") : strategyId === "supplyDemand" ? (supplyDemandEngine?.direction ?? "NO TRADE") : ai.direction as Direction;
     const entry = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.entry : null) : strategyId === "vortex" ? (vortexEngine?.state === "TRADE ACTIVE" ? vortexEngine.entry : null) : strategyId === "vaulttradesNexus" ? (nexusEngine?.entry ?? null) : strategyId === "srbOb" ? (srbObEngine?.entry ?? null) : strategyId === "lsobr" ? (lsobrEngine?.entry ?? null) : strategyId === "supplyDemand" ? (supplyDemandEngine?.entry ?? null) : (typeof ai.entry === "number" ? ai.entry : null);
     const stopLoss = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.stopLoss : null) : strategyId === "vortex" ? (vortexEngine?.state === "TRADE ACTIVE" ? vortexEngine.stopLoss : null) : strategyId === "vaulttradesNexus" ? (nexusEngine?.stopLoss ?? null) : strategyId === "srbOb" ? (srbObEngine?.stopLoss ?? null) : strategyId === "lsobr" ? (lsobrEngine?.stopLoss ?? null) : strategyId === "supplyDemand" ? (supplyDemandEngine?.stopLoss ?? null) : (typeof ai.stopLoss === "number" ? ai.stopLoss : null);
-    const finalTp = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.target : null) : strategyId === "vortex" ? (vortexEngine?.state === "TRADE ACTIVE" ? vortexEngine.tp5 : null) : strategyId === "vaulttradesNexus" ? (nexusEngine?.takeProfit ?? null) : strategyId === "srbOb" ? (srbObEngine?.finalTp ?? null) : strategyId === "lsobr" ? (lsobrEngine?.finalTp ?? null) : strategyId === "supplyDemand" ? (supplyDemandEngine?.finalTp ?? null) : (typeof ai.finalTp === "number" ? ai.finalTp : typeof ai.tp2 === "number" ? ai.tp2 : null);
+    const finalTp = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.target : null) : strategyId === "vortex" ? (vortexEngine?.state === "TRADE ACTIVE" ? vortexEngine.tp3 : null) : strategyId === "vaulttradesNexus" ? (nexusEngine?.takeProfit ?? null) : strategyId === "srbOb" ? (srbObEngine?.finalTp ?? null) : strategyId === "lsobr" ? (lsobrEngine?.finalTp ?? null) : strategyId === "supplyDemand" ? (supplyDemandEngine?.finalTp ?? null) : (typeof ai.finalTp === "number" ? ai.finalTp : typeof ai.tp2 === "number" ? ai.tp2 : null);
     const minimumRR = strategyId === "vortex" ? 0.01 : strategyId === "vaulttradesNexus" ? 1.5 : strategyId === "ema20" ? 1.81 : strategyId === "srbOb" ? 0.1 : strategyId === "supplyDemand" ? 0.01 : 2;
     const math = tradeMath(direction, entry, stopLoss, finalTp, liveCurrentPrice, minimumRR, strategyId === "ema20" || strategyId === "supplyDemand" || strategyId === "vaulttradesNexus" || strategyId === "vortex" ? 0 : 0.1, strategyId === "ema20" || strategyId === "supplyDemand" || strategyId === "vaulttradesNexus" || strategyId === "vortex" ? Number.POSITIVE_INFINITY : 0.5);
     const strongSmc = [ai.bos, ai.choch, ai.orderBlock, ai.fvg, ai.liquiditySweep, ai.displacement].filter((x: unknown) => typeof x === "number" && x >= 7).length;
@@ -631,6 +664,7 @@ Return JSON only.`;
       indicatorReadings: context.selectedIndicators,
       chart: { candles: market.candles, channel20: channel, orderBlocks: visualOrderBlocks },
       liquidityTargets: strategyId === "vortex" ? vortexLiquidityTargets : liquidityTargets,
+      timeframeEngines: strategyId === "vortex" ? vortexEngines : undefined,
       structure: { ...lockedStructure }, volatility: context.volatility,
       strategyEngine: strategyId === "lsobr" ? lsobrEngineEvidence : strategyId === "srbOb" ? srbObEngineEvidence : strategyId === "fibRetracement" ? autoFibEngineEvidence : strategyId === "supplyDemand" ? supplyDemandEngine : nativeEngineOutput,
       scanner: strategyId === "vortex" ? {
@@ -643,7 +677,7 @@ Return JSON only.`;
         projectedStopLoss: vortexEngine?.stopLoss ?? null,
         projectedTp1: vortexEngine?.tp1 ?? null,
         projectedTp2: vortexEngine?.tp2 ?? null,
-        projectedFinalTp: vortexEngine?.tp5 ?? null,
+        projectedFinalTp: vortexEngine?.tp3 ?? null,
         stopHit: vortexEngine?.state === "SL HIT",
         entryConfirmation: vortexEngine?.state === "TRADE ACTIVE",
         strategyConditionsMet: vortexEngine?.state === "TRADE ACTIVE",
