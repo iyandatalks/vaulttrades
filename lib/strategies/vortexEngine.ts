@@ -1,17 +1,17 @@
 export type VortexCandle = { time: number; open: number; high: number; low: number; close: number; volume?: number };
 export type VortexDirection = "BUY" | "SELL";
 export type VortexTrade = {
-  direction: VortexDirection; entry: number; stopLoss: number;
-  tp1: number; tp2: number; tp3: number; tp4: number; tp5: number;
+  timeframe: "1m" | "5m" | "15m"; direction: VortexDirection; entry: number; stopLoss: number;
+  tp1: number; tp2: number; tp3: number;
   fibLevel: number; entryTime: string; confirmationTime: string;
   lotSize: number; targetHits: boolean[]; status: "ACTIVE" | "TP_HIT" | "SL_HIT";
   orderBlock: { direction: VortexDirection; top: number; bottom: number }; liquidityTarget: number;
   exitTime?: string; exitPrice?: number;
 };
 export type VortexResult = {
-  source: "VAULTTRADES_VORTEX_PINE_V12"; state: "WAITING" | "SETUP DEVELOPING" | "TRADE ACTIVE" | "TP HIT" | "SL HIT";
+  source: "VAULTTRADES_VORTEX_PINE_V12"; timeframe: "1m" | "5m" | "15m"; state: "WAITING" | "SETUP DEVELOPING" | "TRADE ACTIVE" | "TP HIT" | "SL HIT";
   direction: VortexDirection | "NO TRADE"; entry: number | null; stopLoss: number | null;
-  tp1: number | null; tp2: number | null; tp3: number | null; tp4: number | null; tp5: number | null;
+  tp1: number | null; tp2: number | null; tp3: number | null; tp4: null; tp5: null;
   fibLevel: number | null; score: number; buyConfluence: number; sellConfluence: number;
   liquidityTarget: number | null; orderBlock: { direction: VortexDirection; top: number; bottom: number } | null;
   entryTime: string | null; confirmationTime: string | null; lotSize: number; lotModel: string;
@@ -19,10 +19,11 @@ export type VortexResult = {
   evidence: string[]; missingConditions: string[]; invalidation: string; statusReason: string;
   riskReward: number | null; silver: { available: boolean; close: number | null; flow: string; ma: number | null };
 };
-export type EvaluateVortexInput = { m1Candles: VortexCandle[]; m5Candles: VortexCandle[]; silverCandles?: VortexCandle[]; tickSize?: number; lotSize?: number };
+export type EvaluateVortexInput = { m1Candles: VortexCandle[]; m5Candles: VortexCandle[]; silverCandles?: VortexCandle[]; timeframe?: "1m" | "5m" | "15m"; confirmationTimeframe?: "1m" | "5m" | "15m"; tickSize?: number; lotSize?: number };
 
 const ENTRY_FIBS = [68.1, 78.6, 88.0];
 const TP_FIBS = [38.2, 0, -23.6];
+const TIMEFRAME_MS = { "1m": 60_000, "5m": 300_000, "15m": 900_000 } as const;
 const RETEST_BARS = 8;
 const MIN_SCORE = 60;
 const MAX_STOP_RISK_PCT = 2.0;
@@ -160,16 +161,19 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
   const c = [...input.m1Candles].sort((a, b) => a.time - b.time), m5 = [...input.m5Candles].sort((a, b) => a.time - b.time);
   const silver = [...(input.silverCandles ?? [])].sort((a, b) => a.time - b.time);
   const lotSize = input.lotSize ?? 0.05, tick = input.tickSize ?? 0.01;
+  const timeframe = input.timeframe ?? "1m", barDurationMs = TIMEFRAME_MS[timeframe];
+  const confirmationTimeframe = input.confirmationTimeframe ?? (timeframe === "1m" ? "5m" : timeframe);
+  const confirmationDurationMs = TIMEFRAME_MS[confirmationTimeframe];
   const empty = (reason: string): VortexResult => ({
-    source: "VAULTTRADES_VORTEX_PINE_V12", state: "WAITING", direction: "NO TRADE",
+    source: "VAULTTRADES_VORTEX_PINE_V12", timeframe, state: "WAITING", direction: "NO TRADE",
     entry: null, stopLoss: null, tp1: null, tp2: null, tp3: null, tp4: null, tp5: null, fibLevel: null,
     score: 0, buyConfluence: 0, sellConfluence: 0, liquidityTarget: null, orderBlock: null,
     entryTime: null, confirmationTime: null, lotSize, lotModel: lotSize < 0.05 ? "FULL CLOSE AT TP1" : "THREE TARGETS · 33.33% EACH",
-    targetHits: [false, false, false, false, false], openTrade: null, latestClosedTrade: null,
-    evidence: [], missingConditions: [reason], invalidation: "The setup expires after 8 M1 bars or when its Silver Bullet window closes.",
+    targetHits: [false, false, false], openTrade: null, latestClosedTrade: null,
+    evidence: [], missingConditions: [reason], invalidation: `The setup expires after 8 ${timeframe.toUpperCase()} bars or when its Silver Bullet window closes.`,
     statusReason: reason, riskReward: null, silver: { available: silver.length > 51, close: silver.at(-1)?.close ?? null, flow: "UNAVAILABLE", ma: null },
   });
-  if (c.length < 300 || m5.length < 30) return empty("Waiting for sufficient M1 history and completed M5 confirmation candles.");
+  if (c.length < 300 || m5.length < 30) return empty(`Waiting for sufficient ${timeframe.toUpperCase()} history and completed ${confirmationTimeframe.toUpperCase()} confirmation candles.`);
   const atr = atrSeries(c), atr5 = atrSeries(m5), m5Levels = periodLevels(m5), silverEma = emaSeries(silver.map(x => x.close), 50);
   const highs: number[] = [], lows: number[] = [], targetHighs: number[] = [], targetLows: number[] = [];
   const ranges = new Map<string, { asia?: { high: number; low: number }; london?: { high: number; low: number }; ny?: { high: number; low: number }; last: "Asia" | "London" | "New York" }>();
@@ -188,7 +192,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
   let targetBullOb: { top: number; bottom: number; direction: VortexDirection } | null = null, targetBearOb: { top: number; bottom: number; direction: VortexDirection } | null = null;
 
   for (let i = 20; i < c.length; i++) {
-    const b = c[i], prev = c[i - 1], closeTime = b.time + 60_000, np = nyParts(b.time), m = np.minute;
+    const b = c[i], prev = c[i - 1], closeTime = b.time + barDurationMs, np = nyParts(b.time), m = np.minute;
     if (currentDay && np.day !== currentDay) { priorHigh = Number.isFinite(runningDayHigh) ? runningDayHigh : priorHigh; priorLow = Number.isFinite(runningDayLow) ? runningDayLow : priorLow; priorNySession = ranges.get(currentDay)?.ny ?? priorNySession; runningDayHigh = -Infinity; runningDayLow = Infinity; }
     currentDay = np.day; runningDayHigh = Math.max(runningDayHigh, b.high); runningDayLow = Math.min(runningDayLow, b.low);
     const session: "Asia" | "London" | "New York" | null = m < 360 ? "Asia" : m >= 420 && m < 600 ? "London" : m >= 750 && m < 1020 ? "New York" : null;
@@ -261,7 +265,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     if (buySetup.state === 2 && buySetup.fib != null && b.low <= buySetup.fib && b.close > buySetup.fib && b.close > b.open && b.close > prev.high) buySetup.state = 3;
     if (sellSetup.state === 2 && sellSetup.fib != null && b.high >= sellSetup.fib && b.close < sellSetup.fib && b.close < b.open && b.close < prev.low) sellSetup.state = 3;
 
-    while (m5Pointer + 1 < m5.length && m5[m5Pointer + 1].time + 300_000 <= closeTime) m5Pointer++;
+    while (m5Pointer + 1 < m5.length && m5[m5Pointer + 1].time + confirmationDurationMs <= closeTime) m5Pointer++;
     const m5i = m5Pointer, m5b = m5i >= 0 ? m5[m5i] : null, m5p = m5i > 0 ? m5[m5i - 1] : null, a5 = m5i >= 0 ? atr5[m5i] : 0;
     const m5Bull = !!m5b && !!m5p && a5 > 0 && m5b.close > m5b.open && m5b.close - m5b.open >= a5 * 0.6 && m5b.close > m5p.high;
     const m5Bear = !!m5b && !!m5p && a5 > 0 && m5b.close < m5b.open && m5b.open - m5b.close >= a5 * 0.6 && m5b.close < m5p.low;
@@ -300,7 +304,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
 
     if (active) {
       const slHit = active.direction === "BUY" ? b.low <= active.stopLoss : b.high >= active.stopLoss;
-      const targets = [active.tp1, active.tp2, active.tp3, active.tp4, active.tp5];
+      const targets = [active.tp1, active.tp2, active.tp3];
       if (slHit) {
         active.status = "SL_HIT"; active.exitTime = new Date(closeTime).toISOString(); active.exitPrice = active.stopLoss; closed = active; active = null;
       } else if (lotSize < 0.05) {
@@ -315,7 +319,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
           if (hit) active.targetHits[targetIndex] = true;
         }
         if (active.targetHits.every(Boolean)) {
-          active.status = "TP_HIT"; active.exitTime = new Date(closeTime).toISOString(); active.exitPrice = active.tp5; closed = active; active = null;
+          active.status = "TP_HIT"; active.exitTime = new Date(closeTime).toISOString(); active.exitPrice = active.tp3; closed = active; active = null;
         }
       }
     }
@@ -326,12 +330,11 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
       const ob = (isBuy ? bullOb : bearOb)!;
       const entry = fib, sl = isBuy ? ob.bottom - tick : ob.top + tick;
       const tps = TP_FIBS.map(x => isBuy ? buyFib(bt, bb, x) : sellFib(st, sb, x));
-      const tp4 = entry * (isBuy ? 1.015 : 0.985), tp5 = entry * (isBuy ? 1.0181 : 0.9819);
-      const targetsValid = [...tps, tp4, tp5].every(x => isBuy ? x > entry : x < entry);
+      const targetsValid = tps.every(x => isBuy ? x > entry : x < entry);
       if (targetsValid && (isBuy ? sl < entry : sl > entry)) {
-        active = { direction: dir, entry, stopLoss: sl, tp1: tps[0], tp2: tps[1], tp3: tps[2], tp4, tp5, fibLevel: pct, entryTime: new Date(closeTime).toISOString(), confirmationTime: m5b ? new Date(m5b.time + 300_000).toISOString() : new Date(closeTime).toISOString(), lotSize, targetHits: [false, false, false, false, false], status: "ACTIVE", orderBlock: ob, liquidityTarget: isBuy ? targetHigher! : targetLower! };
+        active = { timeframe, direction: dir, entry, stopLoss: sl, tp1: tps[0], tp2: tps[1], tp3: tps[2], fibLevel: pct, entryTime: new Date(closeTime).toISOString(), confirmationTime: m5b ? new Date(m5b.time + confirmationDurationMs).toISOString() : new Date(closeTime).toISOString(), lotSize, targetHits: [false, false, false], status: "ACTIVE", orderBlock: ob, liquidityTarget: isBuy ? targetHigher! : targetLower! };
         lastOb = ob; lastLiq = isBuy ? targetHigher : targetLower; lastScore = isBuy ? bScore : sScore; lastFib = pct;
-        evidence = ["Institutional order detected", "Fib pullback selected at " + pct + "%", "M1 retest and candle confirmation completed", "M5 displacement confirmation passed", "External liquidity and opposing target OB aligned", "Confluence score " + lastScore + "/100 passed"];
+        evidence = ["Institutional order detected", "Fib pullback selected at " + pct + "%", `${timeframe.toUpperCase()} retest and candle confirmation completed`, `${confirmationTimeframe.toUpperCase()} displacement confirmation passed`, "External liquidity and opposing target OB aligned", "Confluence score " + lastScore + "/100 passed"];
         missing = [];
         if (isBuy) buySetup = { state: 0, pullback: -1, fib: null, pct: null };
         else sellSetup = { state: 0, pullback: -1, fib: null, pct: null };
@@ -344,8 +347,8 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
       else if (buySetup.state === 2) missing = [`Bullish Fib pullback touched; waiting for the ${timeframe.toUpperCase()} retest and bullish candle confirmation.`];
       else if (sellSetup.state === 2) missing = [`Bearish Fib pullback touched; waiting for the ${timeframe.toUpperCase()} retest and bearish candle confirmation.`];
       else if (buySetup.state === 3) missing = [
-        ...(buySetup.fib == null || b.low > buySetup.fib || b.close < buySetup.fib ? ["Waiting for the M1 candle to retest and hold the selected Fib entry."] : []),
-        ...(!m5Bull ? ["Waiting for a completed bullish M5 displacement candle."] : []),
+        ...(buySetup.fib == null || b.low > buySetup.fib || b.close < buySetup.fib ? [`Waiting for the ${timeframe.toUpperCase()} candle to retest and hold the selected Fib entry.`] : []),
+        ...(!m5Bull ? [`Waiting for a completed bullish ${confirmationTimeframe.toUpperCase()} displacement candle.`] : []),
         ...(targetHigher == null || buySetup.fib == null || targetHigher <= buySetup.fib ? ["No valid higher-liquidity target above the selected Fib entry."] : []),
         ...(!bullOb ? ["Waiting for the bullish target order block below lower liquidity."] : []),
         ...(bullOb && buySetup.fib != null && bullOb.bottom >= buySetup.fib ? ["Bullish target OB is not below the selected Fib entry."] : []),
@@ -353,8 +356,8 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
         ...(bScore < MIN_SCORE ? ["Bullish confluence is below 60/100."] : []),
       ];
       else if (sellSetup.state === 3) missing = [
-        ...(sellSetup.fib == null || b.high < sellSetup.fib || b.close > sellSetup.fib ? ["Waiting for the M1 candle to retest and hold the selected Fib entry."] : []),
-        ...(!m5Bear ? ["Waiting for a completed bearish M5 displacement candle."] : []),
+        ...(sellSetup.fib == null || b.high < sellSetup.fib || b.close > sellSetup.fib ? [`Waiting for the ${timeframe.toUpperCase()} candle to retest and hold the selected Fib entry.`] : []),
+        ...(!m5Bear ? [`Waiting for a completed bearish ${confirmationTimeframe.toUpperCase()} displacement candle.`] : []),
         ...(targetLower == null || sellSetup.fib == null || targetLower >= sellSetup.fib ? ["No valid lower-liquidity target below the selected Fib entry."] : []),
         ...(!bearOb ? ["Waiting for the bearish target order block above higher liquidity."] : []),
         ...(bearOb && sellSetup.fib != null && bearOb.top <= sellSetup.fib ? ["Bearish target OB is not above the selected Fib entry."] : []),
@@ -363,7 +366,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
       ];
       else missing = ["Waiting for a confirmed institutional order."];
     }
-    if (m5b) lastM5Time = new Date(m5b.time + 300_000).toISOString();
+    if (m5b) lastM5Time = new Date(m5b.time + confirmationDurationMs).toISOString();
   }
 
   const setupDeveloping = buySetup.state > 0 || sellSetup.state > 0;
@@ -374,15 +377,15 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
   return {
     source: "VAULTTRADES_VORTEX_PINE_V12", timeframe, state, direction: trade?.direction ?? "NO TRADE",
     entry: trade?.entry ?? null, stopLoss: trade?.stopLoss ?? null, tp1: trade?.tp1 ?? null, tp2: trade?.tp2 ?? null,
-    tp3: trade?.tp3 ?? null, tp4: trade?.tp4 ?? null, tp5: trade?.tp5 ?? null, fibLevel: trade?.fibLevel ?? buySetup.pct ?? sellSetup.pct ?? lastFib,
+    tp3: trade?.tp3 ?? null, tp4: null, tp5: null, fibLevel: trade?.fibLevel ?? buySetup.pct ?? sellSetup.pct ?? lastFib,
     score: active ? lastScore : Math.max(buyScore, sellScore), buyConfluence: buyScore, sellConfluence: sellScore, liquidityTarget: trade?.liquidityTarget ?? lastLiq, orderBlock: trade?.orderBlock ?? lastOb,
     entryTime: trade?.entryTime ?? null, confirmationTime: trade?.confirmationTime ?? lastM5Time, lotSize,
-    lotModel: lotSize < 0.05 ? "FULL CLOSE AT TP1" : "FIVE TARGETS · 20% EACH",
-    targetHits: trade?.targetHits ?? [false, false, false, false, false], openTrade: active, latestClosedTrade: closed,
+    lotModel: lotSize < 0.05 ? "FULL CLOSE AT TP1" : "THREE TARGETS · 33.33% EACH",
+    targetHits: trade?.targetHits ?? [false, false, false], openTrade: active, latestClosedTrade: closed,
     evidence, missingConditions: active ? [] : missing,
-    invalidation: "The M1 setup expires after 8 bars or when its Silver Bullet window closes. SL is anchored to the opposing target-OB wick.",
-    statusReason: active ? (lotSize < 0.05 ? "Trade active. This lot size closes fully at TP1." : "Trade active. Five targets are managed progressively at 20% each.") : setupDeveloping ? "Vortex setup developing. Waiting for the next M1/M5 qualification event." : closed ? "The previous trade has closed. Waiting for the next qualifying Vortex setup." : missing[0],
-    riskReward: trade ? Math.abs(trade.tp5 - trade.entry) / Math.abs(trade.entry - trade.stopLoss) : null,
+    invalidation: `The ${timeframe.toUpperCase()} setup expires after 8 bars or when its Silver Bullet window closes. SL is anchored to the opposing target-OB wick.`, 
+    statusReason: active ? (lotSize < 0.05 ? "Trade active. This lot size closes fully at TP1." : "Trade active. Three targets are managed progressively in equal thirds.") : setupDeveloping ? `Vortex ${timeframe.toUpperCase()} setup developing. Waiting for the next qualification event.` : closed ? "The previous trade has closed. Waiting for the next qualifying Vortex setup." : missing[0],
+    riskReward: trade ? Math.abs(trade.tp3 - trade.entry) / Math.abs(trade.entry - trade.stopLoss) : null,
     silver: { available: silver.length > 1, close: sLast?.close ?? null, flow: sFlow, ma: sMa },
   };
 }
