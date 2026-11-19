@@ -272,6 +272,7 @@ export default function AnalyzerPage() {
   const [symbol, setSymbol] = useState("XAU/USD");
   const [timeframe, setTimeframe] = useState<Timeframe>("15m");
   const [strategy, setStrategy] = useState<string>(PUBLIC_STRATEGY_IDS[0]);
+  const [vortexLotSize, setVortexLotSize] = useState(0.05);
   const [result, setResult] = useState<Result | null>(null);
   const [loading, setLoading] = useState(false);
   const [scannerLoading, setScannerLoading] = useState(false);
@@ -330,7 +331,7 @@ export default function AnalyzerPage() {
     );
     if (!lifecycleLock) setResult(null);
     try {
-      const res = await fetch("/api/analyze-market", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ marketType, symbol, timeframe, strategy }) });
+      const res = await fetch("/api/analyze-market", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ marketType, symbol, timeframe, strategy, lotSize: strategy === "vortex" ? vortexLotSize : undefined }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Unable to analyze live market data.");
       setResult(data);
@@ -486,6 +487,10 @@ export default function AnalyzerPage() {
       <h2 className="title">Choose the strategy first</h2>
       <select value={strategy} disabled={loading} onChange={e => { setStrategy(e.target.value); if (e.target.value === "vortex") setTimeframe("1m"); setResult(null); setLockedTrade(null); }} style={{ width: "100%", marginTop: 14, padding: 14, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}>{PUBLIC_STRATEGY_IDS.map(id => <option key={id} value={id}>{PUBLIC_STRATEGY_LABELS[id]}</option>)}</select>
       <div className="condition-box" style={{ marginTop: 14 }}><strong>{strategyDisplayName(strategy)}</strong></div>
+      {strategy === "vortex" && <label className="muted" style={{ display: "block", marginTop: 14 }}>Vortex lot size
+        <input type="number" min="0.01" step="0.01" value={vortexLotSize} disabled={loading} onChange={e => setVortexLotSize(Math.max(0.01, Number(e.target.value) || 0.01))} style={{ width: "100%", marginTop: 7, padding: 13, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }} />
+        <span className="muted" style={{ display: "block", marginTop: 5, fontSize: 12 }}>Default 0.05. Lot sizes 0.01–0.04 close fully at TP1; 0.05 and above use five progressive targets.</span>
+      </label>}
     </section>
 
     <section className="card"><div className="actions"><button className="primary" type="button" disabled={loading || marketType === "SYNTHETIC"} onClick={() => void runAnalysis()}>{loading ? "Analyzing live market..." : "Analyze Live Market"}</button></div>{marketType === "SYNTHETIC" && <div className="condition-box" style={{ marginTop: 12 }}><strong>Market data unavailable</strong><p className="muted">Please select another market or try again later.</p></div>}{error && <div className="error-box" style={{ marginTop: 12 }}><strong>Market data unavailable</strong><p className="muted">Please try again later.</p></div>}</section>
