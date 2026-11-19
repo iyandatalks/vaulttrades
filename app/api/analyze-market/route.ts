@@ -193,8 +193,8 @@ export async function POST(request: Request) {
 
     // EMA20 is the first live strategy wired to a deterministic Pine-equivalent engine.
     // The engine is authoritative for strategy state and native Entry/SL/TP. The Analyzer is downstream.
-    // Pine strategies execute on confirmed bar close. Exclude the still-forming provider candle
-    // and do not use a mid-bar quote to declare a Pine stop/target exit.
+    // Pine signals are confirmed-bar only. Exclude the still-forming provider candle;
+    // the lifecycle uses the live quote only to detect whether a locked trade has exited.
     const ema20Candles = strategyId === "ema20" ? completedEma20Candles(market.candles, timeframe) : [];
     const nexusPlusH4Candles = strategyId === "ema20"
       ? completedEma20Candles(timeframe === "4H" ? market.candles : nexusPlusH4Market?.candles ?? [], "4H")
@@ -413,7 +413,7 @@ Return JSON only.`;
         marketStructure: context.structure.trend ?? "Structure evaluated from selected timeframe candles.",
         support: priceLevels.support,
         resistance: priceLevels.resistance,
-        recentPriceAction: "Deterministic VaultTrades Nexus Plus engine evaluated completed candles, scheduled SAST authorization and the H4 direction lock.",
+        recentPriceAction: "Deterministic VaultTrades Nexus Plus engine evaluated completed candles, the H4 direction lock.",
         setup: ema20Engine?.reason ?? "WAIT — no Pine-defined Nexus Plus entry sequence has qualified.",
         confirmedConditions: ema20EngineEvidence?.evidence ?? [],
         missingConditions: ema20EngineEvidence?.missingConditions ?? [],
@@ -427,7 +427,7 @@ Return JSON only.`;
         tp2: ema20Engine?.target ?? null,
         finalTp: ema20Engine?.target ?? null,
         nextAction: ema20Engine?.reason ?? "WAIT",
-        educationalNote: "VaultTrades Nexus Plus follows the supplied Pine v6 persistent structure, EMA20 pullback/rejection, rejection-break, UT Bot OR SMI confirmation, three scheduled SAST breakout windows, one accepted trade per SAST day, H4 directional authority lock, timeframe-specific ATR stop multiplier and 1:1.91 target. No additional OB or generic confluence gate is applied.",
+        educationalNote: "VaultTrades Nexus Plus follows the supplied Pine v6 persistent structure, EMA20 pullback/rejection, rejection-break, UT Bot OR SMI confirmation, no clock-based entry windows or daily trade cap, one active position at a time, H4 directional authority lock, timeframe-specific ATR stop multiplier and 1:1.91 target. No additional OB or generic confluence gate is applied.",
       };
     } else if (strategyId === "fibRetracement") {
       ai = { direction:"NO TRADE",decision:"NO TRADE",confidence:autoFibEngine?.confidence??0,marketCondition:context.structure.trend,directionalBias:autoFibEngine?.bias??"NEUTRAL",session:"Derived from market candle timestamps.",higherTimeframe:"Selected timeframe is evaluated independently.",marketStructure:context.structure.trend,support:priceLevels.support,resistance:priceLevels.resistance,recentPriceAction:autoFibEngine?.message??"Auto Fib engine evaluated the supplied candles.",setup:autoFibEngine?.message??"Waiting for valid Fib structure.",confirmedConditions:autoFibEngine?.evidence??[],missingConditions:autoFibEngine?.missingConditions??[],bos:5,choch:5,orderBlock:5,fvg:5,liquiditySweep:5,displacement:5,pipeline:autoFibEngine?.evidence??[],nextZone:"Wait for source-defined Fib flip, active unmitigated OB and entry confirmation.",invalidation:(autoFibEngine?.invalidation??[]).join(" "),entry:null,stopLoss:null,tp1:autoFibEngine?.tp1??null,tp2:autoFibEngine?.tp2??null,finalTp:autoFibEngine?.finalTp??null,nextAction:autoFibEngine?.message??"WAIT",educationalNote:"Auto Fib runs locally. Its source defines projection probability as zero and has no qualifying entry event, so no BUY/SELL or stop-loss is invented." };
