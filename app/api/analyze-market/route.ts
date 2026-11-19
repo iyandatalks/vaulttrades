@@ -268,7 +268,7 @@ export async function POST(request: Request) {
       silverCandles: silverMarket?.candles.map((c) => ({ time: new Date(c.datetime).getTime(), open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume ?? undefined })),
       m5Candles: (timeframe === "5m" ? market.candles : fibM5Market?.candles ?? []).map((c) => ({ time: new Date(c.datetime).getTime(), open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume ?? undefined })),
     }) : null;
-    const visualOrderBlocks = strategyId === "vaulttradesNexus" ? [] : strategyId === "vortex" && vortexEngine?.orderBlock ? [{ direction: vortexEngine.orderBlock.direction === "BUY" ? "BULLISH" : "BEARISH", top: vortexEngine.orderBlock.top, bottom: vortexEngine.orderBlock.bottom, label: "VORTEX TARGET ORDER BLOCK", state: "ACTIVE" }] : strategyId === "fibRetracement" && autoFibEngine
+    const visualOrderBlocks = strategyId === "vaulttradesNexus" ? [] : strategyId === "vortex" ? (vortexEngine?.orderBlock ? [{ direction: vortexEngine.orderBlock.direction === "BUY" ? "BULLISH" : "BEARISH", top: vortexEngine.orderBlock.top, bottom: vortexEngine.orderBlock.bottom, label: "VORTEX TARGET ORDER BLOCK", state: "ACTIVE" }] : []) : strategyId === "fibRetracement" && autoFibEngine
       ? [
           ...(autoFibEngine.orderBlocks.bullish.active && !autoFibEngine.orderBlocks.bullish.mitigated && !autoFibEngine.orderBlocks.bullish.breaker && autoFibEngine.orderBlocks.bullish.high != null && autoFibEngine.orderBlocks.bullish.low != null
             ? [{ direction:"BULLISH", top:autoFibEngine.orderBlocks.bullish.high, bottom:autoFibEngine.orderBlocks.bullish.low, label:"ACTIVE BULLISH OB · UNMITIGATED", state:"ACTIVE" }] : []),
