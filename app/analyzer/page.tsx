@@ -421,7 +421,7 @@ export default function AnalyzerPage() {
     || ((strategy === "lsobr" ? (rawLifecycleState === "ENTRY READY" && result?.decision === "NO TRADE") || ["REJECTED", "CANCELLED", "CANCELED", "EXPIRED", "INVALIDATED", "NO TRADE"].includes(rawLifecycleState) : strategy === "srbOb" ? ["REJECTED", "CANCELLED", "CANCELED", "EXPIRED", "INVALIDATED", "NO TRADE"].includes(rawLifecycleState) : result?.decision === "NO TRADE" && !tradeIsRunning && !s?.waitReason && !s?.statusMessage));
   const scannerStatus = strategy === "vaulttradesNexus"
     ? s?.cycleStatus === "ACTIVE" ? "TRADE ACTIVE" : s?.cycleStatus === "TP_HIT" ? "TAKE PROFIT HIT" : s?.cycleStatus === "SL_HIT" ? "STOP LOSS HIT" : "WAITING FOR TRADE"
-    : tradeIsRunning ? "TRADE ACTIVE" : s?.cycleStatus === "TP_HIT" ? "TAKE PROFIT HIT" : terminalNoTrade ? "NO TRADE" : "WAITING FOR TRADE";
+    : tradeIsRunning ? "TRADE ACTIVE" : s?.cycleStatus === "TP_HIT" ? "TAKE PROFIT HIT" : s?.cycleStatus === "SL_HIT" ? "STOP LOSS HIT" : s?.cycleStatus === "SETUP_DEVELOPING" ? "SETUP DEVELOPING" : terminalNoTrade ? "NO TRADE" : "WAITING FOR TRADE";
   const scannerEntry = (strategy === "srbOb" || strategy === "lsobr") ? result?.strategyEngine?.entry : (actualEntry ?? projectedEntry);
   const scannerStop = (strategy === "srbOb" || strategy === "lsobr") ? result?.strategyEngine?.stopLoss : projectedSL;
   const scannerTp1 = (strategy === "srbOb" || strategy === "lsobr") ? result?.strategyEngine?.finalTp : projectedTp1;
