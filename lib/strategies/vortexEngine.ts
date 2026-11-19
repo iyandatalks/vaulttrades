@@ -209,7 +209,8 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     if (buySetup.state === 2 && buySetup.fib != null && b.low <= buySetup.fib && b.close > buySetup.fib && b.close > b.open && b.close > prev.high) buySetup.state = 3;
     if (sellSetup.state === 2 && sellSetup.fib != null && b.high >= sellSetup.fib && b.close < sellSetup.fib && b.close < b.open && b.close < prev.low) sellSetup.state = 3;
 
-    const m5i = m5.findLastIndex(x => x.time + 300_000 <= closeTime), m5b = m5i >= 0 ? m5[m5i] : null, m5p = m5i > 0 ? m5[m5i - 1] : null, a5 = m5i >= 0 ? atr5[m5i] : 0;
+    let m5i = -1; for (let q = 0; q < m5.length && m5[q].time + 300_000 <= closeTime; q++) m5i = q;
+    const m5b = m5i >= 0 ? m5[m5i] : null, m5p = m5i > 0 ? m5[m5i - 1] : null, a5 = m5i >= 0 ? atr5[m5i] : 0;
     const m5Bull = !!m5b && !!m5p && a5 > 0 && m5b.close > m5b.open && m5b.close - m5b.open >= a5 * 0.6 && m5b.close > m5p.high;
     const m5Bear = !!m5b && !!m5p && a5 > 0 && m5b.close < m5b.open && m5b.open - m5b.close >= a5 * 0.6 && m5b.close < m5p.low;
     const pd = priorDayLevels(c, i);
