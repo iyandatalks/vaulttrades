@@ -506,7 +506,7 @@ Return JSON only.`;
     const analyzerTradeGate = direction !== "NO TRADE" && math.valid && (strategyId === "ema20" || strategyId === "vaulttradesNexus" || strategyId === "supplyDemand" || strategyId === "vortex" || smcGate);
     const finalDirection: Direction = strategyId === "ema20" || strategyId === "vaulttradesNexus" || strategyId === "vortex" ? (analyzerTradeGate ? direction : "NO TRADE") : strategyId === "srbOb" ? (srbObEngine?.direction ?? "NO TRADE") : strategyId === "lsobr" ? (lsobrEngine?.state === "ENTRY READY" && analyzerTradeGate ? (lsobrEngine.direction as Direction) : "NO TRADE") : strategyId === "supplyDemand" ? (supplyDemandEngine?.state === "ENTRY READY" && analyzerTradeGate ? direction : "NO TRADE") : analyzerTradeGate && ai.decision === "TRADE" ? direction : "NO TRADE";
 
-    const nativeEngineOutput = strategyId === "vortex" ? vortexEngine : strategyId === "ema20" ? {
+    const nativeEngineOutput = strategyId === "vortex" ? vortexEngine! : strategyId === "ema20" ? {
       state: ema20Engine?.state,
       signal: ema20Engine?.direction,
       newLong: ema20Bar?.newLong ?? false,
