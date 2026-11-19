@@ -273,16 +273,19 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
       const targets = [active.tp1, active.tp2, active.tp3, active.tp4, active.tp5];
       if (slHit) {
         active.status = "SL_HIT"; active.exitTime = new Date(closeTime).toISOString(); active.exitPrice = active.stopLoss; closed = active; active = null;
+      } else if (lotSize < 0.05) {
+        if (!active.targetHits[0] && (active.direction === "BUY" ? b.high >= active.tp1 : b.low <= active.tp1)) {
+          active.targetHits[0] = true; active.status = "TP_HIT"; active.exitTime = new Date(closeTime).toISOString(); active.exitPrice = active.tp1; closed = active; active = null;
+        }
       } else {
         for (let targetIndex = 0; targetIndex < targets.length; targetIndex++) {
           if (active.targetHits[targetIndex]) continue;
           const targetPrice = targets[targetIndex];
           const hit = active.direction === "BUY" ? b.high >= targetPrice : b.low <= targetPrice;
-          if (!hit) break;
-          active.targetHits[targetIndex] = true;
-          if (lotSize < 0.05 || targetIndex === 4) {
-            active.status = "TP_HIT"; active.exitTime = new Date(closeTime).toISOString(); active.exitPrice = targetPrice; closed = active; active = null; break;
-          }
+          if (hit) active.targetHits[targetIndex] = true;
+        }
+        if (active.targetHits.every(Boolean)) {
+          active.status = "TP_HIT"; active.exitTime = new Date(closeTime).toISOString(); active.exitPrice = active.tp5; closed = active; active = null;
         }
       }
     }
@@ -294,9 +297,8 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
       const entry = fib, sl = isBuy ? ob.bottom - tick : ob.top + tick;
       const tps = TP_FIBS.map(x => isBuy ? buyFib(bt, bb, x) : sellFib(st, sb, x));
       const tp4 = entry * (isBuy ? 1.015 : 0.985), tp5 = entry * (isBuy ? 1.0181 : 0.9819);
-      const all = [...tps, tp4, tp5];
-      const ordered = all.every((x, j) => j === 0 || (isBuy ? x > all[j - 1] : x < all[j - 1]));
-      if (ordered && (isBuy ? sl < entry : sl > entry)) {
+      const targetsValid = [...tps, tp4, tp5].every(x => isBuy ? x > entry : x < entry);
+      if (targetsValid && (isBuy ? sl < entry : sl > entry)) {
         active = { direction: dir, entry, stopLoss: sl, tp1: tps[0], tp2: tps[1], tp3: tps[2], tp4, tp5, fibLevel: pct, entryTime: new Date(closeTime).toISOString(), confirmationTime: m5b ? new Date(m5b.time + 300_000).toISOString() : new Date(closeTime).toISOString(), lotSize, targetHits: [false, false, false, false, false], status: "ACTIVE" };
         lastOb = ob; lastLiq = isBuy ? upper : lower; lastScore = isBuy ? bScore : sScore; lastFib = pct;
         evidence = ["Institutional order detected", "Fib pullback selected at " + pct + "%", "M1 retest and candle confirmation completed", "M5 displacement confirmation passed", "External liquidity and opposing target OB aligned", "Confluence score " + lastScore + "/100 passed"];
