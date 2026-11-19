@@ -42,6 +42,7 @@ const rules: StrategyRuleSet = {
   ],
   riskRules: [
     "BUY stop is one tick below the bullish target-OB bottom; SELL stop is one tick above the bearish target-OB top.",
+    "Reject a setup when the OB-based stop distance exceeds the Pine maximum stop-risk cap of 2.0%; do not cap or move the stop to force validity.",
     "Risk/reward is calculated from the actual OB stop and TP5; do not move the source-defined stop or targets to force a preferred R:R.",
     "Risk Manager remains the shared account-risk and position-sizing tool.",
   ],
