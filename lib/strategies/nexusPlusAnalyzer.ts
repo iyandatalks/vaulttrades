@@ -148,7 +148,7 @@ export function evaluateNexusPlusAnalyzer(
     return empty("NO TRADE — H4 Directional Authority data is unavailable; lower-timeframe entries remain blocked until the H4 lock can be evaluated.", "UNAVAILABLE");
   }
 
-  const bars = runEma20Engine(candles, { atrSLMultiplier, riskReward });
+  const bars = runEma20Engine(candles, { atrSLMultiplier: atrMultiplier, riskReward });
   const scheduleShift = useDaylightSchedule ? 60 : 0;
   const anchors = [360 + scheduleShift, 555 + scheduleShift, 1005 + scheduleShift];
   let pendingDirection: Direction | null = null;
