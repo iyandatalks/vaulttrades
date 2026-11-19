@@ -63,7 +63,7 @@ async function getOandaCandles(symbol: string, timeframe: string, count: number)
     if (!price) return [];
     const open = Number(price.o), high = Number(price.h), low = Number(price.l), close = Number(price.c);
     if (![open, high, low, close].every(Number.isFinite)) return [];
-    return [{ datetime: row.time, open, high, low, close, volume: typeof row.volume === "number" ? row.volume : undefined }];
+    return [{ datetime: row.time, open, high, low, close, volume: typeof row.volume === "number" ? row.volume : null }];
   });
 }
 
