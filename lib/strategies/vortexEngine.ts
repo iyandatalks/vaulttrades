@@ -97,7 +97,7 @@ function emaSeries(values: number[], n: number) {
   for (let i = n; i < values.length; i++) { x = values[i] * k + x * (1 - k); out[i] = x; }
   return out;
 }
-function targetOb(c: VortexCandle[], atr: number[], end: number, target: number, bearish: boolean) {c: VortexCandle[], atr: number[], end: number, target: number, bearish: boolean) {
+function targetOb(c: VortexCandle[], atr: number[], end: number, target: number, bearish: boolean) {
   let found: { top: number; bottom: number; direction: VortexDirection } | null = null, distance = Infinity;
   for (let i = Math.max(2, end - 60); i < end - 1; i++) {
     const base = c[i], impulse = c[i + 1], a = atr[i + 1];
