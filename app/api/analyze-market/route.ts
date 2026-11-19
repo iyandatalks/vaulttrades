@@ -4,7 +4,7 @@ import { getStrategyRules, type StrategyId } from "../../../lib/strategies";
 import { buildAnalyzerMarketContext } from "../../../lib/market-data/indicators";
 import { getTwelveDataTimeSeries, type MarketDataCandle } from "../../../lib/market-data/twelvedata";
 import { getMarketProviderRoute, type MarketType } from "../../../lib/market-data/provider";
-import { evaluateEma20Analyzer } from "../../../lib/strategies/ema20Analyzer";
+import { evaluateNexusPlusAnalyzer } from "../../../lib/strategies/nexusPlusAnalyzer";
 import { evaluateSrbOb } from "../../../lib/strategies/srbObEngine";
 import { evaluateLsObr } from "../../../lib/strategies/lsobrEngine";
 import { analyzeAutoFibRetrace } from "../../../lib/strategies/autoFibRetrace";
@@ -165,7 +165,7 @@ export async function POST(request: Request) {
     if (!providerRoute.available) return Response.json({ error: providerRoute.reason || "Market data is unavailable." }, { status: 503 });
     const apiKey = process.env.OPENAI_API_KEY;
 
-    const market = await getTwelveDataTimeSeries({ symbol, timeframe, outputsize: strategyId === "ema20" || strategyId === "vaulttradesNexus" ? 5000 : 250, normalizeToUtc: strategyId === "vaulttradesNexus" });
+    const market = await getTwelveDataTimeSeries({ symbol, timeframe, outputsize: strategyId === "ema20" || strategyId === "vaulttradesNexus" ? 5000 : 250, normalizeToUtc: strategyId === "vaulttradesNexus" || strategyId === "ema20" });
     if (market.candles.length < 40) return Response.json({ error: "Not enough live market history was returned for this symbol/timeframe." }, { status: 422 });
     // Silver is fetched only for the Auto Fib strategy on Gold instruments; all other Analyzer requests retain their existing provider-call count.
     const isGoldInstrument = /XAU|GOLD/.test(symbol.replace(/[^A-Z]/g, ""));
@@ -174,6 +174,9 @@ export async function POST(request: Request) {
       : null;
     const fibM5Market = strategyId === "fibRetracement" && timeframe !== "5m"
       ? await getTwelveDataTimeSeries({ symbol, timeframe: "5m", outputsize: 250 }).catch(() => null)
+      : null;
+    const nexusPlusH4Market = strategyId === "ema20" && (EMA20_TIMEFRAME_MINUTES[timeframe] ?? 0) < 240
+      ? await getTwelveDataTimeSeries({ symbol, timeframe: "4H", outputsize: 1500, normalizeToUtc: true }).catch(() => null)
       : null;
 
     const selectedIndicators = profileStrategy.defaultIndicators;
@@ -193,7 +196,12 @@ export async function POST(request: Request) {
     // Pine strategies execute on confirmed bar close. Exclude the still-forming provider candle
     // and do not use a mid-bar quote to declare a Pine stop/target exit.
     const ema20Candles = strategyId === "ema20" ? completedEma20Candles(market.candles, timeframe) : [];
-    const ema20Engine = strategyId === "ema20" ? evaluateEma20Analyzer(ema20Candles, timeframe, liveCurrentPrice) : null;
+    const nexusPlusH4Candles = strategyId === "ema20"
+      ? completedEma20Candles(timeframe === "4H" ? market.candles : nexusPlusH4Market?.candles ?? [], "4H")
+      : [];
+    const ema20Engine = strategyId === "ema20"
+      ? evaluateNexusPlusAnalyzer(ema20Candles, timeframe, liveCurrentPrice, nexusPlusH4Candles)
+      : null;
     // Nexus filters completed bars internally: intraday data is UTC-normalized,
     // while daily+ bars are returned in the exchange's local calendar.
     const nexusEngine = strategyId === "vaulttradesNexus"
@@ -201,7 +209,7 @@ export async function POST(request: Request) {
       : null;
     const ema20Bar = ema20Engine?.engine ?? null;
     const ema20EngineEvidence = ema20Engine ? {
-      source: "EMA20_MORNING_TRADES_PINE_V6",
+      source: "VAULTTRADES_NEXUS_PLUS_PINE_V6",
       state: ema20Engine.state,
       signal: ema20Engine.direction,
       entry: ema20Engine.entry,
@@ -419,7 +427,7 @@ Return JSON only.`;
         tp2: ema20Engine?.target ?? null,
         finalTp: ema20Engine?.target ?? null,
         nextAction: ema20Engine?.reason ?? "WAIT",
-        educationalNote: "EMA20 follows the supplied Pine v6 structure, EMA20 pullback/rejection, rejection-break, UT Bot OR SMI confirmation, SAST window and native ATR/RR calculations. No additional OB or generic confluence gate is applied.",
+        educationalNote: "VaultTrades Nexus Plus follows the supplied Pine v6 persistent structure, EMA20 pullback/rejection, rejection-break, UT Bot OR SMI confirmation, three scheduled SAST breakout windows, one accepted trade per SAST day, H4 directional authority lock, timeframe-specific ATR stop multiplier and 1:1.91 target. No additional OB or generic confluence gate is applied.",
       };
     } else if (strategyId === "fibRetracement") {
       ai = { direction:"NO TRADE",decision:"NO TRADE",confidence:autoFibEngine?.confidence??0,marketCondition:context.structure.trend,directionalBias:autoFibEngine?.bias??"NEUTRAL",session:"Derived from market candle timestamps.",higherTimeframe:"Selected timeframe is evaluated independently.",marketStructure:context.structure.trend,support:priceLevels.support,resistance:priceLevels.resistance,recentPriceAction:autoFibEngine?.message??"Auto Fib engine evaluated the supplied candles.",setup:autoFibEngine?.message??"Waiting for valid Fib structure.",confirmedConditions:autoFibEngine?.evidence??[],missingConditions:autoFibEngine?.missingConditions??[],bos:5,choch:5,orderBlock:5,fvg:5,liquiditySweep:5,displacement:5,pipeline:autoFibEngine?.evidence??[],nextZone:"Wait for source-defined Fib flip, active unmitigated OB and entry confirmation.",invalidation:(autoFibEngine?.invalidation??[]).join(" "),entry:null,stopLoss:null,tp1:autoFibEngine?.tp1??null,tp2:autoFibEngine?.tp2??null,finalTp:autoFibEngine?.finalTp??null,nextAction:autoFibEngine?.message??"WAIT",educationalNote:"Auto Fib runs locally. Its source defines projection probability as zero and has no qualifying entry event, so no BUY/SELL or stop-loss is invented." };
@@ -498,6 +506,12 @@ Return JSON only.`;
       entryTime: ema20Engine?.entryTime ?? null,
       entryDay: ema20Engine?.entryDay ?? null,
       lifecycleReason: ema20Engine?.reason ?? "",
+      h4Direction: ema20Engine?.h4Direction ?? "UNAVAILABLE",
+      h4Entry: ema20Engine?.h4Entry ?? null,
+      h4StopLoss: ema20Engine?.h4StopLoss ?? null,
+      h4Target: ema20Engine?.h4Target ?? null,
+      atrMultiplier: ema20Engine?.atrMultiplier ?? null,
+      riskReward: ema20Engine?.riskReward ?? 1.91,
       evidence: ema20EngineEvidence?.evidence ?? [],
       missingConditions: ema20EngineEvidence?.missingConditions ?? [],
       invalidation: ema20EngineEvidence?.invalidation ?? "",
