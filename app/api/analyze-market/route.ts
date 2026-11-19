@@ -215,9 +215,12 @@ export async function POST(request: Request) {
       : oandaConfigured && strategyId === "vortex" ? "Twelve Data fallback (OANDA unavailable)" : "Twelve Data";
     const market = oandaPrimaryCandles?.length
       ? ({
+          provider: "oanda",
           symbol: toOandaInstrument(symbol) ?? symbol,
-          timeframe,
+          interval: timeframe === "5m" ? "5min" : "1min",
           currentPrice: oandaPrimaryCandles[oandaPrimaryCandles.length - 1]?.close ?? null,
+          currentPriceTimestamp: oandaPrimaryCandles[oandaPrimaryCandles.length - 1]?.datetime ?? null,
+          fetchedAt: new Date().toISOString(),
           candles: oandaPrimaryCandles,
           exchangeTimezone: "America/New_York",
         } as Awaited<ReturnType<typeof getTwelveDataTimeSeries>>)
