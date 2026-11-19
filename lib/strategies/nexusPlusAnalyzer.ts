@@ -123,7 +123,7 @@ export function evaluateNexusPlusAnalyzer(
   timeframe: string,
   livePrice: number | null,
   h4Candles: MarketDataCandle[] = [],
-  options: { useDaylightSchedule?: boolean; earlyMinutes?: number; lateMinutes?: number; useH4Lock?: boolean } = {},
+  options: { useH4Lock?: boolean } = {},
 ): NexusPlusLifecycle {
   const riskReward = 1.91;
   const atrMultiplier = ATR_MULTIPLIERS[timeframe] ?? 8.0;
@@ -142,8 +142,6 @@ export function evaluateNexusPlusAnalyzer(
   }
 
   const bars = runEma20Engine(candles, { atrSLMultiplier: atrMultiplier, riskReward });
-  const scheduleShift = useDaylightSchedule ? 60 : 0;
-  const anchors = [360 + scheduleShift, 555 + scheduleShift, 1005 + scheduleShift];
   let active: Trade | null = null;
   let lastCompletedToday: Trade | null = null;
 
@@ -164,8 +162,8 @@ export function evaluateNexusPlusAnalyzer(
     }
 
     if (active || closedThisBar) continue;
-    if (scheduledLong === scheduledShort) continue;
-    const direction: Direction = scheduledLong ? "BUY" : "SELL";
+    if (!bar.newLong && !bar.newShort) continue;
+    const direction: Direction = bar.newLong ? "BUY" : "SELL";
     if (belowH4 && useH4Lock && h4.direction !== direction) continue;
 
     const entry = direction === "BUY" ? bar.longEntry : bar.shortEntry;
