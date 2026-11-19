@@ -105,7 +105,7 @@ function smiSeries(candles: MarketDataCandle[], length: number, smooth1: number,
 
 const defaults: Required<Ema20EngineConfig> = {
   ema20Length: 20, slowLength: 105, atrLength: 14, atrTouch: 0.20, atrSLMultiplier: 2.23,
-  riskReward: 1.81, pivotLength: 3, confirmationBars: 3, utKeyValue: 1.0, utATRLength: 10,
+  riskReward: 1.91, pivotLength: 3, confirmationBars: 3, utKeyValue: 1.0, utATRLength: 10,
   smiLength: 7, smiK: 2, smiD: 2,
 };
 
