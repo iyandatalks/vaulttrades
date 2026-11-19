@@ -62,6 +62,8 @@ type LockedTrade = {
   liquidityTarget: number | null;
 };
 
+type VortexEngineView = { timeframe?: string; state?: string; direction?: string; entry?: number | null; stopLoss?: number | null; tp1?: number | null; tp2?: number | null; tp3?: number | null; score?: number; fibLevel?: number | null; lotSize?: number; lotModel?: string; targetHits?: boolean[]; orderBlock?: { direction: string; top: number; bottom: number } | null; statusReason?: string; missingConditions?: string[]; };
+
 type Result = {
   dataSource?: string;
   market?: { type?: MarketType; asset?: string; timeframe?: string; currentPrice?: number | null; directionalBias?: string; session?: string };
@@ -97,7 +99,8 @@ type Result = {
   educationalNote?: string;
   qualityChecks?: { smcStrongCount?: number; rrValid?: boolean; slDistanceValid?: boolean; entryDistanceValid?: boolean; universalTradeGate?: boolean };
   scanner?: Scanner;
-  strategyEngine?: { source?: string; state?: string; signal?: string; direction?: string; tp1?: number | null; tp2?: number | null; tp3?: number | null; tp4?: number | null; tp5?: number | null; lotSize?: number; lotModel?: string; targetHits?: boolean[]; performance?: { tradesTaken: number; closedTrades: number; openTrades: number; winners: number; losers: number; winRate: number; profitFactor: number | null; totalR: number }; openTrades?: Array<{ direction: "BUY" | "SELL"; entry: number; stopLoss: number; takeProfit: number; entryTime: string; entryDay: string; status: string }>; closedTrades?: Array<{ direction: "BUY" | "SELL"; entry: number; stopLoss: number; takeProfit: number; entryTime: string; entryDay: string; status: string; exitTime?: string; exitPrice?: number }>; latestClosedTrade?: { direction: "BUY" | "SELL"; entry: number; stopLoss: number; takeProfit?: number; tp1?: number; tp2?: number; tp3?: number; tp4?: number; tp5?: number; entryTime?: string; entryDay?: string; status: string; exitTime?: string; exitPrice?: number } | null; openTrade?: { direction: "BUY" | "SELL"; entry: number; stopLoss: number; tp1: number; tp2: number; tp3: number; tp4: number; tp5: number; fibLevel: number; entryTime: string; confirmationTime: string; lotSize: number; targetHits: boolean[]; status: string } | null; statusReason?: string; buyConfluence?: number; sellConfluence?: number; silverDataAvailable?: boolean; silver?: { available?: boolean; close?: number | null; ma?: number | null; maSlope?: string; flow?: string; structure?: string; volumeExpansion?: boolean; flowSupportsBuy?: boolean; flowSupportsSell?: boolean; structureSupportsBuy?: boolean; structureSupportsSell?: boolean; volumeSupportsBuy?: boolean; volumeSupportsSell?: boolean }; confluenceBreakdown?: { buy: Record<string, { available: boolean; passed: boolean; points: number; weight: number }>; sell: Record<string, { available: boolean; passed: boolean; points: number; weight: number }>; buyPenalty: number; sellPenalty: number }; trend?: string; sweptLiquidity?: number | null; rejectionExtreme?: number | null; sweepTime?: string | null; mssTime?: string | null; confirmationTime?: string | null; entry?: number | null; stopLoss?: number | null; finalTp?: number | null; rangeHigh?: number | null; rangeLow?: number | null; window?: string | null; fibLevel?: number | null; score?: number; breakoutPrice?: number | null; breakoutTime?: string | null; breakoutDirection?: "BUY" | "SELL" | null; confluence?: { macroTrend: string; fastTrend: string; rsi: number | null; rsiAligned: boolean | null; volumeRatio: number | null; volumeGood: boolean; rangeSize: number; rangeAtrRatio: number | null; longScore: number; shortScore: number; dxy: string; silver: string; gate: string }; evidence?: string[]; missingConditions?: string[]; liquidityTarget?: number | null; orderBlock?: { direction: string; top: number; bottom: number } | null; riskReward?: number | null; invalidation?: string; ema20?: number | null; slowEMA?: number | null; atr?: number | null; bullStructure?: boolean; bearStructure?: boolean; bullTouch?: boolean; bearTouch?: boolean; bullReject?: boolean; bearReject?: boolean; bullMABreak?: boolean; bearMABreak?: boolean; utBull?: boolean; utBear?: boolean; smiBull?: boolean; smiBear?: boolean; confirmation?: { long: number; short: number } };
+  timeframeEngines?: Partial<Record<"1m" | "5m" | "15m", VortexEngineView>>;
+  strategyEngine?: { source?: string; state?: string; signal?: string; direction?: string; tp1?: number | null; tp2?: number | null; tp3?: number | null; tp4?: number | null; tp5?: number | null; lotSize?: number; lotModel?: string; targetHits?: boolean[]; performance?: { tradesTaken: number; closedTrades: number; openTrades: number; winners: number; losers: number; winRate: number; profitFactor: number | null; totalR: number }; openTrades?: Array<{ direction: "BUY" | "SELL"; entry: number; stopLoss: number; takeProfit: number; entryTime: string; entryDay: string; status: string }>; closedTrades?: Array<{ direction: "BUY" | "SELL"; entry: number; stopLoss: number; takeProfit: number; entryTime: string; entryDay: string; status: string; exitTime?: string; exitPrice?: number }>; latestClosedTrade?: { direction: "BUY" | "SELL"; entry: number; stopLoss: number; takeProfit?: number; tp1?: number; tp2?: number; tp3?: number; tp4?: number; tp5?: number; entryTime?: string; entryDay?: string; status: string; exitTime?: string; exitPrice?: number } | null; openTrade?: { direction: "BUY" | "SELL"; entry: number; stopLoss: number; tp1: number; tp2: number; tp3: number; tp4?: number | null; tp5?: number | null; fibLevel: number; entryTime: string; confirmationTime: string; lotSize: number; targetHits: boolean[]; status: string } | null; statusReason?: string; buyConfluence?: number; sellConfluence?: number; silverDataAvailable?: boolean; silver?: { available?: boolean; close?: number | null; ma?: number | null; maSlope?: string; flow?: string; structure?: string; volumeExpansion?: boolean; flowSupportsBuy?: boolean; flowSupportsSell?: boolean; structureSupportsBuy?: boolean; structureSupportsSell?: boolean; volumeSupportsBuy?: boolean; volumeSupportsSell?: boolean }; confluenceBreakdown?: { buy: Record<string, { available: boolean; passed: boolean; points: number; weight: number }>; sell: Record<string, { available: boolean; passed: boolean; points: number; weight: number }>; buyPenalty: number; sellPenalty: number }; trend?: string; sweptLiquidity?: number | null; rejectionExtreme?: number | null; sweepTime?: string | null; mssTime?: string | null; confirmationTime?: string | null; entry?: number | null; stopLoss?: number | null; finalTp?: number | null; rangeHigh?: number | null; rangeLow?: number | null; window?: string | null; fibLevel?: number | null; score?: number; breakoutPrice?: number | null; breakoutTime?: string | null; breakoutDirection?: "BUY" | "SELL" | null; confluence?: { macroTrend: string; fastTrend: string; rsi: number | null; rsiAligned: boolean | null; volumeRatio: number | null; volumeGood: boolean; rangeSize: number; rangeAtrRatio: number | null; longScore: number; shortScore: number; dxy: string; silver: string; gate: string }; evidence?: string[]; missingConditions?: string[]; liquidityTarget?: number | null; orderBlock?: { direction: string; top: number; bottom: number } | null; riskReward?: number | null; invalidation?: string; ema20?: number | null; slowEMA?: number | null; atr?: number | null; bullStructure?: boolean; bearStructure?: boolean; bullTouch?: boolean; bearTouch?: boolean; bullReject?: boolean; bearReject?: boolean; bullMABreak?: boolean; bearMABreak?: boolean; utBull?: boolean; utBear?: boolean; smiBull?: boolean; smiBear?: boolean; confirmation?: { long: number; short: number } };
 };
 
 const TIMEFRAMES: Timeframe[] = ["1m", "5m", "10m", "15m", "30m", "1H", "4H", "1D", "1W", "1M"];
@@ -337,7 +340,7 @@ export default function AnalyzerPage() {
       if (!res.ok) throw new Error(data.error || "Unable to analyze live market data.");
       setResult(data);
       const candles = Array.isArray(data.chart?.candles) ? data.chart.candles : [];
-      if (candles.length >= 30 && strategy !== "srbOb" && strategy !== "lsobr" && strategy !== "ema20" && strategy !== "fibRetracement" && strategy !== "supplyDemand" && strategy !== "vaulttradesNexus") {
+      if (candles.length >= 30 && strategy !== "srbOb" && strategy !== "lsobr" && strategy !== "ema20" && strategy !== "fibRetracement" && strategy !== "supplyDemand" && strategy !== "vaulttradesNexus" && strategy !== "vortex") {
         setScannerLoading(true);
         try {
           const scannerRes = await fetch("/api/ai-scanner", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
@@ -446,8 +449,6 @@ export default function AnalyzerPage() {
           { label: "TP1", price: vortexView.tp1, kind: "TP" as const },
           { label: "TP2", price: vortexView.tp2, kind: "TP" as const },
           { label: "TP3", price: vortexView.tp3, kind: "TP" as const },
-          { label: "TP4", price: vortexView.tp4, kind: "TP" as const },
-          { label: "TP5", price: vortexView.tp5, kind: "TP" as const },
         ].filter((level): level is { label: string; price: number; kind: "ENTRY" | "SL" | "TP" } => typeof level.price === "number"),
       }
     : null;
@@ -494,7 +495,7 @@ export default function AnalyzerPage() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12, marginTop: 18 }}>
         <label className="muted">Market<select value={marketType} disabled={loading} onChange={e => changeMarket(e.target.value as MarketType)} style={{ width: "100%", marginTop: 7, padding: 13, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}>{MARKET_TYPES.map(m => <option key={m} value={m}>{m === "SYNTHETIC" ? "Synthetic indices" : m.charAt(0) + m.slice(1).toLowerCase()}</option>)}</select></label>
         <label className="muted">Symbol<input value={symbol} disabled={loading || marketType === "SYNTHETIC"} onChange={e => setSymbol(e.target.value)} list="symbols" placeholder="e.g. XAU/USD" style={{ width: "100%", marginTop: 7, padding: 13, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}/><datalist id="symbols">{DEFAULT_SYMBOLS[marketType].map(s => <option key={s} value={s}/>)}</datalist></label>
-        <label className="muted">Timeframe<select value={timeframe} disabled={loading || strategy === "vortex"} onChange={e => { setTimeframe(e.target.value as Timeframe); setResult(null); setLockedTrade(null); }} style={{ width: "100%", marginTop: 7, padding: 13, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}>{TIMEFRAMES.map(tf => <option key={tf} value={tf}>{tf}</option>)}</select></label>
+        <label className="muted">Timeframe<select value={timeframe} disabled={loading} onChange={e => { setTimeframe(e.target.value as Timeframe); setResult(null); setLockedTrade(null); }} style={{ width: "100%", marginTop: 7, padding: 13, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}>{(strategy === "vortex" ? ["1m", "5m", "15m"] : TIMEFRAMES).map(tf => <option key={tf} value={tf}>{tf}</option>)}</select></label>
       </div>
     </section>
 
@@ -505,7 +506,7 @@ export default function AnalyzerPage() {
       <div className="condition-box" style={{ marginTop: 14 }}><strong>{strategyDisplayName(strategy)}</strong></div>
       {strategy === "vortex" && <label className="muted" style={{ display: "block", marginTop: 14 }}>Vortex lot size
         <input type="number" min="0.01" step="0.01" value={vortexLotSize} disabled={loading} onChange={e => setVortexLotSize(Math.max(0.01, Number(e.target.value) || 0.01))} style={{ width: "100%", marginTop: 7, padding: 13, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }} />
-        <span className="muted" style={{ display: "block", marginTop: 5, fontSize: 12 }}>Default 0.05. Lot sizes 0.01–0.04 close fully at TP1; 0.05 and above use five progressive targets.</span>
+        <span className="muted" style={{ display: "block", marginTop: 5, fontSize: 12 }}>Default 0.05. Lot sizes 0.01–0.04 close fully at TP1; 0.05 and above split across three progressive targets.</span>
       </label>}
     </section>
 
@@ -574,11 +575,10 @@ export default function AnalyzerPage() {
       </section>}
       {strategy === "vortex" && result.strategyEngine && <section className="card">
         <div className="section-label">VORTEX FIB / TARGET LADDER</div>
-        <div className="muted" style={{ marginBottom: 10 }}>M1 execution · M5 confirmation · Entry Fib {result.strategyEngine.fibLevel == null ? "—" : result.strategyEngine.fibLevel + "%"} · Feed: {result.dataSource ?? "Twelve Data"}</div>
+        <div className="muted" style={{ marginBottom: 10 }}>Independent {String(result.strategyEngine.timeframe ?? timeframe).toUpperCase()} engine · M1 additionally confirms with M5 displacement · Entry Fib {result.strategyEngine.fibLevel == null ? "—" : result.strategyEngine.fibLevel + "%"} · Feed: {result.dataSource ?? "Market provider"}</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(110px,1fr))", gap: 9 }}>
           {[
             ["TP1", result.strategyEngine.tp1, 0], ["TP2", result.strategyEngine.tp2, 1], ["TP3", result.strategyEngine.tp3, 2],
-            ["TP4", result.strategyEngine.tp4, 3], ["TP5", result.strategyEngine.tp5, 4],
           ].map(([label, value, index]) => <div className="condition-box" key={String(label)}>
             <strong>{label}</strong>
             <div style={{ fontSize: 16, fontWeight: 800, marginTop: 5 }}>{fmt(typeof value === "number" ? value : null, symbol)}</div>
@@ -590,7 +590,7 @@ export default function AnalyzerPage() {
           </div>)}
         </div>
         <div className="muted" style={{ marginTop: 12 }}>
-          Default lot: 0.05 · Selected lot: {result.strategyEngine.lotSize?.toFixed(2) ?? "0.05"} · {result.strategyEngine.lotModel ?? "FIVE TARGETS · 20% EACH"}
+          Default lot: 0.05 · Selected lot: {result.strategyEngine.lotSize?.toFixed(2) ?? "0.05"} · {result.strategyEngine.lotModel ?? "THREE TARGETS · 33.33% EACH"}
         </div>
         {result.strategyEngine.score != null && <div className="muted" style={{ marginTop: 5 }}>Vortex confluence: {result.strategyEngine.score}/100 · Minimum: 60</div>}
       </section>}
