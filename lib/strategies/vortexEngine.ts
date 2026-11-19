@@ -69,16 +69,35 @@ function nearest(values: number[], price: number, above: boolean): number | null
   const a = values.filter(x => above ? x > price : x < price);
   return a.length ? (above ? Math.min(...a) : Math.max(...a)) : null;
 }
-function priorDayLevels(c: VortexCandle[], end: number) {
-  const byDay = new Map<string, VortexCandle[]>();
-  for (let i = 0; i < end; i++) {
-    const key = nyParts(c[i].time).day, list = byDay.get(key) ?? [];
-    list.push(c[i]); byDay.set(key, list);
+function periodLevels(c: VortexCandle[]) {
+  const out: Array<{ high: number | null; low: number | null; weekHigh: number | null; weekLow: number | null }> = [];
+  let dayKey = "", weekKey = "", dayHigh = -Infinity, dayLow = Infinity, weekHigh = -Infinity, weekLow = Infinity;
+  let priorHigh: number | null = null, priorLow: number | null = null, priorWeekHigh: number | null = null, priorWeekLow: number | null = null;
+  for (const bar of c) {
+    const key = nyParts(bar.time).day;
+    const dt = new Date(bar.time);
+    const yearStart = Date.UTC(dt.getUTCFullYear(), 0, 1);
+    const week = Math.floor((Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate()) - yearStart) / 604800000);
+    const wk = dt.getUTCFullYear() + "-" + week;
+    if (dayKey && key !== dayKey) { priorHigh = Number.isFinite(dayHigh) ? dayHigh : priorHigh; priorLow = Number.isFinite(dayLow) ? dayLow : priorLow; dayHigh = -Infinity; dayLow = Infinity; }
+    if (weekKey && wk !== weekKey) { priorWeekHigh = Number.isFinite(weekHigh) ? weekHigh : priorWeekHigh; priorWeekLow = Number.isFinite(weekLow) ? weekLow : priorWeekLow; weekHigh = -Infinity; weekLow = Infinity; }
+    dayKey = key; weekKey = wk;
+    dayHigh = Math.max(dayHigh, bar.high); dayLow = Math.min(dayLow, bar.low);
+    weekHigh = Math.max(weekHigh, bar.high); weekLow = Math.min(weekLow, bar.low);
+    out.push({ high: priorHigh, low: priorLow, weekHigh: priorWeekHigh, weekLow: priorWeekLow });
   }
-  const days = [...byDay.keys()], prior = days.length > 1 ? byDay.get(days[days.length - 2]) ?? [] : [];
-  return prior.length ? { high: Math.max(...prior.map(x => x.high)), low: Math.min(...prior.map(x => x.low)) } : { high: null, low: null };
+  return out;
 }
-function targetOb(c: VortexCandle[], atr: number[], end: number, target: number, bearish: boolean) {
+function emaSeries(values: number[], n: number) {
+  const out: Array<number | null> = Array(values.length).fill(null);
+  if (values.length < n) return out;
+  const k = 2 / (n + 1);
+  let x = values.slice(0, n).reduce((a, b) => a + b, 0) / n;
+  out[n - 1] = x;
+  for (let i = n; i < values.length; i++) { x = values[i] * k + x * (1 - k); out[i] = x; }
+  return out;
+}
+function targetOb(c: VortexCandle[], atr: number[], end: number, target: number, bearish: boolean) {c: VortexCandle[], atr: number[], end: number, target: number, bearish: boolean) {
   let found: { top: number; bottom: number; direction: VortexDirection } | null = null, distance = Infinity;
   for (let i = Math.max(2, end - 60); i < end - 1; i++) {
     const base = c[i], impulse = c[i + 1], a = atr[i + 1];
@@ -93,40 +112,41 @@ function targetOb(c: VortexCandle[], atr: number[], end: number, target: number,
   }
   return found;
 }
-function confluence(dir: 1 | -1, c: VortexCandle[], silver: VortexCandle[], i: number, f68: number, f88: number, structure: boolean, day: { high: number | null; low: number | null }) {
-  const b = c[i], available = { fib: true, structure: true, liquidity: day.high != null || day.low != null, flow: false, silverStructure: false, trend: false, volume: false };
-  let total = 45;
-  let raw = (dir > 0 ? b.low <= f68 && b.close >= f88 : b.high >= f68 && b.close <= f88) ? 25 : 0;
+function confluence(dir: 1 | -1, c: VortexCandle[], i: number, f68: number, f88: number, structure: boolean, levels: { high: number | null; low: number | null; weekHigh: number | null; weekLow: number | null }, silver: { last: VortexCandle | null; prev: VortexCandle | null; ma: number | null; priorMa: number | null; high: number | null; low: number | null; avgVolume: number | null }) {
+  const b = c[i];
+  let available = 45, raw = (dir > 0 ? b.low <= f68 && b.close >= f88 : b.high >= f68 && b.close <= f88) ? 25 : 0;
   if (structure) raw += 20;
-  if (available.liquidity) {
-    total += 15;
-    const swept = dir > 0 ? day.low != null && b.low < day.low && b.close > day.low : day.high != null && b.high > day.high && b.close < day.high;
+  const liquidityAvailable = levels.high != null || levels.low != null || levels.weekHigh != null || levels.weekLow != null;
+  if (liquidityAvailable) {
+    available += 15;
+    const swept = dir > 0
+      ? (levels.low != null && b.low < levels.low && b.close > levels.low) || (levels.weekLow != null && b.low < levels.weekLow && b.close > levels.weekLow)
+      : (levels.high != null && b.high > levels.high && b.close < levels.high) || (levels.weekHigh != null && b.high > levels.weekHigh && b.close < levels.weekHigh);
     if (swept) raw += 15;
   }
-  const sc = silver.filter(x => x.time <= b.time);
-  let flow = "UNAVAILABLE", ma: number | null = null;
-  if (sc.length > 51) {
-    const last = sc[sc.length - 1], prev = sc[sc.length - 2];
+  let flow = "UNAVAILABLE";
+  const last = silver.last, prev = silver.prev;
+  if (last && prev) {
     const falling = last.close < prev.close, rising = last.close > prev.close;
     flow = falling ? "FALLING" : rising ? "RISING" : "FLAT";
-    available.flow = true; total += 15; if (dir > 0 ? falling : rising) raw += 15;
-    const sh = Math.max(...sc.slice(-4, -1).map(x => x.high)), sl = Math.min(...sc.slice(-4, -1).map(x => x.low));
-    available.silverStructure = true; total += 10; if (dir > 0 ? last.close > sh : last.close < sl) raw += 10;
-    ma = ema(sc.map(x => x.close), 50);
-    const priorMa = ema(sc.slice(0, -1).map(x => x.close), 50);
-    if (ma != null && priorMa != null) {
-      available.trend = true; total += 10;
-      const maFalling = ma < priorMa, maRising = ma > priorMa;
+    available += 15; if (dir > 0 ? falling : rising) raw += 15;
+    if (silver.high != null && silver.low != null) {
+      available += 10;
+      if (dir > 0 ? last.close > silver.high : last.close < silver.low) raw += 10;
+    }
+    if (silver.ma != null && silver.priorMa != null) {
+      available += 10;
+      const maFalling = silver.ma < silver.priorMa, maRising = silver.ma > silver.priorMa;
       if (dir > 0 ? maFalling : maRising) raw += 10;
-      const vols = sc.slice(-21, -1).map(x => x.volume ?? 0);
-      const avg = vols.reduce((a, x) => a + x, 0) / Math.max(1, vols.length);
-      if (last.volume != null && avg > 0) { available.volume = true; total += 5; if (last.volume > avg * 1.5 && (dir > 0 ? falling : rising)) raw += 5; }
-      if ((dir > 0 && rising && maRising) || (dir < 0 && falling && maFalling)) raw -= 15 * total / 100;
+      if (silver.avgVolume != null && last.volume != null && silver.avgVolume > 0) {
+        available += 5;
+        if (last.volume > silver.avgVolume * 1.5 && (dir > 0 ? falling : rising)) raw += 5;
+      }
+      if ((dir > 0 && rising && maRising) || (dir < 0 && falling && maFalling)) raw -= 15 * available / 100;
     }
   }
-  return { score: Math.max(0, Math.min(100, Math.round(raw / total * 100))), flow, ma };
+  return { score: Math.max(0, Math.min(100, Math.round(raw / available * 100))), flow };
 }
-
 export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
   const c = [...input.m1Candles].sort((a, b) => a.time - b.time), m5 = [...input.m5Candles].sort((a, b) => a.time - b.time);
   const silver = [...(input.silverCandles ?? [])].sort((a, b) => a.time - b.time);
@@ -141,21 +161,24 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     statusReason: reason, riskReward: null, silver: { available: silver.length > 51, close: silver.at(-1)?.close ?? null, flow: "UNAVAILABLE", ma: null },
   });
   if (c.length < 300 || m5.length < 30) return empty("Waiting for sufficient M1 history and completed M5 confirmation candles.");
-  const atr = atrSeries(c), atr5 = atrSeries(m5);
+  const atr = atrSeries(c), atr5 = atrSeries(m5), m5Levels = periodLevels(m5), silverEma = emaSeries(silver.map(x => x.close), 50);
   const highs: number[] = [], lows: number[] = [];
   const ranges = new Map<string, { asia?: { high: number; low: number }; london?: { high: number; low: number }; ny?: { high: number; low: number }; last: "Asia" | "London" | "New York" }>();
   let bullActive = false, bearActive = false, bullArmed = false, bearArmed = false;
   let bullSweep = 0, bearSweep = 0, bullSweepBar = -1, bearSweepBar = -1, bullLevel: number | null = null, bearLevel: number | null = null;
-  let bullStart: number | null = null, bullEnd: number | null = null, bullStartBar = -1, bullChochBar = -1;
-  let bearStart: number | null = null, bearEnd: number | null = null, bearStartBar = -1, bearChochBar = -1;
+  let bullStart: number | null = null, bullEnd: number | null = null, bullChochBar = -1;
+  let bearStart: number | null = null, bearEnd: number | null = null, bearChochBar = -1;
   let liqHigh: number | null = null, liqLow: number | null = null;
   let buySetup = { state: 0, pullback: -1, fib: null as number | null, pct: null as number | null };
   let sellSetup = { state: 0, pullback: -1, fib: null as number | null, pct: null as number | null };
   let active: VortexTrade | null = null, closed: VortexTrade | null = null, lastOb: VortexResult["orderBlock"] = null, lastLiq: number | null = null;
   let buyScore = 0, sellScore = 0, lastScore = 0, evidence: string[] = [], missing = ["Waiting for a confirmed institutional order."], lastFib: number | null = null, lastM5Time: string | null = null;
+  let m5Pointer = -1, silverPointer = -1, currentDay = "", runningDayHigh = -Infinity, runningDayLow = Infinity, priorHigh: number | null = null, priorLow: number | null = null;
 
   for (let i = 20; i < c.length; i++) {
     const b = c[i], prev = c[i - 1], closeTime = b.time + 60_000, np = nyParts(closeTime), m = np.minute;
+    if (currentDay && np.day !== currentDay) { priorHigh = Number.isFinite(runningDayHigh) ? runningDayHigh : priorHigh; priorLow = Number.isFinite(runningDayLow) ? runningDayLow : priorLow; runningDayHigh = -Infinity; runningDayLow = Infinity; }
+    currentDay = np.day; runningDayHigh = Math.max(runningDayHigh, b.high); runningDayLow = Math.min(runningDayLow, b.low);
     const session: "Asia" | "London" | "New York" | null = m < 360 ? "Asia" : m >= 420 && m < 600 ? "London" : m >= 750 && m < 1020 ? "New York" : null;
     let day = ranges.get(np.day);
     if (!day) { day = { last: "Asia" }; ranges.set(np.day, day); }
@@ -176,8 +199,8 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     else if (bullArmed && b.low < bullSweep) { bullSweep = b.low; bullSweepBar = i; }
     if (liqHigh != null && prev.high <= liqHigh && b.high > liqHigh && !bearArmed && !bullArmed) { bearArmed = true; bearSweep = b.high; bearSweepBar = i; bearLevel = lastLow; }
     else if (bearArmed && b.high > bearSweep) { bearSweep = b.high; bearSweepBar = i; }
-    if (bullArmed && bullLevel != null && b.high > bullLevel && i > bullSweepBar) { bullActive = true; bearActive = false; bullStart = bullSweep; bullEnd = b.high; bullStartBar = bullSweepBar; bullChochBar = i; bullArmed = false; }
-    if (bearArmed && bearLevel != null && b.low < bearLevel && i > bearSweepBar) { bearActive = true; bullActive = false; bearStart = bearSweep; bearEnd = b.low; bearStartBar = bearSweepBar; bearChochBar = i; bearArmed = false; }
+    if (bullArmed && bullLevel != null && b.high > bullLevel && i > bullSweepBar) { bullActive = true; bearActive = false; bullStart = bullSweep; bullEnd = b.high; bullChochBar = i; bullArmed = false; }
+    if (bearArmed && bearLevel != null && b.low < bearLevel && i > bearSweepBar) { bearActive = true; bullActive = false; bearStart = bearSweep; bearEnd = b.low; bearChochBar = i; bearArmed = false; }
     if (bullActive && b.high > (bullEnd ?? 0)) { bullEnd = b.high; bullChochBar = i; }
     if (bearActive && b.low < (bearEnd ?? Infinity)) { bearEnd = b.low; bearChochBar = i; }
     if (bullActive && (i - bullChochBar > 20 || (bullStart != null && b.low < bullStart))) bullActive = false;
@@ -213,13 +236,13 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     const m5b = m5i >= 0 ? m5[m5i] : null, m5p = m5i > 0 ? m5[m5i - 1] : null, a5 = m5i >= 0 ? atr5[m5i] : 0;
     const m5Bull = !!m5b && !!m5p && a5 > 0 && m5b.close > m5b.open && m5b.close - m5b.open >= a5 * 0.6 && m5b.close > m5p.high;
     const m5Bear = !!m5b && !!m5p && a5 > 0 && m5b.close < m5b.open && m5b.open - m5b.close >= a5 * 0.6 && m5b.close < m5p.low;
-    const pd = priorDayLevels(c, i);
-    const upper = nearest([...highs, ...(pd.high != null ? [pd.high] : [])], b.high, true);
-    const lower = nearest([...lows, ...(pd.low != null ? [pd.low] : [])], b.low, false);
+    const pd = { high: priorHigh, low: priorLow, weekHigh: m5i >= 0 ? m5Levels[m5i]?.weekHigh ?? null : null, weekLow: m5i >= 0 ? m5Levels[m5i]?.weekLow ?? null : null };
+    const upper = nearest([...highs, ...(pd.high != null ? [pd.high] : []), ...(pd.weekHigh != null ? [pd.weekHigh] : [])], b.high, true);
+    const lower = nearest([...lows, ...(pd.low != null ? [pd.low] : []), ...(pd.weekLow != null ? [pd.weekLow] : [])], b.low, false);
     const bullOb = lower != null ? targetOb(c, atr, i, lower, false) : null;
     const bearOb = upper != null ? targetOb(c, atr, i, upper, true) : null;
-    const bScore = buyReady ? confluence(1, c, silver, i, buyFib(bt, bb, 68.1), buyFib(bt, bb, 88), bullActive, pd).score : 0;
-    const sScore = sellReady ? confluence(-1, c, silver, i, sellFib(st, sb, 68.1), sellFib(st, sb, 88), bearActive, pd).score : 0;
+    const bScore = buyReady ? confluence(1, c, i, buyFib(bt, bb, 68.1), buyFib(bt, bb, 88), bullActive, pd, silverContext).score : 0;
+    const sScore = sellReady ? confluence(-1, c, i, sellFib(st, sb, 68.1), sellFib(st, sb, 88), bearActive, pd, silverContext).score : 0;
     buyScore = bScore; sellScore = sScore;
     const buyValid = buySetup.state === 3 && buySetup.fib != null && b.low <= buySetup.fib && b.close >= buySetup.fib && m5Bull && upper != null && upper > buySetup.fib && (bullActive || buyReady) && !!bullOb && bullOb.bottom < buySetup.fib && bScore >= MIN_SCORE;
     const sellValid = sellSetup.state === 3 && sellSetup.fib != null && b.high >= sellSetup.fib && b.close <= sellSetup.fib && m5Bear && lower != null && lower < sellSetup.fib && (bearActive || sellReady) && !!bearOb && bearOb.top > sellSetup.fib && sScore >= MIN_SCORE;
@@ -260,21 +283,22 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     if (m5b) lastM5Time = new Date(m5b.time + 300_000).toISOString();
   }
 
-  const trade = active ?? closed;
-  const state = active ? "TRADE ACTIVE" : closed?.status === "TP_HIT" ? "TP HIT" : closed?.status === "SL_HIT" ? "SL HIT" : "WAITING";
-  const sLast = silver.at(-1), sPrev = silver.at(-2), sMa = silver.length >= 50 ? ema(silver.map(x => x.close), 50) : null;
+  const trade = active ?? (setupDeveloping ? null : closed);
+  const setupDeveloping = buySetup.state > 0 || sellSetup.state > 0;
+  const state = active ? "TRADE ACTIVE" : setupDeveloping ? "SETUP DEVELOPING" : closed?.status === "TP_HIT" ? "TP HIT" : closed?.status === "SL_HIT" ? "SL HIT" : "WAITING";
+  const sLast = silver.at(-1), sPrev = silver.at(-2), sMa = silver.length >= 50 ? silverEma[silverEma.length - 1] : null;
   const sFlow = sLast && sPrev ? sLast.close < sPrev.close ? "FALLING" : sLast.close > sPrev.close ? "RISING" : "FLAT" : "UNAVAILABLE";
   return {
     source: "VAULTTRADES_VORTEX_PINE_V12", state, direction: trade?.direction ?? "NO TRADE",
     entry: trade?.entry ?? null, stopLoss: trade?.stopLoss ?? null, tp1: trade?.tp1 ?? null, tp2: trade?.tp2 ?? null,
     tp3: trade?.tp3 ?? null, tp4: trade?.tp4 ?? null, tp5: trade?.tp5 ?? null, fibLevel: trade?.fibLevel ?? lastFib,
-    score: lastScore, buyConfluence: buyScore, sellConfluence: sellScore, liquidityTarget: lastLiq, orderBlock: lastOb,
+    score: active ? lastScore : Math.max(buyScore, sellScore), buyConfluence: buyScore, sellConfluence: sellScore, liquidityTarget: lastLiq, orderBlock: lastOb,
     entryTime: trade?.entryTime ?? null, confirmationTime: trade?.confirmationTime ?? lastM5Time, lotSize,
     lotModel: lotSize < 0.05 ? "FULL CLOSE AT TP1" : "FIVE TARGETS · 20% EACH",
     targetHits: trade?.targetHits ?? [false, false, false, false, false], openTrade: active, latestClosedTrade: closed,
     evidence, missingConditions: active ? [] : missing,
     invalidation: "The M1 setup expires after 8 bars or when its Silver Bullet window closes. SL is anchored to the opposing target-OB wick.",
-    statusReason: active ? (lotSize < 0.05 ? "Trade active. This lot size closes fully at TP1." : "Trade active. Five targets are managed progressively at 20% each.") : closed ? "The previous trade has closed. Waiting for the next qualifying Vortex setup." : missing[0],
+    statusReason: active ? (lotSize < 0.05 ? "Trade active. This lot size closes fully at TP1." : "Trade active. Five targets are managed progressively at 20% each.") : setupDeveloping ? "Vortex setup developing. Waiting for the next M1/M5 qualification event." : closed ? "The previous trade has closed. Waiting for the next qualifying Vortex setup." : missing[0],
     riskReward: trade ? Math.abs(trade.tp5 - trade.entry) / Math.abs(trade.entry - trade.stopLoss) : null,
     silver: { available: silver.length > 51, close: sLast?.close ?? null, flow: sFlow, ma: sMa },
   };
