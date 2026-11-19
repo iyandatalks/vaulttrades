@@ -17,6 +17,7 @@ import adaptiveAutomatedRules from "./adaptiveAutomated";
 import m15DualRules from "./m15DualRules";
 import srbObRules from "./srbOb";
 import lsobrRules from "./lsobr";
+import vortexRules from "./vortex";
 
 export const STRATEGIES: Readonly<Record<StrategyId, StrategyDefinition>> = {
   volatilityBreakout: { rules: volatilityBreakoutRules },
@@ -36,6 +37,7 @@ export const STRATEGIES: Readonly<Record<StrategyId, StrategyDefinition>> = {
   m15DualEngine: { rules: m15DualRules },
   srbOb: { rules: srbObRules },
   lsobr: { rules: lsobrRules },
+  vortex: { rules: vortexRules },
 };
 
 export const STRATEGY_LIST: readonly StrategyDefinition[] = [
@@ -79,6 +81,7 @@ export { default as adaptiveAutomatedRules } from "./adaptiveAutomated";
 export { default as m15DualRules } from "./m15DualRules";
 export { default as srbObRules } from "./srbOb";
 export { default as lsobrRules } from "./lsobr";
+export { default as vortexRules } from "./vortex";
 export { evaluateVaultTradesNexus } from "./vaulttradesNexusEngine";
 export type { VaultTradesNexusResult, NexusTrade, NexusCandle } from "./vaulttradesNexusEngine";
 export { evaluateLsObr } from "./lsobrEngine";
