@@ -35,10 +35,6 @@ function nyParts(time: number) {
   const get = (k: string) => parts.find(p => p.type === k)?.value ?? "0";
   return { day: get("year") + "-" + get("month") + "-" + get("day"), minute: Number(get("hour")) * 60 + Number(get("minute")) };
 }
-function inSilverBullet(time: number) {
-  const m = nyParts(time).minute;
-  return (m >= 180 && m < 240) || (m >= 600 && m < 660) || (m >= 840 && m < 900);
-}
 function atrSeries(c: VortexCandle[], n = 14) {
   const tr = c.map((x, i) => i === 0 ? x.high - x.low : Math.max(x.high - x.low, Math.abs(x.high - c[i - 1].close), Math.abs(x.low - c[i - 1].close)));
   const out = Array(c.length).fill(0);
@@ -170,7 +166,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     score: 0, buyConfluence: 0, sellConfluence: 0, liquidityTarget: null, orderBlock: null,
     entryTime: null, confirmationTime: null, lotSize, lotModel: lotSize < 0.05 ? "FULL CLOSE AT TP1" : "THREE TARGETS · 33.33% EACH",
     targetHits: [false, false, false], openTrade: null, latestClosedTrade: null,
-    evidence: [], missingConditions: [reason], invalidation: `The setup expires after 8 ${timeframe.toUpperCase()} bars or when its Silver Bullet window closes.`,
+    evidence: [], missingConditions: [reason], invalidation: `The setup expires after 8 ${timeframe.toUpperCase()} bars or when its structure is invalidated.`,
     statusReason: reason, riskReward: null, silver: { available: silver.length > 51, close: silver.at(-1)?.close ?? null, flow: "UNAVAILABLE", ma: null },
   });
   if (c.length < 300 || m5.length < 30) return empty(`Waiting for sufficient ${timeframe.toUpperCase()} history and completed ${confirmationTimeframe.toUpperCase()} confirmation candles.`);
@@ -249,13 +245,8 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     const st = activeSellReady ? Math.max(sellStart!, sellEnd!) : 0, sb = activeSellReady ? Math.min(sellStart!, sellEnd!) : 0;
     const buyFlip = buyReady && b.close >= (Math.max(sessionBuyStart!, sessionBuyEnd!) + Math.min(sessionBuyStart!, sessionBuyEnd!)) / 2;
     const sellFlip = sellReady && b.close <= (Math.max(sessionSellStart!, sessionSellEnd!) + Math.min(sessionSellStart!, sessionSellEnd!)) / 2;
-    const window = inSilverBullet(b.time);
-    if (!window) {
-      buySetup = { state: 0, pullback: -1, fib: null, pct: null };
-      sellSetup = { state: 0, pullback: -1, fib: null, pct: null };
-    }
-    const bullInstitution = window && (bullActive || buyReady) && buyFlip && prev.close < prev.open && b.close > prev.high && atr[i] > 0 && b.close - b.open >= atr[i] * 0.5;
-    const bearInstitution = window && (bearActive || sellReady) && sellFlip && prev.close > prev.open && b.close < prev.low && atr[i] > 0 && b.open - b.close >= atr[i] * 0.5;
+    const bullInstitution = (bullActive || buyReady) && buyFlip && prev.close < prev.open && b.close > prev.high && atr[i] > 0 && b.close - b.open >= atr[i] * 0.5;
+    const bearInstitution = (bearActive || sellReady) && sellFlip && prev.close > prev.open && b.close < prev.low && atr[i] > 0 && b.open - b.close >= atr[i] * 0.5;
     if (bullInstitution) { buySetup = { state: 1, pullback: -1, fib: null, pct: null }; sellSetup = { state: 0, pullback: -1, fib: null, pct: null }; evidence = []; missing = ["Bullish institutional order detected; waiting for Fib pullback."]; }
     if (bearInstitution) { sellSetup = { state: 1, pullback: -1, fib: null, pct: null }; buySetup = { state: 0, pullback: -1, fib: null, pct: null }; evidence = []; missing = ["Bearish institutional order detected; waiting for Fib pullback."]; }
     if (buySetup.state === 1 && activeBuyReady) for (const pct of ENTRY_FIBS) { const level = buyFib(bt, bb, pct); if (b.low <= level) { buySetup = { state: 2, pullback: i, fib: level, pct }; break; } }
@@ -341,8 +332,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
       }
     }
     if (i === c.length - 1 && !active) {
-      if (!window) missing = ["Outside the source-defined New York Silver Bullet windows (03:00–04:00, 10:00–11:00, 14:00–15:00)."];
-      else if (buySetup.state === 1) missing = ["Bullish institutional order is armed; waiting for the preferred Fib pullback (68.1%, then 78.6%, then 88.0%)."];
+      if (buySetup.state === 1) missing = ["Bullish institutional order is armed; waiting for the preferred Fib pullback (68.1%, then 78.6%, then 88.0%)."];
       else if (sellSetup.state === 1) missing = ["Bearish institutional order is armed; waiting for the preferred Fib pullback (68.1%, then 78.6%, then 88.0%)."];
       else if (buySetup.state === 2) missing = [`Bullish Fib pullback touched; waiting for the ${timeframe.toUpperCase()} retest and bullish candle confirmation.`];
       else if (sellSetup.state === 2) missing = [`Bearish Fib pullback touched; waiting for the ${timeframe.toUpperCase()} retest and bearish candle confirmation.`];
@@ -383,7 +373,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     lotModel: lotSize < 0.05 ? "FULL CLOSE AT TP1" : "THREE TARGETS · 33.33% EACH",
     targetHits: trade?.targetHits ?? [false, false, false], openTrade: active, latestClosedTrade: closed,
     evidence, missingConditions: active ? [] : missing,
-    invalidation: `The ${timeframe.toUpperCase()} setup expires after 8 bars or when its Silver Bullet window closes. SL is anchored to the opposing target-OB wick.`, 
+    invalidation: `The ${timeframe.toUpperCase()} setup expires after 8 bars or when its structure is invalidated. SL is anchored to the opposing target-OB wick.`, 
     statusReason: active ? (lotSize < 0.05 ? "Trade active. This lot size closes fully at TP1." : "Trade active. Three targets are managed progressively in equal thirds.") : setupDeveloping ? `Vortex ${timeframe.toUpperCase()} setup developing. Waiting for the next qualification event.` : closed ? "The previous trade has closed. Waiting for the next qualifying Vortex setup." : missing[0],
     riskReward: trade ? Math.abs(trade.tp3 - trade.entry) / Math.abs(trade.entry - trade.stopLoss) : null,
     silver: { available: silver.length > 1, close: sLast?.close ?? null, flow: sFlow, ma: sMa },
