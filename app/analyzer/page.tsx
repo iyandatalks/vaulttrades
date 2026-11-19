@@ -513,6 +513,34 @@ export default function AnalyzerPage() {
     <section className="card"><div className="actions"><button className="primary" type="button" disabled={loading || marketType === "SYNTHETIC"} onClick={() => void runAnalysis()}>{loading ? "Analyzing live market..." : "Analyze Live Market"}</button></div>{marketType === "SYNTHETIC" && <div className="condition-box" style={{ marginTop: 12 }}><strong>Market data unavailable</strong><p className="muted">Please select another market or try again later.</p></div>}{error && <div className="error-box" style={{ marginTop: 12 }}><strong>Market data unavailable</strong><p className="muted">Please try again later.</p></div>}</section>
 
     {result && <>
+      {strategy === "vortex" && result.timeframeEngines && <section className="card">
+        <div className="section-label">INDEPENDENT VORTEX TIMEFRAME ENGINES</div>
+        <p className="muted" style={{ marginTop: 0 }}>Each timeframe evaluates its own candles, Fib retracement, order block, entry, stop loss and TP1–TP3. A position on one timeframe does not suppress a signal on another.</p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 12 }}>
+          {(["1m", "5m", "15m"] as const).map(tf => {
+            const engine = result.timeframeEngines?.[tf];
+            const active = engine?.state === "TRADE ACTIVE";
+            return <div className="condition-box" key={tf}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+                <strong style={{ fontSize: 17 }}>{tf.toUpperCase()}</strong>
+                <strong style={{ color: active ? (engine?.direction === "BUY" ? "#35c98a" : "#f06b72") : "#d5b45c" }}>{active ? engine?.direction + " · ACTIVE" : engine?.state ?? "WAITING"}</strong>
+              </div>
+              {active && <>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8, marginTop: 10 }}>
+                  <PriceLevel label="ENTRY" value={engine?.entry} kind="entry" symbol={symbol} />
+                  <PriceLevel label="STOP LOSS" value={engine?.stopLoss} kind="sl" symbol={symbol} />
+                  <PriceLevel label="TP1" value={engine?.tp1} kind="tp" symbol={symbol} />
+                  <PriceLevel label="TP2" value={engine?.tp2} kind="tp" symbol={symbol} />
+                  <PriceLevel label="TP3" value={engine?.tp3} kind="tp" symbol={symbol} />
+                  <div><div className="muted" style={{ fontSize: 11 }}>CONFLUENCE</div><strong>{engine?.score ?? 0}/100</strong></div>
+                </div>
+                {engine?.orderBlock && <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>OB wick: {fmt(engine.orderBlock.bottom, symbol)} – {fmt(engine.orderBlock.top, symbol)}</div>}
+              </>}
+              {!active && <p className="muted" style={{ marginBottom: 0, fontSize: 12 }}>{engine?.statusReason ?? engine?.missingConditions?.[0] ?? "Waiting for a qualifying setup on this timeframe."}</p>}
+            </div>;
+          })}
+        </div>
+      </section>}
       <section className="card"><div className="section-label">LIVE CHART</div><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}><div><h2 className="title" style={{ marginBottom: 3 }}>{result.market?.asset}</h2><div className="muted">{result.market?.timeframe} · Current price {fmt(result.market?.currentPrice, symbol)}</div></div><div className="condition-box" style={{ padding: "10px 14px" }}><strong>Strategy: {strategyDisplayName(result.strategy?.id, result.strategy?.name)}</strong></div></div><LiveMarketChart symbol={symbol} candles={result.chart?.candles || []} channel={result.chart?.channel20} liquidityTargets={s?.liquidityTargets ?? result.liquidityTargets} orderBlocks={result.chart?.orderBlocks ?? []} orderBlock={strategy === "lsobr" ? result.strategyEngine?.orderBlock ?? null : null} tradeLevels={vortexChartLevels} /></section>
 
       {strategy === "vaulttradesNexus" ? <section className="card execution-card" style={{ border: "1px solid rgba(212,166,55,.28)", background: "linear-gradient(145deg, rgba(10,16,30,.98), rgba(5,8,18,.98))" }}>
