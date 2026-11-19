@@ -216,7 +216,7 @@ export async function POST(request: Request) {
       m1Candles: completedEma20Candles(market.candles, "1m").map(c => ({ time: Date.parse(c.datetime), open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume ?? undefined })),
       m5Candles: completedEma20Candles(vortexM5Market?.candles ?? [], "5m").map(c => ({ time: Date.parse(c.datetime), open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume ?? undefined })),
       silverCandles: completedEma20Candles(silverMarket?.candles ?? [], "1m").map(c => ({ time: Date.parse(c.datetime), open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume ?? undefined })),
-      lotSize: 0.05,
+      lotSize: Number.isFinite(Number(body.lotSize)) && Number(body.lotSize) >= 0.01 ? Math.floor(Number(body.lotSize) * 100) / 100 : 0.05,
     }) : null;
     const ema20Bar = ema20Engine?.engine ?? null;
     const ema20EngineEvidence = ema20Engine ? {
