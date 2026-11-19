@@ -127,9 +127,9 @@ function evaluateH4Authority(candles: MarketDataCandle[]): H4AuthoritySnapshot[]
 /**
  * Pine-equivalent Nexus Plus lifecycle:
  * - Core EMA20 persistent structure/rejection/MA-break + UT OR SMI signal.
- * - Entries on every confirmed Pine signal; no clock window or daily trade cap.
- * - H4 authority lock on lower timeframes, released only by H4 SL/TP.
- * - Native timeframe ATR stop multipliers and 1.91R target.
+ * - Entries on every confirmed Pine signal, 24 hours a day; no time window or daily trade cap.
+ * - H4 is directional authority only while an H4 trade is active: same-direction lower-TF signals pass; opposite-direction signals are filtered. Neutral/unavailable H4 does not suppress lower-TF signals.
+ * - Every timeframe calculates ATR from its own OHLC series and applies its configured stop multiplier and RR.
  */
 export function evaluateNexusPlusAnalyzer(
   candles: MarketDataCandle[],
@@ -186,7 +186,9 @@ export function evaluateNexusPlusAnalyzer(
     if (active || closedThisBar || (!bar.newLong && !bar.newShort)) continue;
 
     const direction: Direction = bar.newLong ? "BUY" : "SELL";
-    if (belowH4 && useH4Lock && authority?.direction !== direction) continue;
+    // H4 only filters the opposing direction while an H4 trade is active.
+    // A neutral or unavailable H4 state is not a blanket trade lock.
+    if (belowH4 && useH4Lock && authority?.direction !== undefined && authority.direction !== "NEUTRAL" && authority.direction !== direction) continue;
 
     const entry = direction === "BUY" ? bar.longEntry : bar.shortEntry;
     const stopLoss = direction === "BUY" ? bar.longSL : bar.shortSL;
