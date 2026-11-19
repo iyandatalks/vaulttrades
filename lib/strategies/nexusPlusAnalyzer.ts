@@ -239,8 +239,7 @@ export function evaluateNexusPlusAnalyzer(
       target: active.target, entryTime: active.entryTime, entryDay: active.entryDay,
       reason: `Pine Nexus Plus entry confirmed in a scheduled SAST window. Entry/SL/TP locked at ${active.entry}/${active.stopLoss}/${active.target}; ATR(${14}) × ${atrMultiplier} stop and 1:${riskReward} target. H4 authority: ${h4.direction}.`,
       sourceBar: active.sourceBar, engine: bars.at(-1) ?? null, h4Direction: h4.direction,
-      engine: bars.at(-1) ?? null,
-    h4Entry: h4.trade?.entry ?? null, h4StopLoss: h4.trade?.stopLoss ?? null, h4Target: h4.trade?.target ?? null,
+      h4Entry: h4.trade?.entry ?? null, h4StopLoss: h4.trade?.stopLoss ?? null, h4Target: h4.trade?.target ?? null,
       riskReward, atrMultiplier,
     };
   }
@@ -266,6 +265,7 @@ export function evaluateNexusPlusAnalyzer(
         : "WAIT — no confirmed Nexus Plus signal has occurred inside the three scheduled SAST breakout windows, or the H4 lock blocked the opposite direction.",
       h4.direction,
     ),
+    engine: bars.at(-1) ?? null,
     h4Entry: h4.trade?.entry ?? null,
     h4StopLoss: h4.trade?.stopLoss ?? null,
     h4Target: h4.trade?.target ?? null,
