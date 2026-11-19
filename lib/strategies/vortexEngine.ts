@@ -164,7 +164,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     source: "VAULTTRADES_VORTEX_PINE_V12", state: "WAITING", direction: "NO TRADE",
     entry: null, stopLoss: null, tp1: null, tp2: null, tp3: null, tp4: null, tp5: null, fibLevel: null,
     score: 0, buyConfluence: 0, sellConfluence: 0, liquidityTarget: null, orderBlock: null,
-    entryTime: null, confirmationTime: null, lotSize, lotModel: lotSize < 0.05 ? "FULL CLOSE AT TP1" : "FIVE TARGETS · 20% EACH",
+    entryTime: null, confirmationTime: null, lotSize, lotModel: lotSize < 0.05 ? "FULL CLOSE AT TP1" : "THREE TARGETS · 33.33% EACH",
     targetHits: [false, false, false, false, false], openTrade: null, latestClosedTrade: null,
     evidence: [], missingConditions: [reason], invalidation: "The setup expires after 8 M1 bars or when its Silver Bullet window closes.",
     statusReason: reason, riskReward: null, silver: { available: silver.length > 51, close: silver.at(-1)?.close ?? null, flow: "UNAVAILABLE", ma: null },
@@ -341,8 +341,8 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
       if (!window) missing = ["Outside the source-defined New York Silver Bullet windows (03:00–04:00, 10:00–11:00, 14:00–15:00)."];
       else if (buySetup.state === 1) missing = ["Bullish institutional order is armed; waiting for the preferred Fib pullback (68.1%, then 78.6%, then 88.0%)."];
       else if (sellSetup.state === 1) missing = ["Bearish institutional order is armed; waiting for the preferred Fib pullback (68.1%, then 78.6%, then 88.0%)."];
-      else if (buySetup.state === 2) missing = ["Bullish Fib pullback touched; waiting for the M1 retest and bullish candle confirmation."];
-      else if (sellSetup.state === 2) missing = ["Bearish Fib pullback touched; waiting for the M1 retest and bearish candle confirmation."];
+      else if (buySetup.state === 2) missing = [`Bullish Fib pullback touched; waiting for the ${timeframe.toUpperCase()} retest and bullish candle confirmation.`];
+      else if (sellSetup.state === 2) missing = [`Bearish Fib pullback touched; waiting for the ${timeframe.toUpperCase()} retest and bearish candle confirmation.`];
       else if (buySetup.state === 3) missing = [
         ...(buySetup.fib == null || b.low > buySetup.fib || b.close < buySetup.fib ? ["Waiting for the M1 candle to retest and hold the selected Fib entry."] : []),
         ...(!m5Bull ? ["Waiting for a completed bullish M5 displacement candle."] : []),
@@ -372,7 +372,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
   const sLast = silver.at(-1), sPrev = silver.at(-2), sMa = silver.length >= 50 ? silverEma[silverEma.length - 1] : null;
   const sFlow = sLast && sPrev ? sLast.close < sPrev.close ? "FALLING" : sLast.close > sPrev.close ? "RISING" : "FLAT" : "UNAVAILABLE";
   return {
-    source: "VAULTTRADES_VORTEX_PINE_V12", state, direction: trade?.direction ?? "NO TRADE",
+    source: "VAULTTRADES_VORTEX_PINE_V12", timeframe, state, direction: trade?.direction ?? "NO TRADE",
     entry: trade?.entry ?? null, stopLoss: trade?.stopLoss ?? null, tp1: trade?.tp1 ?? null, tp2: trade?.tp2 ?? null,
     tp3: trade?.tp3 ?? null, tp4: trade?.tp4 ?? null, tp5: trade?.tp5 ?? null, fibLevel: trade?.fibLevel ?? buySetup.pct ?? sellSetup.pct ?? lastFib,
     score: active ? lastScore : Math.max(buyScore, sellScore), buyConfluence: buyScore, sellConfluence: sellScore, liquidityTarget: trade?.liquidityTarget ?? lastLiq, orderBlock: trade?.orderBlock ?? lastOb,
