@@ -463,7 +463,7 @@ Return JSON only.`;
     const entry = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.entry : null) : strategyId === "vaulttradesNexus" ? (nexusEngine?.entry ?? null) : strategyId === "srbOb" ? (srbObEngine?.entry ?? null) : strategyId === "lsobr" ? (lsobrEngine?.entry ?? null) : strategyId === "supplyDemand" ? (supplyDemandEngine?.entry ?? null) : (typeof ai.entry === "number" ? ai.entry : null);
     const stopLoss = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.stopLoss : null) : strategyId === "vaulttradesNexus" ? (nexusEngine?.stopLoss ?? null) : strategyId === "srbOb" ? (srbObEngine?.stopLoss ?? null) : strategyId === "lsobr" ? (lsobrEngine?.stopLoss ?? null) : strategyId === "supplyDemand" ? (supplyDemandEngine?.stopLoss ?? null) : (typeof ai.stopLoss === "number" ? ai.stopLoss : null);
     const finalTp = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.target : null) : strategyId === "vaulttradesNexus" ? (nexusEngine?.takeProfit ?? null) : strategyId === "srbOb" ? (srbObEngine?.finalTp ?? null) : strategyId === "lsobr" ? (lsobrEngine?.finalTp ?? null) : strategyId === "supplyDemand" ? (supplyDemandEngine?.finalTp ?? null) : (typeof ai.finalTp === "number" ? ai.finalTp : typeof ai.tp2 === "number" ? ai.tp2 : null);
-    const minimumRR = strategyId === "vaulttradesNexus" ? 1.5 : strategyId === "ema20" ? 1.81 : strategyId === "srbOb" ? 0.1 : strategyId === "supplyDemand" ? 0.01 : 2;
+    const minimumRR = strategyId === "vaulttradesNexus" ? 1.5 : strategyId === "ema20" ? 1.91 : strategyId === "srbOb" ? 0.1 : strategyId === "supplyDemand" ? 0.01 : 2;
     const math = tradeMath(direction, entry, stopLoss, finalTp, liveCurrentPrice, minimumRR, strategyId === "ema20" || strategyId === "supplyDemand" || strategyId === "vaulttradesNexus" ? 0 : 0.1, strategyId === "ema20" || strategyId === "supplyDemand" || strategyId === "vaulttradesNexus" ? Number.POSITIVE_INFINITY : 0.5);
     const strongSmc = [ai.bos, ai.choch, ai.orderBlock, ai.fvg, ai.liquiditySweep, ai.displacement].filter((x: unknown) => typeof x === "number" && x >= 7).length;
     const smcGate = strongSmc >= 2;
@@ -478,7 +478,7 @@ Return JSON only.`;
       entry,
       stopLoss,
       finalTp,
-      riskReward: 1.81,
+      riskReward: 1.91,
       ema20: ema20Bar?.ema20 ?? null,
       slowEMA: ema20Bar?.slowEMA ?? null,
       atr: ema20Bar?.atr ?? null,
