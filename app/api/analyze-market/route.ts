@@ -360,7 +360,7 @@ DETERMINISTIC STRATEGY ENGINE STATE
 ${JSON.stringify({ ema20: ema20EngineEvidence, srbOb: srbObEngineEvidence, lsobr: lsobrEngineEvidence })}
 
 IMPORTANT ENGINE AUTHORITY
-If the selected strategy is EMA20, its deterministic Pine-equivalent engine is authoritative for lifecycle state, entry, stop loss and target. If the selected strategy is srbOb, the SRB & OB engine is authoritative for its session-window breakout and Fib retest. If the selected strategy is lsobr, the dedicated LSOBR engine is authoritative for liquidity sweep, pre-existing fixed order block, rejection, MSS, confirmed OB exit, entry location, stop and opposing liquidity target. LSOBR must never use SRB session-window conditions. Never let generic Analyzer gates or AI rewrite the selected engine output. In particular, VaultTrades Nexus Plus uses its timeframe-specific ATR(14) stop multiplier, scheduled SAST breakout authorization, one accepted trade per SAST day, H4 Directional Authority Lock and exactly 1:1.91 RR. A core NEW_LONG/NEW_SHORT is necessary but not sufficient until the scheduled window and H4 direction also authorize it. If the engine has no new signal, do not manufacture a BUY or SELL from generic indicators.
+If the selected strategy is VaultTrades Nexus Plus (ema20), its deterministic Pine-equivalent engine is authoritative for lifecycle state, entry, stop loss and target. If the selected strategy is srbOb, the SRB & OB engine is authoritative for its session-window breakout and Fib retest. If the selected strategy is lsobr, the dedicated LSOBR engine is authoritative for liquidity sweep, pre-existing fixed order block, rejection, MSS, confirmed OB exit, entry location, stop and opposing liquidity target. LSOBR must never use SRB session-window conditions. Never let generic Analyzer gates or AI rewrite the selected engine output. In particular, VaultTrades Nexus Plus uses its timeframe-specific ATR(14) stop multiplier, scheduled SAST breakout authorization, one accepted trade per SAST day, H4 Directional Authority Lock and exactly 1:1.91 RR. A core NEW_LONG/NEW_SHORT is necessary but not sufficient until the scheduled window and H4 direction also authorize it. If the engine has no new signal, do not manufacture a BUY or SELL from generic indicators.
 
 PRICE LEVEL INTEGRITY — MANDATORY
 The current price above is authoritative. Support must be below current price. Resistance must be above current price. Never make support equal resistance. If a structural level is unavailable, return null rather than inventing one.
@@ -413,13 +413,13 @@ Return JSON only.`;
         marketStructure: context.structure.trend ?? "Structure evaluated from selected timeframe candles.",
         support: priceLevels.support,
         resistance: priceLevels.resistance,
-        recentPriceAction: "Deterministic EMA20 engine evaluated the completed candle sequence.",
-        setup: ema20Engine?.reason ?? "WAIT — no Pine-defined EMA20 entry sequence has qualified.",
+        recentPriceAction: "Deterministic VaultTrades Nexus Plus engine evaluated completed candles, scheduled SAST authorization and the H4 direction lock.",
+        setup: ema20Engine?.reason ?? "WAIT — no Pine-defined Nexus Plus entry sequence has qualified.",
         confirmedConditions: ema20EngineEvidence?.evidence ?? [],
         missingConditions: ema20EngineEvidence?.missingConditions ?? [],
         bos: 5, choch: 5, orderBlock: 1, fvg: 5, liquiditySweep: 5, displacement: 5,
         pipeline: ema20EngineEvidence?.evidence ?? [],
-        nextZone: ema20Bar?.bullReject ? "Bullish rejection high" : ema20Bar?.bearReject ? "Bearish rejection low" : "Wait for the next Pine-defined EMA20 pullback/rejection",
+        nextZone: ema20Bar?.bullReject ? "Bullish rejection high" : ema20Bar?.bearReject ? "Bearish rejection low" : "Wait for the next Pine-defined Nexus Plus setup and scheduled breakout window",
         invalidation: ema20EngineEvidence?.invalidation ?? "",
         entry: ema20Engine?.entry ?? null,
         stopLoss: ema20Engine?.stopLoss ?? null,
