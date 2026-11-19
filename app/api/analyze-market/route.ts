@@ -249,7 +249,7 @@ export async function POST(request: Request) {
         ema20Bar?.smiBear ? "SMI bearish" : "",
       ].filter(Boolean),
       missingConditions: ema20Engine.state === "WAITING" ? [ema20Engine.reason] : [],
-      invalidation: ema20Engine.state === "SL HIT" ? "The original stop loss was reached; no second EMA20 trade is permitted on this timeframe today." : "The stored rejection is invalidated by a close through its opposite extreme or expires after the configured confirmation window.",
+      invalidation: ema20Engine.state === "SL HIT" ? "The original stop loss was reached; wait for the next confirmed Pine signal." : "The stored rejection is invalidated by a close through its opposite extreme or expires after the configured confirmation bars.",
     } : null;
 
     const autoFibEngine = strategyId === "fibRetracement" ? analyzeAutoFibRetrace({
@@ -360,7 +360,7 @@ DETERMINISTIC STRATEGY ENGINE STATE
 ${JSON.stringify({ ema20: ema20EngineEvidence, srbOb: srbObEngineEvidence, lsobr: lsobrEngineEvidence })}
 
 IMPORTANT ENGINE AUTHORITY
-If the selected strategy is VaultTrades Nexus Plus (ema20), its deterministic Pine-equivalent engine is authoritative for lifecycle state, entry, stop loss and target. If the selected strategy is srbOb, the SRB & OB engine is authoritative for its session-window breakout and Fib retest. If the selected strategy is lsobr, the dedicated LSOBR engine is authoritative for liquidity sweep, pre-existing fixed order block, rejection, MSS, confirmed OB exit, entry location, stop and opposing liquidity target. LSOBR must never use SRB session-window conditions. Never let generic Analyzer gates or AI rewrite the selected engine output. In particular, VaultTrades Nexus Plus uses its timeframe-specific ATR(14) stop multiplier, no scheduled SAST breakout authorization or daily trade cap, H4 Directional Authority Lock and exactly 1:1.91 RR. Every confirmed NEW_LONG/NEW_SHORT is eligible at any time, subject to the H4 direction lock. If the engine has no new signal, do not manufacture a BUY or SELL from generic indicators.
+If the selected strategy is VaultTrades Nexus Plus (ema20), its deterministic Pine-equivalent engine is authoritative for lifecycle state, entry, stop loss and target. If the selected strategy is srbOb, the SRB & OB engine is authoritative for its session-window breakout and Fib retest. If the selected strategy is lsobr, the dedicated LSOBR engine is authoritative for liquidity sweep, pre-existing fixed order block, rejection, MSS, confirmed OB exit, entry location, stop and opposing liquidity target. LSOBR must never use SRB session-window conditions. Never let generic Analyzer gates or AI rewrite the selected engine output. In particular, VaultTrades Nexus Plus uses its timeframe-specific ATR(14) stop multiplier, no time window or daily trade cap, chronological H4 Directional Authority Lock and exactly 1:1.81 RR. Every confirmed NEW_LONG/NEW_SHORT is eligible at any time, subject to the H4 direction lock. If the engine has no new signal, do not manufacture a BUY or SELL from generic indicators.
 
 PRICE LEVEL INTEGRITY — MANDATORY
 The current price above is authoritative. Support must be below current price. Resistance must be above current price. Never make support equal resistance. If a structural level is unavailable, return null rather than inventing one.
@@ -408,7 +408,7 @@ Return JSON only.`;
         confidence: ema20Engine?.state === "TRADE ACTIVE" ? 80 : 45,
         marketCondition: context.structure.trend ?? "Live market structure",
         directionalBias: ema20Engine?.direction ?? "NEUTRAL",
-        session: "SAST morning signal window",
+        session: "No time window or daily entry cap.",
         higherTimeframe: "Higher timeframes are independent strategy instances; they do not gate the selected timeframe.",
         marketStructure: context.structure.trend ?? "Structure evaluated from selected timeframe candles.",
         support: priceLevels.support,
@@ -427,7 +427,7 @@ Return JSON only.`;
         tp2: ema20Engine?.target ?? null,
         finalTp: ema20Engine?.target ?? null,
         nextAction: ema20Engine?.reason ?? "WAIT",
-        educationalNote: "VaultTrades Nexus Plus follows the supplied Pine v6 persistent structure, EMA20 pullback/rejection, rejection-break, UT Bot OR SMI confirmation, no clock-based entry windows or daily trade cap, one active position at a time, H4 directional authority lock, timeframe-specific ATR stop multiplier and 1:1.91 target. No additional OB or generic confluence gate is applied.",
+        educationalNote: "VaultTrades Nexus Plus follows the supplied Pine v6 persistent structure, EMA20 pullback/rejection, rejection-break, UT Bot OR SMI confirmation, no clock-based entry windows or daily trade cap, one active position at a time, H4 directional authority lock, timeframe-specific ATR stop multiplier and 1:1.81 target. No additional OB or generic confluence gate is applied.",
       };
     } else if (strategyId === "fibRetracement") {
       ai = { direction:"NO TRADE",decision:"NO TRADE",confidence:autoFibEngine?.confidence??0,marketCondition:context.structure.trend,directionalBias:autoFibEngine?.bias??"NEUTRAL",session:"Derived from market candle timestamps.",higherTimeframe:"Selected timeframe is evaluated independently.",marketStructure:context.structure.trend,support:priceLevels.support,resistance:priceLevels.resistance,recentPriceAction:autoFibEngine?.message??"Auto Fib engine evaluated the supplied candles.",setup:autoFibEngine?.message??"Waiting for valid Fib structure.",confirmedConditions:autoFibEngine?.evidence??[],missingConditions:autoFibEngine?.missingConditions??[],bos:5,choch:5,orderBlock:5,fvg:5,liquiditySweep:5,displacement:5,pipeline:autoFibEngine?.evidence??[],nextZone:"Wait for source-defined Fib flip, active unmitigated OB and entry confirmation.",invalidation:(autoFibEngine?.invalidation??[]).join(" "),entry:null,stopLoss:null,tp1:autoFibEngine?.tp1??null,tp2:autoFibEngine?.tp2??null,finalTp:autoFibEngine?.finalTp??null,nextAction:autoFibEngine?.message??"WAIT",educationalNote:"Auto Fib runs locally. Its source defines projection probability as zero and has no qualifying entry event, so no BUY/SELL or stop-loss is invented." };
@@ -471,7 +471,7 @@ Return JSON only.`;
     const entry = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.entry : null) : strategyId === "vaulttradesNexus" ? (nexusEngine?.entry ?? null) : strategyId === "srbOb" ? (srbObEngine?.entry ?? null) : strategyId === "lsobr" ? (lsobrEngine?.entry ?? null) : strategyId === "supplyDemand" ? (supplyDemandEngine?.entry ?? null) : (typeof ai.entry === "number" ? ai.entry : null);
     const stopLoss = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.stopLoss : null) : strategyId === "vaulttradesNexus" ? (nexusEngine?.stopLoss ?? null) : strategyId === "srbOb" ? (srbObEngine?.stopLoss ?? null) : strategyId === "lsobr" ? (lsobrEngine?.stopLoss ?? null) : strategyId === "supplyDemand" ? (supplyDemandEngine?.stopLoss ?? null) : (typeof ai.stopLoss === "number" ? ai.stopLoss : null);
     const finalTp = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.target : null) : strategyId === "vaulttradesNexus" ? (nexusEngine?.takeProfit ?? null) : strategyId === "srbOb" ? (srbObEngine?.finalTp ?? null) : strategyId === "lsobr" ? (lsobrEngine?.finalTp ?? null) : strategyId === "supplyDemand" ? (supplyDemandEngine?.finalTp ?? null) : (typeof ai.finalTp === "number" ? ai.finalTp : typeof ai.tp2 === "number" ? ai.tp2 : null);
-    const minimumRR = strategyId === "vaulttradesNexus" ? 1.5 : strategyId === "ema20" ? 1.91 : strategyId === "srbOb" ? 0.1 : strategyId === "supplyDemand" ? 0.01 : 2;
+    const minimumRR = strategyId === "vaulttradesNexus" ? 1.5 : strategyId === "ema20" ? 1.81 : strategyId === "srbOb" ? 0.1 : strategyId === "supplyDemand" ? 0.01 : 2;
     const math = tradeMath(direction, entry, stopLoss, finalTp, liveCurrentPrice, minimumRR, strategyId === "ema20" || strategyId === "supplyDemand" || strategyId === "vaulttradesNexus" ? 0 : 0.1, strategyId === "ema20" || strategyId === "supplyDemand" || strategyId === "vaulttradesNexus" ? Number.POSITIVE_INFINITY : 0.5);
     const strongSmc = [ai.bos, ai.choch, ai.orderBlock, ai.fvg, ai.liquiditySweep, ai.displacement].filter((x: unknown) => typeof x === "number" && x >= 7).length;
     const smcGate = strongSmc >= 2;
@@ -510,7 +510,7 @@ Return JSON only.`;
       h4StopLoss: ema20Engine?.h4StopLoss ?? null,
       h4Target: ema20Engine?.h4Target ?? null,
       atrMultiplier: ema20Engine?.atrMultiplier ?? null,
-      riskReward: ema20Engine?.riskReward ?? 1.91,
+      riskReward: ema20Engine?.riskReward ?? 1.81,
       evidence: ema20EngineEvidence?.evidence ?? [],
       missingConditions: ema20EngineEvidence?.missingConditions ?? [],
       invalidation: ema20EngineEvidence?.invalidation ?? "",
