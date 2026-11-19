@@ -512,7 +512,7 @@ export default function AnalyzerPage() {
                 </div>
                 <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>Signal date: {trade.entryDay} · Entry time: {trade.entryTime}</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(125px,1fr))", gap: 8, marginTop: 10 }}>
-                  <div className="condition-box"><strong>CURRENT PRICE</strong><div style={{ marginTop: 5 }}>{hasCurrentPrice ? fmt(currentPrice) : "Unavailable"}</div></div>
+                  <div className="condition-box"><strong>CURRENT PRICE</strong><div style={{ marginTop: 5 }}>{hasCurrentPrice ? fmt(currentPrice, symbol) : "Unavailable"}</div></div>
                   <div className="condition-box"><strong>MOVE FROM ENTRY</strong><div style={{ marginTop: 5 }}>{moveFromEntry == null ? "—" : (moveFromEntry > 0 ? "+" : "") + fmt(moveFromEntry, symbol)}</div></div>
                   <div className="condition-box"><strong>DISTANCE TO TP</strong><div style={{ marginTop: 5 }}>{distanceToTarget == null ? "—" : fmt(distanceToTarget, symbol)}</div></div>
                   <div className="condition-box"><strong>DISTANCE TO SL</strong><div style={{ marginTop: 5 }}>{distanceToStop == null ? "—" : fmt(distanceToStop, symbol)}</div></div>
