@@ -76,7 +76,7 @@ export function LiveMarketChart({ symbol = "", candles, channel, liquidityTarget
         {priceTicks.map((tick, i) => (
           <g key={`price-${i}`}>
             <line x1={left} x2={width - right} y1={y(tick)} y2={y(tick)} stroke="rgba(148,163,184,.12)" strokeWidth="1" />
-            <text x={width - right + 10} y={y(tick) + 4} fill="#94a3b8" fontSize="12">{fmtPrice(tick)}</text>
+            <text x={width - right + 10} y={y(tick) + 4} fill="#94a3b8" fontSize="12">{fmtPrice(tick, symbol)}</text>
           </g>
         ))}
 
