@@ -173,11 +173,11 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
   let sellSetup = { state: 0, pullback: -1, fib: null as number | null, pct: null as number | null };
   let active: VortexTrade | null = null, closed: VortexTrade | null = null, lastOb: VortexResult["orderBlock"] = null, lastLiq: number | null = null;
   let buyScore = 0, sellScore = 0, lastScore = 0, evidence: string[] = [], missing = ["Waiting for a confirmed institutional order."], lastFib: number | null = null, lastM5Time: string | null = null;
-  let m5Pointer = -1, silverPointer = -1, currentDay = "", runningDayHigh = -Infinity, runningDayLow = Infinity, priorHigh: number | null = null, priorLow: number | null = null;
+  let m5Pointer = -1, silverPointer = -1, currentDay = "", runningDayHigh = -Infinity, runningDayLow = Infinity, priorHigh: number | null = null, priorLow: number | null = null, priorNySession: { high: number; low: number } | null = null;
 
   for (let i = 20; i < c.length; i++) {
     const b = c[i], prev = c[i - 1], closeTime = b.time + 60_000, np = nyParts(closeTime), m = np.minute;
-    if (currentDay && np.day !== currentDay) { priorHigh = Number.isFinite(runningDayHigh) ? runningDayHigh : priorHigh; priorLow = Number.isFinite(runningDayLow) ? runningDayLow : priorLow; runningDayHigh = -Infinity; runningDayLow = Infinity; }
+    if (currentDay && np.day !== currentDay) { priorHigh = Number.isFinite(runningDayHigh) ? runningDayHigh : priorHigh; priorLow = Number.isFinite(runningDayLow) ? runningDayLow : priorLow; priorNySession = ranges.get(currentDay)?.ny ?? priorNySession; runningDayHigh = -Infinity; runningDayLow = Infinity; }
     currentDay = np.day; runningDayHigh = Math.max(runningDayHigh, b.high); runningDayLow = Math.min(runningDayLow, b.low);
     const session: "Asia" | "London" | "New York" | null = m < 360 ? "Asia" : m >= 420 && m < 600 ? "London" : m >= 750 && m < 1020 ? "New York" : null;
     let day = ranges.get(np.day);
@@ -189,7 +189,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
       range.high = Math.max(range.high, b.high); range.low = Math.min(range.low, b.low); day[key] = range;
       if (session === "London" && day.asia) { liqHigh = day.asia.high; liqLow = day.asia.low; }
       if (session === "New York" && day.london) { liqHigh = day.london.high; liqLow = day.london.low; }
-      if (session === "Asia" && day.ny) { liqHigh = day.ny.high; liqLow = day.ny.low; }
+      if (session === "Asia" && priorNySession) { liqHigh = priorNySession.high; liqLow = priorNySession.low; }
     }
     const pv = pivot(c, i);
     if (pv.high != null) highs.push(pv.high);
@@ -223,8 +223,8 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     }
     const bullInstitution = window && (bullActive || buyReady) && buyReady && b.close >= (bt + bb) / 2 && prev.close < prev.open && b.close > prev.high && atr[i] > 0 && b.close - b.open >= atr[i] * 0.5;
     const bearInstitution = window && (bearActive || sellReady) && sellReady && b.close <= (st + sb) / 2 && prev.close > prev.open && b.close < prev.low && atr[i] > 0 && b.open - b.close >= atr[i] * 0.5;
-    if (bullInstitution) { buySetup = { state: 1, pullback: -1, fib: null, pct: null }; sellSetup = { state: 0, pullback: -1, fib: null, pct: null }; }
-    if (bearInstitution) { sellSetup = { state: 1, pullback: -1, fib: null, pct: null }; buySetup = { state: 0, pullback: -1, fib: null, pct: null }; }
+    if (bullInstitution) { buySetup = { state: 1, pullback: -1, fib: null, pct: null }; sellSetup = { state: 0, pullback: -1, fib: null, pct: null }; evidence = []; missing = ["Bullish institutional order detected; waiting for Fib pullback."]; }
+    if (bearInstitution) { sellSetup = { state: 1, pullback: -1, fib: null, pct: null }; buySetup = { state: 0, pullback: -1, fib: null, pct: null }; evidence = []; missing = ["Bearish institutional order detected; waiting for Fib pullback."]; }
     if (buySetup.state === 1 && buyReady) for (const pct of ENTRY_FIBS) { const level = buyFib(bt, bb, pct); if (b.low <= level) { buySetup = { state: 2, pullback: i, fib: level, pct }; break; } }
     if (sellSetup.state === 1 && sellReady) for (const pct of ENTRY_FIBS) { const level = sellFib(st, sb, pct); if (b.high >= level) { sellSetup = { state: 2, pullback: i, fib: level, pct }; break; } }
     if (buySetup.state >= 2 && i - buySetup.pullback > RETEST_BARS) buySetup = { state: 0, pullback: -1, fib: null, pct: null };
@@ -277,7 +277,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
         else sellSetup = { state: 0, pullback: -1, fib: null, pct: null };
       }
     }
-    if (i === c.length - 1 && !active && !closed) {
+    if (i === c.length - 1 && !active) {
       missing = [!window ? "Outside the source-defined New York Silver Bullet windows (03:00–04:00, 10:00–11:00, 14:00–15:00)." : buySetup.state || sellSetup.state ? "Setup is developing; waiting for the remaining M1/M5, liquidity, OB and confluence conditions." : "Waiting for a confirmed institutional order."];
     }
     if (m5b) lastM5Time = new Date(m5b.time + 300_000).toISOString();
