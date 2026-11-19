@@ -36,8 +36,9 @@ function emaSeries(values: Array<number | null>, length: number): Array<number |
   const k = 2 / (length + 1);
   for (let i = 0; i < values.length; i++) {
     if (previous === null) {
-      const seed = sma(values, length, i);
-      if (seed !== null) { previous = seed; out[i] = seed; }
+      // Pine ta.ema starts from the first non-na source value, then applies
+      // alpha = 2 / (length + 1). Do not SMA-seed the EMA.
+      if (values[i] !== null) { previous = values[i]!; out[i] = previous; }
     } else if (values[i] !== null) {
       previous = values[i]! * k + previous * (1 - k);
       out[i] = previous;
