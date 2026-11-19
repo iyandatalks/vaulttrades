@@ -111,7 +111,7 @@ const DEFAULT_SYMBOLS: Record<MarketType, string[]> = {
 const PUBLIC_STRATEGY_IDS = ["fibRetracement", "ema20", "vaulttradesNexus"] as const;
 const PUBLIC_STRATEGY_LABELS: Record<string, string> = {
   fibRetracement: "VaultTrades | Auto Fib Retrace + OB",
-  ema20: "VaultTrades | EMA20",
+  ema20: "VaultTrades Nexus Plus",
   vaulttradesNexus: "VaultTrades Nexus",
 };
 const fmt = (v: number | null | undefined) => v == null || !Number.isFinite(v) ? "—" : v.toLocaleString(undefined, { maximumFractionDigits: 5 });
