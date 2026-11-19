@@ -573,7 +573,7 @@ export default function AnalyzerPage() {
       </section>}
       {strategy === "vortex" && result.strategyEngine && <section className="card">
         <div className="section-label">VORTEX FIB / TARGET LADDER</div>
-        <div className="muted" style={{ marginBottom: 10 }}>M1 execution · M5 confirmation · Entry Fib {result.strategyEngine.fibLevel == null ? "—" : result.strategyEngine.fibLevel + "%"}</div>
+        <div className="muted" style={{ marginBottom: 10 }}>M1 execution · M5 confirmation · Entry Fib {result.strategyEngine.fibLevel == null ? "—" : result.strategyEngine.fibLevel + "%"} · Feed: {result.dataSource ?? "Twelve Data"}</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(110px,1fr))", gap: 9 }}>
           {[
             ["TP1", result.strategyEngine.tp1, 0], ["TP2", result.strategyEngine.tp2, 1], ["TP3", result.strategyEngine.tp3, 2],
