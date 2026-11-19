@@ -117,8 +117,10 @@ const PUBLIC_STRATEGY_LABELS: Record<string, string> = {
 function priceDecimals(symbol = ""): number {
   const normalized = symbol.toUpperCase().replace(/[^A-Z]/g, "");
   const isMetal = /^(XAU|XAG|XPT|XPD)/.test(normalized);
-  const isForexPair = normalized.length === 6 && /^[A-Z]{6}$/.test(normalized) && !isMetal;
-  if (isForexPair) return normalized.endsWith("JPY") ? 3 : 5;
+  const currencyCodes = new Set(["USD","EUR","GBP","JPY","CHF","CAD","AUD","NZD","CNH","CNY","HKD","SGD","ZAR","MXN","NOK","SEK","DKK","PLN","CZK","HUF","TRY","ILS","THB"]);
+  const pairs = normalized.match(/[A-Z]{6}/g) ?? [];
+  const forexPair = !isMetal && pairs.find(pair => currencyCodes.has(pair.slice(0,3)) && currencyCodes.has(pair.slice(3,6)));
+  if (forexPair) return forexPair.endsWith("JPY") ? 3 : 5;
   return 2;
 }
 const fmt = (v: number | null | undefined, symbol = "") => v == null || !Number.isFinite(v)
