@@ -486,7 +486,6 @@ Return JSON only.`;
       entry,
       stopLoss,
       finalTp,
-      riskReward: 1.91,
       ema20: ema20Bar?.ema20 ?? null,
       slowEMA: ema20Bar?.slowEMA ?? null,
       atr: ema20Bar?.atr ?? null,
