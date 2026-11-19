@@ -5,6 +5,7 @@ import { useMemo } from "react";
 type Candle = { datetime: string; open: number; high: number; low: number; close: number; volume?: number | null };
 
 type Props = {
+  symbol?: string;
   candles: Candle[];
   channel?: { upper: number | null; lower: number | null; middle?: number | null };
   liquidityTargets?: { buySide: { price: number; source: string; touches: number } | null; sellSide: { price: number; source: string; touches: number } | null };
@@ -12,9 +13,15 @@ type Props = {
   orderBlocks?: Array<{ direction: string; top: number; bottom: number; label?: string; state?: string }>;
 };
 
-const fmtPrice = (value: number) => value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 5 });
+function fmtPrice(value: number, symbol = ""): string {
+  const normalized = symbol.toUpperCase().replace(/[^A-Z]/g, "");
+  const isMetal = /^(XAU|XAG|XPT|XPD)/.test(normalized);
+  const isForexPair = normalized.length === 6 && /^[A-Z]{6}$/.test(normalized) && !isMetal;
+  const digits = isForexPair ? (normalized.endsWith("JPY") ? 3 : 5) : 2;
+  return value.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
+}
 
-export function LiveMarketChart({ candles, channel, liquidityTargets, orderBlock, orderBlocks = [] }: Props) {
+export function LiveMarketChart({ symbol = "", candles, channel, liquidityTargets, orderBlock, orderBlocks = [] }: Props) {
   const data = useMemo(() => candles.slice(-80), [candles]);
   const visibleOrderBlocks = useMemo(() => {
     const supplied = orderBlocks.filter((block) =>
@@ -100,13 +107,13 @@ export function LiveMarketChart({ candles, channel, liquidityTargets, orderBlock
         {liquidityTargets?.buySide && (
           <g>
             <line x1={left} x2={width - right} y1={y(liquidityTargets.buySide.price)} y2={y(liquidityTargets.buySide.price)} stroke="#22c55e" strokeDasharray="3 5" strokeWidth="2" />
-            <text x={left + 8} y={y(liquidityTargets.buySide.price) - 7} fill="#4ade80" fontSize="11" fontWeight="700">BUY-SIDE LIQUIDITY · {fmtPrice(liquidityTargets.buySide.price)}</text>
+            <text x={left + 8} y={y(liquidityTargets.buySide.price) - 7} fill="#4ade80" fontSize="11" fontWeight="700">BUY-SIDE LIQUIDITY · {fmtPrice(liquidityTargets.buySide.price, symbol)}</text>
           </g>
         )}
         {liquidityTargets?.sellSide && (
           <g>
             <line x1={left} x2={width - right} y1={y(liquidityTargets.sellSide.price)} y2={y(liquidityTargets.sellSide.price)} stroke="#f97316" strokeDasharray="3 5" strokeWidth="2" />
-            <text x={left + 8} y={y(liquidityTargets.sellSide.price) + 15} fill="#fb923c" fontSize="11" fontWeight="700">SELL-SIDE LIQUIDITY · {fmtPrice(liquidityTargets.sellSide.price)}</text>
+            <text x={left + 8} y={y(liquidityTargets.sellSide.price) + 15} fill="#fb923c" fontSize="11" fontWeight="700">SELL-SIDE LIQUIDITY · {fmtPrice(liquidityTargets.sellSide.price, symbol)}</text>
           </g>
         )}
         {channel?.lower != null && (
@@ -138,7 +145,7 @@ export function LiveMarketChart({ candles, channel, liquidityTargets, orderBlock
 
         <line x1={left} x2={width - right} y1={y(last.close)} y2={y(last.close)} stroke="#f1f5f9" strokeDasharray="4 4" opacity="0.55" />
         <rect x={width - right + 5} y={y(last.close) - 12} width={right - 10} height="24" rx="4" fill="#f1f5f9" />
-        <text x={width - right + 10} y={y(last.close) + 4} fill="#0b1018" fontSize="12" fontWeight="700">{fmtPrice(last.close)}</text>
+        <text x={width - right + 10} y={y(last.close) + 4} fill="#0b1018" fontSize="12" fontWeight="700">{fmtPrice(last.close, symbol)}</text>
 
         {timeTicks.map((tick, i) => (
           <g key={`time-${i}`}>
@@ -148,7 +155,7 @@ export function LiveMarketChart({ candles, channel, liquidityTargets, orderBlock
         ))}
 
         <text x={left + 8} y={top + 17} fill="#cbd5e1" fontSize="13" fontWeight="700">LIVE PRICE</text>
-        <text x={left + 8} y={top + 34} fill={lastChange >= 0 ? "#26a69a" : "#ef5350"} fontSize="12">{lastChange >= 0 ? "+" : ""}{fmtPrice(lastChange)} ({lastChangePct.toFixed(2)}%)</text>
+        <text x={left + 8} y={top + 34} fill={lastChange >= 0 ? "#26a69a" : "#ef5350"} fontSize="12">{lastChange >= 0 ? "+" : ""}{fmtPrice(lastChange, symbol)} ({lastChangePct.toFixed(2)}%)</text>
       </svg>
     </div>
   );
