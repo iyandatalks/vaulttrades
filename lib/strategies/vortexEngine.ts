@@ -298,8 +298,8 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     if (m5b) lastM5Time = new Date(m5b.time + 300_000).toISOString();
   }
 
-  const trade = active ?? (setupDeveloping ? null : closed);
   const setupDeveloping = buySetup.state > 0 || sellSetup.state > 0;
+  const trade = active ?? (setupDeveloping ? null : closed);
   const state = active ? "TRADE ACTIVE" : setupDeveloping ? "SETUP DEVELOPING" : closed?.status === "TP_HIT" ? "TP HIT" : closed?.status === "SL_HIT" ? "SL HIT" : "WAITING";
   const sLast = silver.at(-1), sPrev = silver.at(-2), sMa = silver.length >= 50 ? silverEma[silverEma.length - 1] : null;
   const sFlow = sLast && sPrev ? sLast.close < sPrev.close ? "FALLING" : sLast.close > sPrev.close ? "RISING" : "FLAT" : "UNAVAILABLE";
@@ -315,6 +315,6 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     invalidation: "The M1 setup expires after 8 bars or when its Silver Bullet window closes. SL is anchored to the opposing target-OB wick.",
     statusReason: active ? (lotSize < 0.05 ? "Trade active. This lot size closes fully at TP1." : "Trade active. Five targets are managed progressively at 20% each.") : setupDeveloping ? "Vortex setup developing. Waiting for the next M1/M5 qualification event." : closed ? "The previous trade has closed. Waiting for the next qualifying Vortex setup." : missing[0],
     riskReward: trade ? Math.abs(trade.tp5 - trade.entry) / Math.abs(trade.entry - trade.stopLoss) : null,
-    silver: { available: silver.length > 51, close: sLast?.close ?? null, flow: sFlow, ma: sMa },
+    silver: { available: silver.length > 1, close: sLast?.close ?? null, flow: sFlow, ma: sMa },
   };
 }
