@@ -257,13 +257,20 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
 
     if (active) {
       const slHit = active.direction === "BUY" ? b.low <= active.stopLoss : b.high >= active.stopLoss;
-      const next = active.targetHits.findIndex(x => !x), targets = [active.tp1, active.tp2, active.tp3, active.tp4, active.tp5];
-      const target = next >= 0 ? targets[next] : null;
-      const hit = target != null && (active.direction === "BUY" ? b.high >= target : b.low <= target);
-      if (slHit) { active.status = "SL_HIT"; active.exitTime = new Date(closeTime).toISOString(); active.exitPrice = active.stopLoss; closed = active; active = null; }
-      else if (hit) {
-        active.targetHits[next] = true;
-        if (lotSize < 0.05 || next === 4) { active.status = "TP_HIT"; active.exitTime = new Date(closeTime).toISOString(); active.exitPrice = target!; closed = active; active = null; }
+      const targets = [active.tp1, active.tp2, active.tp3, active.tp4, active.tp5];
+      if (slHit) {
+        active.status = "SL_HIT"; active.exitTime = new Date(closeTime).toISOString(); active.exitPrice = active.stopLoss; closed = active; active = null;
+      } else {
+        for (let targetIndex = 0; targetIndex < targets.length; targetIndex++) {
+          if (active.targetHits[targetIndex]) continue;
+          const targetPrice = targets[targetIndex];
+          const hit = active.direction === "BUY" ? b.high >= targetPrice : b.low <= targetPrice;
+          if (!hit) break;
+          active.targetHits[targetIndex] = true;
+          if (lotSize < 0.05 || targetIndex === 4) {
+            active.status = "TP_HIT"; active.exitTime = new Date(closeTime).toISOString(); active.exitPrice = targetPrice; closed = active; active = null; break;
+          }
+        }
       }
     }
     if (!active && (buyValid || sellValid)) {
