@@ -39,7 +39,7 @@ const TF_MINUTES: Record<string, number> = {
 };
 
 const ATR_MULTIPLIERS: Record<string, number> = {
-  "5m": 2.23, "15m": 2.23, "30m": 2.25, "1H": 3.00, "4H": 8.00,
+  "5m": 2.23, "15m": 2.23, "30m": 2.23, "1H": 8.00, "4H": 8.00,
 };
 
 function sastTime(datetime: string, timeframe: string) {
@@ -81,15 +81,27 @@ function bracketExit(candle: MarketDataCandle, trade: Trade): "SL HIT" | "TP HIT
   return stopTouched ? "SL HIT" : "TP HIT";
 }
 
-function evaluateH4Authority(candles: MarketDataCandle[]) {
-  if (candles.length < 120) return { direction: "UNAVAILABLE" as const, trade: null as Trade | null };
-  const bars = runEma20Engine(candles, { atrSLMultiplier: 8, riskReward: 1.91 });
+type H4AuthoritySnapshot = { closedAt: number; direction: Direction | "NEUTRAL"; trade: Trade | null };
+
+function candleOpenMs(datetime: string): number | null {
+  const normalized = datetime.includes("T") ? datetime : datetime.replace(" ", "T");
+  const hasZone = /(?:Z|[+-]\\d{2}:?\\d{2})$/i.test(normalized);
+  const value = Date.parse(hasZone ? normalized : normalized + "Z");
+  return Number.isFinite(value) ? value : null;
+}
+
+/** Build an authority timeline, not one final direction applied to old bars. */
+function evaluateH4Authority(candles: MarketDataCandle[]): H4AuthoritySnapshot[] {
+  if (candles.length < 120) return [];
+  const bars = runEma20Engine(candles, { atrSLMultiplier: 8, riskReward: 1.81 });
+  const snapshots: H4AuthoritySnapshot[] = [];
   let active: Trade | null = null;
   for (let i = 0; i < bars.length; i++) {
     const bar = bars[i];
     const candle = candles[i];
-    const time = sastTime(candle.datetime, "4H");
-    if (!time) continue;
+    const openedAt = candleOpenMs(candle.datetime);
+    if (openedAt === null) continue;
+    const closedAt = openedAt + 240 * 60_000;
     let closedThisBar = false;
     if (active && i > active.sourceBar.index) {
       const exit = bracketExit(candle, active);
@@ -104,13 +116,14 @@ function evaluateH4Authority(candles: MarketDataCandle[]) {
       const entry = direction === "BUY" ? bar.longEntry : bar.shortEntry;
       const stopLoss = direction === "BUY" ? bar.longSL : bar.shortSL;
       const target = direction === "BUY" ? bar.longTP : bar.shortTP;
-      if (entry == null || stopLoss == null || target == null) continue;
-      active = { direction, entry, stopLoss, target, entryTime: candle.datetime, entryDay: time.date, sourceBar: bar, status: "TRADE ACTIVE" };
+      if (entry != null && stopLoss != null && target != null) {
+        active = { direction, entry, stopLoss, target, entryTime: candle.datetime, entryDay: sastTime(candle.datetime, "4H")?.date ?? "", sourceBar: bar, status: "TRADE ACTIVE" };
+      }
     }
+    snapshots.push({ closedAt, direction: active?.direction ?? "NEUTRAL", trade: active });
   }
-  return { direction: active?.direction ?? "NEUTRAL" as const, trade: active };
+  return snapshots;
 }
-
 /**
  * Pine-equivalent Nexus Plus lifecycle:
  * - Core EMA20 persistent structure/rejection/MA-break + UT OR SMI signal.
@@ -125,8 +138,8 @@ export function evaluateNexusPlusAnalyzer(
   h4Candles: MarketDataCandle[] = [],
   options: { useH4Lock?: boolean } = {},
 ): NexusPlusLifecycle {
-  const riskReward = 1.91;
-  const atrMultiplier = ATR_MULTIPLIERS[timeframe] ?? 8.0;
+  const riskReward = 1.81;
+  const atrMultiplier = ATR_MULTIPLIERS[timeframe] ?? 2.23;
   const useH4Lock = options.useH4Lock ?? true;
   const empty = (reason: string, h4Direction: NexusPlusLifecycle["h4Direction"] = "UNAVAILABLE"): NexusPlusLifecycle => ({
     state: "WAITING", direction: "NO TRADE", entry: null, stopLoss: null, target: null,
@@ -135,36 +148,45 @@ export function evaluateNexusPlusAnalyzer(
   });
   if (candles.length < 120) return empty("WAIT — insufficient completed candle history for the Nexus Plus Pine engine.");
 
-  const h4 = evaluateH4Authority(h4Candles);
   const belowH4 = (TF_MINUTES[timeframe] ?? 0) < 240;
-  if (belowH4 && useH4Lock && h4.direction === "UNAVAILABLE") {
-    return empty("NO TRADE — H4 Directional Authority data is unavailable; lower-timeframe entries remain blocked until the H4 lock can be evaluated.", "UNAVAILABLE");
+  const h4Timeline = belowH4 && useH4Lock ? evaluateH4Authority(h4Candles) : [];
+  if (belowH4 && useH4Lock && h4Timeline.length === 0) {
+    return empty("NO TRADE — H4 Directional Authority history is unavailable; lower-timeframe entries remain blocked until it can be evaluated.", "UNAVAILABLE");
   }
 
   const bars = runEma20Engine(candles, { atrSLMultiplier: atrMultiplier, riskReward });
   let active: Trade | null = null;
-  let lastCompletedToday: Trade | null = null;
+  let lastCompletedTrade: Trade | null = null;
+  let h4Cursor = 0;
+  let authority: H4AuthoritySnapshot | null = h4Timeline[0] ?? null;
 
   for (let i = 0; i < bars.length; i++) {
     const bar = bars[i];
     const candle = candles[i];
-    const time = sastTime(candle.datetime, timeframe);
-    if (!time) continue;
+    const openedAt = candleOpenMs(candle.datetime);
+    if (openedAt === null) continue;
+    const closeAt = openedAt + (TF_MINUTES[timeframe] ?? 0) * 60_000;
+
+    // Advance H4 authority only when each H4 candle has actually closed.
+    while (h4Cursor < h4Timeline.length && h4Timeline[h4Cursor].closedAt <= closeAt) {
+      authority = h4Timeline[h4Cursor];
+      h4Cursor++;
+    }
+
     let closedThisBar = false;
     if (active && i > active.sourceBar.index) {
       const exit = bracketExit(candle, active);
       if (exit) {
         active.status = exit;
-        lastCompletedToday = active;
+        lastCompletedTrade = active;
         active = null;
         closedThisBar = true;
       }
     }
+    if (active || closedThisBar || (!bar.newLong && !bar.newShort)) continue;
 
-    if (active || closedThisBar) continue;
-    if (!bar.newLong && !bar.newShort) continue;
     const direction: Direction = bar.newLong ? "BUY" : "SELL";
-    if (belowH4 && useH4Lock && h4.direction !== direction) continue;
+    if (belowH4 && useH4Lock && authority?.direction !== direction) continue;
 
     const entry = direction === "BUY" ? bar.longEntry : bar.shortEntry;
     const stopLoss = direction === "BUY" ? bar.longSL : bar.shortSL;
@@ -175,8 +197,9 @@ export function evaluateNexusPlusAnalyzer(
       : stopLoss > entry && target < entry;
     if (!geometryValid) continue;
 
-    active = { direction, entry, stopLoss, target, entryTime: candle.datetime, entryDay: time.date, sourceBar: bar, status: "TRADE ACTIVE" };
-    lastCompletedToday = null;
+    const localDate = sastTime(candle.datetime, timeframe)?.date ?? "";
+    active = { direction, entry, stopLoss, target, entryTime: candle.datetime, entryDay: localDate, sourceBar: bar, status: "TRADE ACTIVE" };
+    lastCompletedTrade = null;
   }
 
   if (active && livePrice !== null && Number.isFinite(livePrice)) {
@@ -184,46 +207,52 @@ export function evaluateNexusPlusAnalyzer(
     const targetHit = active.direction === "BUY" ? livePrice >= active.target : livePrice <= active.target;
     if (stopHit || targetHit) {
       active.status = stopHit ? "SL HIT" : "TP HIT";
-      lastCompletedToday = active;
+      lastCompletedTrade = active;
       active = null;
     }
   }
+
+  const latestAuthority = h4Timeline.at(-1) ?? null;
+  const h4Direction: NexusPlusLifecycle["h4Direction"] = !belowH4 || !useH4Lock
+    ? "NEUTRAL"
+    : latestAuthority?.direction ?? "UNAVAILABLE";
+  const h4Trade = latestAuthority?.trade ?? null;
 
   if (active) {
     return {
       state: "TRADE ACTIVE", direction: active.direction, entry: active.entry, stopLoss: active.stopLoss,
       target: active.target, entryTime: active.entryTime, entryDay: active.entryDay,
-      reason: `Pine Nexus Plus confirmed-bar signal accepted without a clock or daily limit. Entry/SL/TP locked at ${active.entry}/${active.stopLoss}/${active.target}; ATR(${14}) × ${atrMultiplier} stop and 1:${riskReward} target. H4 authority: ${h4.direction}.`,
-      sourceBar: active.sourceBar, engine: bars.at(-1) ?? null, h4Direction: h4.direction,
-      h4Entry: h4.trade?.entry ?? null, h4StopLoss: h4.trade?.stopLoss ?? null, h4Target: h4.trade?.target ?? null,
+      reason: `Pine Nexus Plus confirmed-bar signal accepted without a time window or daily cap. Entry/SL/TP locked at ${active.entry}/${active.stopLoss}/${active.target}; ATR(14) × ${atrMultiplier} stop and 1:${riskReward} target. H4 authority: ${h4Direction}.`,
+      sourceBar: active.sourceBar, engine: bars.at(-1) ?? null, h4Direction,
+      h4Entry: h4Trade?.entry ?? null, h4StopLoss: h4Trade?.stopLoss ?? null, h4Target: h4Trade?.target ?? null,
       riskReward, atrMultiplier,
     };
   }
 
-  if (lastCompletedToday) {
+  if (lastCompletedTrade) {
     return {
-      state: lastCompletedToday.status, direction: "NO TRADE", entry: lastCompletedToday.entry,
-      stopLoss: lastCompletedToday.stopLoss, target: lastCompletedToday.target,
-      entryTime: lastCompletedToday.entryTime, entryDay: lastCompletedToday.entryDay,
-      reason: lastCompletedToday.status === "SL HIT"
-        ? "NO TRADE — the latest Nexus Plus trade reached its original stop loss. A new qualifying Pine signal may open a subsequent trade."
-        : "TRADE COMPLETED — the latest Nexus Plus trade reached its original target. A new qualifying Pine signal may open a subsequent trade.",
-      sourceBar: lastCompletedToday.sourceBar, engine: bars.at(-1) ?? null, h4Direction: h4.direction,
-      h4Entry: h4.trade?.entry ?? null, h4StopLoss: h4.trade?.stopLoss ?? null, h4Target: h4.trade?.target ?? null,
+      state: lastCompletedTrade.status, direction: "NO TRADE", entry: lastCompletedTrade.entry,
+      stopLoss: lastCompletedTrade.stopLoss, target: lastCompletedTrade.target,
+      entryTime: lastCompletedTrade.entryTime, entryDay: lastCompletedTrade.entryDay,
+      reason: lastCompletedTrade.status === "SL HIT"
+        ? "NO TRADE — the latest Nexus Plus trade reached its original stop loss. A new qualifying Pine signal may open the next trade."
+        : "TRADE COMPLETED — the latest Nexus Plus trade reached its original target. A new qualifying Pine signal may open the next trade.",
+      sourceBar: lastCompletedTrade.sourceBar, engine: bars.at(-1) ?? null, h4Direction,
+      h4Entry: h4Trade?.entry ?? null, h4StopLoss: h4Trade?.stopLoss ?? null, h4Target: h4Trade?.target ?? null,
       riskReward, atrMultiplier,
     };
   }
 
   return {
     ...empty(
-      belowH4 && useH4Lock && h4.direction === "NEUTRAL"
+      belowH4 && useH4Lock && h4Direction === "NEUTRAL"
         ? "WAIT — H4 Directional Authority has no active direction; lower-timeframe entries are blocked."
-        : "WAIT — no confirmed Nexus Plus signal has occurred, or the H4 Directional Authority Lock blocked the opposite direction.",
-      h4.direction,
+        : "WAIT — no confirmed Nexus Plus signal has occurred, or the chronological H4 Directional Authority Lock blocked the opposite direction.",
+      h4Direction,
     ),
     engine: bars.at(-1) ?? null,
-    h4Entry: h4.trade?.entry ?? null,
-    h4StopLoss: h4.trade?.stopLoss ?? null,
-    h4Target: h4.trade?.target ?? null,
+    h4Entry: h4Trade?.entry ?? null,
+    h4StopLoss: h4Trade?.stopLoss ?? null,
+    h4Target: h4Trade?.target ?? null,
   };
 }
