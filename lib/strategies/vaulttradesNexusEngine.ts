@@ -125,10 +125,10 @@ function atr(candles: NexusCandle[], period: number): Array<number | null> {
 
 /**
  * Pine-equivalent VaultTrades Nexus calculation.
- * Only completed candles are evaluated. Each instrument exchange-calendar day
- * can create at most one entry. A new entry is blocked while a prior trade is
- * still open. Existing trades are managed before new entries are considered.
- * If SL and TP are touched in the same candle, SL is recorded first.
+ * Only completed candles are evaluated. Sequential entries are permitted
+ * whenever a fresh source-defined signal occurs after the prior position closes.
+ * Only one position may be open at a time. Existing trades are managed before
+ * new entries are considered. If SL and TP are touched in one candle, SL wins.
  */
 export function evaluateVaultTradesNexus(
   input: NexusCandle[],
@@ -196,9 +196,8 @@ export function evaluateVaultTradesNexus(
       }
     }
 
-    // One entry per exchange date. Never stack a second position while an
-    // earlier trade remains open, even if that position crosses midnight.
-    if (!day || lastSignalDay === day || openTrades.length > 0 || currentAtr == null || !Number.isFinite(currentAtr) || currentAtr <= 0) continue;
+    // No daily entry cap. Never stack a second position while one is active.
+    if (!day || openTrades.length > 0 || currentAtr == null || !Number.isFinite(currentAtr) || currentAtr <= 0) continue;
     const upper = maHigh[i];
     const lower = maLow[i];
     if (upper == null || lower == null) continue;
@@ -239,12 +238,12 @@ export function evaluateVaultTradesNexus(
         ? "SL HIT"
         : "WAITING";
   const statusReason = active
-    ? "The trade remains active until its stop loss or take profit is reached on a completed candle. The one-entry-per-day limit does not interrupt trade management."
+    ? "The trade remains active until its stop loss or take profit is reached on a completed candle. No second position can open while this trade is active."
     : latestClosedTrade?.status === "TP_HIT"
-      ? "Take profit was reached and the trade is closed. A maximum of one entry is permitted per instrument exchange-calendar day."
+      ? "Take profit was reached and the trade is closed. A fresh qualifying signal may open the next sequential trade."
       : latestClosedTrade?.status === "SL_HIT"
-        ? "Stop loss was reached and the trade is closed. A maximum of one entry is permitted per instrument exchange-calendar day."
-        : "No valid entry has triggered on a completed candle yet. A BUY requires the close above both 20-period SMA High and SMA Low; a SELL requires the close below both. The daily entry allowance resets at the instrument's exchange-calendar date, not at a fixed South African time.";
+        ? "Stop loss was reached and the trade is closed. A fresh qualifying signal may open the next sequential trade."
+        : "No valid entry has triggered on a completed candle yet. A BUY requires the close above both 20-period SMA High and SMA Low; a SELL requires the close below both. There is no daily entry cap; only one position may be active at a time.";
   const winners = closedTrades.filter((trade) => trade.resultR != null && trade.resultR > 0).length;
   const losers = closedTrades.filter((trade) => trade.resultR != null && trade.resultR < 0).length;
   const grossProfitR = closedTrades.reduce((sum, trade) => sum + Math.max(0, trade.resultR ?? 0), 0);
