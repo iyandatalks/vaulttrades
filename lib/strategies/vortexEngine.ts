@@ -169,7 +169,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
   });
   if (c.length < 300 || m5.length < 30) return empty("Waiting for sufficient M1 history and completed M5 confirmation candles.");
   const atr = atrSeries(c), atr5 = atrSeries(m5), m5Levels = periodLevels(m5), silverEma = emaSeries(silver.map(x => x.close), 50);
-  const highs: number[] = [], lows: number[] = [];
+  const highs: number[] = [], lows: number[] = [], targetHighs: number[] = [], targetLows: number[] = [];
   const ranges = new Map<string, { asia?: { high: number; low: number }; london?: { high: number; low: number }; ny?: { high: number; low: number }; last: "Asia" | "London" | "New York" }>();
   let bullActive = false, bearActive = false, bullArmed = false, bearArmed = false;
   let bullSweep = 0, bearSweep = 0, bullSweepBar = -1, bearSweepBar = -1, bullLevel: number | null = null, bearLevel: number | null = null;
@@ -182,6 +182,8 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
   let buyScore = 0, sellScore = 0, lastScore = 0, evidence: string[] = [], missing = ["Waiting for a confirmed institutional order."], lastFib: number | null = null, lastM5Time: string | null = null;
   let m5Pointer = -1, silverPointer = -1, currentDay = "", runningDayHigh = -Infinity, runningDayLow = Infinity, priorHigh: number | null = null, priorLow: number | null = null, priorNySession: { high: number; low: number } | null = null;
   let silverLastHigh: number | null = null, silverPreviousHigh: number | null = null, silverLastLow: number | null = null, silverPreviousLow: number | null = null;
+  let activeTargetSessionId = 0, targetActiveHigh: number | null = null, targetActiveLow: number | null = null, targetPreviousHigh: number | null = null, targetPreviousLow: number | null = null;
+  let targetBullOb: { top: number; bottom: number; direction: VortexDirection } | null = null, targetBearOb: { top: number; bottom: number; direction: VortexDirection } | null = null;
 
   for (let i = 20; i < c.length; i++) {
     const b = c[i], prev = c[i - 1], closeTime = b.time + 60_000, np = nyParts(b.time), m = np.minute;
@@ -190,6 +192,14 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     const session: "Asia" | "London" | "New York" | null = m < 360 ? "Asia" : m >= 420 && m < 600 ? "London" : m >= 750 && m < 1020 ? "New York" : null;
     let day = ranges.get(np.day);
     if (!day) { day = { last: "Asia" }; ranges.set(np.day, day); }
+    const targetSessionId = (m >= 1140 || m < 120) ? 1 : m >= 120 && m < 480 ? 2 : m >= 480 && m < 1020 ? 3 : 0;
+    if (targetSessionId !== 0 && targetSessionId !== activeTargetSessionId) {
+      if (targetActiveHigh != null && targetActiveLow != null && activeTargetSessionId !== 0) { targetPreviousHigh = targetActiveHigh; targetPreviousLow = targetActiveLow; }
+      targetActiveHigh = b.high; targetActiveLow = b.low; activeTargetSessionId = targetSessionId;
+    } else if (targetSessionId !== 0) {
+      targetActiveHigh = targetActiveHigh == null ? b.high : Math.max(targetActiveHigh, b.high);
+      targetActiveLow = targetActiveLow == null ? b.low : Math.min(targetActiveLow, b.low);
+    }
     if (session) {
       day.last = session;
       const key = session === "Asia" ? "asia" : session === "London" ? "london" : "ny";
@@ -202,6 +212,9 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     const pv = pivot(c, i);
     if (pv.high != null) highs.push(pv.high);
     if (pv.low != null) lows.push(pv.low);
+    const targetPv = pivot(c, i, 3);
+    if (targetPv.high != null) { targetHighs.push(targetPv.high); if (targetHighs.length > 50) targetHighs.shift(); }
+    if (targetPv.low != null) { targetLows.push(targetPv.low); if (targetLows.length > 50) targetLows.shift(); }
     const lastHigh = highs.at(-1) ?? null, lastLow = lows.at(-1) ?? null;
     if (liqLow != null && prev.low >= liqLow && b.low < liqLow && !bullArmed && !bearArmed) { bullArmed = true; bullSweep = b.low; bullSweepBar = i; bullLevel = lastHigh; }
     else if (bullArmed && b.low < bullSweep) { bullSweep = b.low; bullSweepBar = i; }
@@ -258,15 +271,23 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
       avgVolume: silverPointer >= 19 ? silver.slice(silverPointer - 19, silverPointer + 1).reduce((sum, x) => sum + (x.volume ?? 0), 0) / 20 : null,
     };
     const pd = { high: priorHigh, low: priorLow, weekHigh: m5i >= 0 ? m5Levels[m5i]?.weekHigh ?? null : null, weekLow: m5i >= 0 ? m5Levels[m5i]?.weekLow ?? null : null };
-    const upper = nearest([...highs, ...(pd.high != null ? [pd.high] : []), ...(pd.weekHigh != null ? [pd.weekHigh] : [])], b.high, true);
-    const lower = nearest([...lows, ...(pd.low != null ? [pd.low] : []), ...(pd.weekLow != null ? [pd.weekLow] : [])], b.low, false);
-    const bullOb = lower != null ? targetOb(c, atr, i, lower, false) : null;
-    const bearOb = upper != null ? targetOb(c, atr, i, upper, true) : null;
+    let targetHigher = nearest(targetHighs, b.high, true);
+    let targetLower = nearest(targetLows, b.low, false);
+    if (targetPreviousHigh != null && targetPreviousHigh > b.high && (targetHigher == null || targetPreviousHigh < targetHigher)) targetHigher = targetPreviousHigh;
+    if (targetPreviousLow != null && targetPreviousLow < b.low && (targetLower == null || targetPreviousLow > targetLower)) targetLower = targetPreviousLow;
+    if (bearSweepBar === i) targetBearOb = targetHigher != null ? targetOb(c, atr, i, targetHigher, true) : null;
+    if (bullSweepBar === i) targetBullOb = targetLower != null ? targetOb(c, atr, i, targetLower, false) : null;
+    if (targetBearOb && b.close > targetBearOb.top) targetBearOb = null;
+    if (targetBullOb && b.close < targetBullOb.bottom) targetBullOb = null;
+    const bullOb = targetBullOb, bearOb = targetBearOb;
+    if (bullOb) lastOb = bullOb; else if (bearOb) lastOb = bearOb;
+    if (bullOb) lastLiq = targetBullOb ? targetLower : lastLiq;
+    if (bearOb) lastLiq = targetBearOb ? targetHigher : lastLiq;
     const bScore = buyReady ? confluence(1, c, i, buyFib(bt, bb, 68.1), buyFib(bt, bb, 88), bullActive, pd, silverContext).score : 0;
     const sScore = sellReady ? confluence(-1, c, i, sellFib(st, sb, 68.1), sellFib(st, sb, 88), bearActive, pd, silverContext).score : 0;
     buyScore = bScore; sellScore = sScore;
-    const buyValid = buySetup.state === 3 && buySetup.fib != null && b.low <= buySetup.fib && b.close >= buySetup.fib && m5Bull && upper != null && upper > buySetup.fib && (bullActive || buyReady) && !!bullOb && bullOb.bottom < buySetup.fib && bScore >= MIN_SCORE;
-    const sellValid = sellSetup.state === 3 && sellSetup.fib != null && b.high >= sellSetup.fib && b.close <= sellSetup.fib && m5Bear && lower != null && lower < sellSetup.fib && (bearActive || sellReady) && !!bearOb && bearOb.top > sellSetup.fib && sScore >= MIN_SCORE;
+    const buyValid = buySetup.state === 3 && buySetup.fib != null && b.low <= buySetup.fib && b.close >= buySetup.fib && m5Bull && targetHigher != null && targetHigher > buySetup.fib && (bullActive || buyReady) && !!bullOb && bullOb.bottom < buySetup.fib && bScore >= MIN_SCORE;
+    const sellValid = sellSetup.state === 3 && sellSetup.fib != null && b.high >= sellSetup.fib && b.close <= sellSetup.fib && m5Bear && targetLower != null && targetLower < sellSetup.fib && (bearActive || sellReady) && !!bearOb && bearOb.top > sellSetup.fib && sScore >= MIN_SCORE;
 
     if (active) {
       const slHit = active.direction === "BUY" ? b.low <= active.stopLoss : b.high >= active.stopLoss;
@@ -300,7 +321,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
       const targetsValid = [...tps, tp4, tp5].every(x => isBuy ? x > entry : x < entry);
       if (targetsValid && (isBuy ? sl < entry : sl > entry)) {
         active = { direction: dir, entry, stopLoss: sl, tp1: tps[0], tp2: tps[1], tp3: tps[2], tp4, tp5, fibLevel: pct, entryTime: new Date(closeTime).toISOString(), confirmationTime: m5b ? new Date(m5b.time + 300_000).toISOString() : new Date(closeTime).toISOString(), lotSize, targetHits: [false, false, false, false, false], status: "ACTIVE" };
-        lastOb = ob; lastLiq = isBuy ? upper : lower; lastScore = isBuy ? bScore : sScore; lastFib = pct;
+        lastOb = ob; lastLiq = isBuy ? targetHigher : targetLower; lastScore = isBuy ? bScore : sScore; lastFib = pct;
         evidence = ["Institutional order detected", "Fib pullback selected at " + pct + "%", "M1 retest and candle confirmation completed", "M5 displacement confirmation passed", "External liquidity and opposing target OB aligned", "Confluence score " + lastScore + "/100 passed"];
         missing = [];
         if (isBuy) buySetup = { state: 0, pullback: -1, fib: null, pct: null };
