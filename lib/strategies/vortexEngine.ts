@@ -344,16 +344,20 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
       else if (buySetup.state === 2) missing = ["Bullish Fib pullback touched; waiting for the M1 retest and bullish candle confirmation."];
       else if (sellSetup.state === 2) missing = ["Bearish Fib pullback touched; waiting for the M1 retest and bearish candle confirmation."];
       else if (buySetup.state === 3) missing = [
+        ...(buySetup.fib == null || b.low > buySetup.fib || b.close < buySetup.fib ? ["Waiting for the M1 candle to retest and hold the selected Fib entry."] : []),
         ...(!m5Bull ? ["Waiting for a completed bullish M5 displacement candle."] : []),
         ...(targetHigher == null || buySetup.fib == null || targetHigher <= buySetup.fib ? ["No valid higher-liquidity target above the selected Fib entry."] : []),
         ...(!bullOb ? ["Waiting for the bullish target order block below lower liquidity."] : []),
+        ...(bullOb && buySetup.fib != null && bullOb.bottom >= buySetup.fib ? ["Bullish target OB is not below the selected Fib entry."] : []),
         ...(bullOb && buyStopRiskPct > MAX_STOP_RISK_PCT ? ["Bullish OB stop distance exceeds the Pine 2.0% maximum risk cap."] : []),
         ...(bScore < MIN_SCORE ? ["Bullish confluence is below 60/100."] : []),
       ];
       else if (sellSetup.state === 3) missing = [
+        ...(sellSetup.fib == null || b.high < sellSetup.fib || b.close > sellSetup.fib ? ["Waiting for the M1 candle to retest and hold the selected Fib entry."] : []),
         ...(!m5Bear ? ["Waiting for a completed bearish M5 displacement candle."] : []),
         ...(targetLower == null || sellSetup.fib == null || targetLower >= sellSetup.fib ? ["No valid lower-liquidity target below the selected Fib entry."] : []),
         ...(!bearOb ? ["Waiting for the bearish target order block above higher liquidity."] : []),
+        ...(bearOb && sellSetup.fib != null && bearOb.top <= sellSetup.fib ? ["Bearish target OB is not above the selected Fib entry."] : []),
         ...(bearOb && sellStopRiskPct > MAX_STOP_RISK_PCT ? ["Bearish OB stop distance exceeds the Pine 2.0% maximum risk cap."] : []),
         ...(sScore < MIN_SCORE ? ["Bearish confluence is below 60/100."] : []),
       ];
