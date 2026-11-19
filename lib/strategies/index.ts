@@ -58,6 +58,7 @@ export const STRATEGY_LIST: readonly StrategyDefinition[] = [
   STRATEGIES.m15DualEngine,
   STRATEGIES.srbOb,
   STRATEGIES.lsobr,
+  STRATEGIES.vortex,
 ];
 
 export function getStrategy(strategyId: StrategyId): StrategyDefinition { return STRATEGIES[strategyId]; }
