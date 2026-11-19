@@ -28,6 +28,42 @@ const EMA20_TIMEFRAME_MINUTES: Record<string, number> = {
   "1H": 60, "4H": 240, "1D": 1440, "1W": 10080, "1M": 43200,
 };
 
+type OandaPrice = { o: string; h: string; l: string; c: string };
+function toOandaInstrument(symbol: string) {
+  const normalized = symbol.toUpperCase().replace(/^OANDA:/, "").replace(/[^A-Z]/g, "");
+  if (normalized === "GOLD") return "XAU_USD";
+  if (normalized === "SILVER") return "XAG_USD";
+  return normalized.length === 6 ? `${normalized.slice(0, 3)}_${normalized.slice(3)}` : null;
+}
+async function getOandaCandles(symbol: string, timeframe: string, count: number): Promise<MarketDataCandle[] | null> {
+  const token = process.env.OANDA_ACCESS_TOKEN;
+  const accountId = process.env.OANDA_ACCOUNT_ID;
+  const instrument = toOandaInstrument(symbol);
+  if (!token || !accountId || !instrument) return null;
+  const granularity: Record<string, string> = { "1m": "M1", "5m": "M5" };
+  const g = granularity[timeframe];
+  if (!g) return null;
+  const environment = (process.env.OANDA_ENVIRONMENT ?? "live").toLowerCase();
+  const baseUrl = environment === "practice" ? "https://api-fxpractice.oanda.com" : "https://api-fxtrade.oanda.com";
+  const configuredPrice = (process.env.OANDA_PRICE_COMPONENT ?? "M").toUpperCase();
+  const priceComponent = ["M", "B", "A"].includes(configuredPrice) ? configuredPrice : "M";
+  const params = new URLSearchParams({ granularity: g, count: String(Math.min(5000, Math.max(100, count))), price: priceComponent });
+  const response = await fetch(`${baseUrl}/v3/accounts/${encodeURIComponent(accountId)}/instruments/${instrument}/candles?${params.toString()}`, {
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error(`OANDA candle request failed (${response.status})`);
+  const payload = await response.json() as { candles?: Array<{ time: string; complete: boolean; volume?: number; mid?: OandaPrice; bid?: OandaPrice; ask?: OandaPrice }> };
+  const rows = (payload.candles ?? []).filter(row => row.complete);
+  return rows.flatMap(row => {
+    const price = priceComponent === "B" ? row.bid : priceComponent === "A" ? row.ask : row.mid;
+    if (!price) return [];
+    const open = Number(price.o), high = Number(price.h), low = Number(price.l), close = Number(price.c);
+    if (![open, high, low, close].every(Number.isFinite)) return [];
+    return [{ datetime: row.time, open, high, low, close, volume: typeof row.volume === "number" ? row.volume : undefined }];
+  });
+}
+
 function completedEma20Candles(candles: MarketDataCandle[], timeframe: string) {
   const minutes = EMA20_TIMEFRAME_MINUTES[timeframe];
   if (!minutes) return [];
@@ -167,18 +203,37 @@ export async function POST(request: Request) {
     if (!providerRoute.available) return Response.json({ error: providerRoute.reason || "Market data is unavailable." }, { status: 503 });
     const apiKey = process.env.OPENAI_API_KEY;
 
-    const market = await getTwelveDataTimeSeries({ symbol, timeframe, outputsize: strategyId === "ema20" || strategyId === "vaulttradesNexus" || strategyId === "vortex" ? 5000 : 250, normalizeToUtc: strategyId === "vaulttradesNexus" || strategyId === "ema20" || strategyId === "vortex" });
+    const oandaConfigured = Boolean(process.env.OANDA_ACCESS_TOKEN && process.env.OANDA_ACCOUNT_ID);
+    const oandaPrimaryCandles = strategyId === "vortex" && oandaConfigured
+      ? await getOandaCandles(symbol, "1m", 5000).catch(() => null)
+      : null;
+    const marketDataSource = oandaPrimaryCandles?.length
+      ? `OANDA v20 (${(process.env.OANDA_PRICE_COMPONENT ?? "M").toUpperCase()})`
+      : oandaConfigured && strategyId === "vortex" ? "Twelve Data fallback (OANDA unavailable)" : "Twelve Data";
+    const market = oandaPrimaryCandles?.length
+      ? ({
+          symbol: toOandaInstrument(symbol) ?? symbol,
+          timeframe,
+          currentPrice: oandaPrimaryCandles[oandaPrimaryCandles.length - 1]?.close ?? null,
+          candles: oandaPrimaryCandles,
+          exchangeTimezone: "America/New_York",
+        } as Awaited<ReturnType<typeof getTwelveDataTimeSeries>>)
+      : await getTwelveDataTimeSeries({ symbol, timeframe, outputsize: strategyId === "ema20" || strategyId === "vaulttradesNexus" || strategyId === "vortex" ? 5000 : 250, normalizeToUtc: strategyId === "vaulttradesNexus" || strategyId === "ema20" || strategyId === "vortex" });
     if (market.candles.length < 40) return Response.json({ error: "Not enough live market history was returned for this symbol/timeframe." }, { status: 422 });
     // Silver is optional confluence for Auto Fib and Vortex on Gold instruments.
     const isGoldInstrument = /XAU|GOLD/.test(symbol.replace(/[^A-Z]/g, ""));
     const silverMarket = (strategyId === "fibRetracement" || strategyId === "vortex") && isGoldInstrument
-      ? await getTwelveDataTimeSeries({ symbol: "XAG/USD", timeframe, outputsize: strategyId === "vortex" ? 5000 : 250, normalizeToUtc: strategyId === "vortex" }).catch(() => null)
+      ? strategyId === "vortex" && marketDataSource.startsWith("OANDA v20")
+        ? { candles: await getOandaCandles("XAGUSD", "1m", 5000).catch(() => null) ?? [] }
+        : await getTwelveDataTimeSeries({ symbol: "XAG/USD", timeframe, outputsize: strategyId === "vortex" ? 5000 : 250, normalizeToUtc: strategyId === "vortex" }).catch(() => null)
       : null;
     const fibM5Market = strategyId === "fibRetracement" && timeframe !== "5m"
       ? await getTwelveDataTimeSeries({ symbol, timeframe: "5m", outputsize: 250 }).catch(() => null)
       : null;
     const vortexM5Market = strategyId === "vortex"
-      ? await getTwelveDataTimeSeries({ symbol, timeframe: "5m", outputsize: 5000, normalizeToUtc: true }).catch(() => null)
+      ? marketDataSource.startsWith("OANDA v20")
+        ? { candles: await getOandaCandles(symbol, "5m", 5000).catch(() => null) ?? [] }
+        : await getTwelveDataTimeSeries({ symbol, timeframe: "5m", outputsize: 5000, normalizeToUtc: true }).catch(() => null)
       : null;
     const nexusPlusH4Market = strategyId === "ema20" && (EMA20_TIMEFRAME_MINUTES[timeframe] ?? 0) < 240
       ? await getTwelveDataTimeSeries({ symbol, timeframe: "4H", outputsize: 1500, normalizeToUtc: true }).catch(() => null)
