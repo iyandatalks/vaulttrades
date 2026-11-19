@@ -63,6 +63,7 @@ type LockedTrade = {
 };
 
 type Result = {
+  dataSource?: string;
   market?: { type?: MarketType; asset?: string; timeframe?: string; currentPrice?: number | null; directionalBias?: string; session?: string };
   strategy?: { id?: string; name?: string; category?: string };
   sourceIndicators?: { name: string; purpose: string; parameters: string; required: boolean }[];
