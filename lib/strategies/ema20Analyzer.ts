@@ -86,7 +86,13 @@ export function evaluateEma20Analyzer(
   timeframe: string,
   livePrice: number | null = null,
 ): Ema20AnalyzerLifecycle & { engine: Ema20EngineBar | null } {
-  const bars = runEma20Engine(candles);
+  const normalizedTf = timeframe.toUpperCase();
+  const atrSLMultiplier = normalizedTf === "M5" || normalizedTf === "5M" ? 2.23
+    : normalizedTf === "M15" || normalizedTf === "15M" ? 2.23
+    : normalizedTf === "M30" || normalizedTf === "30M" ? 2.25
+    : normalizedTf === "H1" || normalizedTf === "1H" ? 3.00
+    : normalizedTf === "H4" || normalizedTf === "4H" ? 8.00 : 8.00;
+  const bars = runEma20Engine(candles, { atrSLMultiplier, riskReward: 1.91 });
   if (!bars.length) {
     return {
       state: "WAITING", direction: "NO TRADE", entry: null, stopLoss: null, target: null,
@@ -96,7 +102,6 @@ export function evaluateEma20Analyzer(
     };
   }
 
-  let lastEntryDay: string | null = null;
   let active: Ema20TradeRecord | null = null;
   let lastCompletedToday: Ema20TradeRecord | null = null;
   let currentSastDay = "";
@@ -121,11 +126,10 @@ export function evaluateEma20Analyzer(
       }
     }
 
-    // Pine: newLong/newShort, morningSignalWindow, canTradeToday,
-    // and strategy.position_size == 0 must all permit the entry.
+    // No clock-based entry window or daily trade cap. pyramiding=0 means
+    // a new entry is allowed only while the previous position is flat.
     const isNewSignal = bar.newLong || bar.newShort;
-    if (!isNewSignal || active || closedThisBar || lastEntryDay === time.date) continue;
-    if (time.minuteOfDay < 0 || time.minuteOfDay > 645) continue;
+    if (!isNewSignal || active || closedThisBar) continue;
 
     const direction = bar.newLong ? "BUY" : "SELL";
     const entry = direction === "BUY" ? bar.longEntry : bar.shortEntry;
@@ -138,8 +142,6 @@ export function evaluateEma20Analyzer(
       : stopLoss > entry && target < entry;
     if (!geometryValid) continue;
 
-    // The first accepted entry consumes this timeframe's SAST day for both sides.
-    lastEntryDay = time.date;
     active = {
       direction, entry, stopLoss, target, entryTime: candle.datetime, entryDay: time.date,
       sourceBar: bar, status: "TRADE ACTIVE",
@@ -163,7 +165,7 @@ export function evaluateEma20Analyzer(
       state: "TRADE ACTIVE", direction: active.direction, entry: active.entry,
       stopLoss: active.stopLoss, target: active.target, entryTime: active.entryTime,
       entryDay: active.entryDay,
-      reason: "Pine entry sequence confirmed. Original Entry, ATR(14) × 2.23 Stop Loss and 1:1.81 Target remain locked while the position is open.",
+      reason: "Pine entry sequence confirmed. Original Entry, timeframe-specific ATR stop and 1:1.91 Target remain locked while the position is open.",
       sourceBar: active.sourceBar, engine: bars.at(-1) ?? null,
     };
   }
@@ -176,12 +178,8 @@ export function evaluateEma20Analyzer(
       target: lastCompletedToday.target, entryTime: lastCompletedToday.entryTime,
       entryDay: lastCompletedToday.entryDay,
       reason: lastCompletedToday.status === "SL HIT"
-        ? (sameDay
-          ? "Today's Pine EMA20 trade hit its original stop loss. NO TRADE for the remainder of this timeframe's SAST day."
-          : "The prior Pine EMA20 trade hit its original stop loss today. A fresh Pine signal may still qualify within today's 00:00–10:45 SAST window.")
-        : (sameDay
-          ? "Today's Pine EMA20 trade reached its original target. No second trade is permitted on this timeframe today."
-          : "The prior Pine EMA20 trade reached its original target today. A fresh Pine signal may still qualify within today's 00:00–10:45 SAST window."),
+        ? "The most recent Pine trade hit its original stop loss. The position is closed; a new independent Pine signal may qualify immediately."
+        : "The most recent Pine trade reached its original target. The position is closed; a new independent Pine signal may qualify immediately.",
       sourceBar: lastCompletedToday.sourceBar, engine: bars.at(-1) ?? null,
     };
   }
@@ -189,9 +187,7 @@ export function evaluateEma20Analyzer(
   return {
     state: "WAITING", direction: "NO TRADE", entry: null, stopLoss: null, target: null,
     entryTime: null, entryDay: null,
-    reason: lastEntryDay === currentSastDay
-      ? "Today's Pine EMA20 opportunity has already been consumed. NO TRADE for the remainder of this timeframe's SAST day."
-      : "WAIT — no Pine EMA20 entry sequence has qualified during the 00:00–10:45 SAST signal window.",
+    reason: "WAIT — no new Pine EMA20 entry sequence has qualified on the latest completed candle. Signals are not restricted by clock windows or daily trade limits.",
     sourceBar: null, engine: bars.at(-1) ?? null,
   };
 }
