@@ -193,7 +193,7 @@ export async function POST(request: Request) {
     // Pine strategies execute on confirmed bar close. Exclude the still-forming provider candle
     // and do not use a mid-bar quote to declare a Pine stop/target exit.
     const ema20Candles = strategyId === "ema20" ? completedEma20Candles(market.candles, timeframe) : [];
-    const ema20Engine = strategyId === "ema20" ? evaluateEma20Analyzer(ema20Candles, timeframe) : null;
+    const ema20Engine = strategyId === "ema20" ? evaluateEma20Analyzer(ema20Candles, timeframe, liveCurrentPrice) : null;
     // Nexus filters completed bars internally: intraday data is UTC-normalized,
     // while daily+ bars are returned in the exchange's local calendar.
     const nexusEngine = strategyId === "vaulttradesNexus"
