@@ -269,6 +269,10 @@ export async function POST(request: Request) {
       silverCandles: silverMarket?.candles.map((c) => ({ time: new Date(c.datetime).getTime(), open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume ?? undefined })),
       m5Candles: (timeframe === "5m" ? market.candles : fibM5Market?.candles ?? []).map((c) => ({ time: new Date(c.datetime).getTime(), open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume ?? undefined })),
     }) : null;
+    const vortexLiquidityTargets = vortexEngine?.state === "TRADE ACTIVE" && vortexEngine.liquidityTarget != null ? {
+      buySide: vortexEngine.direction === "BUY" ? { price: vortexEngine.liquidityTarget, source: "Vortex higher liquidity target", touches: 0 } : null,
+      sellSide: vortexEngine.direction === "SELL" ? { price: vortexEngine.liquidityTarget, source: "Vortex lower liquidity target", touches: 0 } : null,
+    } : { buySide: null, sellSide: null };
     const visualOrderBlocks = strategyId === "vaulttradesNexus" ? [] : strategyId === "vortex" ? (vortexEngine?.orderBlock ? [{ direction: vortexEngine.orderBlock.direction === "BUY" ? "BULLISH" : "BEARISH", top: vortexEngine.orderBlock.top, bottom: vortexEngine.orderBlock.bottom, label: "VORTEX TARGET ORDER BLOCK", state: "ACTIVE" }] : []) : strategyId === "fibRetracement" && autoFibEngine
       ? [
           ...(autoFibEngine.orderBlocks.bullish.active && !autoFibEngine.orderBlocks.bullish.mitigated && !autoFibEngine.orderBlocks.bullish.breaker && autoFibEngine.orderBlocks.bullish.high != null && autoFibEngine.orderBlocks.bullish.low != null
@@ -565,7 +569,7 @@ Return JSON only.`;
       sourceIndicators: profileStrategy.indicatorSpecs,
       indicatorReadings: context.selectedIndicators,
       chart: { candles: market.candles, channel20: channel, orderBlocks: visualOrderBlocks },
-      liquidityTargets,
+      liquidityTargets: strategyId === "vortex" ? vortexLiquidityTargets : liquidityTargets,
       structure: { ...lockedStructure }, volatility: context.volatility,
       strategyEngine: strategyId === "lsobr" ? lsobrEngineEvidence : strategyId === "srbOb" ? srbObEngineEvidence : strategyId === "fibRetracement" ? autoFibEngineEvidence : strategyId === "supplyDemand" ? supplyDemandEngine : nativeEngineOutput,
       scanner: strategyId === "vortex" ? {
