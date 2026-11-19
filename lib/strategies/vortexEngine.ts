@@ -5,6 +5,7 @@ export type VortexTrade = {
   tp1: number; tp2: number; tp3: number; tp4: number; tp5: number;
   fibLevel: number; entryTime: string; confirmationTime: string;
   lotSize: number; targetHits: boolean[]; status: "ACTIVE" | "TP_HIT" | "SL_HIT";
+  orderBlock: { direction: VortexDirection; top: number; bottom: number }; liquidityTarget: number;
   exitTime?: string; exitPrice?: number;
 };
 export type VortexResult = {
@@ -280,9 +281,8 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     if (targetBearOb && b.close > targetBearOb.top) targetBearOb = null;
     if (targetBullOb && b.close < targetBullOb.bottom) targetBullOb = null;
     const bullOb = targetBullOb, bearOb = targetBearOb;
-    if (bullOb) lastOb = bullOb; else if (bearOb) lastOb = bearOb;
-    if (bullOb) lastLiq = targetBullOb ? targetLower : lastLiq;
-    if (bearOb) lastLiq = targetBearOb ? targetHigher : lastLiq;
+    lastOb = bullOb ?? bearOb;
+    lastLiq = bullOb ? targetLower : bearOb ? targetHigher : null;
     const bScore = buyReady ? confluence(1, c, i, buyFib(bt, bb, 68.1), buyFib(bt, bb, 88), bullActive, pd, silverContext).score : 0;
     const sScore = sellReady ? confluence(-1, c, i, sellFib(st, sb, 68.1), sellFib(st, sb, 88), bearActive, pd, silverContext).score : 0;
     buyScore = bScore; sellScore = sScore;
@@ -320,7 +320,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
       const tp4 = entry * (isBuy ? 1.015 : 0.985), tp5 = entry * (isBuy ? 1.0181 : 0.9819);
       const targetsValid = [...tps, tp4, tp5].every(x => isBuy ? x > entry : x < entry);
       if (targetsValid && (isBuy ? sl < entry : sl > entry)) {
-        active = { direction: dir, entry, stopLoss: sl, tp1: tps[0], tp2: tps[1], tp3: tps[2], tp4, tp5, fibLevel: pct, entryTime: new Date(closeTime).toISOString(), confirmationTime: m5b ? new Date(m5b.time + 300_000).toISOString() : new Date(closeTime).toISOString(), lotSize, targetHits: [false, false, false, false, false], status: "ACTIVE" };
+        active = { direction: dir, entry, stopLoss: sl, tp1: tps[0], tp2: tps[1], tp3: tps[2], tp4, tp5, fibLevel: pct, entryTime: new Date(closeTime).toISOString(), confirmationTime: m5b ? new Date(m5b.time + 300_000).toISOString() : new Date(closeTime).toISOString(), lotSize, targetHits: [false, false, false, false, false], status: "ACTIVE", orderBlock: ob, liquidityTarget: isBuy ? targetHigher! : targetLower! };
         lastOb = ob; lastLiq = isBuy ? targetHigher : targetLower; lastScore = isBuy ? bScore : sScore; lastFib = pct;
         evidence = ["Institutional order detected", "Fib pullback selected at " + pct + "%", "M1 retest and candle confirmation completed", "M5 displacement confirmation passed", "External liquidity and opposing target OB aligned", "Confluence score " + lastScore + "/100 passed"];
         missing = [];
@@ -343,7 +343,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     source: "VAULTTRADES_VORTEX_PINE_V12", state, direction: trade?.direction ?? "NO TRADE",
     entry: trade?.entry ?? null, stopLoss: trade?.stopLoss ?? null, tp1: trade?.tp1 ?? null, tp2: trade?.tp2 ?? null,
     tp3: trade?.tp3 ?? null, tp4: trade?.tp4 ?? null, tp5: trade?.tp5 ?? null, fibLevel: trade?.fibLevel ?? lastFib,
-    score: active ? lastScore : Math.max(buyScore, sellScore), buyConfluence: buyScore, sellConfluence: sellScore, liquidityTarget: lastLiq, orderBlock: lastOb,
+    score: active ? lastScore : Math.max(buyScore, sellScore), buyConfluence: buyScore, sellConfluence: sellScore, liquidityTarget: trade?.liquidityTarget ?? lastLiq, orderBlock: trade?.orderBlock ?? lastOb,
     entryTime: trade?.entryTime ?? null, confirmationTime: trade?.confirmationTime ?? lastM5Time, lotSize,
     lotModel: lotSize < 0.05 ? "FULL CLOSE AT TP1" : "FIVE TARGETS · 20% EACH",
     targetHits: trade?.targetHits ?? [false, false, false, false, false], openTrade: active, latestClosedTrade: closed,
