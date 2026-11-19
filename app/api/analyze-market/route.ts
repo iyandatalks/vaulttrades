@@ -569,9 +569,9 @@ Return JSON only.`;
       strategyEngine: strategyId === "lsobr" ? lsobrEngineEvidence : strategyId === "srbOb" ? srbObEngineEvidence : strategyId === "fibRetracement" ? autoFibEngineEvidence : strategyId === "supplyDemand" ? supplyDemandEngine : nativeEngineOutput,
       scanner: strategyId === "vortex" ? {
         projectedDirection: vortexEngine?.state === "TRADE ACTIVE" ? vortexEngine.direction : "NO TRADE",
-        analysisState: vortexEngine?.state === "TRADE ACTIVE" ? "ACTIVE" : vortexEngine?.state === "TP HIT" || vortexEngine?.state === "SL HIT" ? "COMPLETED" : "WAITING",
+        analysisState: vortexEngine?.state === "TRADE ACTIVE" ? "ACTIVE" : vortexEngine?.state === "SETUP DEVELOPING" ? "DEVELOPING" : vortexEngine?.state === "TP HIT" || vortexEngine?.state === "SL HIT" ? "COMPLETED" : "WAITING",
         statusMessage: vortexEngine?.statusReason ?? "Waiting for a valid Vortex setup.",
-        cycleStatus: vortexEngine?.state === "TRADE ACTIVE" ? "ACTIVE" : vortexEngine?.state === "TP HIT" ? "TP_HIT" : vortexEngine?.state === "SL HIT" ? "SL_HIT" : "WAITING",
+        cycleStatus: vortexEngine?.state === "TRADE ACTIVE" ? "ACTIVE" : vortexEngine?.state === "SETUP DEVELOPING" ? "SETUP_DEVELOPING" : vortexEngine?.state === "TP HIT" ? "TP_HIT" : vortexEngine?.state === "SL HIT" ? "SL_HIT" : "WAITING",
         actualEntry: vortexEngine?.state === "TRADE ACTIVE" ? vortexEngine.entry : null,
         projectedEntry: vortexEngine?.entry ?? null,
         projectedStopLoss: vortexEngine?.stopLoss ?? null,
