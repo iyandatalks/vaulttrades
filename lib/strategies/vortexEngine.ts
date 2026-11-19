@@ -55,11 +55,11 @@ function ema(v: number[], n: number): number | null {
 }
 function buyFib(top: number, bottom: number, pct: number) { return top - (top - bottom) * pct / 100; }
 function sellFib(top: number, bottom: number, pct: number) { return bottom + (top - bottom) * pct / 100; }
-function pivot(c: VortexCandle[], i: number) {
-  if (i < PIVOT * 2) return { high: null as number | null, low: null as number | null };
-  const p = i - PIVOT, x = c[p];
+function pivot(c: VortexCandle[], i: number, len = PIVOT) {
+  if (i < len * 2) return { high: null as number | null, low: null as number | null };
+  const p = i - len, x = c[p];
   let hi = true, lo = true;
-  for (let k = 1; k <= PIVOT; k++) {
+  for (let k = 1; k <= len; k++) {
     if (x.high <= c[p - k].high || x.high <= c[p + k].high) hi = false;
     if (x.low >= c[p - k].low || x.low >= c[p + k].low) lo = false;
   }
@@ -112,7 +112,7 @@ function targetOb(c: VortexCandle[], atr: number[], end: number, target: number,
   }
   return found;
 }
-function confluence(dir: 1 | -1, c: VortexCandle[], i: number, f68: number, f88: number, structure: boolean, levels: { high: number | null; low: number | null; weekHigh: number | null; weekLow: number | null }, silver: { last: VortexCandle | null; prev: VortexCandle | null; ma: number | null; priorMa: number | null; high: number | null; low: number | null; avgVolume: number | null }) {
+function confluence(dir: 1 | -1, c: VortexCandle[], i: number, f68: number, f88: number, structure: boolean, levels: { high: number | null; low: number | null; weekHigh: number | null; weekLow: number | null }, silver: { last: VortexCandle | null; prev: VortexCandle | null; ma: number | null; priorMa: number | null; lastHigh: number | null; previousHigh: number | null; lastLow: number | null; previousLow: number | null; avgVolume: number | null }) {
   const b = c[i];
   let available = 45, raw = (dir > 0 ? b.low <= f68 && b.close >= f88 : b.high >= f68 && b.close <= f88) ? 25 : 0;
   if (structure) raw += 20;
@@ -130,20 +130,27 @@ function confluence(dir: 1 | -1, c: VortexCandle[], i: number, f68: number, f88:
     const falling = last.close < prev.close, rising = last.close > prev.close;
     flow = falling ? "FALLING" : rising ? "RISING" : "FLAT";
     available += 15; if (dir > 0 ? falling : rising) raw += 15;
-    if (silver.high != null && silver.low != null) {
+    const structureAvailable = dir > 0
+      ? silver.lastHigh != null && silver.lastLow != null && silver.previousLow != null
+      : silver.lastLow != null && silver.lastHigh != null && silver.previousHigh != null;
+    if (structureAvailable) {
       available += 10;
-      if (dir > 0 ? last.close > silver.high : last.close < silver.low) raw += 10;
+      const structurePass = dir > 0
+        ? silver.lastLow! > silver.previousLow! && last.close > silver.lastHigh!
+        : silver.lastHigh! < silver.previousHigh! && last.close < silver.lastLow!;
+      if (structurePass) raw += 10;
     }
+    const maFalling = silver.ma != null && silver.priorMa != null && silver.ma < silver.priorMa;
+    const maRising = silver.ma != null && silver.priorMa != null && silver.ma > silver.priorMa;
     if (silver.ma != null && silver.priorMa != null) {
       available += 10;
-      const maFalling = silver.ma < silver.priorMa, maRising = silver.ma > silver.priorMa;
       if (dir > 0 ? maFalling : maRising) raw += 10;
-      if (silver.avgVolume != null && last.volume != null && silver.avgVolume > 0) {
-        available += 5;
-        if (last.volume > silver.avgVolume * 1.5 && (dir > 0 ? falling : rising)) raw += 5;
-      }
-      if ((dir > 0 && rising && maRising) || (dir < 0 && falling && maFalling)) raw -= 15 * available / 100;
     }
+    if (silver.avgVolume != null && last.volume != null && silver.avgVolume > 0) {
+      available += 5;
+      if (last.volume > silver.avgVolume * 1.5 && (dir > 0 ? falling : rising)) raw += 5;
+    }
+    if ((dir > 0 && rising && maRising) || (dir < 0 && falling && maFalling)) raw -= 15 * available / 100;
   }
   return { score: Math.max(0, Math.min(100, Math.round(raw / available * 100))), flow };
 }
@@ -174,6 +181,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
   let active: VortexTrade | null = null, closed: VortexTrade | null = null, lastOb: VortexResult["orderBlock"] = null, lastLiq: number | null = null;
   let buyScore = 0, sellScore = 0, lastScore = 0, evidence: string[] = [], missing = ["Waiting for a confirmed institutional order."], lastFib: number | null = null, lastM5Time: string | null = null;
   let m5Pointer = -1, silverPointer = -1, currentDay = "", runningDayHigh = -Infinity, runningDayLow = Infinity, priorHigh: number | null = null, priorLow: number | null = null, priorNySession: { high: number; low: number } | null = null;
+  let silverLastHigh: number | null = null, silverPreviousHigh: number | null = null, silverLastLow: number | null = null, silverPreviousLow: number | null = null;
 
   for (let i = 20; i < c.length; i++) {
     const b = c[i], prev = c[i - 1], closeTime = b.time + 60_000, np = nyParts(closeTime), m = np.minute;
