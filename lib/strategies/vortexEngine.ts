@@ -25,6 +25,7 @@ const ENTRY_FIBS = [68.1, 78.6, 88.0];
 const TP_FIBS = [38.2, 0, -23.6];
 const RETEST_BARS = 8;
 const MIN_SCORE = 60;
+const MAX_STOP_RISK_PCT = 2.0;
 const PIVOT = 5;
 const NY = "America/New_York";
 
@@ -292,8 +293,10 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     const bScore = activeBuyReady ? confluence(1, c, i, buyFib(bt, bb, 68.1), buyFib(bt, bb, 88), bullActive, pd, silverContext).score : 0;
     const sScore = activeSellReady ? confluence(-1, c, i, sellFib(st, sb, 68.1), sellFib(st, sb, 88), bearActive, pd, silverContext).score : 0;
     buyScore = bScore; sellScore = sScore;
-    const buyValid = buySetup.state === 3 && buySetup.fib != null && b.low <= buySetup.fib && b.close >= buySetup.fib && m5Bull && targetHigher != null && targetHigher > buySetup.fib && (bullActive || buyReady) && !!bullOb && bullOb.bottom < buySetup.fib && bScore >= MIN_SCORE;
-    const sellValid = sellSetup.state === 3 && sellSetup.fib != null && b.high >= sellSetup.fib && b.close <= sellSetup.fib && m5Bear && targetLower != null && targetLower < sellSetup.fib && (bearActive || sellReady) && !!bearOb && bearOb.top > sellSetup.fib && sScore >= MIN_SCORE;
+    const buyStopRiskPct = buySetup.fib != null && bullOb ? Math.abs(buySetup.fib - (bullOb.bottom - tick)) / buySetup.fib * 100 : Infinity;
+    const sellStopRiskPct = sellSetup.fib != null && bearOb ? Math.abs((bearOb.top + tick) - sellSetup.fib) / sellSetup.fib * 100 : Infinity;
+    const buyValid = buySetup.state === 3 && buySetup.fib != null && b.low <= buySetup.fib && b.close >= buySetup.fib && m5Bull && targetHigher != null && targetHigher > buySetup.fib && (bullActive || buyReady) && !!bullOb && bullOb.bottom < buySetup.fib && buyStopRiskPct <= MAX_STOP_RISK_PCT && bScore >= MIN_SCORE;
+    const sellValid = sellSetup.state === 3 && sellSetup.fib != null && b.high >= sellSetup.fib && b.close <= sellSetup.fib && m5Bear && targetLower != null && targetLower < sellSetup.fib && (bearActive || sellReady) && !!bearOb && bearOb.top > sellSetup.fib && sellStopRiskPct <= MAX_STOP_RISK_PCT && sScore >= MIN_SCORE;
 
     if (active) {
       const slHit = active.direction === "BUY" ? b.low <= active.stopLoss : b.high >= active.stopLoss;
