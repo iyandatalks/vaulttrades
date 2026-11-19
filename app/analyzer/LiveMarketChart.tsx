@@ -4,8 +4,10 @@ import { useMemo } from "react";
 
 type Candle = { datetime: string; open: number; high: number; low: number; close: number; volume?: number | null };
 
+type TradeLevel = { label: string; price: number; kind: "ENTRY" | "SL" | "TP" };
 type Props = {
   symbol?: string;
+  tradeLevels?: { direction: string; levels: TradeLevel[] } | null;
   candles: Candle[];
   channel?: { upper: number | null; lower: number | null; middle?: number | null };
   liquidityTargets?: { buySide: { price: number; source: string; touches: number } | null; sellSide: { price: number; source: string; touches: number } | null };
@@ -21,7 +23,7 @@ function fmtPrice(value: number, symbol = ""): string {
   return value.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
 }
 
-export function LiveMarketChart({ symbol = "", candles, channel, liquidityTargets, orderBlock, orderBlocks = [] }: Props) {
+export function LiveMarketChart({ symbol = "", candles, channel, liquidityTargets, orderBlock, orderBlocks = [], tradeLevels = null }: Props) {
   const data = useMemo(() => candles.slice(-80), [candles]);
   const visibleOrderBlocks = useMemo(() => {
     const supplied = orderBlocks.filter((block) =>
@@ -47,8 +49,8 @@ export function LiveMarketChart({ symbol = "", candles, channel, liquidityTarget
   const volumeBottom = 490;
   const chartWidth = width - left - right;
   const priceHeight = priceBottom - top;
-  const priceMin = Math.min(...data.map(c => c.low), channel?.lower ?? Infinity, liquidityTargets?.sellSide?.price ?? Infinity, ...visibleOrderBlocks.map(block => block.bottom));
-  const priceMax = Math.max(...data.map(c => c.high), channel?.upper ?? -Infinity, liquidityTargets?.buySide?.price ?? -Infinity, ...visibleOrderBlocks.map(block => block.top));
+  const priceMin = Math.min(...data.map(c => c.low), channel?.lower ?? Infinity, liquidityTargets?.sellSide?.price ?? Infinity, ...visibleOrderBlocks.map(block => block.bottom), ...(tradeLevels?.levels.map(level => level.price) ?? []));
+  const priceMax = Math.max(...data.map(c => c.high), channel?.upper ?? -Infinity, liquidityTargets?.buySide?.price ?? -Infinity, ...visibleOrderBlocks.map(block => block.top), ...(tradeLevels?.levels.map(level => level.price) ?? []));
   const priceRange = Math.max(priceMax - priceMin, Math.abs(priceMax) * 0.00001, 1e-9);
   const maxVolume = Math.max(...data.map(c => c.volume ?? 0), 1);
   const bodyWidth = Math.max(3, Math.min(11, chartWidth / data.length * 0.62));
@@ -92,6 +94,16 @@ export function LiveMarketChart({ symbol = "", candles, channel, liquidityTarget
             <g key={`${block.direction}-ob-${index}`}>
               <rect x={left} y={y(block.top)} width={chartWidth} height={Math.max(1, y(block.bottom) - y(block.top))} fill={fill} stroke={stroke} strokeDasharray="5 4" strokeWidth="1.5" />
               <text x={left + 8} y={y(block.top) + 14 + index * 13} fill={labelColor} fontSize="11" fontWeight="700">{block.label || (bearish ? "ACTIVE BEARISH ORDER BLOCK" : "ACTIVE BULLISH ORDER BLOCK")}</text>
+            </g>
+          );
+        })}
+        {tradeLevels?.levels.map((level, index) => {
+          const color = level.kind === "SL" ? "#ef5350" : level.kind === "ENTRY" ? "#d4a637" : "#22c55e";
+          const dash = level.kind === "ENTRY" ? "2 4" : level.kind === "SL" ? "7 4" : "4 5";
+          return (
+            <g key={`vortex-level-${level.label}`}>
+              <line x1={left} x2={width - right} y1={y(level.price)} y2={y(level.price)} stroke={color} strokeDasharray={dash} strokeWidth={level.kind === "ENTRY" ? 2 : 1.5} opacity="0.9" />
+              <text x={left + 8} y={y(level.price) + (index % 2 === 0 ? -7 : 14)} fill={color} fontSize="11" fontWeight="700">{level.label} · {fmtPrice(level.price, symbol)}</text>
             </g>
           );
         })}
