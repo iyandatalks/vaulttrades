@@ -184,7 +184,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
   let silverLastHigh: number | null = null, silverPreviousHigh: number | null = null, silverLastLow: number | null = null, silverPreviousLow: number | null = null;
 
   for (let i = 20; i < c.length; i++) {
-    const b = c[i], prev = c[i - 1], closeTime = b.time + 60_000, np = nyParts(closeTime), m = np.minute;
+    const b = c[i], prev = c[i - 1], closeTime = b.time + 60_000, np = nyParts(b.time), m = np.minute;
     if (currentDay && np.day !== currentDay) { priorHigh = Number.isFinite(runningDayHigh) ? runningDayHigh : priorHigh; priorLow = Number.isFinite(runningDayLow) ? runningDayLow : priorLow; priorNySession = ranges.get(currentDay)?.ny ?? priorNySession; runningDayHigh = -Infinity; runningDayLow = Infinity; }
     currentDay = np.day; runningDayHigh = Math.max(runningDayHigh, b.high); runningDayLow = Math.min(runningDayLow, b.low);
     const session: "Asia" | "London" | "New York" | null = m < 360 ? "Asia" : m >= 420 && m < 600 ? "London" : m >= 750 && m < 1020 ? "New York" : null;
@@ -224,7 +224,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     const sellReady = sellStart != null && sellEnd != null && Math.abs(sellEnd - sellStart) > tick;
     const bt = buyReady ? Math.max(buyStart!, buyEnd!) : 0, bb = buyReady ? Math.min(buyStart!, buyEnd!) : 0;
     const st = sellReady ? Math.max(sellStart!, sellEnd!) : 0, sb = sellReady ? Math.min(sellStart!, sellEnd!) : 0;
-    const window = inSilverBullet(closeTime);
+    const window = inSilverBullet(b.time);
     if (!window) {
       buySetup = { state: 0, pullback: -1, fib: null, pct: null };
       sellSetup = { state: 0, pullback: -1, fib: null, pct: null };
