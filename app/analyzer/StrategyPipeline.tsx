@@ -24,8 +24,10 @@ function evidence(result: PipelineResult, label: string, preferred?: string[]) {
 function priceDecimals(value: number, symbol = ""): number {
   const normalized = symbol.toUpperCase().replace(/[^A-Z]/g, "");
   const isMetal = /^(XAU|XAG|XPT|XPD)/.test(normalized);
-  const isForexPair = normalized.length === 6 && /^[A-Z]{6}$/.test(normalized) && !isMetal;
-  if (isForexPair) return normalized.endsWith("JPY") ? 3 : 5;
+  const currencyCodes = new Set(["USD","EUR","GBP","JPY","CHF","CAD","AUD","NZD","CNH","CNY","HKD","SGD","ZAR","MXN","NOK","SEK","DKK","PLN","CZK","HUF","TRY","ILS","THB"]);
+  const pairs = Array.from({ length: Math.max(0, normalized.length - 5) }, (_, index) => normalized.slice(index, index + 6));
+  const forexPair = !isMetal && pairs.find(pair => currencyCodes.has(pair.slice(0,3)) && currencyCodes.has(pair.slice(3,6)));
+  if (forexPair) return forexPair.endsWith("JPY") ? 3 : 5;
   const abs = Math.abs(value);
   if (abs >= 1) return 2;
   return 5;
