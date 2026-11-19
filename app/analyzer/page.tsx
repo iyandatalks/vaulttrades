@@ -435,6 +435,21 @@ export default function AnalyzerPage() {
     router.push("/risk-manager?" + params.toString());
   };
   const scannerTp2 = (strategy === "srbOb" || strategy === "lsobr") ? null : projectedTp2;
+  const vortexView = result?.strategyEngine;
+  const vortexChartLevels = strategy === "vortex" && vortexView?.state === "TRADE ACTIVE" && typeof vortexView.entry === "number" && typeof vortexView.stopLoss === "number"
+    ? {
+        direction: vortexView.direction ?? "BUY",
+        levels: [
+          { label: "ENTRY", price: vortexView.entry, kind: "ENTRY" as const },
+          { label: "SL", price: vortexView.stopLoss, kind: "SL" as const },
+          { label: "TP1", price: vortexView.tp1, kind: "TP" as const },
+          { label: "TP2", price: vortexView.tp2, kind: "TP" as const },
+          { label: "TP3", price: vortexView.tp3, kind: "TP" as const },
+          { label: "TP4", price: vortexView.tp4, kind: "TP" as const },
+          { label: "TP5", price: vortexView.tp5, kind: "TP" as const },
+        ].filter((level): level is { label: string; price: number; kind: "ENTRY" | "SL" | "TP" } => typeof level.price === "number"),
+      }
+    : null;
   const rawReasons = (strategy === "srbOb" || strategy === "lsobr")
     ? [...(result?.strategyEngine?.missingConditions ?? []), ...(strategy === "lsobr" && result?.decision === "NO TRADE" ? (result?.missingConditions ?? []) : []), ...(!result?.strategyEngine?.missingConditions?.length ? [result?.strategyEngine?.invalidation].filter((x): x is string => Boolean(x)) : [])]
     : [s?.waitReason, s?.statusMessage, result?.nextAction].filter((x): x is string => Boolean(x));
@@ -496,7 +511,7 @@ export default function AnalyzerPage() {
     <section className="card"><div className="actions"><button className="primary" type="button" disabled={loading || marketType === "SYNTHETIC"} onClick={() => void runAnalysis()}>{loading ? "Analyzing live market..." : "Analyze Live Market"}</button></div>{marketType === "SYNTHETIC" && <div className="condition-box" style={{ marginTop: 12 }}><strong>Market data unavailable</strong><p className="muted">Please select another market or try again later.</p></div>}{error && <div className="error-box" style={{ marginTop: 12 }}><strong>Market data unavailable</strong><p className="muted">Please try again later.</p></div>}</section>
 
     {result && <>
-      <section className="card"><div className="section-label">LIVE CHART</div><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}><div><h2 className="title" style={{ marginBottom: 3 }}>{result.market?.asset}</h2><div className="muted">{result.market?.timeframe} · Current price {fmt(result.market?.currentPrice, symbol)}</div></div><div className="condition-box" style={{ padding: "10px 14px" }}><strong>Strategy: {strategyDisplayName(result.strategy?.id, result.strategy?.name)}</strong></div></div><LiveMarketChart symbol={symbol} candles={result.chart?.candles || []} channel={result.chart?.channel20} liquidityTargets={s?.liquidityTargets ?? result.liquidityTargets} orderBlocks={result.chart?.orderBlocks ?? []} orderBlock={strategy === "lsobr" ? result.strategyEngine?.orderBlock ?? null : null} /></section>
+      <section className="card"><div className="section-label">LIVE CHART</div><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}><div><h2 className="title" style={{ marginBottom: 3 }}>{result.market?.asset}</h2><div className="muted">{result.market?.timeframe} · Current price {fmt(result.market?.currentPrice, symbol)}</div></div><div className="condition-box" style={{ padding: "10px 14px" }}><strong>Strategy: {strategyDisplayName(result.strategy?.id, result.strategy?.name)}</strong></div></div><LiveMarketChart symbol={symbol} candles={result.chart?.candles || []} channel={result.chart?.channel20} liquidityTargets={s?.liquidityTargets ?? result.liquidityTargets} orderBlocks={result.chart?.orderBlocks ?? []} orderBlock={strategy === "lsobr" ? result.strategyEngine?.orderBlock ?? null : null} tradeLevels={vortexChartLevels} /></section>
 
       {strategy === "vaulttradesNexus" ? <section className="card execution-card" style={{ border: "1px solid rgba(212,166,55,.28)", background: "linear-gradient(145deg, rgba(10,16,30,.98), rgba(5,8,18,.98))" }}>
         <div className="section-label">TRADE STATUS</div>
