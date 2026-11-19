@@ -202,11 +202,11 @@ export async function POST(request: Request) {
     if (!profileStrategy) return Response.json({ error: "Invalid strategy selected." }, { status: 400 });
     if (!symbol) return Response.json({ error: "Select or enter a market symbol." }, { status: 400 });
     if (marketType === "SYNTHETIC") return Response.json({ error: "Synthetic indices require the Synthetic/Broker provider connection." }, { status: 400 });
+    const oandaConfigured = Boolean(process.env.OANDA_ACCESS_TOKEN && process.env.OANDA_ACCOUNT_ID);
     const providerRoute = getMarketProviderRoute(marketType);
-    if (!providerRoute.available) return Response.json({ error: providerRoute.reason || "Market data is unavailable." }, { status: 503 });
+    if (!providerRoute.available && !(strategyId === "vortex" && oandaConfigured)) return Response.json({ error: providerRoute.reason || "Market data is unavailable." }, { status: 503 });
     const apiKey = process.env.OPENAI_API_KEY;
 
-    const oandaConfigured = Boolean(process.env.OANDA_ACCESS_TOKEN && process.env.OANDA_ACCOUNT_ID);
     const oandaPrimaryCandles = strategyId === "vortex" && oandaConfigured
       ? await getOandaCandles(symbol, "1m", 5000).catch(() => null)
       : null;
