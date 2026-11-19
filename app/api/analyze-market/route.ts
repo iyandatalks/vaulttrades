@@ -10,6 +10,7 @@ import { evaluateLsObr } from "../../../lib/strategies/lsobrEngine";
 import { analyzeAutoFibRetrace } from "../../../lib/strategies/autoFibRetrace";
 import { evaluateSupplyDemand } from "../../../lib/strategies/supplyDemandEngine";
 import { evaluateVaultTradesNexus } from "../../../lib/strategies/vaulttradesNexusEngine";
+import { evaluateVortex, type VortexCandle } from "../../../lib/strategies/vortexEngine";
 import { resolveLiquidityTargets } from "../../../lib/market-data/liquidityTargets";
 
 export const runtime = "nodejs";
@@ -154,8 +155,9 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const marketType = validMarket(body.marketType) ? body.marketType : "FOREX";
-    const timeframe = validTimeframe(body.timeframe) ? body.timeframe : "15m";
+    const requestedTimeframe = validTimeframe(body.timeframe) ? body.timeframe : "15m";
     const strategyId = clean(body.strategy);
+    const timeframe = strategyId === "vortex" ? "1m" : requestedTimeframe;
     const symbol = clean(body.symbol).toUpperCase();
     const profileStrategy = ANALYZER_STRATEGY_MAP[strategyId];
     if (!profileStrategy) return Response.json({ error: "Invalid strategy selected." }, { status: 400 });
@@ -165,15 +167,18 @@ export async function POST(request: Request) {
     if (!providerRoute.available) return Response.json({ error: providerRoute.reason || "Market data is unavailable." }, { status: 503 });
     const apiKey = process.env.OPENAI_API_KEY;
 
-    const market = await getTwelveDataTimeSeries({ symbol, timeframe, outputsize: strategyId === "ema20" || strategyId === "vaulttradesNexus" ? 5000 : 250, normalizeToUtc: strategyId === "vaulttradesNexus" || strategyId === "ema20" });
+    const market = await getTwelveDataTimeSeries({ symbol, timeframe, outputsize: strategyId === "ema20" || strategyId === "vaulttradesNexus" || strategyId === "vortex" ? 5000 : 250, normalizeToUtc: strategyId === "vaulttradesNexus" || strategyId === "ema20" || strategyId === "vortex" });
     if (market.candles.length < 40) return Response.json({ error: "Not enough live market history was returned for this symbol/timeframe." }, { status: 422 });
-    // Silver is fetched only for the Auto Fib strategy on Gold instruments; all other Analyzer requests retain their existing provider-call count.
+    // Silver is optional confluence for Auto Fib and Vortex on Gold instruments.
     const isGoldInstrument = /XAU|GOLD/.test(symbol.replace(/[^A-Z]/g, ""));
-    const silverMarket = strategyId === "fibRetracement" && isGoldInstrument
-      ? await getTwelveDataTimeSeries({ symbol: "XAG/USD", timeframe, outputsize: 250 }).catch(() => null)
+    const silverMarket = (strategyId === "fibRetracement" || strategyId === "vortex") && isGoldInstrument
+      ? await getTwelveDataTimeSeries({ symbol: "XAG/USD", timeframe, outputsize: strategyId === "vortex" ? 5000 : 250, normalizeToUtc: strategyId === "vortex" }).catch(() => null)
       : null;
     const fibM5Market = strategyId === "fibRetracement" && timeframe !== "5m"
       ? await getTwelveDataTimeSeries({ symbol, timeframe: "5m", outputsize: 250 }).catch(() => null)
+      : null;
+    const vortexM5Market = strategyId === "vortex"
+      ? await getTwelveDataTimeSeries({ symbol, timeframe: "5m", outputsize: 5000, normalizeToUtc: true }).catch(() => null)
       : null;
     const nexusPlusH4Market = strategyId === "ema20" && (EMA20_TIMEFRAME_MINUTES[timeframe] ?? 0) < 240
       ? await getTwelveDataTimeSeries({ symbol, timeframe: "4H", outputsize: 1500, normalizeToUtc: true }).catch(() => null)
@@ -207,6 +212,12 @@ export async function POST(request: Request) {
     const nexusEngine = strategyId === "vaulttradesNexus"
       ? evaluateVaultTradesNexus(market.candles, { timeframe, exchangeTimezone: market.exchangeTimezone })
       : null;
+    const vortexEngine = strategyId === "vortex" ? evaluateVortex({
+      m1Candles: completedEma20Candles(market.candles, "1m").map(c => ({ time: Date.parse(c.datetime), open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume ?? undefined })),
+      m5Candles: completedEma20Candles(vortexM5Market?.candles ?? [], "5m").map(c => ({ time: Date.parse(c.datetime), open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume ?? undefined })),
+      silverCandles: completedEma20Candles(silverMarket?.candles ?? [], "1m").map(c => ({ time: Date.parse(c.datetime), open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume ?? undefined })),
+      lotSize: 0.05,
+    }) : null;
     const ema20Bar = ema20Engine?.engine ?? null;
     const ema20EngineEvidence = ema20Engine ? {
       source: "VAULTTRADES_NEXUS_PLUS_PINE_V6",
@@ -257,7 +268,7 @@ export async function POST(request: Request) {
       silverCandles: silverMarket?.candles.map((c) => ({ time: new Date(c.datetime).getTime(), open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume ?? undefined })),
       m5Candles: (timeframe === "5m" ? market.candles : fibM5Market?.candles ?? []).map((c) => ({ time: new Date(c.datetime).getTime(), open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume ?? undefined })),
     }) : null;
-    const visualOrderBlocks = strategyId === "vaulttradesNexus" ? [] : strategyId === "fibRetracement" && autoFibEngine
+    const visualOrderBlocks = strategyId === "vaulttradesNexus" ? [] : strategyId === "vortex" && vortexEngine?.orderBlock ? [{ direction: vortexEngine.orderBlock.direction === "BUY" ? "BULLISH" : "BEARISH", top: vortexEngine.orderBlock.top, bottom: vortexEngine.orderBlock.bottom, label: "VORTEX TARGET ORDER BLOCK", state: "ACTIVE" }] : strategyId === "fibRetracement" && autoFibEngine
       ? [
           ...(autoFibEngine.orderBlocks.bullish.active && !autoFibEngine.orderBlocks.bullish.mitigated && !autoFibEngine.orderBlocks.bullish.breaker && autoFibEngine.orderBlocks.bullish.high != null && autoFibEngine.orderBlocks.bullish.low != null
             ? [{ direction:"BULLISH", top:autoFibEngine.orderBlocks.bullish.high, bottom:autoFibEngine.orderBlocks.bullish.low, label:"ACTIVE BULLISH OB · UNMITIGATED", state:"ACTIVE" }] : []),
@@ -431,6 +442,23 @@ Return JSON only.`;
       };
     } else if (strategyId === "fibRetracement") {
       ai = { direction:"NO TRADE",decision:"NO TRADE",confidence:autoFibEngine?.confidence??0,marketCondition:context.structure.trend,directionalBias:autoFibEngine?.bias??"NEUTRAL",session:"Derived from market candle timestamps.",higherTimeframe:"Selected timeframe is evaluated independently.",marketStructure:context.structure.trend,support:priceLevels.support,resistance:priceLevels.resistance,recentPriceAction:autoFibEngine?.message??"Auto Fib engine evaluated the supplied candles.",setup:autoFibEngine?.message??"Waiting for valid Fib structure.",confirmedConditions:autoFibEngine?.evidence??[],missingConditions:autoFibEngine?.missingConditions??[],bos:5,choch:5,orderBlock:5,fvg:5,liquiditySweep:5,displacement:5,pipeline:autoFibEngine?.evidence??[],nextZone:"Wait for source-defined Fib flip, active unmitigated OB and entry confirmation.",invalidation:(autoFibEngine?.invalidation??[]).join(" "),entry:null,stopLoss:null,tp1:autoFibEngine?.tp1??null,tp2:autoFibEngine?.tp2??null,finalTp:autoFibEngine?.finalTp??null,nextAction:autoFibEngine?.message??"WAIT",educationalNote:"Auto Fib runs locally. Its source defines projection probability as zero and has no qualifying entry event, so no BUY/SELL or stop-loss is invented." };
+    } else if (strategyId === "vortex") {
+      const active = vortexEngine?.state === "TRADE ACTIVE";
+      ai = {
+        direction: active ? vortexEngine!.direction : "NO TRADE", decision: active ? "TRADE" : "NO TRADE",
+        confidence: active ? vortexEngine!.score : 0, marketCondition: context.structure.trend ?? "Market",
+        directionalBias: active ? vortexEngine!.direction : "NEUTRAL", session: "New York Silver Bullet windows",
+        higherTimeframe: "M5 confirmation", marketStructure: context.structure.trend ?? "Market",
+        support: priceLevels.support, resistance: priceLevels.resistance,
+        recentPriceAction: vortexEngine?.statusReason ?? "",
+        setup: vortexEngine?.state ?? "WAITING", confirmedConditions: vortexEngine?.evidence ?? [],
+        missingConditions: vortexEngine?.missingConditions ?? [], bos: 5, choch: 5, orderBlock: 5, fvg: 5, liquiditySweep: 5, displacement: 5,
+        pipeline: vortexEngine?.evidence ?? [], nextZone: "M1 pullback at 68.1%, 78.6% or 88% with M5 displacement confirmation",
+        invalidation: vortexEngine?.invalidation ?? "", entry: vortexEngine?.entry ?? null,
+        stopLoss: vortexEngine?.stopLoss ?? null, tp1: vortexEngine?.tp1 ?? null, tp2: vortexEngine?.tp2 ?? null,
+        finalTp: vortexEngine?.tp5 ?? null, nextAction: vortexEngine?.statusReason ?? "WAIT",
+        educationalNote: "VaultTrades Vortex is deterministic: M1 execution, M5 displacement confirmation, preferred 68.1% / 78.6% / 88% Fib hierarchy, opposing target OB stop, and five targets. Default lot is 0.05; 0.01–0.04 closes fully at TP1.",
+      };
     } else if (strategyId === "vaulttradesNexus") {
       const active = nexusEngine?.state === "TRADE ACTIVE";
       ai = {
@@ -467,18 +495,18 @@ Return JSON only.`;
     }
 
     const engineDirection: Direction = ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.direction : "NO TRADE";
-    const direction = strategyId === "ema20" ? engineDirection : strategyId === "vaulttradesNexus" ? (nexusEngine?.direction ?? "NO TRADE") : strategyId === "srbOb" ? (srbObEngine?.direction ?? "NO TRADE") : strategyId === "lsobr" ? (lsobrEngine?.direction ?? "NO TRADE") : strategyId === "supplyDemand" ? (supplyDemandEngine?.direction ?? "NO TRADE") : ai.direction as Direction;
-    const entry = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.entry : null) : strategyId === "vaulttradesNexus" ? (nexusEngine?.entry ?? null) : strategyId === "srbOb" ? (srbObEngine?.entry ?? null) : strategyId === "lsobr" ? (lsobrEngine?.entry ?? null) : strategyId === "supplyDemand" ? (supplyDemandEngine?.entry ?? null) : (typeof ai.entry === "number" ? ai.entry : null);
-    const stopLoss = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.stopLoss : null) : strategyId === "vaulttradesNexus" ? (nexusEngine?.stopLoss ?? null) : strategyId === "srbOb" ? (srbObEngine?.stopLoss ?? null) : strategyId === "lsobr" ? (lsobrEngine?.stopLoss ?? null) : strategyId === "supplyDemand" ? (supplyDemandEngine?.stopLoss ?? null) : (typeof ai.stopLoss === "number" ? ai.stopLoss : null);
-    const finalTp = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.target : null) : strategyId === "vaulttradesNexus" ? (nexusEngine?.takeProfit ?? null) : strategyId === "srbOb" ? (srbObEngine?.finalTp ?? null) : strategyId === "lsobr" ? (lsobrEngine?.finalTp ?? null) : strategyId === "supplyDemand" ? (supplyDemandEngine?.finalTp ?? null) : (typeof ai.finalTp === "number" ? ai.finalTp : typeof ai.tp2 === "number" ? ai.tp2 : null);
-    const minimumRR = strategyId === "vaulttradesNexus" ? 1.5 : strategyId === "ema20" ? 1.81 : strategyId === "srbOb" ? 0.1 : strategyId === "supplyDemand" ? 0.01 : 2;
-    const math = tradeMath(direction, entry, stopLoss, finalTp, liveCurrentPrice, minimumRR, strategyId === "ema20" || strategyId === "supplyDemand" || strategyId === "vaulttradesNexus" ? 0 : 0.1, strategyId === "ema20" || strategyId === "supplyDemand" || strategyId === "vaulttradesNexus" ? Number.POSITIVE_INFINITY : 0.5);
+    const direction = strategyId === "ema20" ? engineDirection : strategyId === "vortex" ? (vortexEngine?.state === "TRADE ACTIVE" ? vortexEngine.direction : "NO TRADE") : strategyId === "vaulttradesNexus" ? (nexusEngine?.direction ?? "NO TRADE") : strategyId === "srbOb" ? (srbObEngine?.direction ?? "NO TRADE") : strategyId === "lsobr" ? (lsobrEngine?.direction ?? "NO TRADE") : strategyId === "supplyDemand" ? (supplyDemandEngine?.direction ?? "NO TRADE") : ai.direction as Direction;
+    const entry = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.entry : null) : strategyId === "vortex" ? (vortexEngine?.state === "TRADE ACTIVE" ? vortexEngine.entry : null) : strategyId === "vaulttradesNexus" ? (nexusEngine?.entry ?? null) : strategyId === "srbOb" ? (srbObEngine?.entry ?? null) : strategyId === "lsobr" ? (lsobrEngine?.entry ?? null) : strategyId === "supplyDemand" ? (supplyDemandEngine?.entry ?? null) : (typeof ai.entry === "number" ? ai.entry : null);
+    const stopLoss = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.stopLoss : null) : strategyId === "vortex" ? (vortexEngine?.state === "TRADE ACTIVE" ? vortexEngine.stopLoss : null) : strategyId === "vaulttradesNexus" ? (nexusEngine?.stopLoss ?? null) : strategyId === "srbOb" ? (srbObEngine?.stopLoss ?? null) : strategyId === "lsobr" ? (lsobrEngine?.stopLoss ?? null) : strategyId === "supplyDemand" ? (supplyDemandEngine?.stopLoss ?? null) : (typeof ai.stopLoss === "number" ? ai.stopLoss : null);
+    const finalTp = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.target : null) : strategyId === "vortex" ? (vortexEngine?.state === "TRADE ACTIVE" ? vortexEngine.tp5 : null) : strategyId === "vaulttradesNexus" ? (nexusEngine?.takeProfit ?? null) : strategyId === "srbOb" ? (srbObEngine?.finalTp ?? null) : strategyId === "lsobr" ? (lsobrEngine?.finalTp ?? null) : strategyId === "supplyDemand" ? (supplyDemandEngine?.finalTp ?? null) : (typeof ai.finalTp === "number" ? ai.finalTp : typeof ai.tp2 === "number" ? ai.tp2 : null);
+    const minimumRR = strategyId === "vortex" ? 0.01 : strategyId === "vaulttradesNexus" ? 1.5 : strategyId === "ema20" ? 1.81 : strategyId === "srbOb" ? 0.1 : strategyId === "supplyDemand" ? 0.01 : 2;
+    const math = tradeMath(direction, entry, stopLoss, finalTp, liveCurrentPrice, minimumRR, strategyId === "ema20" || strategyId === "supplyDemand" || strategyId === "vaulttradesNexus" || strategyId === "vortex" ? 0 : 0.1, strategyId === "ema20" || strategyId === "supplyDemand" || strategyId === "vaulttradesNexus" || strategyId === "vortex" ? Number.POSITIVE_INFINITY : 0.5);
     const strongSmc = [ai.bos, ai.choch, ai.orderBlock, ai.fvg, ai.liquiditySweep, ai.displacement].filter((x: unknown) => typeof x === "number" && x >= 7).length;
     const smcGate = strongSmc >= 2;
-    const analyzerTradeGate = direction !== "NO TRADE" && math.valid && (strategyId === "ema20" || strategyId === "vaulttradesNexus" || strategyId === "supplyDemand" || smcGate);
-    const finalDirection: Direction = strategyId === "ema20" || strategyId === "vaulttradesNexus" ? (analyzerTradeGate ? direction : "NO TRADE") : strategyId === "srbOb" ? (srbObEngine?.direction ?? "NO TRADE") : strategyId === "lsobr" ? (lsobrEngine?.state === "ENTRY READY" && analyzerTradeGate ? (lsobrEngine.direction as Direction) : "NO TRADE") : strategyId === "supplyDemand" ? (supplyDemandEngine?.state === "ENTRY READY" && analyzerTradeGate ? direction : "NO TRADE") : analyzerTradeGate && ai.decision === "TRADE" ? direction : "NO TRADE";
+    const analyzerTradeGate = direction !== "NO TRADE" && math.valid && (strategyId === "ema20" || strategyId === "vaulttradesNexus" || strategyId === "supplyDemand" || strategyId === "vortex" || smcGate);
+    const finalDirection: Direction = strategyId === "ema20" || strategyId === "vaulttradesNexus" || strategyId === "vortex" ? (analyzerTradeGate ? direction : "NO TRADE") : strategyId === "srbOb" ? (srbObEngine?.direction ?? "NO TRADE") : strategyId === "lsobr" ? (lsobrEngine?.state === "ENTRY READY" && analyzerTradeGate ? (lsobrEngine.direction as Direction) : "NO TRADE") : strategyId === "supplyDemand" ? (supplyDemandEngine?.state === "ENTRY READY" && analyzerTradeGate ? direction : "NO TRADE") : analyzerTradeGate && ai.decision === "TRADE" ? direction : "NO TRADE";
 
-    const nativeEngineOutput = strategyId === "ema20" ? {
+    const nativeEngineOutput = strategyId === "vortex" ? vortexEngine : strategyId === "ema20" ? {
       state: ema20Engine?.state,
       signal: ema20Engine?.direction,
       newLong: ema20Bar?.newLong ?? false,
@@ -539,7 +567,24 @@ Return JSON only.`;
       liquidityTargets,
       structure: { ...lockedStructure }, volatility: context.volatility,
       strategyEngine: strategyId === "lsobr" ? lsobrEngineEvidence : strategyId === "srbOb" ? srbObEngineEvidence : strategyId === "fibRetracement" ? autoFibEngineEvidence : strategyId === "supplyDemand" ? supplyDemandEngine : nativeEngineOutput,
-      scanner: strategyId === "vaulttradesNexus" ? {
+      scanner: strategyId === "vortex" ? {
+        projectedDirection: vortexEngine?.state === "TRADE ACTIVE" ? vortexEngine.direction : "NO TRADE",
+        analysisState: vortexEngine?.state === "TRADE ACTIVE" ? "ACTIVE" : vortexEngine?.state === "TP HIT" || vortexEngine?.state === "SL HIT" ? "COMPLETED" : "WAITING",
+        statusMessage: vortexEngine?.statusReason ?? "Waiting for a valid Vortex setup.",
+        cycleStatus: vortexEngine?.state === "TRADE ACTIVE" ? "ACTIVE" : vortexEngine?.state === "TP HIT" ? "TP_HIT" : vortexEngine?.state === "SL HIT" ? "SL_HIT" : "WAITING",
+        actualEntry: vortexEngine?.state === "TRADE ACTIVE" ? vortexEngine.entry : null,
+        projectedEntry: vortexEngine?.entry ?? null,
+        projectedStopLoss: vortexEngine?.stopLoss ?? null,
+        projectedTp1: vortexEngine?.tp1 ?? null,
+        projectedTp2: vortexEngine?.tp2 ?? null,
+        projectedFinalTp: vortexEngine?.tp5 ?? null,
+        stopHit: vortexEngine?.state === "SL HIT",
+        entryConfirmation: vortexEngine?.state === "TRADE ACTIVE",
+        strategyConditionsMet: vortexEngine?.state === "TRADE ACTIVE",
+        isExecutable: vortexEngine?.state === "TRADE ACTIVE",
+        waitReason: vortexEngine?.statusReason ?? "",
+        tradeReason: vortexEngine?.statusReason ?? "",
+      } : strategyId === "vaulttradesNexus" ? {
         projectedDirection: nexusEngine?.direction ?? "NO TRADE",
         analysisState: nexusEngine?.state === "TRADE ACTIVE" ? "ACTIVE" : nexusEngine?.state === "TP HIT" || nexusEngine?.state === "SL HIT" ? "COMPLETED" : "WAITING",
         statusMessage: nexusEngine?.state ?? "WAITING FOR TRADE",
@@ -577,14 +622,14 @@ Return JSON only.`;
       confidence: finalDirection === "NO TRADE" ? Math.min(Number(ai.confidence) || 0, 69) : Number(ai.confidence) || 0,
       setup: ai.setup, marketCondition: ai.marketCondition, marketStructure: ai.marketStructure, recentPriceAction: ai.recentPriceAction,
       confirmedConditions: ai.confirmedConditions,
-      missingConditions: [...(strategyId === "lsobr" ? [...(lsobrEngine?.missingConditions ?? []), ...(!analyzerTradeGate && lsobrEngine?.state === "ENTRY READY" ? ["Universal Analyzer Rules 1–6 did not validate the LSOBR entry."] : [])] : strategyId === "srbOb" ? (srbObEngine?.missingConditions ?? []) : strategyId === "supplyDemand" ? (supplyDemandEngine?.missingConditions ?? []) : ai.missingConditions), ...(strategyId === "ema20" && ema20Engine?.state === "WAITING" ? [ema20Engine.reason] : []), ...(strategyId !== "ema20" && strategyId !== "supplyDemand" && strategyId !== "fibRetracement" && strongSmc < 2 ? ["Analyzer SMC confluence gate: fewer than two SMC signals scored 7 or higher."] : []), ...(!math.valid && direction !== "NO TRADE" ? [math.rr !== null && math.rr < minimumRR ? `Strategy price validation: R:R is below the selected strategy minimum of 1:${minimumRR}.` : "Strategy price validation: entry/SL/TP geometry did not pass all applicable gates."] : [])],
+      missingConditions: [...(strategyId === "lsobr" ? [...(lsobrEngine?.missingConditions ?? []), ...(!analyzerTradeGate && lsobrEngine?.state === "ENTRY READY" ? ["Universal Analyzer Rules 1–6 did not validate the LSOBR entry."] : [])] : strategyId === "srbOb" ? (srbObEngine?.missingConditions ?? []) : strategyId === "supplyDemand" ? (supplyDemandEngine?.missingConditions ?? []) : ai.missingConditions), ...(strategyId === "ema20" && ema20Engine?.state === "WAITING" ? [ema20Engine.reason] : []), ...(strategyId !== "ema20" && strategyId !== "supplyDemand" && strategyId !== "fibRetracement" && strategyId !== "vortex" && strongSmc < 2 ? ["Analyzer SMC confluence gate: fewer than two SMC signals scored 7 or higher."] : []), ...(!math.valid && direction !== "NO TRADE" ? [math.rr !== null && math.rr < minimumRR ? `Strategy price validation: R:R is below the selected strategy minimum of 1:${minimumRR}.` : "Strategy price validation: entry/SL/TP geometry did not pass all applicable gates."] : [])],
       smcScores: { BOS: ai.bos, CHoCH: ai.choch, OrderBlock: ai.orderBlock, FVG: ai.fvg, LiquiditySweep: ai.liquiditySweep, Displacement: ai.displacement },
       pipeline: ai.pipeline, nextZone: ai.nextZone, invalidation: ai.invalidation,
       entry: strategyId === "lsobr" ? (lsobrEngine?.entry ?? null) : finalDirection === "NO TRADE" ? null : entry, stopLoss: strategyId === "lsobr" ? (lsobrEngine?.stopLoss ?? null) : finalDirection === "NO TRADE" ? null : stopLoss,
       tp1: strategyId === "lsobr" ? (lsobrEngine?.finalTp ?? null) : finalDirection === "NO TRADE" ? null : strategyId === "ema20" ? finalTp : ai.tp1, tp2: strategyId === "lsobr" ? null : finalDirection === "NO TRADE" ? null : strategyId === "ema20" ? finalTp : ai.tp2, finalTp: strategyId === "lsobr" ? (lsobrEngine?.finalTp ?? null) : finalDirection === "NO TRADE" ? null : finalTp,
       rr: strategyId === "lsobr" ? (lsobrEngine?.riskReward ?? null) : finalDirection === "NO TRADE" ? (srbObEngine?.riskReward ?? null) : math.rr, slDistancePct: finalDirection === "NO TRADE" ? null : math.slPct, entryDistancePct: finalDirection === "NO TRADE" ? null : math.entryDistancePct,
       nextAction: strategyId === "lsobr" ? (lsobrEngine?.missingConditions[0] ?? (lsobrEngine?.state === "ENTRY READY" ? "LSOBR sequence confirmed; verify universal Analyzer gates before treating it as a trade." : lsobrEngine?.state ?? "Wait for the next LSOBR condition.")) : strategyId === "srbOb" ? (srbObEngine?.missingConditions[0] ?? srbObEngine?.state ?? "Monitor the selected SRB window.") : ai.nextAction, educationalNote: strategyId === "lsobr" ? "LSOBR requires a liquidity sweep, fixed pre-existing OB rejection, MSS and a confirmed close out of the OB. No SRB opening-window rules are used." : strategyId === "srbOb" ? "SRB & OB uses its own deterministic session-range, Fibonacci pullback and opposing-order-block rules. Confirm the chart state before acting." : ai.educationalNote,
-      qualityChecks: { smcStrongCount: strongSmc, rrValid: math.rr !== null && math.rr >= minimumRR, slDistanceValid: math.slPct === null || math.slPct >= (strategyId === "ema20" ? 0 : 0.1), entryDistanceValid: math.entryDistancePct === null || math.entryDistancePct <= (strategyId === "ema20" ? Number.POSITIVE_INFINITY : 0.5), universalTradeGate: analyzerTradeGate },
+      qualityChecks: { smcStrongCount: strongSmc, rrValid: math.rr !== null && math.rr >= minimumRR, slDistanceValid: math.slPct === null || math.slPct >= (strategyId === "ema20" || strategyId === "vortex" ? 0 : 0.1), entryDistanceValid: math.entryDistancePct === null || math.entryDistancePct <= (strategyId === "ema20" || strategyId === "vortex" ? Number.POSITIVE_INFINITY : 0.5), universalTradeGate: analyzerTradeGate },
     });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Live market analysis failed." }, { status: 500 });
