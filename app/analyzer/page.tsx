@@ -114,7 +114,16 @@ const PUBLIC_STRATEGY_LABELS: Record<string, string> = {
   ema20: "VaultTrades Nexus Plus",
   vaulttradesNexus: "VaultTrades Nexus",
 };
-const fmt = (v: number | null | undefined) => v == null || !Number.isFinite(v) ? "—" : v.toLocaleString(undefined, { maximumFractionDigits: 5 });
+function priceDecimals(symbol = ""): number {
+  const normalized = symbol.toUpperCase().replace(/[^A-Z]/g, "");
+  const isMetal = /^(XAU|XAG|XPT|XPD)/.test(normalized);
+  const isForexPair = normalized.length === 6 && /^[A-Z]{6}$/.test(normalized) && !isMetal;
+  if (isForexPair) return normalized.endsWith("JPY") ? 3 : 5;
+  return 2;
+}
+const fmt = (v: number | null | undefined, symbol = "") => v == null || !Number.isFinite(v)
+  ? "—"
+  : v.toLocaleString(undefined, { minimumFractionDigits: priceDecimals(symbol), maximumFractionDigits: priceDecimals(symbol) });
 
 type SRBWindow = { name: string; start: number; end: number };
 type ClosedSRBStat = { trades: number; wins: number; losses: number; winRate: number | null; lossRate: number | null; totalR: number };
@@ -243,13 +252,13 @@ const levelColors: Record<LevelKind, { border: string; background: string; text:
   orange: { border: "rgba(255,165,45,.65)", background: "rgba(255,165,45,.14)", text: "#ffedd5" },
 };
 
-function PriceLevel({ label, value, kind }: { label: string; value: number | null | undefined; kind: LevelKind }) {
+function PriceLevel({ label, value, kind, symbol = "" }: { label: string; value: number | null | undefined; kind: LevelKind; symbol?: string }) {
   const colors = levelColors[kind];
   return (
     <div style={{ minWidth: 0 }}>
       <div style={{ height: 18, marginBottom: 5, padding: "0 2px", color: "#a7b0bd", fontSize: 10, lineHeight: "18px", fontWeight: 800, letterSpacing: ".08em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</div>
       <div style={{ minHeight: 52, display: "flex", alignItems: "center", justifyContent: "center", padding: "10px 8px", borderRadius: 10, border: `1px solid ${colors.border}`, background: colors.background, color: colors.text, fontSize: 17, lineHeight: 1.1, fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-        {fmt(value)}
+        {fmt(value, symbol)}
       </div>
     </div>
   );
@@ -480,7 +489,7 @@ export default function AnalyzerPage() {
     <section className="card"><div className="actions"><button className="primary" type="button" disabled={loading || marketType === "SYNTHETIC"} onClick={() => void runAnalysis()}>{loading ? "Analyzing live market..." : "Analyze Live Market"}</button></div>{marketType === "SYNTHETIC" && <div className="condition-box" style={{ marginTop: 12 }}><strong>Market data unavailable</strong><p className="muted">Please select another market or try again later.</p></div>}{error && <div className="error-box" style={{ marginTop: 12 }}><strong>Market data unavailable</strong><p className="muted">Please try again later.</p></div>}</section>
 
     {result && <>
-      <section className="card"><div className="section-label">LIVE CHART</div><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}><div><h2 className="title" style={{ marginBottom: 3 }}>{result.market?.asset}</h2><div className="muted">{result.market?.timeframe} · Current price {fmt(result.market?.currentPrice)}</div></div><div className="condition-box" style={{ padding: "10px 14px" }}><strong>Strategy: {strategyDisplayName(result.strategy?.id, result.strategy?.name)}</strong></div></div><LiveMarketChart candles={result.chart?.candles || []} channel={result.chart?.channel20} liquidityTargets={s?.liquidityTargets ?? result.liquidityTargets} orderBlocks={result.chart?.orderBlocks ?? []} orderBlock={strategy === "lsobr" ? result.strategyEngine?.orderBlock ?? null : null} /></section>
+      <section className="card"><div className="section-label">LIVE CHART</div><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}><div><h2 className="title" style={{ marginBottom: 3 }}>{result.market?.asset}</h2><div className="muted">{result.market?.timeframe} · Current price {fmt(result.market?.currentPrice, symbol)}</div></div><div className="condition-box" style={{ padding: "10px 14px" }}><strong>Strategy: {strategyDisplayName(result.strategy?.id, result.strategy?.name)}</strong></div></div><LiveMarketChart symbol={symbol} candles={result.chart?.candles || []} channel={result.chart?.channel20} liquidityTargets={s?.liquidityTargets ?? result.liquidityTargets} orderBlocks={result.chart?.orderBlocks ?? []} orderBlock={strategy === "lsobr" ? result.strategyEngine?.orderBlock ?? null : null} /></section>
 
       {strategy === "vaulttradesNexus" ? <section className="card execution-card" style={{ border: "1px solid rgba(212,166,55,.28)", background: "linear-gradient(145deg, rgba(10,16,30,.98), rgba(5,8,18,.98))" }}>
         <div className="section-label">TRADE STATUS</div>
@@ -497,16 +506,16 @@ export default function AnalyzerPage() {
               return <div className="condition-box" key={trade.entryTime}>
                 <strong style={{ fontSize: 18, color: trade.direction === "BUY" ? "#35c98a" : "#f06b72" }}>{trade.direction} · TRADE ACTIVE</strong>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8, marginTop: 10 }}>
-                  <PriceLevel label="ENTRY" value={trade.entry} kind="entry" />
-                  <PriceLevel label="STOP LOSS" value={trade.stopLoss} kind="sl" />
-                  <PriceLevel label="TAKE PROFIT" value={trade.takeProfit} kind="tp" />
+                  <PriceLevel label="ENTRY" value={trade.entry} kind="entry" symbol={symbol} />
+                  <PriceLevel label="STOP LOSS" value={trade.stopLoss} kind="sl" symbol={symbol} />
+                  <PriceLevel label="TAKE PROFIT" value={trade.takeProfit} kind="tp" symbol={symbol} />
                 </div>
                 <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>Signal date: {trade.entryDay} · Entry time: {trade.entryTime}</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(125px,1fr))", gap: 8, marginTop: 10 }}>
                   <div className="condition-box"><strong>CURRENT PRICE</strong><div style={{ marginTop: 5 }}>{hasCurrentPrice ? fmt(currentPrice) : "Unavailable"}</div></div>
-                  <div className="condition-box"><strong>MOVE FROM ENTRY</strong><div style={{ marginTop: 5 }}>{moveFromEntry == null ? "—" : (moveFromEntry > 0 ? "+" : "") + fmt(moveFromEntry)}</div></div>
-                  <div className="condition-box"><strong>DISTANCE TO TP</strong><div style={{ marginTop: 5 }}>{distanceToTarget == null ? "—" : fmt(distanceToTarget)}</div></div>
-                  <div className="condition-box"><strong>DISTANCE TO SL</strong><div style={{ marginTop: 5 }}>{distanceToStop == null ? "—" : fmt(distanceToStop)}</div></div>
+                  <div className="condition-box"><strong>MOVE FROM ENTRY</strong><div style={{ marginTop: 5 }}>{moveFromEntry == null ? "—" : (moveFromEntry > 0 ? "+" : "") + fmt(moveFromEntry, symbol)}</div></div>
+                  <div className="condition-box"><strong>DISTANCE TO TP</strong><div style={{ marginTop: 5 }}>{distanceToTarget == null ? "—" : fmt(distanceToTarget, symbol)}</div></div>
+                  <div className="condition-box"><strong>DISTANCE TO SL</strong><div style={{ marginTop: 5 }}>{distanceToStop == null ? "—" : fmt(distanceToStop, symbol)}</div></div>
                 </div>
                 <button className="primary" type="button" style={{ marginTop: 12 }} onClick={() => openRiskManager(trade)}>Calculate Lot Size</button>
               </div>;
@@ -518,11 +527,11 @@ export default function AnalyzerPage() {
           <div className="condition-box">
             <strong style={{ color: result.strategyEngine.latestClosedTrade.direction === "BUY" ? "#35c98a" : "#f06b72" }}>{result.strategyEngine.latestClosedTrade.direction} · TRADE CLOSED</strong>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8, marginTop: 10 }}>
-              <PriceLevel label="ENTRY" value={result.strategyEngine.latestClosedTrade.entry} kind="entry" />
-              <PriceLevel label="STOP LOSS" value={result.strategyEngine.latestClosedTrade.stopLoss} kind="sl" />
-              <PriceLevel label="TAKE PROFIT" value={result.strategyEngine.latestClosedTrade.takeProfit} kind="tp" />
+              <PriceLevel label="ENTRY" value={result.strategyEngine.latestClosedTrade.entry} kind="entry" symbol={symbol} />
+              <PriceLevel label="STOP LOSS" value={result.strategyEngine.latestClosedTrade.stopLoss} kind="sl" symbol={symbol} />
+              <PriceLevel label="TAKE PROFIT" value={result.strategyEngine.latestClosedTrade.takeProfit} kind="tp" symbol={symbol} />
             </div>
-            <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>Entry: {result.strategyEngine.latestClosedTrade.entryTime} · Exit: {result.strategyEngine.latestClosedTrade.exitTime ?? "Completed candle"} · Exit price: {fmt(result.strategyEngine.latestClosedTrade.exitPrice)}</div>
+            <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>Entry: {result.strategyEngine.latestClosedTrade.entryTime} · Exit: {result.strategyEngine.latestClosedTrade.exitTime ?? "Completed candle"} · Exit price: {fmt(result.strategyEngine.latestClosedTrade.exitPrice, symbol)}</div>
           </div>
         </> : <>
           <h2 className="title" style={{ marginBottom: 8 }}>WAITING FOR VALID SIGNAL</h2>
@@ -532,9 +541,9 @@ export default function AnalyzerPage() {
         <div className="section-label">TRADE STATUS</div>
         <h2 className="title" style={{ marginBottom: 12 }}>{scannerStatus}</h2>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10, marginTop: 12 }}>
-          <PriceLevel label="ENTRY" value={scannerEntry} kind="entry" />
-          <PriceLevel label="STOP LOSS" value={scannerStop} kind="sl" />
-          <PriceLevel label="TAKE PROFIT" value={scannerTp1} kind="tp" />
+          <PriceLevel label="ENTRY" value={scannerEntry} kind="entry" symbol={symbol} />
+          <PriceLevel label="STOP LOSS" value={scannerStop} kind="sl" symbol={symbol} />
+          <PriceLevel label="TAKE PROFIT" value={scannerTp1} kind="tp" symbol={symbol} />
         </div>
         {scannerEntry != null && scannerStop != null && scannerTp1 != null && s?.cycleStatus === "ACTIVE" && <div style={{ marginTop: 16 }}>
           <button className="primary" type="button" onClick={() => openRiskManager()}>Calculate Lot Size</button>
