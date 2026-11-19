@@ -217,6 +217,7 @@ export async function POST(request: Request) {
       m5Candles: completedEma20Candles(vortexM5Market?.candles ?? [], "5m").map(c => ({ time: Date.parse(c.datetime), open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume ?? undefined })),
       silverCandles: completedEma20Candles(silverMarket?.candles ?? [], "1m").map(c => ({ time: Date.parse(c.datetime), open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume ?? undefined })),
       lotSize: Number.isFinite(Number(body.lotSize)) && Number(body.lotSize) >= 0.01 ? Math.floor(Number(body.lotSize) * 100) / 100 : 0.05,
+      tickSize: /XAU|XAG/.test(symbol.replace(/[^A-Z]/g, "")) ? 0.01 : /JPY/.test(symbol.replace(/[^A-Z]/g, "")) ? 0.001 : marketType === "FOREX" ? 0.00001 : 0.01,
     }) : null;
     const ema20Bar = ema20Engine?.engine ?? null;
     const ema20EngineEvidence = ema20Engine ? {
