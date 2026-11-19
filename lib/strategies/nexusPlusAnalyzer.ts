@@ -24,6 +24,7 @@ export type NexusPlusLifecycle = {
   entryDay: string | null;
   reason: string;
   sourceBar: Ema20EngineBar | null;
+  engine: Ema20EngineBar | null;
   h4Direction: Direction | "NEUTRAL" | "UNAVAILABLE";
   h4Entry: number | null;
   h4StopLoss: number | null;
@@ -136,7 +137,7 @@ export function evaluateNexusPlusAnalyzer(
   const useH4Lock = options.useH4Lock ?? true;
   const empty = (reason: string, h4Direction: NexusPlusLifecycle["h4Direction"] = "UNAVAILABLE"): NexusPlusLifecycle => ({
     state: "WAITING", direction: "NO TRADE", entry: null, stopLoss: null, target: null,
-    entryTime: null, entryDay: null, reason, sourceBar: null, h4Direction,
+    entryTime: null, entryDay: null, reason, sourceBar: null, engine: null, h4Direction,
     h4Entry: null, h4StopLoss: null, h4Target: null, riskReward, atrMultiplier,
   });
   if (candles.length < 120) return empty("WAIT — insufficient completed candle history for the Nexus Plus Pine engine.");
@@ -237,8 +238,9 @@ export function evaluateNexusPlusAnalyzer(
       state: "TRADE ACTIVE", direction: active.direction, entry: active.entry, stopLoss: active.stopLoss,
       target: active.target, entryTime: active.entryTime, entryDay: active.entryDay,
       reason: `Pine Nexus Plus entry confirmed in a scheduled SAST window. Entry/SL/TP locked at ${active.entry}/${active.stopLoss}/${active.target}; ATR(${14}) × ${atrMultiplier} stop and 1:${riskReward} target. H4 authority: ${h4.direction}.`,
-      sourceBar: active.sourceBar, h4Direction: h4.direction,
-      h4Entry: h4.trade?.entry ?? null, h4StopLoss: h4.trade?.stopLoss ?? null, h4Target: h4.trade?.target ?? null,
+      sourceBar: active.sourceBar, engine: bars.at(-1) ?? null, h4Direction: h4.direction,
+      engine: bars.at(-1) ?? null,
+    h4Entry: h4.trade?.entry ?? null, h4StopLoss: h4.trade?.stopLoss ?? null, h4Target: h4.trade?.target ?? null,
       riskReward, atrMultiplier,
     };
   }
@@ -251,7 +253,7 @@ export function evaluateNexusPlusAnalyzer(
       reason: lastCompletedToday.status === "SL HIT"
         ? "NO TRADE — today's Nexus Plus trade reached its original stop loss. The daily opportunity is consumed."
         : "TRADE COMPLETED — today's Nexus Plus trade reached its original target. The daily opportunity is consumed.",
-      sourceBar: lastCompletedToday.sourceBar, h4Direction: h4.direction,
+      sourceBar: lastCompletedToday.sourceBar, engine: bars.at(-1) ?? null, h4Direction: h4.direction,
       h4Entry: h4.trade?.entry ?? null, h4StopLoss: h4.trade?.stopLoss ?? null, h4Target: h4.trade?.target ?? null,
       riskReward, atrMultiplier,
     };
