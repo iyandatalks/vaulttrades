@@ -477,7 +477,7 @@ export default function AnalyzerPage() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12, marginTop: 18 }}>
         <label className="muted">Market<select value={marketType} disabled={loading} onChange={e => changeMarket(e.target.value as MarketType)} style={{ width: "100%", marginTop: 7, padding: 13, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}>{MARKET_TYPES.map(m => <option key={m} value={m}>{m === "SYNTHETIC" ? "Synthetic indices" : m.charAt(0) + m.slice(1).toLowerCase()}</option>)}</select></label>
         <label className="muted">Symbol<input value={symbol} disabled={loading || marketType === "SYNTHETIC"} onChange={e => setSymbol(e.target.value)} list="symbols" placeholder="e.g. XAU/USD" style={{ width: "100%", marginTop: 7, padding: 13, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}/><datalist id="symbols">{DEFAULT_SYMBOLS[marketType].map(s => <option key={s} value={s}/>)}</datalist></label>
-        <label className="muted">Timeframe<select value={timeframe} disabled={loading} onChange={e => { setTimeframe(e.target.value as Timeframe); setResult(null); setLockedTrade(null); }} disabled={loading || strategy === "vortex"} style={{ width: "100%", marginTop: 7, padding: 13, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}>{TIMEFRAMES.map(tf => <option key={tf} value={tf}>{tf}</option>)}</select></label>
+        <label className="muted">Timeframe<select value={timeframe} disabled={loading || strategy === "vortex"} onChange={e => { setTimeframe(e.target.value as Timeframe); setResult(null); setLockedTrade(null); }} style={{ width: "100%", marginTop: 7, padding: 13, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }}>{TIMEFRAMES.map(tf => <option key={tf} value={tf}>{tf}</option>)}</select></label>
       </div>
     </section>
 
@@ -550,6 +550,28 @@ export default function AnalyzerPage() {
         {scannerEntry != null && scannerStop != null && scannerTp1 != null && s?.cycleStatus === "ACTIVE" && <div style={{ marginTop: 16 }}>
           <button className="primary" type="button" onClick={() => openRiskManager()}>Calculate Lot Size</button>
         </div>}
+      </section>}
+      {strategy === "vortex" && result.strategyEngine && <section className="card">
+        <div className="section-label">VORTEX FIB / TARGET LADDER</div>
+        <div className="muted" style={{ marginBottom: 10 }}>M1 execution · M5 confirmation · Entry Fib {result.strategyEngine.fibLevel == null ? "—" : result.strategyEngine.fibLevel + "%"}</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(110px,1fr))", gap: 9 }}>
+          {[
+            ["TP1", result.strategyEngine.tp1, 0], ["TP2", result.strategyEngine.tp2, 1], ["TP3", result.strategyEngine.tp3, 2],
+            ["TP4", result.strategyEngine.tp4, 3], ["TP5", result.strategyEngine.tp5, 4],
+          ].map(([label, value, index]) => <div className="condition-box" key={String(label)}>
+            <strong>{label}</strong>
+            <div style={{ fontSize: 16, fontWeight: 800, marginTop: 5 }}>{fmt(typeof value === "number" ? value : null, symbol)}</div>
+            <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>
+              {result.strategyEngine?.lotSize != null && result.strategyEngine.lotSize < 0.05
+                ? (index === 0 ? "FULL CLOSE" : "NOT USED AT THIS LOT")
+                : result.strategyEngine?.targetHits?.[Number(index)] ? "HIT" : "PENDING"}
+            </div>
+          </div>)}
+        </div>
+        <div className="muted" style={{ marginTop: 12 }}>
+          Default lot: 0.05 · Selected lot: {result.strategyEngine.lotSize?.toFixed(2) ?? "0.05"} · {result.strategyEngine.lotModel ?? "FIVE TARGETS · 20% EACH"}
+        </div>
+        {result.strategyEngine.score != null && <div className="muted" style={{ marginTop: 5 }}>Vortex confluence: {result.strategyEngine.score}/100 · Minimum: 60</div>}
       </section>}
       {strategy === "vaulttradesNexus" && result.strategyEngine?.performance && <section className="card">
         <div className="section-label">PERFORMANCE</div>
