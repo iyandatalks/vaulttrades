@@ -117,7 +117,7 @@ function confluence(dir: 1 | -1, c: VortexCandle[], i: number, f68: number, f88:
   const b = c[i];
   let available = 45, raw = (dir > 0 ? b.low <= f68 && b.close >= f88 : b.high >= f68 && b.close <= f88) ? 25 : 0;
   if (structure) raw += 20;
-  const liquidityAvailable = levels.high != null || levels.low != null || levels.weekHigh != null || levels.weekLow != null;
+  const liquidityAvailable = dir > 0 ? levels.low != null || levels.weekLow != null : levels.high != null || levels.weekHigh != null;
   if (liquidityAvailable) {
     available += 15;
     const swept = dir > 0
@@ -232,23 +232,29 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
 
     const ss = ranges.get(np.day);
     const sr = ss?.last === "Asia" ? ss.asia : ss?.last === "London" ? ss.london : ss?.ny ?? ss?.london ?? ss?.asia;
-    const buyStart = bullActive ? bullStart : sr?.low ?? null, buyEnd = bullActive ? bullEnd : sr?.high ?? null;
-    const sellStart = bearActive ? bearStart : sr?.high ?? null, sellEnd = bearActive ? bearEnd : sr?.low ?? null;
-    const buyReady = buyStart != null && buyEnd != null && Math.abs(buyEnd - buyStart) > tick;
-    const sellReady = sellStart != null && sellEnd != null && Math.abs(sellEnd - sellStart) > tick;
-    const bt = buyReady ? Math.max(buyStart!, buyEnd!) : 0, bb = buyReady ? Math.min(buyStart!, buyEnd!) : 0;
-    const st = sellReady ? Math.max(sellStart!, sellEnd!) : 0, sb = sellReady ? Math.min(sellStart!, sellEnd!) : 0;
+    const sessionBuyStart = sr?.low ?? null, sessionBuyEnd = sr?.high ?? null;
+    const sessionSellStart = sr?.high ?? null, sessionSellEnd = sr?.low ?? null;
+    const buyReady = sessionBuyStart != null && sessionBuyEnd != null && Math.abs(sessionBuyEnd - sessionBuyStart) > tick;
+    const sellReady = sessionSellStart != null && sessionSellEnd != null && Math.abs(sessionSellEnd - sessionSellStart) > tick;
+    const buyStart = bullActive ? bullStart : sessionBuyStart, buyEnd = bullActive ? bullEnd : sessionBuyEnd;
+    const sellStart = bearActive ? bearStart : sessionSellStart, sellEnd = bearActive ? bearEnd : sessionSellEnd;
+    const activeBuyReady = buyStart != null && buyEnd != null && Math.abs(buyEnd - buyStart) > tick;
+    const activeSellReady = sellStart != null && sellEnd != null && Math.abs(sellEnd - sellStart) > tick;
+    const bt = activeBuyReady ? Math.max(buyStart!, buyEnd!) : 0, bb = activeBuyReady ? Math.min(buyStart!, buyEnd!) : 0;
+    const st = activeSellReady ? Math.max(sellStart!, sellEnd!) : 0, sb = activeSellReady ? Math.min(sellStart!, sellEnd!) : 0;
+    const buyFlip = buyReady && b.close >= (Math.max(sessionBuyStart!, sessionBuyEnd!) + Math.min(sessionBuyStart!, sessionBuyEnd!)) / 2;
+    const sellFlip = sellReady && b.close <= (Math.max(sessionSellStart!, sessionSellEnd!) + Math.min(sessionSellStart!, sessionSellEnd!)) / 2;
     const window = inSilverBullet(b.time);
     if (!window) {
       buySetup = { state: 0, pullback: -1, fib: null, pct: null };
       sellSetup = { state: 0, pullback: -1, fib: null, pct: null };
     }
-    const bullInstitution = window && (bullActive || buyReady) && buyReady && b.close >= (bt + bb) / 2 && prev.close < prev.open && b.close > prev.high && atr[i] > 0 && b.close - b.open >= atr[i] * 0.5;
-    const bearInstitution = window && (bearActive || sellReady) && sellReady && b.close <= (st + sb) / 2 && prev.close > prev.open && b.close < prev.low && atr[i] > 0 && b.open - b.close >= atr[i] * 0.5;
+    const bullInstitution = window && (bullActive || buyReady) && buyFlip && prev.close < prev.open && b.close > prev.high && atr[i] > 0 && b.close - b.open >= atr[i] * 0.5;
+    const bearInstitution = window && (bearActive || sellReady) && sellFlip && prev.close > prev.open && b.close < prev.low && atr[i] > 0 && b.open - b.close >= atr[i] * 0.5;
     if (bullInstitution) { buySetup = { state: 1, pullback: -1, fib: null, pct: null }; sellSetup = { state: 0, pullback: -1, fib: null, pct: null }; evidence = []; missing = ["Bullish institutional order detected; waiting for Fib pullback."]; }
     if (bearInstitution) { sellSetup = { state: 1, pullback: -1, fib: null, pct: null }; buySetup = { state: 0, pullback: -1, fib: null, pct: null }; evidence = []; missing = ["Bearish institutional order detected; waiting for Fib pullback."]; }
-    if (buySetup.state === 1 && buyReady) for (const pct of ENTRY_FIBS) { const level = buyFib(bt, bb, pct); if (b.low <= level) { buySetup = { state: 2, pullback: i, fib: level, pct }; break; } }
-    if (sellSetup.state === 1 && sellReady) for (const pct of ENTRY_FIBS) { const level = sellFib(st, sb, pct); if (b.high >= level) { sellSetup = { state: 2, pullback: i, fib: level, pct }; break; } }
+    if (buySetup.state === 1 && activeBuyReady) for (const pct of ENTRY_FIBS) { const level = buyFib(bt, bb, pct); if (b.low <= level) { buySetup = { state: 2, pullback: i, fib: level, pct }; break; } }
+    if (sellSetup.state === 1 && activeSellReady) for (const pct of ENTRY_FIBS) { const level = sellFib(st, sb, pct); if (b.high >= level) { sellSetup = { state: 2, pullback: i, fib: level, pct }; break; } }
     if (buySetup.state >= 2 && i - buySetup.pullback > RETEST_BARS) buySetup = { state: 0, pullback: -1, fib: null, pct: null };
     if (sellSetup.state >= 2 && i - sellSetup.pullback > RETEST_BARS) sellSetup = { state: 0, pullback: -1, fib: null, pct: null };
     if (buySetup.state === 2 && buySetup.fib != null && b.low <= buySetup.fib && b.close > buySetup.fib && b.close > b.open && b.close > prev.high) buySetup.state = 3;
@@ -283,8 +289,8 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     const bullOb = targetBullOb, bearOb = targetBearOb;
     lastOb = bullOb ?? bearOb;
     lastLiq = bullOb ? targetLower : bearOb ? targetHigher : null;
-    const bScore = buyReady ? confluence(1, c, i, buyFib(bt, bb, 68.1), buyFib(bt, bb, 88), bullActive, pd, silverContext).score : 0;
-    const sScore = sellReady ? confluence(-1, c, i, sellFib(st, sb, 68.1), sellFib(st, sb, 88), bearActive, pd, silverContext).score : 0;
+    const bScore = activeBuyReady ? confluence(1, c, i, buyFib(bt, bb, 68.1), buyFib(bt, bb, 88), bullActive, pd, silverContext).score : 0;
+    const sScore = activeSellReady ? confluence(-1, c, i, sellFib(st, sb, 68.1), sellFib(st, sb, 88), bearActive, pd, silverContext).score : 0;
     buyScore = bScore; sellScore = sScore;
     const buyValid = buySetup.state === 3 && buySetup.fib != null && b.low <= buySetup.fib && b.close >= buySetup.fib && m5Bull && targetHigher != null && targetHigher > buySetup.fib && (bullActive || buyReady) && !!bullOb && bullOb.bottom < buySetup.fib && bScore >= MIN_SCORE;
     const sellValid = sellSetup.state === 3 && sellSetup.fib != null && b.high >= sellSetup.fib && b.close <= sellSetup.fib && m5Bear && targetLower != null && targetLower < sellSetup.fib && (bearActive || sellReady) && !!bearOb && bearOb.top > sellSetup.fib && sScore >= MIN_SCORE;
