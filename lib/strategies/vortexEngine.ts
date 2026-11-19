@@ -240,10 +240,23 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     if (buySetup.state === 2 && buySetup.fib != null && b.low <= buySetup.fib && b.close > buySetup.fib && b.close > b.open && b.close > prev.high) buySetup.state = 3;
     if (sellSetup.state === 2 && sellSetup.fib != null && b.high >= sellSetup.fib && b.close < sellSetup.fib && b.close < b.open && b.close < prev.low) sellSetup.state = 3;
 
-    let m5i = -1; for (let q = 0; q < m5.length && m5[q].time + 300_000 <= closeTime; q++) m5i = q;
-    const m5b = m5i >= 0 ? m5[m5i] : null, m5p = m5i > 0 ? m5[m5i - 1] : null, a5 = m5i >= 0 ? atr5[m5i] : 0;
+    while (m5Pointer + 1 < m5.length && m5[m5Pointer + 1].time + 300_000 <= closeTime) m5Pointer++;
+    const m5i = m5Pointer, m5b = m5i >= 0 ? m5[m5i] : null, m5p = m5i > 0 ? m5[m5i - 1] : null, a5 = m5i >= 0 ? atr5[m5i] : 0;
     const m5Bull = !!m5b && !!m5p && a5 > 0 && m5b.close > m5b.open && m5b.close - m5b.open >= a5 * 0.6 && m5b.close > m5p.high;
     const m5Bear = !!m5b && !!m5p && a5 > 0 && m5b.close < m5b.open && m5b.open - m5b.close >= a5 * 0.6 && m5b.close < m5p.low;
+    while (silverPointer + 1 < silver.length && silver[silverPointer + 1].time <= b.time) {
+      silverPointer++;
+      const sp = pivot(silver, silverPointer, 3);
+      if (sp.high != null) { silverPreviousHigh = silverLastHigh; silverLastHigh = sp.high; }
+      if (sp.low != null) { silverPreviousLow = silverLastLow; silverLastLow = sp.low; }
+    }
+    const silverLast = silverPointer >= 0 ? silver[silverPointer] : null, silverPrev = silverPointer > 0 ? silver[silverPointer - 1] : null;
+    const silverMa = silverPointer >= 0 ? silverEma[silverPointer] : null, silverPriorMa = silverPointer > 0 ? silverEma[silverPointer - 1] : null;
+    const silverContext = {
+      last: silverLast, prev: silverPrev, ma: silverMa, priorMa: silverPriorMa,
+      lastHigh: silverLastHigh, previousHigh: silverPreviousHigh, lastLow: silverLastLow, previousLow: silverPreviousLow,
+      avgVolume: silverPointer >= 19 ? silver.slice(silverPointer - 19, silverPointer + 1).reduce((sum, x) => sum + (x.volume ?? 0), 0) / 20 : null,
+    };
     const pd = { high: priorHigh, low: priorLow, weekHigh: m5i >= 0 ? m5Levels[m5i]?.weekHigh ?? null : null, weekLow: m5i >= 0 ? m5Levels[m5i]?.weekLow ?? null : null };
     const upper = nearest([...highs, ...(pd.high != null ? [pd.high] : []), ...(pd.weekHigh != null ? [pd.weekHigh] : [])], b.high, true);
     const lower = nearest([...lows, ...(pd.low != null ? [pd.low] : []), ...(pd.weekLow != null ? [pd.weekLow] : [])], b.low, false);
