@@ -68,6 +68,13 @@ export const SOURCE_INDICATORS: Record<StrategyId, readonly SourceIndicatorSpec[
     { name: "ATR", purpose: "Adaptive trigger and stop/target geometry", parameters: "Length 14; trigger 1.5 ATR; stop 1.5 ATR", required: true },
   ],
   lsobr: [],
+  vortex: [
+    { name: "Fibonacci Retracement", purpose: "M1 wick-to-wick impulse pullback hierarchy", parameters: "68.1% preferred; 78.6% secondary; 88.0% last resort", required: true },
+    { name: "ATR", purpose: "M1 institutional impulse and M5 displacement confirmation", parameters: "ATR(14) calculated independently on M1 and M5; M5 displacement threshold 0.60 ATR", required: true },
+    { name: "Order Block", purpose: "Directional liquidity destination and wick-based stop reference", parameters: "60-bar scan; displacement body >= 0.80 x ATR(14)", required: true },
+    { name: "EMA", purpose: "Optional inverse Silver trend confluence", parameters: "Silver EMA(50)", required: false },
+    { name: "Volume", purpose: "Optional directional Silver volume expansion", parameters: "Silver volume versus prior 20-bar average; 1.5x", required: false },
+  ],
   srbOb: [
     { name: "Moving Average Channel", purpose: "Directional channel gate and chart overlay", parameters: "Upper = SMA(high, 20); lower = SMA(low, 20); bullish above both, bearish below both", required: true },
     { name: "EMA", purpose: "Optional trend filter and confluence score", parameters: "EMA 20 and EMA 200; EMA200 filter disabled by default", required: true },
