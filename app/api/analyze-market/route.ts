@@ -260,6 +260,23 @@ export async function POST(request: Request) {
         }, { status: 503 });
       }
     }
+    if (strategyId === "vortex") {
+      const completedSelectedCandles = completedEma20Candles(market.candles, timeframe);
+      const lastCompleted = completedSelectedCandles.at(-1);
+      const lastCompletedClose = lastCompleted ? timeframeCloseAt(lastCompleted.datetime, timeframe) : NaN;
+      const freshnessWindowMs: Record<string, number> = {
+        "1m": 3 * 60_000, "5m": 15 * 60_000, "10m": 30 * 60_000,
+        "15m": 45 * 60_000, "30m": 90 * 60_000, "1H": 3 * 60 * 60_000,
+        "4H": 12 * 60 * 60_000, "1D": 3 * 24 * 60 * 60_000,
+        "1W": 21 * 24 * 60 * 60_000, "1M": 62 * 24 * 60 * 60_000,
+      };
+      if (!lastCompleted || !Number.isFinite(lastCompletedClose) || Date.now() - lastCompletedClose > freshnessWindowMs[timeframe]) {
+        return Response.json({
+          error: "Current market candles are stale or unavailable for the selected timeframe. No Vortex trade decision was produced.",
+          marketData: { symbol: market.symbol, timeframe, provider: market.provider, lastCompletedCandle: lastCompleted?.datetime ?? null, fetchedAt: market.fetchedAt },
+        }, { status: 503 });
+      }
+    }
     // Silver is optional confluence for Auto Fib and Vortex on Gold instruments.
     const isGoldInstrument = /XAU|GOLD/.test(symbol.replace(/[^A-Z]/g, ""));
     const silverMarket = strategyId === "fibRetracement" && isGoldInstrument
