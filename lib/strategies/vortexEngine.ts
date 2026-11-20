@@ -1,11 +1,12 @@
 export type VortexCandle = { time: number; open: number; high: number; low: number; close: number; volume?: number };
 export type VortexDirection = "BUY" | "SELL";
+export type VortexTimeframe = "1m" | "5m" | "10m" | "15m" | "30m" | "1H" | "4H" | "1D" | "1W" | "1M";
 export type VortexOrderBlock = { direction: VortexDirection; top: number; bottom: number };
 type VortexSetup = { state: number; orderBar: number; pullback: number; fib: number | null; pct: number | null; start: number | null; end: number | null; ob: VortexOrderBlock | null };
 const newSetup = (): VortexSetup => ({ state: 0, orderBar: -1, pullback: -1, fib: null, pct: null, start: null, end: null, ob: null });
 export type VortexVwap = { value: number | null; sd: number | null; upperInner: number | null; upperOuter: number | null; lowerInner: number | null; lowerOuter: number | null; available: boolean; buyAligned: boolean; sellAligned: boolean };
 export type VortexTrade = {
-  timeframe: "1m" | "5m" | "15m"; direction: VortexDirection; entry: number; stopLoss: number;
+  timeframe: VortexTimeframe; direction: VortexDirection; entry: number; stopLoss: number;
   tp1: number; tp2: number; tp3: number; tp4: number; tp5: number;
   fibLevel: number; entryTime: string; confirmationTime: string;
   lotSize: number; targetHits: boolean[]; status: "ACTIVE" | "TP_HIT" | "SL_HIT";
@@ -13,7 +14,7 @@ export type VortexTrade = {
   exitTime?: string; exitPrice?: number;
 };
 export type VortexResult = {
-  source: "VAULTTRADES_VORTEX_PINE_V12"; timeframe: "1m" | "5m" | "15m"; state: "WAITING" | "SETUP DEVELOPING" | "TRADE ACTIVE" | "TP HIT" | "SL HIT";
+  source: "VAULTTRADES_VORTEX_S1_FIB_VWAP_CONFLUENCE"; timeframe: VortexTimeframe; state: "WAITING" | "SETUP DEVELOPING" | "TRADE ACTIVE" | "TP HIT" | "SL HIT";
   direction: VortexDirection | "NO TRADE"; structuralDirection: VortexDirection | "NEUTRAL"; entryConfirmed: boolean;
   entry: number | null; stopLoss: number | null;
   tp1: number | null; tp2: number | null; tp3: number | null; tp4: number | null; tp5: number | null;
@@ -25,11 +26,20 @@ export type VortexResult = {
   riskReward: number | null; silver: { available: boolean; close: number | null; flow: string; ma: number | null };
   vwap: VortexVwap | null;
 };
-export type EvaluateVortexInput = { m1Candles: VortexCandle[]; m5Candles: VortexCandle[]; silverCandles?: VortexCandle[]; timeframe?: "1m" | "5m" | "15m"; confirmationTimeframe?: "1m" | "5m" | "15m"; tickSize?: number; lotSize?: number };
+export type EvaluateVortexInput = { m1Candles: VortexCandle[]; m5Candles: VortexCandle[]; silverCandles?: VortexCandle[]; timeframe?: VortexTimeframe; confirmationTimeframe?: "5m"; tickSize?: number; lotSize?: number };
 
 const ENTRY_FIBS = [68.1, 78.6, 88.0];
 const TP_FIBS = [38.2, 0, -23.6];
-const TIMEFRAME_MS = { "1m": 60_000, "5m": 300_000, "15m": 900_000 } as const;
+const TIMEFRAME_MS: Record<VortexTimeframe, number> = { "1m": 60_000, "5m": 300_000, "10m": 600_000, "15m": 900_000, "30m": 1_800_000, "1H": 3_600_000, "4H": 14_400_000, "1D": 86_400_000, "1W": 604_800_000, "1M": 2_629_746_000 };
+function candleCloseTime(candles: VortexCandle[], index: number, timeframe: VortexTimeframe) {
+  const current = candles[index];
+  const next = candles[index + 1];
+  if (next && next.time > current.time) return next.time;
+  const end = new Date(current.time);
+  if (timeframe === "1M") end.setUTCMonth(end.getUTCMonth() + 1);
+  else end.setTime(end.getTime() + TIMEFRAME_MS[timeframe]);
+  return end.getTime();
+}
 const RETEST_BARS = 8;
 const MIN_SCORE = 60;
 const PIVOT = 5;
@@ -199,11 +209,10 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
   const c = [...input.m1Candles].sort((a, b) => a.time - b.time), m5 = [...input.m5Candles].sort((a, b) => a.time - b.time);
   const silver = [...(input.silverCandles ?? [])].sort((a, b) => a.time - b.time);
   const lotSize = input.lotSize ?? 0.05, tick = input.tickSize ?? 0.01;
-  const timeframe = input.timeframe ?? "1m", barDurationMs = TIMEFRAME_MS[timeframe];
-  const confirmationTimeframe = input.confirmationTimeframe ?? (timeframe === "1m" ? "5m" : timeframe);
-  const confirmationDurationMs = TIMEFRAME_MS[confirmationTimeframe];
+  const timeframe = input.timeframe ?? "1m";
+  const confirmationTimeframe = "5m" as const;
   const empty = (reason: string): VortexResult => ({
-    source: "VAULTTRADES_VORTEX_PINE_V12", timeframe, state: "WAITING", direction: "NO TRADE",
+    source: "VAULTTRADES_VORTEX_S1_FIB_VWAP_CONFLUENCE", timeframe, state: "WAITING", direction: "NO TRADE",
     structuralDirection: "NEUTRAL", entryConfirmed: false,
     entry: null, stopLoss: null, tp1: null, tp2: null, tp3: null, tp4: null, tp5: null, fibLevel: null,
     score: 0, buyConfluence: 0, sellConfluence: 0, liquidityTarget: null, orderBlock: null,
@@ -214,8 +223,13 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     vwap: null,
   });
   if (c.length < 300 || m5.length < 30) return empty(`Waiting for sufficient ${timeframe.toUpperCase()} history and completed ${confirmationTimeframe.toUpperCase()} confirmation candles.`);
-  const structurePivotLen = timeframe === "15m" ? 4 : 5;
-  const atr = atrSeries(c), atr5 = atrSeries(m5), m5Levels = periodLevels(m5), silverEma = emaSeries(silver.map(x => x.close), 50), vwapSeries = weeklyVwapSeries(c);
+  const timeframeSeconds: Record<VortexTimeframe, number> = {
+    "1m": 60, "5m": 300, "10m": 600, "15m": 900, "30m": 1800,
+    "1H": 3600, "4H": 14400, "1D": 86400, "1W": 604800, "1M": 2592000,
+  };
+  // Mirrors Pine's autoFibTimeframe/effectivePivotLen default.
+  const structurePivotLen = timeframeSeconds[timeframe] <= 300 ? 5 : timeframeSeconds[timeframe] <= 1800 ? 4 : 3;
+  const atr = atrSeries(c), atr5 = atrSeries(m5), selectedPeriodLevels = periodLevels(c), silverEma = emaSeries(silver.map(x => x.close), 50), vwapSeries = weeklyVwapSeries(c);
   const highs: number[] = [], lows: number[] = [], targetHighs: number[] = [], targetLows: number[] = [];
   const ranges = new Map<string, { asia?: { high: number; low: number }; london?: { high: number; low: number }; ny?: { high: number; low: number }; last: "Asia" | "London" | "New York" }>();
   let bullActive = false, bearActive = false, bullArmed = false, bearArmed = false;
@@ -234,7 +248,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
   let targetBullOb: { top: number; bottom: number; direction: VortexDirection } | null = null, targetBearOb: { top: number; bottom: number; direction: VortexDirection } | null = null;
 
   for (let i = 20; i < c.length; i++) {
-    const b = c[i], prev = c[i - 1], closeTime = b.time + barDurationMs, np = nyParts(b.time), m = np.minute;
+    const b = c[i], prev = c[i - 1], closeTime = candleCloseTime(c, i, timeframe), np = nyParts(b.time), m = np.minute;
     if (currentDay && np.day !== currentDay) { priorHigh = Number.isFinite(runningDayHigh) ? runningDayHigh : priorHigh; priorLow = Number.isFinite(runningDayLow) ? runningDayLow : priorLow; priorNySession = ranges.get(currentDay)?.ny ?? priorNySession; runningDayHigh = -Infinity; runningDayLow = Infinity; }
     currentDay = np.day; runningDayHigh = Math.max(runningDayHigh, b.high); runningDayLow = Math.min(runningDayLow, b.low);
     const session: "Asia" | "London" | "New York" | null = m < 360 ? "Asia" : m >= 420 && m < 600 ? "London" : m >= 750 && m < 1020 ? "New York" : null;
@@ -345,7 +359,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
       missing = ["Wait for completed M5 bearish displacement and final target/OB/confluence validation."];
     }
 
-    while (m5Pointer + 1 < m5.length && m5[m5Pointer + 1].time + confirmationDurationMs <= closeTime) m5Pointer++;
+    while (m5Pointer + 1 < m5.length && m5[m5Pointer + 1].time + TIMEFRAME_MS["5m"] <= closeTime) m5Pointer++;
     const m5i = m5Pointer, m5b = m5i >= 0 ? m5[m5i] : null, m5p = m5i > 0 ? m5[m5i - 1] : null, a5 = m5i >= 0 ? atr5[m5i] : 0;
     const m5Bull = !!m5b && !!m5p && a5 > 0 && m5b.close > m5b.open && m5b.close - m5b.open >= a5 * 0.6 && m5b.close > m5p.high;
     const m5Bear = !!m5b && !!m5p && a5 > 0 && m5b.close < m5b.open && m5b.open - m5b.close >= a5 * 0.6 && m5b.close < m5p.low;
@@ -362,7 +376,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
       lastHigh: silverLastHigh, previousHigh: silverPreviousHigh, lastLow: silverLastLow, previousLow: silverPreviousLow,
       avgVolume: silverPointer >= 19 ? silver.slice(silverPointer - 19, silverPointer + 1).reduce((sum, x) => sum + (x.volume ?? 0), 0) / 20 : null,
     };
-    const pd = { high: priorHigh, low: priorLow, weekHigh: m5i >= 0 ? m5Levels[m5i]?.weekHigh ?? null : null, weekLow: m5i >= 0 ? m5Levels[m5i]?.weekLow ?? null : null };
+    const pd = { high: selectedPeriodLevels[i]?.high ?? priorHigh, low: selectedPeriodLevels[i]?.low ?? priorLow, weekHigh: selectedPeriodLevels[i]?.weekHigh ?? null, weekLow: selectedPeriodLevels[i]?.weekLow ?? null };
     let targetHigher = nearest(targetHighs, b.high, true);
     let targetLower = nearest(targetLows, b.low, false);
     if (targetPreviousHigh != null && targetPreviousHigh > b.high && (targetHigher == null || targetPreviousHigh < targetHigher)) targetHigher = targetPreviousHigh;
@@ -386,23 +400,32 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
       bearActive && !!sellSetup.ob && !!bearOb && bearOb.top > sellSetup.fib && sScore >= MIN_SCORE;
 
     if (active) {
-      const slHit = active.direction === "BUY" ? b.low <= active.stopLoss : b.high >= active.stopLoss;
-      const targets = [active.tp1, active.tp2, active.tp3, active.tp4, active.tp5];
-      if (slHit) {
+      const isBuy = active.direction === "BUY";
+      const stopTouched = isBuy ? b.low <= active.stopLoss : b.high >= active.stopLoss;
+      const targetList = [active.tp1, active.tp2, active.tp3, active.tp4, active.tp5];
+      const relevantTargets = lotSize < 0.05 ? [active.tp1] : targetList;
+      const anyTargetTouched = relevantTargets.some((target, index) => !active!.targetHits[index] && (isBuy ? b.high >= target : b.low <= target));
+      // Match TradingView's historical OHLC path assumption when a candle spans
+      // both a protective stop and a target: price visits the nearer extreme first.
+      const highFirst = Math.abs(b.open - b.high) < Math.abs(b.open - b.low);
+      const stopWinsCollision = isBuy ? !highFirst : highFirst;
+      if (stopTouched && anyTargetTouched && stopWinsCollision) {
+        active.status = "SL_HIT"; active.exitTime = new Date(closeTime).toISOString(); active.exitPrice = active.stopLoss; closed = active; active = null;
+      } else if (stopTouched && !anyTargetTouched) {
         active.status = "SL_HIT"; active.exitTime = new Date(closeTime).toISOString(); active.exitPrice = active.stopLoss; closed = active; active = null;
       } else if (lotSize < 0.05) {
-        if (!active.targetHits[0] && (active.direction === "BUY" ? b.high >= active.tp1 : b.low <= active.tp1)) {
+        if (!active.targetHits[0] && (isBuy ? b.high >= active.tp1 : b.low <= active.tp1)) {
           active.targetHits[0] = true; active.status = "TP_HIT"; active.exitTime = new Date(closeTime).toISOString(); active.exitPrice = active.tp1; closed = active; active = null;
         }
       } else {
-        for (let targetIndex = 0; targetIndex < targets.length; targetIndex++) {
+        for (let targetIndex = 0; targetIndex < targetList.length; targetIndex++) {
           if (active.targetHits[targetIndex]) continue;
-          const targetPrice = targets[targetIndex];
-          const hit = active.direction === "BUY" ? b.high >= targetPrice : b.low <= targetPrice;
+          const targetPrice = targetList[targetIndex];
+          const hit = isBuy ? b.high >= targetPrice : b.low <= targetPrice;
           if (hit) active.targetHits[targetIndex] = true;
         }
         if (active.targetHits.every(Boolean)) {
-          active.status = "TP_HIT"; active.exitTime = new Date(closeTime).toISOString(); active.exitPrice = active.tp3; closed = active; active = null;
+          active.status = "TP_HIT"; active.exitTime = new Date(closeTime).toISOString(); active.exitPrice = active.tp5; closed = active; active = null;
         }
       }
     }
@@ -418,7 +441,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
       const tps = [...fibTps, tp4, tp5];
       const targetsValid = tps.every(x => isBuy ? x > entry : x < entry);
       if (targetsValid && (isBuy ? sl < entry : sl > entry)) {
-        active = { timeframe, direction: dir, entry, stopLoss: sl, tp1: tps[0], tp2: tps[1], tp3: tps[2], tp4: tps[3], tp5: tps[4], fibLevel: pct, entryTime: new Date(closeTime).toISOString(), confirmationTime: m5b ? new Date(m5b.time + confirmationDurationMs).toISOString() : new Date(closeTime).toISOString(), lotSize, targetHits: [false, false, false, false, false], status: "ACTIVE", orderBlock: ob, liquidityTarget: isBuy ? targetHigher! : targetLower! };
+        active = { timeframe, direction: dir, entry, stopLoss: sl, tp1: tps[0], tp2: tps[1], tp3: tps[2], tp4: tps[3], tp5: tps[4], fibLevel: pct, entryTime: new Date(closeTime).toISOString(), confirmationTime: m5b ? new Date(m5b.time + TIMEFRAME_MS["5m"]).toISOString() : new Date(closeTime).toISOString(), lotSize, targetHits: [false, false, false, false, false], status: "ACTIVE", orderBlock: ob, liquidityTarget: isBuy ? targetHigher! : targetLower! };
         lastOb = ob; lastLiq = isBuy ? targetHigher : targetLower; lastScore = isBuy ? bScore : sScore; lastFib = pct;
         evidence = [isBuy ? "Bullish CHOCH confirmed" : "Bearish CHOCH confirmed", isBuy ? "Bullish institutional-order candle confirmed" : "Bearish institutional-order candle confirmed", "Fib pullback selected at " + pct + "%", `${timeframe.toUpperCase()} retest and directional candle confirmation completed`, `${confirmationTimeframe.toUpperCase()} displacement confirmation passed`, "External liquidity target and opposing target OB aligned", "OB-wick stop geometry passed", "Normalized confluence score " + lastScore + "/100 passed"];
         missing = [];
@@ -451,12 +474,14 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
       else if (bearActive) missing = ["Bearish CHOCH is confirmed; waiting for the separate bearish institutional-order candle."];
       else missing = ["Waiting for a completed-session liquidity sweep followed by a close-confirmed CHOCH."];
     }
-    if (m5b) lastM5Time = new Date(m5b.time + confirmationDurationMs).toISOString();
+    if (m5b) lastM5Time = new Date(m5b.time + TIMEFRAME_MS["5m"]).toISOString();
   }
 
   const setupDeveloping = buySetup.state > 0 || sellSetup.state > 0;
-  const trade = active ?? (setupDeveloping ? null : closed);
-  const state = active ? "TRADE ACTIVE" : setupDeveloping ? "SETUP DEVELOPING" : closed?.status === "TP_HIT" ? "TP HIT" : closed?.status === "SL_HIT" ? "SL HIT" : "WAITING";
+  const latestBarClose = c.length ? candleCloseTime(c, c.length - 1, timeframe) : 0;
+  const recentClosed = closed && closed.exitTime && latestBarClose - Date.parse(closed.exitTime) <= TIMEFRAME_MS[timeframe] * 1.5 ? closed : null;
+  const trade = active ?? (setupDeveloping ? null : recentClosed);
+  const state = active ? "TRADE ACTIVE" : setupDeveloping ? "SETUP DEVELOPING" : recentClosed?.status === "TP_HIT" ? "TP HIT" : recentClosed?.status === "SL_HIT" ? "SL HIT" : "WAITING";
   const sLast = silver.at(-1), sPrev = silver.at(-2), sMa = silver.length >= 50 ? silverEma[silverEma.length - 1] : null;
   const sFlow = sLast && sPrev ? sLast.close < sPrev.close ? "FALLING" : sLast.close > sPrev.close ? "RISING" : "FLAT" : "UNAVAILABLE";
   const finalVwap = vwapSeries.at(-1) ?? null;
@@ -474,7 +499,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
   const projectedTp4 = selectedProjectionFib !== null ? selectedProjectionFib * (projectionDirection === "BUY" ? 1.015 : 0.985) : null;
   const projectedTp5 = selectedProjectionFib !== null ? selectedProjectionFib * (projectionDirection === "BUY" ? 1.0181 : 0.9819) : null;
   return {
-    source: "VAULTTRADES_VORTEX_PINE_V12", timeframe, state, direction: trade?.direction ?? "NO TRADE",
+    source: "VAULTTRADES_VORTEX_S1_FIB_VWAP_CONFLUENCE", timeframe, state, direction: trade?.direction ?? "NO TRADE",
     structuralDirection: bullActive ? "BUY" : bearActive ? "SELL" : "NEUTRAL", entryConfirmed: !!active,
     entry: trade?.entry ?? selectedProjectionFib, stopLoss: trade?.stopLoss ?? projectedStop,
     tp1: trade?.tp1 ?? projectedFibTargets[0], tp2: trade?.tp2 ?? projectedFibTargets[1],
@@ -483,10 +508,10 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     score: active ? lastScore : Math.max(buyScore, sellScore), buyConfluence: buyScore, sellConfluence: sellScore, liquidityTarget: trade?.liquidityTarget ?? lastLiq, orderBlock: trade?.orderBlock ?? lastOb,
     entryTime: trade?.entryTime ?? null, confirmationTime: trade?.confirmationTime ?? lastM5Time, lotSize,
     lotModel: lotSize < 0.05 ? "FULL CLOSE AT TP1" : "FIVE TARGETS · 20% EACH",
-    targetHits: trade?.targetHits ?? [false, false, false, false, false], openTrade: active, latestClosedTrade: closed,
+    targetHits: trade?.targetHits ?? [false, false, false, false, false], openTrade: active, latestClosedTrade: recentClosed,
     evidence, missingConditions: active ? [] : missing,
     invalidation: `The ${timeframe.toUpperCase()} setup expires after 8 bars or when its structure is invalidated. SL is anchored to the opposing target-OB wick.`,
-    statusReason: active ? (lotSize < 0.05 ? "Trade active. This lot size closes fully at TP1." : "Trade active. Five targets are managed progressively in equal 20% tranches.") : setupDeveloping ? `Vortex ${timeframe.toUpperCase()} setup developing. Waiting for the next qualification event.` : closed ? "The previous trade has closed. Waiting for the next qualifying Vortex setup." : missing[0],
+    statusReason: active ? (lotSize < 0.05 ? "Trade active. This lot size closes fully at TP1." : "Trade active. Five targets are managed progressively in equal 20% tranches.") : setupDeveloping ? `Vortex ${timeframe.toUpperCase()} setup developing. Waiting for the next qualification event.` : recentClosed ? "The previous trade has closed. Waiting for the next qualifying Vortex setup." : missing[0],
     riskReward: trade ? Math.abs(trade.tp5 - trade.entry) / Math.abs(trade.entry - trade.stopLoss) : projectedStop !== null && selectedProjectionFib !== null && projectedTp5 !== null ? Math.abs(projectedTp5 - selectedProjectionFib) / Math.abs(selectedProjectionFib - projectedStop) : null,
     silver: { available: silver.length > 1, close: sLast?.close ?? null, flow: sFlow, ma: sMa },
     vwap: finalVwap,

@@ -62,7 +62,7 @@ type LockedTrade = {
   liquidityTarget: number | null;
 };
 
-type VortexEngineView = { timeframe?: string; state?: string; direction?: string; entry?: number | null; stopLoss?: number | null; tp1?: number | null; tp2?: number | null; tp3?: number | null; score?: number; fibLevel?: number | null; lotSize?: number; lotModel?: string; targetHits?: boolean[]; orderBlock?: { direction: string; top: number; bottom: number } | null; statusReason?: string; missingConditions?: string[]; };
+type VortexEngineView = { timeframe?: string; state?: string; direction?: string; entry?: number | null; stopLoss?: number | null; tp1?: number | null; tp2?: number | null; tp3?: number | null; tp4?: number | null; tp5?: number | null; entryTime?: string | null; exitTime?: string; exitPrice?: number; score?: number; fibLevel?: number | null; lotSize?: number; lotModel?: string; targetHits?: boolean[]; orderBlock?: { direction: string; top: number; bottom: number } | null; statusReason?: string; missingConditions?: string[]; latestClosedTrade?: { direction: string; entry: number; stopLoss: number; tp1: number; tp2: number; tp3: number; tp4: number; tp5: number; entryTime: string; exitTime?: string; exitPrice?: number; status: string } | null; openTrade?: { direction: string; entry: number; stopLoss: number; tp1: number; tp2: number; tp3: number; tp4: number; tp5: number; entryTime: string; targetHits: boolean[]; lotSize: number } | null; };
 
 type Result = {
   dataSource?: string;
@@ -99,8 +99,8 @@ type Result = {
   educationalNote?: string;
   qualityChecks?: { smcStrongCount?: number; rrValid?: boolean; slDistanceValid?: boolean; entryDistanceValid?: boolean; universalTradeGate?: boolean };
   scanner?: Scanner;
-  timeframeEngines?: Partial<Record<"1m" | "5m" | "15m", VortexEngineView>>;
-  strategyEngine?: { source?: string; timeframe?: string; state?: string; signal?: string; direction?: string; tp1?: number | null; tp2?: number | null; tp3?: number | null; tp4?: number | null; tp5?: number | null; lotSize?: number; lotModel?: string; targetHits?: boolean[]; performance?: { tradesTaken: number; closedTrades: number; openTrades: number; winners: number; losers: number; winRate: number; profitFactor: number | null; totalR: number }; openTrades?: Array<{ direction: "BUY" | "SELL"; entry: number; stopLoss: number; takeProfit: number; entryTime: string; entryDay: string; status: string }>; closedTrades?: Array<{ direction: "BUY" | "SELL"; entry: number; stopLoss: number; takeProfit: number; entryTime: string; entryDay: string; status: string; exitTime?: string; exitPrice?: number }>; latestClosedTrade?: { direction: "BUY" | "SELL"; entry: number; stopLoss: number; takeProfit?: number; tp1?: number; tp2?: number; tp3?: number; tp4?: number; tp5?: number; entryTime?: string; entryDay?: string; status: string; exitTime?: string; exitPrice?: number } | null; openTrade?: { direction: "BUY" | "SELL"; entry: number; stopLoss: number; tp1: number; tp2: number; tp3: number; tp4?: number | null; tp5?: number | null; fibLevel: number; entryTime: string; confirmationTime: string; lotSize: number; targetHits: boolean[]; status: string } | null; statusReason?: string; buyConfluence?: number; sellConfluence?: number; silverDataAvailable?: boolean; silver?: { available?: boolean; close?: number | null; ma?: number | null; maSlope?: string; flow?: string; structure?: string; volumeExpansion?: boolean; flowSupportsBuy?: boolean; flowSupportsSell?: boolean; structureSupportsBuy?: boolean; structureSupportsSell?: boolean; volumeSupportsBuy?: boolean; volumeSupportsSell?: boolean }; confluenceBreakdown?: { buy: Record<string, { available: boolean; passed: boolean; points: number; weight: number }>; sell: Record<string, { available: boolean; passed: boolean; points: number; weight: number }>; buyPenalty: number; sellPenalty: number }; trend?: string; sweptLiquidity?: number | null; rejectionExtreme?: number | null; sweepTime?: string | null; mssTime?: string | null; confirmationTime?: string | null; entry?: number | null; stopLoss?: number | null; finalTp?: number | null; rangeHigh?: number | null; rangeLow?: number | null; window?: string | null; fibLevel?: number | null; score?: number; breakoutPrice?: number | null; breakoutTime?: string | null; breakoutDirection?: "BUY" | "SELL" | null; confluence?: { macroTrend: string; fastTrend: string; rsi: number | null; rsiAligned: boolean | null; volumeRatio: number | null; volumeGood: boolean; rangeSize: number; rangeAtrRatio: number | null; longScore: number; shortScore: number; dxy: string; silver: string; gate: string }; evidence?: string[]; missingConditions?: string[]; liquidityTarget?: number | null; orderBlock?: { direction: string; top: number; bottom: number } | null; riskReward?: number | null; invalidation?: string; ema20?: number | null; slowEMA?: number | null; atr?: number | null; bullStructure?: boolean; bearStructure?: boolean; bullTouch?: boolean; bearTouch?: boolean; bullReject?: boolean; bearReject?: boolean; bullMABreak?: boolean; bearMABreak?: boolean; utBull?: boolean; utBear?: boolean; smiBull?: boolean; smiBear?: boolean; confirmation?: { long: number; short: number } };
+  timeframeEngines?: Partial<Record<Timeframe, VortexEngineView>>;
+  strategyEngine?: { source?: string; timeframe?: string; state?: string; signal?: string; direction?: string; entryTime?: string | null; lifecycleReason?: string; tp1?: number | null; tp2?: number | null; tp3?: number | null; tp4?: number | null; tp5?: number | null; lotSize?: number; lotModel?: string; targetHits?: boolean[]; performance?: { tradesTaken: number; closedTrades: number; openTrades: number; winners: number; losers: number; winRate: number; profitFactor: number | null; totalR: number }; openTrades?: Array<{ direction: "BUY" | "SELL"; entry: number; stopLoss: number; takeProfit: number; entryTime: string; entryDay: string; status: string }>; closedTrades?: Array<{ direction: "BUY" | "SELL"; entry: number; stopLoss: number; takeProfit: number; entryTime: string; entryDay: string; status: string; exitTime?: string; exitPrice?: number }>; latestClosedTrade?: { direction: "BUY" | "SELL"; entry: number; stopLoss: number; takeProfit?: number; tp1?: number; tp2?: number; tp3?: number; tp4?: number; tp5?: number; entryTime?: string; entryDay?: string; status: string; exitTime?: string; exitPrice?: number } | null; openTrade?: { direction: "BUY" | "SELL"; entry: number; stopLoss: number; tp1: number; tp2: number; tp3: number; tp4?: number | null; tp5?: number | null; fibLevel: number; entryTime: string; confirmationTime: string; lotSize: number; targetHits: boolean[]; status: string } | null; statusReason?: string; buyConfluence?: number; sellConfluence?: number; silverDataAvailable?: boolean; silver?: { available?: boolean; close?: number | null; ma?: number | null; maSlope?: string; flow?: string; structure?: string; volumeExpansion?: boolean; flowSupportsBuy?: boolean; flowSupportsSell?: boolean; structureSupportsBuy?: boolean; structureSupportsSell?: boolean; volumeSupportsBuy?: boolean; volumeSupportsSell?: boolean }; confluenceBreakdown?: { buy: Record<string, { available: boolean; passed: boolean; points: number; weight: number }>; sell: Record<string, { available: boolean; passed: boolean; points: number; weight: number }>; buyPenalty: number; sellPenalty: number }; trend?: string; sweptLiquidity?: number | null; rejectionExtreme?: number | null; sweepTime?: string | null; mssTime?: string | null; confirmationTime?: string | null; entry?: number | null; stopLoss?: number | null; finalTp?: number | null; rangeHigh?: number | null; rangeLow?: number | null; window?: string | null; fibLevel?: number | null; score?: number; breakoutPrice?: number | null; breakoutTime?: string | null; breakoutDirection?: "BUY" | "SELL" | null; confluence?: { macroTrend: string; fastTrend: string; rsi: number | null; rsiAligned: boolean | null; volumeRatio: number | null; volumeGood: boolean; rangeSize: number; rangeAtrRatio: number | null; longScore: number; shortScore: number; dxy: string; silver: string; gate: string }; evidence?: string[]; missingConditions?: string[]; liquidityTarget?: number | null; orderBlock?: { direction: string; top: number; bottom: number } | null; riskReward?: number | null; invalidation?: string; ema20?: number | null; slowEMA?: number | null; atr?: number | null; bullStructure?: boolean; bearStructure?: boolean; bullTouch?: boolean; bearTouch?: boolean; bullReject?: boolean; bearReject?: boolean; bullMABreak?: boolean; bearMABreak?: boolean; utBull?: boolean; utBear?: boolean; smiBull?: boolean; smiBear?: boolean; confirmation?: { long: number; short: number } };
 };
 
 const TIMEFRAMES: Timeframe[] = ["1m", "5m", "10m", "15m", "30m", "1H", "4H", "1D", "1W", "1M"];
@@ -513,34 +513,6 @@ export default function AnalyzerPage() {
     <section className="card"><div className="actions"><button className="primary" type="button" disabled={loading || marketType === "SYNTHETIC"} onClick={() => void runAnalysis()}>{loading ? "Analyzing live market..." : "Analyze Live Market"}</button></div>{marketType === "SYNTHETIC" && <div className="condition-box" style={{ marginTop: 12 }}><strong>Market data unavailable</strong><p className="muted">Please select another market or try again later.</p></div>}{error && <div className="error-box" style={{ marginTop: 12 }}><strong>Market data unavailable</strong><p className="muted">Please try again later.</p></div>}</section>
 
     {result && <>
-      {strategy === "vortex" && result.timeframeEngines && <section className="card">
-        <div className="section-label">INDEPENDENT VORTEX TIMEFRAME ENGINES</div>
-        <p className="muted" style={{ marginTop: 0 }}>Each timeframe evaluates its own candles, Fib retracement, order block, entry, stop loss and TP1–TP3. A position on one timeframe does not suppress a signal on another.</p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 12 }}>
-          {(["1m", "5m", "15m"] as const).map(tf => {
-            const engine = result.timeframeEngines?.[tf];
-            const active = engine?.state === "TRADE ACTIVE";
-            return <div className="condition-box" key={tf}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
-                <strong style={{ fontSize: 17 }}>{tf.toUpperCase()}</strong>
-                <strong style={{ color: active ? (engine?.direction === "BUY" ? "#35c98a" : "#f06b72") : "#d5b45c" }}>{active ? engine?.direction + " · ACTIVE" : engine?.state ?? "WAITING"}</strong>
-              </div>
-              {active && <>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8, marginTop: 10 }}>
-                  <PriceLevel label="ENTRY" value={engine?.entry} kind="entry" symbol={symbol} />
-                  <PriceLevel label="STOP LOSS" value={engine?.stopLoss} kind="sl" symbol={symbol} />
-                  <PriceLevel label="TP1" value={engine?.tp1} kind="tp" symbol={symbol} />
-                  <PriceLevel label="TP2" value={engine?.tp2} kind="tp" symbol={symbol} />
-                  <PriceLevel label="TP3" value={engine?.tp3} kind="tp" symbol={symbol} />
-                  <div><div className="muted" style={{ fontSize: 11 }}>CONFLUENCE</div><strong>{engine?.score ?? 0}/100</strong></div>
-                </div>
-                {engine?.orderBlock && <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>OB wick: {fmt(engine.orderBlock.bottom, symbol)} – {fmt(engine.orderBlock.top, symbol)}</div>}
-              </>}
-              {!active && <p className="muted" style={{ marginBottom: 0, fontSize: 12 }}>{engine?.statusReason ?? engine?.missingConditions?.[0] ?? "Waiting for a qualifying setup on this timeframe."}</p>}
-            </div>;
-          })}
-        </div>
-      </section>}
       <section className="card"><div className="section-label">LIVE CHART</div><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}><div><h2 className="title" style={{ marginBottom: 3 }}>{result.market?.asset}</h2><div className="muted">{result.market?.timeframe} · Current price {fmt(result.market?.currentPrice, symbol)}</div></div><div className="condition-box" style={{ padding: "10px 14px" }}><strong>Strategy: {strategyDisplayName(result.strategy?.id, result.strategy?.name)}</strong></div></div><LiveMarketChart symbol={symbol} candles={result.chart?.candles || []} channel={result.chart?.channel20} liquidityTargets={s?.liquidityTargets ?? result.liquidityTargets} orderBlocks={result.chart?.orderBlocks ?? []} orderBlock={strategy === "lsobr" ? result.strategyEngine?.orderBlock ?? null : null} tradeLevels={vortexChartLevels} /></section>
 
       {strategy === "vaulttradesNexus" ? <section className="card execution-card" style={{ border: "1px solid rgba(212,166,55,.28)", background: "linear-gradient(145deg, rgba(10,16,30,.98), rgba(5,8,18,.98))" }}>
@@ -591,22 +563,57 @@ export default function AnalyzerPage() {
         </>}
       </section> : <section className="card execution-card" style={{ border: "1px solid rgba(212,166,55,.28)", background: "linear-gradient(145deg, rgba(10,16,30,.98), rgba(5,8,18,.98))" }}>
         <div className="section-label">TRADE STATUS</div>
-        <h2 className="title" style={{ marginBottom: 12 }}>{scannerStatus}</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10, marginTop: 12 }}>
-          <PriceLevel label="ENTRY" value={scannerEntry} kind="entry" symbol={symbol} />
-          <PriceLevel label="STOP LOSS" value={scannerStop} kind="sl" symbol={symbol} />
-          <PriceLevel label="TAKE PROFIT" value={scannerTp1} kind="tp" symbol={symbol} />
-        </div>
-        {scannerEntry != null && scannerStop != null && scannerTp1 != null && s?.cycleStatus === "ACTIVE" && <div style={{ marginTop: 16 }}>
-          <button className="primary" type="button" onClick={() => openRiskManager()}>Calculate Lot Size</button>
-        </div>}
+        {(() => {
+          const v = strategy === "vortex" ? result.strategyEngine : null;
+          const open = strategy === "vortex" ? v?.openTrade : null;
+          const closed = strategy === "vortex" ? v?.latestClosedTrade : null;
+          const active = strategy === "vortex" ? !!open : strategy === "ema20" ? tradeIsRunning : false;
+          const direction = strategy === "vortex" ? (open?.direction ?? closed?.direction ?? v?.direction) : (result.strategyEngine?.signal ?? displayDirection);
+          const entry = strategy === "vortex" ? (open?.entry ?? closed?.entry ?? scannerEntry) : scannerEntry;
+          const stop = strategy === "vortex" ? (open?.stopLoss ?? closed?.stopLoss ?? scannerStop) : scannerStop;
+          const lot = strategy === "vortex" ? (open?.lotSize ?? v?.lotSize ?? 0.05) : null;
+          const target = strategy === "vortex" ? (lot != null && lot < 0.05 ? (open?.tp1 ?? closed?.tp1 ?? v?.tp1) : (open?.tp5 ?? closed?.tp5 ?? v?.tp5)) : scannerTp1;
+          const current = Number(result.market?.currentPrice);
+          const hasCurrent = Number.isFinite(current);
+          const move = hasCurrent && entry != null && direction ? (direction === "BUY" ? current - entry : entry - current) : null;
+          const toTarget = hasCurrent && target != null && direction ? (direction === "BUY" ? target - current : current - target) : null;
+          const toStop = hasCurrent && stop != null && direction ? (direction === "BUY" ? current - stop : stop - current) : null;
+          const title = active ? "TRADE ACTIVE" : strategy === "vortex" && closed ? (closed.status === "TP_HIT" ? "TAKE PROFIT HIT" : "STOP LOSS HIT") : scannerStatus;
+          const entryTime = strategy === "vortex" ? (open?.entryTime ?? closed?.entryTime) : result.strategyEngine?.entryTime;
+          const targetLabel = strategy === "vortex" && lot != null && lot >= 0.05 ? "FINAL TAKE PROFIT" : "TAKE PROFIT";
+          return <>
+            <h2 className="title" style={{ marginBottom: 8 }}>{title}</h2>
+            <p className="muted" style={{ marginTop: 0 }}>{active
+              ? (strategy === "vortex" ? (lot != null && lot < 0.05 ? "The position remains active until its stop loss or TP1 is reached on a completed candle." : "The position remains active until its stop loss or all five progressive take-profit targets are reached on completed candles.") : (result.strategyEngine?.lifecycleReason ?? "The recorded entry, stop loss and target remain in force until reached on a completed candle."))
+              : strategy === "vortex" && closed ? `Last trade closed at ${closed.status === "TP_HIT" ? "take profit" : "stop loss"}.` : (result.strategyEngine?.lifecycleReason ?? result.strategyEngine?.statusReason ?? s?.waitReason ?? "Waiting for the next qualifying signal.")}</p>
+            {(active || (strategy === "vortex" && closed)) && direction && entry != null && stop != null && target != null && <>
+              <strong style={{ fontSize: 18, color: direction === "BUY" ? "#35c98a" : "#f06b72" }}>{direction} · {active ? "TRADE ACTIVE" : "TRADE CLOSED"}</strong>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8, marginTop: 10 }}>
+                <PriceLevel label="ENTRY" value={entry} kind="entry" symbol={symbol} />
+                <PriceLevel label="STOP LOSS" value={stop} kind="sl" symbol={symbol} />
+                <PriceLevel label={targetLabel} value={target} kind="tp" symbol={symbol} />
+              </div>
+              <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>Signal date: {entryTime ? new Date(entryTime).toLocaleDateString() : "—"} · Entry time: {entryTime ? new Date(entryTime).toLocaleString() : "—"}</div>
+              {active && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(125px,1fr))", gap: 8, marginTop: 10 }}>
+                <div className="condition-box"><strong>CURRENT PRICE</strong><div style={{ marginTop: 5 }}>{hasCurrent ? fmt(current, symbol) : "Unavailable"}</div></div>
+                <div className="condition-box"><strong>MOVE FROM ENTRY</strong><div style={{ marginTop: 5 }}>{move == null ? "—" : (move > 0 ? "+" : "") + fmt(move, symbol)}</div></div>
+                <div className="condition-box"><strong>DISTANCE TO TP</strong><div style={{ marginTop: 5 }}>{toTarget == null ? "—" : fmt(toTarget, symbol)}</div></div>
+                <div className="condition-box"><strong>DISTANCE TO SL</strong><div style={{ marginTop: 5 }}>{toStop == null ? "—" : fmt(toStop, symbol)}</div></div>
+              </div>}
+              {!active && strategy === "vortex" && <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>Exit time: {closed?.exitTime ? new Date(closed.exitTime).toLocaleString() : "—"} · Exit price: {fmt(closed?.exitPrice, symbol)}</div>}
+              {active && <button className="primary" type="button" style={{ marginTop: 12 }} onClick={() => openRiskManager({ direction: direction as "BUY" | "SELL", entry, stopLoss: stop, takeProfit: target })}>Calculate Lot Size</button>}
+            </>}
+            {!active && !(strategy === "vortex" && closed) && <p className="muted" style={{ marginBottom: 0 }}>No active position. {scannerReason[0]}</p>}
+          </>;
+        })()}
       </section>}
       {strategy === "vortex" && result.strategyEngine && <section className="card">
         <div className="section-label">VORTEX FIB / TARGET LADDER</div>
-        <div className="muted" style={{ marginBottom: 10 }}>Independent {String(result.strategyEngine.timeframe ?? timeframe).toUpperCase()} engine · M1 additionally confirms with M5 displacement · Entry Fib {result.strategyEngine.fibLevel == null ? "—" : result.strategyEngine.fibLevel + "%"} · Feed: {result.dataSource ?? "Market provider"}</div>
+        <div className="muted" style={{ marginBottom: 10 }}>Entry Fib {result.strategyEngine.fibLevel == null ? "—" : result.strategyEngine.fibLevel + "%"} · Feed: {result.dataSource ?? "Market provider"}</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(110px,1fr))", gap: 9 }}>
           {[
             ["TP1", result.strategyEngine.tp1, 0], ["TP2", result.strategyEngine.tp2, 1], ["TP3", result.strategyEngine.tp3, 2],
+            ["TP4", result.strategyEngine.tp4, 3], ["TP5", result.strategyEngine.tp5, 4],
           ].map(([label, value, index]) => <div className="condition-box" key={String(label)}>
             <strong>{label}</strong>
             <div style={{ fontSize: 16, fontWeight: 800, marginTop: 5 }}>{fmt(typeof value === "number" ? value : null, symbol)}</div>
@@ -618,7 +625,7 @@ export default function AnalyzerPage() {
           </div>)}
         </div>
         <div className="muted" style={{ marginTop: 12 }}>
-          Default lot: 0.05 · Selected lot: {result.strategyEngine.lotSize?.toFixed(2) ?? "0.05"} · {result.strategyEngine.lotModel ?? "THREE TARGETS · 33.33% EACH"}
+          Default lot: 0.05 · Selected lot: {result.strategyEngine.lotSize?.toFixed(2) ?? "0.05"} · {result.strategyEngine.lotModel ?? "FIVE TARGETS · 20% EACH"}
         </div>
         {result.strategyEngine.score != null && <div className="muted" style={{ marginTop: 5 }}>Vortex confluence: {result.strategyEngine.score}/100 · Minimum: 60</div>}
       </section>}
