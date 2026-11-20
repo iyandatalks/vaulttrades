@@ -208,11 +208,15 @@ export async function middleware(request: NextRequest) {
     else if (featureCode === "founders_mentorship") allowed = access.foundersMentorship;
     else if (featureCode === "referral") allowed = access.anyPaidProduct;
     else if (featureCode === "community") {
+      // Partner/reseller identities may enter the Community route to request or use
+      // their separately approved Community profile. The Community API still enforces
+      // administrator approval before exposing private workspace content.
+      const isPartnerRole = profile?.role === "partner" || profile?.role === "reseller";
       const { data: featureAccess } = await supabase.rpc("has_feature_access", {
         p_auth_user_id: user.id,
         p_feature_code: "community",
       });
-      allowed = featureAccess === true;
+      allowed = isPartnerRole || featureAccess === true;
 
       // Existing community/mentorship licences are also accepted as the entitlement source.
       if (!allowed && profile?.id) {
