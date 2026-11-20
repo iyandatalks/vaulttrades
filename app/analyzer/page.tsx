@@ -640,6 +640,7 @@ export default function AnalyzerPage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(110px,1fr))", gap: 9 }}>
           {[
             ["TP1", result.strategyEngine.tp1, 0], ["TP2", result.strategyEngine.tp2, 1], ["TP3", result.strategyEngine.tp3, 2],
+            ["TP4", result.strategyEngine.tp4, 3], ["TP5", result.strategyEngine.tp5, 4],
           ].map(([label, value, index]) => <div className="condition-box" key={String(label)}>
             <strong>{label}</strong>
             <div style={{ fontSize: 16, fontWeight: 800, marginTop: 5 }}>{fmt(typeof value === "number" ? value : null, symbol)}</div>
@@ -651,7 +652,7 @@ export default function AnalyzerPage() {
           </div>)}
         </div>
         <div className="muted" style={{ marginTop: 12 }}>
-          Default lot: 0.05 · Selected lot: {result.strategyEngine.lotSize?.toFixed(2) ?? "0.05"} · {result.strategyEngine.lotModel ?? "THREE TARGETS · 33.33% EACH"}
+          Default lot: 0.05 · Selected lot: {result.strategyEngine.lotSize?.toFixed(2) ?? "0.05"} · {result.strategyEngine.lotModel ?? "FIVE TARGETS · 20% EACH"}
         </div>
         {result.strategyEngine.score != null && <div className="muted" style={{ marginTop: 5 }}>Vortex confluence: {result.strategyEngine.score}/100 · Minimum: 60</div>}
       </section>}
