@@ -462,18 +462,21 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
   const state = active ? "TRADE ACTIVE" : setupDeveloping ? "SETUP DEVELOPING" : closed?.status === "TP_HIT" ? "TP HIT" : closed?.status === "SL_HIT" ? "SL HIT" : "WAITING";
   const sLast = silver.at(-1), sPrev = silver.at(-2), sMa = silver.length >= 50 ? silverEma[silverEma.length - 1] : null;
   const sFlow = sLast && sPrev ? sLast.close < sPrev.close ? "FALLING" : sLast.close > sPrev.close ? "RISING" : "FLAT" : "UNAVAILABLE";
+  const finalVwap = vwapSeries.at(-1) ?? null;
   return {
     source: "VAULTTRADES_VORTEX_PINE_V12", timeframe, state, direction: trade?.direction ?? "NO TRADE",
+    structuralDirection: bullActive ? "BUY" : bearActive ? "SELL" : "NEUTRAL", entryConfirmed: !!active,
     entry: trade?.entry ?? null, stopLoss: trade?.stopLoss ?? null, tp1: trade?.tp1 ?? null, tp2: trade?.tp2 ?? null,
-    tp3: trade?.tp3 ?? null, tp4: null, tp5: null, fibLevel: trade?.fibLevel ?? buySetup.pct ?? sellSetup.pct ?? lastFib,
+    tp3: trade?.tp3 ?? null, tp4: trade?.tp4 ?? null, tp5: trade?.tp5 ?? null, fibLevel: trade?.fibLevel ?? buySetup.pct ?? sellSetup.pct ?? lastFib,
     score: active ? lastScore : Math.max(buyScore, sellScore), buyConfluence: buyScore, sellConfluence: sellScore, liquidityTarget: trade?.liquidityTarget ?? lastLiq, orderBlock: trade?.orderBlock ?? lastOb,
     entryTime: trade?.entryTime ?? null, confirmationTime: trade?.confirmationTime ?? lastM5Time, lotSize,
     lotModel: lotSize < 0.05 ? "FULL CLOSE AT TP1" : "FIVE TARGETS · 20% EACH",
-    targetHits: trade?.targetHits ?? [false, false, false], openTrade: active, latestClosedTrade: closed,
+    targetHits: trade?.targetHits ?? [false, false, false, false, false], openTrade: active, latestClosedTrade: closed,
     evidence, missingConditions: active ? [] : missing,
-    invalidation: `The ${timeframe.toUpperCase()} setup expires after 8 bars or when its structure is invalidated. SL is anchored to the opposing target-OB wick.`, 
-    statusReason: active ? (lotSize < 0.05 ? "Trade active. This lot size closes fully at TP1." : "Trade active. Three targets are managed progressively in equal thirds.") : setupDeveloping ? `Vortex ${timeframe.toUpperCase()} setup developing. Waiting for the next qualification event.` : closed ? "The previous trade has closed. Waiting for the next qualifying Vortex setup." : missing[0],
-    riskReward: trade ? Math.abs(trade.tp3 - trade.entry) / Math.abs(trade.entry - trade.stopLoss) : null,
+    invalidation: `The ${timeframe.toUpperCase()} setup expires after 8 bars or when its structure is invalidated. SL is anchored to the opposing target-OB wick.`,
+    statusReason: active ? (lotSize < 0.05 ? "Trade active. This lot size closes fully at TP1." : "Trade active. Five targets are managed progressively in equal 20% tranches.") : setupDeveloping ? `Vortex ${timeframe.toUpperCase()} setup developing. Waiting for the next qualification event.` : closed ? "The previous trade has closed. Waiting for the next qualifying Vortex setup." : missing[0],
+    riskReward: trade ? Math.abs(trade.tp5 - trade.entry) / Math.abs(trade.entry - trade.stopLoss) : null,
     silver: { available: silver.length > 1, close: sLast?.close ?? null, flow: sFlow, ma: sMa },
+    vwap: finalVwap,
   };
 }
