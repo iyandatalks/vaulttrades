@@ -99,7 +99,7 @@ type Result = {
   educationalNote?: string;
   qualityChecks?: { smcStrongCount?: number; rrValid?: boolean; slDistanceValid?: boolean; entryDistanceValid?: boolean; universalTradeGate?: boolean };
   scanner?: Scanner;
-  timeframeEngines?: Partial<Record<"1m" | "5m" | "15m", VortexEngineView>>;
+  timeframeEngines?: Partial<Record<Timeframe, VortexEngineView>>;
   strategyEngine?: { source?: string; timeframe?: string; state?: string; signal?: string; direction?: string; entryTime?: string | null; lifecycleReason?: string; tp1?: number | null; tp2?: number | null; tp3?: number | null; tp4?: number | null; tp5?: number | null; lotSize?: number; lotModel?: string; targetHits?: boolean[]; performance?: { tradesTaken: number; closedTrades: number; openTrades: number; winners: number; losers: number; winRate: number; profitFactor: number | null; totalR: number }; openTrades?: Array<{ direction: "BUY" | "SELL"; entry: number; stopLoss: number; takeProfit: number; entryTime: string; entryDay: string; status: string }>; closedTrades?: Array<{ direction: "BUY" | "SELL"; entry: number; stopLoss: number; takeProfit: number; entryTime: string; entryDay: string; status: string; exitTime?: string; exitPrice?: number }>; latestClosedTrade?: { direction: "BUY" | "SELL"; entry: number; stopLoss: number; takeProfit?: number; tp1?: number; tp2?: number; tp3?: number; tp4?: number; tp5?: number; entryTime?: string; entryDay?: string; status: string; exitTime?: string; exitPrice?: number } | null; openTrade?: { direction: "BUY" | "SELL"; entry: number; stopLoss: number; tp1: number; tp2: number; tp3: number; tp4?: number | null; tp5?: number | null; fibLevel: number; entryTime: string; confirmationTime: string; lotSize: number; targetHits: boolean[]; status: string } | null; statusReason?: string; buyConfluence?: number; sellConfluence?: number; silverDataAvailable?: boolean; silver?: { available?: boolean; close?: number | null; ma?: number | null; maSlope?: string; flow?: string; structure?: string; volumeExpansion?: boolean; flowSupportsBuy?: boolean; flowSupportsSell?: boolean; structureSupportsBuy?: boolean; structureSupportsSell?: boolean; volumeSupportsBuy?: boolean; volumeSupportsSell?: boolean }; confluenceBreakdown?: { buy: Record<string, { available: boolean; passed: boolean; points: number; weight: number }>; sell: Record<string, { available: boolean; passed: boolean; points: number; weight: number }>; buyPenalty: number; sellPenalty: number }; trend?: string; sweptLiquidity?: number | null; rejectionExtreme?: number | null; sweepTime?: string | null; mssTime?: string | null; confirmationTime?: string | null; entry?: number | null; stopLoss?: number | null; finalTp?: number | null; rangeHigh?: number | null; rangeLow?: number | null; window?: string | null; fibLevel?: number | null; score?: number; breakoutPrice?: number | null; breakoutTime?: string | null; breakoutDirection?: "BUY" | "SELL" | null; confluence?: { macroTrend: string; fastTrend: string; rsi: number | null; rsiAligned: boolean | null; volumeRatio: number | null; volumeGood: boolean; rangeSize: number; rangeAtrRatio: number | null; longScore: number; shortScore: number; dxy: string; silver: string; gate: string }; evidence?: string[]; missingConditions?: string[]; liquidityTarget?: number | null; orderBlock?: { direction: string; top: number; bottom: number } | null; riskReward?: number | null; invalidation?: string; ema20?: number | null; slowEMA?: number | null; atr?: number | null; bullStructure?: boolean; bearStructure?: boolean; bullTouch?: boolean; bearTouch?: boolean; bullReject?: boolean; bearReject?: boolean; bullMABreak?: boolean; bearMABreak?: boolean; utBull?: boolean; utBear?: boolean; smiBull?: boolean; smiBear?: boolean; confirmation?: { long: number; short: number } };
 };
 
@@ -513,33 +513,6 @@ export default function AnalyzerPage() {
     <section className="card"><div className="actions"><button className="primary" type="button" disabled={loading || marketType === "SYNTHETIC"} onClick={() => void runAnalysis()}>{loading ? "Analyzing live market..." : "Analyze Live Market"}</button></div>{marketType === "SYNTHETIC" && <div className="condition-box" style={{ marginTop: 12 }}><strong>Market data unavailable</strong><p className="muted">Please select another market or try again later.</p></div>}{error && <div className="error-box" style={{ marginTop: 12 }}><strong>Market data unavailable</strong><p className="muted">Please try again later.</p></div>}</section>
 
     {result && <>
-      {strategy === "vortex" && result.timeframeEngines && <section className="card">
-        <div className="section-label">INDEPENDENT VORTEX TIMEFRAME ENGINES</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 12 }}>
-          {(["1m", "5m", "15m"] as const).map(tf => {
-            const engine = result.timeframeEngines?.[tf];
-            const active = engine?.state === "TRADE ACTIVE";
-            return <div className="condition-box" key={tf}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
-                <strong style={{ fontSize: 17 }}>{tf.toUpperCase()}</strong>
-                <strong style={{ color: active ? (engine?.direction === "BUY" ? "#35c98a" : "#f06b72") : "#d5b45c" }}>{active ? engine?.direction + " · ACTIVE" : engine?.state ?? "WAITING"}</strong>
-              </div>
-              {active && <>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8, marginTop: 10 }}>
-                  <PriceLevel label="ENTRY" value={engine?.entry} kind="entry" symbol={symbol} />
-                  <PriceLevel label="STOP LOSS" value={engine?.stopLoss} kind="sl" symbol={symbol} />
-                  <PriceLevel label="TP1" value={engine?.tp1} kind="tp" symbol={symbol} />
-                  <PriceLevel label="TP2" value={engine?.tp2} kind="tp" symbol={symbol} />
-                  <PriceLevel label="TP3" value={engine?.tp3} kind="tp" symbol={symbol} />
-                  <div><div className="muted" style={{ fontSize: 11 }}>CONFLUENCE</div><strong>{engine?.score ?? 0}/100</strong></div>
-                </div>
-                {engine?.orderBlock && <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>OB wick: {fmt(engine.orderBlock.bottom, symbol)} – {fmt(engine.orderBlock.top, symbol)}</div>}
-              </>}
-              {!active && <p className="muted" style={{ marginBottom: 0, fontSize: 12 }}>{engine?.statusReason ?? engine?.missingConditions?.[0] ?? "Waiting for a qualifying setup on this timeframe."}</p>}
-            </div>;
-          })}
-        </div>
-      </section>}
       <section className="card"><div className="section-label">LIVE CHART</div><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}><div><h2 className="title" style={{ marginBottom: 3 }}>{result.market?.asset}</h2><div className="muted">{result.market?.timeframe} · Current price {fmt(result.market?.currentPrice, symbol)}</div></div><div className="condition-box" style={{ padding: "10px 14px" }}><strong>Strategy: {strategyDisplayName(result.strategy?.id, result.strategy?.name)}</strong></div></div><LiveMarketChart symbol={symbol} candles={result.chart?.candles || []} channel={result.chart?.channel20} liquidityTargets={s?.liquidityTargets ?? result.liquidityTargets} orderBlocks={result.chart?.orderBlocks ?? []} orderBlock={strategy === "lsobr" ? result.strategyEngine?.orderBlock ?? null : null} tradeLevels={vortexChartLevels} /></section>
 
       {strategy === "vaulttradesNexus" ? <section className="card execution-card" style={{ border: "1px solid rgba(212,166,55,.28)", background: "linear-gradient(145deg, rgba(10,16,30,.98), rgba(5,8,18,.98))" }}>
