@@ -307,9 +307,9 @@ export async function POST(request: Request) {
       }),
       "15m": evaluateVortex({
         m1Candles: toVortexCandles(vortexM15Feed?.candles ?? [], "15m"),
-        m5Candles: toVortexCandles(vortexM15Feed?.candles ?? [], "15m"),
+        m5Candles: toVortexCandles(vortexM5Feed?.candles ?? [], "5m"),
         silverCandles: toVortexCandles(vortexSilverM15Feed?.candles ?? [], "15m"),
-        timeframe: "15m", confirmationTimeframe: "15m", lotSize: vortexLotSize, tickSize: vortexTickSize,
+        timeframe: "15m", confirmationTimeframe: "5m", lotSize: vortexLotSize, tickSize: vortexTickSize,
       }),
     } : null;
     const vortexEngine = vortexEngines ? vortexEngines[timeframe as "1m" | "5m" | "15m"] : null;
@@ -556,7 +556,7 @@ Return JSON only.`;
         invalidation: vortexEngine?.invalidation ?? "", entry: vortexEngine?.entry ?? null,
         stopLoss: vortexEngine?.stopLoss ?? null, tp1: vortexEngine?.tp1 ?? null, tp2: vortexEngine?.tp2 ?? null,
         finalTp: vortexEngine?.tp5 ?? null, nextAction: vortexEngine?.statusReason ?? "WAIT",
-        educationalNote: "VaultTrades Vortex evaluates M1, M5 and M15 as independent strategies. Each timeframe has its own Fib setup, order-block-wick stop, and TP1–TP3 ladder. M1 additionally uses completed M5 displacement confirmation. Default lot is 0.05; 0.01–0.04 closes fully at TP1.",
+        educationalNote: "",
       };
     } else if (strategyId === "vaulttradesNexus") {
       const active = nexusEngine?.state === "TRADE ACTIVE";
