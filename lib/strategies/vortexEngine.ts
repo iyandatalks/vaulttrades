@@ -80,10 +80,10 @@ function periodLevels(c: VortexCandle[]) {
   let priorHigh: number | null = null, priorLow: number | null = null, priorWeekHigh: number | null = null, priorWeekLow: number | null = null;
   for (const bar of c) {
     const key = nyParts(bar.time).day;
-    const dt = new Date(bar.time);
-    const yearStart = Date.UTC(dt.getUTCFullYear(), 0, 1);
-    const week = Math.floor((Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate()) - yearStart) / 604800000);
-    const wk = dt.getUTCFullYear() + "-" + week;
+    const [year, month, date] = key.split("-").map(Number);
+    const utcDay = Date.UTC(year, month - 1, date);
+    const monday = utcDay - ((new Date(utcDay).getUTCDay() + 6) % 7) * 86400000;
+    const wk = String(monday);
     if (dayKey && key !== dayKey) { priorHigh = Number.isFinite(dayHigh) ? dayHigh : priorHigh; priorLow = Number.isFinite(dayLow) ? dayLow : priorLow; dayHigh = -Infinity; dayLow = Infinity; }
     if (weekKey && wk !== weekKey) { priorWeekHigh = Number.isFinite(weekHigh) ? weekHigh : priorWeekHigh; priorWeekLow = Number.isFinite(weekLow) ? weekLow : priorWeekLow; weekHigh = -Infinity; weekLow = Infinity; }
     dayKey = key; weekKey = wk;
