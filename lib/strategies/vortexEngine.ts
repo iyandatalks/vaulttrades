@@ -465,11 +465,26 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
   const sLast = silver.at(-1), sPrev = silver.at(-2), sMa = silver.length >= 50 ? silverEma[silverEma.length - 1] : null;
   const sFlow = sLast && sPrev ? sLast.close < sPrev.close ? "FALLING" : sLast.close > sPrev.close ? "RISING" : "FLAT" : "UNAVAILABLE";
   const finalVwap = vwapSeries.at(-1) ?? null;
+  const projectionDirection: VortexDirection | null = buySetup.state > 0 ? "BUY" : sellSetup.state > 0 ? "SELL" : bullActive ? "BUY" : bearActive ? "SELL" : null;
+  const projectionStart = buySetup.state > 0 ? buySetup.start : sellSetup.state > 0 ? sellSetup.start : bullActive ? bullStart : bearActive ? bearStart : null;
+  const projectionEnd = buySetup.state > 0 ? buySetup.end : sellSetup.state > 0 ? sellSetup.end : bullActive ? bullEnd : bearActive ? bearEnd : null;
+  const projectionTop = projectionStart !== null && projectionEnd !== null ? Math.max(projectionStart, projectionEnd) : null;
+  const projectionBottom = projectionStart !== null && projectionEnd !== null ? Math.min(projectionStart, projectionEnd) : null;
+  const selectedProjectionFib = buySetup.state > 0 && buySetup.fib !== null ? buySetup.fib : sellSetup.state > 0 && sellSetup.fib !== null ? sellSetup.fib : projectionTop !== null && projectionBottom !== null ? (projectionDirection === "BUY" ? buyFib(projectionTop, projectionBottom, 68.1) : sellFib(projectionTop, projectionBottom, 68.1)) : null;
+  const projectedFibTargets = projectionTop !== null && projectionBottom !== null && projectionDirection
+    ? TP_FIBS.map(x => projectionDirection === "BUY" ? buyFib(projectionTop, projectionBottom, x) : sellFib(projectionTop, projectionBottom, x))
+    : [null, null, null];
+  const projectionOb = projectionDirection === "BUY" ? (buySetup.ob ?? (lastOb?.direction === "BUY" ? lastOb : null)) : projectionDirection === "SELL" ? (sellSetup.ob ?? (lastOb?.direction === "SELL" ? lastOb : null)) : null;
+  const projectedStop = projectionOb ? (projectionDirection === "BUY" ? projectionOb.bottom - tick : projectionOb.top + tick) : null;
+  const projectedTp4 = selectedProjectionFib !== null ? selectedProjectionFib * (projectionDirection === "BUY" ? 1.015 : 0.985) : null;
+  const projectedTp5 = selectedProjectionFib !== null ? selectedProjectionFib * (projectionDirection === "BUY" ? 1.0181 : 0.9819) : null;
   return {
     source: "VAULTTRADES_VORTEX_PINE_V12", timeframe, state, direction: trade?.direction ?? "NO TRADE",
     structuralDirection: bullActive ? "BUY" : bearActive ? "SELL" : "NEUTRAL", entryConfirmed: !!active,
-    entry: trade?.entry ?? null, stopLoss: trade?.stopLoss ?? null, tp1: trade?.tp1 ?? null, tp2: trade?.tp2 ?? null,
-    tp3: trade?.tp3 ?? null, tp4: trade?.tp4 ?? null, tp5: trade?.tp5 ?? null, fibLevel: trade?.fibLevel ?? buySetup.pct ?? sellSetup.pct ?? lastFib,
+    entry: trade?.entry ?? selectedProjectionFib, stopLoss: trade?.stopLoss ?? projectedStop,
+    tp1: trade?.tp1 ?? projectedFibTargets[0], tp2: trade?.tp2 ?? projectedFibTargets[1],
+    tp3: trade?.tp3 ?? projectedFibTargets[2], tp4: trade?.tp4 ?? projectedTp4, tp5: trade?.tp5 ?? projectedTp5,
+    fibLevel: trade?.fibLevel ?? buySetup.pct ?? sellSetup.pct ?? lastFib,
     score: active ? lastScore : Math.max(buyScore, sellScore), buyConfluence: buyScore, sellConfluence: sellScore, liquidityTarget: trade?.liquidityTarget ?? lastLiq, orderBlock: trade?.orderBlock ?? lastOb,
     entryTime: trade?.entryTime ?? null, confirmationTime: trade?.confirmationTime ?? lastM5Time, lotSize,
     lotModel: lotSize < 0.05 ? "FULL CLOSE AT TP1" : "FIVE TARGETS · 20% EACH",
@@ -477,7 +492,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     evidence, missingConditions: active ? [] : missing,
     invalidation: `The ${timeframe.toUpperCase()} setup expires after 8 bars or when its structure is invalidated. SL is anchored to the opposing target-OB wick.`,
     statusReason: active ? (lotSize < 0.05 ? "Trade active. This lot size closes fully at TP1." : "Trade active. Five targets are managed progressively in equal 20% tranches.") : setupDeveloping ? `Vortex ${timeframe.toUpperCase()} setup developing. Waiting for the next qualification event.` : closed ? "The previous trade has closed. Waiting for the next qualifying Vortex setup." : missing[0],
-    riskReward: trade ? Math.abs(trade.tp5 - trade.entry) / Math.abs(trade.entry - trade.stopLoss) : null,
+    riskReward: trade ? Math.abs(trade.tp5 - trade.entry) / Math.abs(trade.entry - trade.stopLoss) : projectedStop !== null && selectedProjectionFib !== null && projectedTp5 !== null ? Math.abs(projectedTp5 - selectedProjectionFib) / Math.abs(selectedProjectionFib - projectedStop) : null,
     silver: { available: silver.length > 1, close: sLast?.close ?? null, flow: sFlow, ma: sMa },
     vwap: finalVwap,
   };
