@@ -546,7 +546,7 @@ Return JSON only.`;
       ai = {
         direction: active ? vortexEngine!.direction : "NO TRADE", decision: active ? "TRADE" : "NO TRADE",
         confidence: active ? vortexEngine!.score : 0, marketCondition: context.structure.trend ?? "Market",
-        directionalBias: active ? vortexEngine!.direction : "NEUTRAL", session: "New York Silver Bullet windows",
+        directionalBias: vortexEngine?.structuralDirection ?? "NEUTRAL", session: "All sessions (no Silver Bullet time-window gate)",
         higherTimeframe: "M1, M5 and M15 are evaluated as independent trade engines.", marketStructure: context.structure.trend ?? "Market",
         support: priceLevels.support, resistance: priceLevels.resistance,
         recentPriceAction: vortexEngine?.statusReason ?? "",
@@ -555,7 +555,7 @@ Return JSON only.`;
         pipeline: vortexEngine?.evidence ?? [], nextZone: `${timeframe.toUpperCase()} pullback at 68.1%, 78.6% or 88% with its own timeframe displacement confirmation`,
         invalidation: vortexEngine?.invalidation ?? "", entry: vortexEngine?.entry ?? null,
         stopLoss: vortexEngine?.stopLoss ?? null, tp1: vortexEngine?.tp1 ?? null, tp2: vortexEngine?.tp2 ?? null,
-        finalTp: vortexEngine?.tp3 ?? null, nextAction: vortexEngine?.statusReason ?? "WAIT",
+        finalTp: vortexEngine?.tp5 ?? null, nextAction: vortexEngine?.statusReason ?? "WAIT",
         educationalNote: "VaultTrades Vortex evaluates M1, M5 and M15 as independent strategies. Each timeframe has its own Fib setup, order-block-wick stop, and TP1–TP3 ladder. M1 additionally uses completed M5 displacement confirmation. Default lot is 0.05; 0.01–0.04 closes fully at TP1.",
       };
     } else if (strategyId === "vaulttradesNexus") {
@@ -597,7 +597,7 @@ Return JSON only.`;
     const direction = strategyId === "ema20" ? engineDirection : strategyId === "vortex" ? (vortexEngine?.state === "TRADE ACTIVE" ? vortexEngine.direction : "NO TRADE") : strategyId === "vaulttradesNexus" ? (nexusEngine?.direction ?? "NO TRADE") : strategyId === "srbOb" ? (srbObEngine?.direction ?? "NO TRADE") : strategyId === "lsobr" ? (lsobrEngine?.direction ?? "NO TRADE") : strategyId === "supplyDemand" ? (supplyDemandEngine?.direction ?? "NO TRADE") : ai.direction as Direction;
     const entry = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.entry : null) : strategyId === "vortex" ? (vortexEngine?.state === "TRADE ACTIVE" ? vortexEngine.entry : null) : strategyId === "vaulttradesNexus" ? (nexusEngine?.entry ?? null) : strategyId === "srbOb" ? (srbObEngine?.entry ?? null) : strategyId === "lsobr" ? (lsobrEngine?.entry ?? null) : strategyId === "supplyDemand" ? (supplyDemandEngine?.entry ?? null) : (typeof ai.entry === "number" ? ai.entry : null);
     const stopLoss = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.stopLoss : null) : strategyId === "vortex" ? (vortexEngine?.state === "TRADE ACTIVE" ? vortexEngine.stopLoss : null) : strategyId === "vaulttradesNexus" ? (nexusEngine?.stopLoss ?? null) : strategyId === "srbOb" ? (srbObEngine?.stopLoss ?? null) : strategyId === "lsobr" ? (lsobrEngine?.stopLoss ?? null) : strategyId === "supplyDemand" ? (supplyDemandEngine?.stopLoss ?? null) : (typeof ai.stopLoss === "number" ? ai.stopLoss : null);
-    const finalTp = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.target : null) : strategyId === "vortex" ? (vortexEngine?.state === "TRADE ACTIVE" ? vortexEngine.tp3 : null) : strategyId === "vaulttradesNexus" ? (nexusEngine?.takeProfit ?? null) : strategyId === "srbOb" ? (srbObEngine?.finalTp ?? null) : strategyId === "lsobr" ? (lsobrEngine?.finalTp ?? null) : strategyId === "supplyDemand" ? (supplyDemandEngine?.finalTp ?? null) : (typeof ai.finalTp === "number" ? ai.finalTp : typeof ai.tp2 === "number" ? ai.tp2 : null);
+    const finalTp = strategyId === "ema20" ? (ema20Engine?.state === "TRADE ACTIVE" ? ema20Engine.target : null) : strategyId === "vortex" ? (vortexEngine?.state === "TRADE ACTIVE" ? vortexEngine.tp5 : null) : strategyId === "vaulttradesNexus" ? (nexusEngine?.takeProfit ?? null) : strategyId === "srbOb" ? (srbObEngine?.finalTp ?? null) : strategyId === "lsobr" ? (lsobrEngine?.finalTp ?? null) : strategyId === "supplyDemand" ? (supplyDemandEngine?.finalTp ?? null) : (typeof ai.finalTp === "number" ? ai.finalTp : typeof ai.tp2 === "number" ? ai.tp2 : null);
     const minimumRR = strategyId === "vortex" ? 0.01 : strategyId === "vaulttradesNexus" ? 1.5 : strategyId === "ema20" ? 1.81 : strategyId === "srbOb" ? 0.1 : strategyId === "supplyDemand" ? 0.01 : 2;
     const math = tradeMath(direction, entry, stopLoss, finalTp, liveCurrentPrice, minimumRR, strategyId === "ema20" || strategyId === "supplyDemand" || strategyId === "vaulttradesNexus" || strategyId === "vortex" ? 0 : 0.1, strategyId === "ema20" || strategyId === "supplyDemand" || strategyId === "vaulttradesNexus" || strategyId === "vortex" ? Number.POSITIVE_INFINITY : 0.5);
     const strongSmc = [ai.bos, ai.choch, ai.orderBlock, ai.fvg, ai.liquiditySweep, ai.displacement].filter((x: unknown) => typeof x === "number" && x >= 7).length;
@@ -669,7 +669,7 @@ Return JSON only.`;
       structure: { ...lockedStructure }, volatility: context.volatility,
       strategyEngine: strategyId === "lsobr" ? lsobrEngineEvidence : strategyId === "srbOb" ? srbObEngineEvidence : strategyId === "fibRetracement" ? autoFibEngineEvidence : strategyId === "supplyDemand" ? supplyDemandEngine : nativeEngineOutput,
       scanner: strategyId === "vortex" ? {
-        projectedDirection: vortexEngine?.state === "TRADE ACTIVE" ? vortexEngine.direction : "NO TRADE",
+        projectedDirection: vortexEngine?.structuralDirection === "BUY" ? "BUY" : vortexEngine?.structuralDirection === "SELL" ? "SELL" : "NO TRADE",
         analysisState: vortexEngine?.state === "TRADE ACTIVE" ? "ACTIVE" : vortexEngine?.state === "SETUP DEVELOPING" ? "DEVELOPING" : vortexEngine?.state === "TP HIT" || vortexEngine?.state === "SL HIT" ? "COMPLETED" : "WAITING",
         statusMessage: vortexEngine?.statusReason ?? "Waiting for a valid Vortex setup.",
         cycleStatus: vortexEngine?.state === "TRADE ACTIVE" ? "ACTIVE" : vortexEngine?.state === "SETUP DEVELOPING" ? "SETUP_DEVELOPING" : vortexEngine?.state === "TP HIT" ? "TP_HIT" : vortexEngine?.state === "SL HIT" ? "SL_HIT" : "WAITING",
@@ -678,7 +678,10 @@ Return JSON only.`;
         projectedStopLoss: vortexEngine?.stopLoss ?? null,
         projectedTp1: vortexEngine?.tp1 ?? null,
         projectedTp2: vortexEngine?.tp2 ?? null,
-        projectedFinalTp: vortexEngine?.tp3 ?? null,
+        projectedTp3: vortexEngine?.tp3 ?? null,
+        projectedTp4: vortexEngine?.tp4 ?? null,
+        projectedTp5: vortexEngine?.tp5 ?? null,
+        projectedFinalTp: vortexEngine?.tp5 ?? null,
         stopHit: vortexEngine?.state === "SL HIT",
         entryConfirmation: vortexEngine?.state === "TRADE ACTIVE",
         strategyConditionsMet: vortexEngine?.state === "TRADE ACTIVE",
