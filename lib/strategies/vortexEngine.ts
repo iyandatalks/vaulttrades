@@ -126,7 +126,7 @@ function weeklyVwapSeries(c: VortexCandle[]): VortexVwap[] {
     const lowerInner = value !== null && sd !== null ? value - 1.618 * sd : null;
     const lowerOuter = value !== null && sd !== null ? value - 2.618 * sd : null;
     const prev = i > 0 ? c[i - 1] : null;
-    const prevValue = i > 0 ? out[i - 1].value : null;
+    const prevValue = i > 0 ? out[i - 1]?.value ?? null : null;
     const crossAbove = prev !== null && prevValue !== null && value !== null && prev.close <= prevValue && bar.close > value;
     const crossBelow = prev !== null && prevValue !== null && value !== null && prev.close >= prevValue && bar.close < value;
     const available = value !== null && sd !== null && volume > 0;
@@ -228,7 +228,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
   let buySetup: VortexSetup = newSetup();
   let sellSetup: VortexSetup = newSetup();
   let active: VortexTrade | null = null, closed: VortexTrade | null = null, lastOb: VortexResult["orderBlock"] = null, lastLiq: number | null = null;
-  let buyScore = 0, sellScore = 0, lastScore = 0, evidence: string[] = [], missing = ["Waiting for a confirmed institutional order."], lastFib: number | null = null, lastM5Time: string | null = null;
+  let buyScore = 0, sellScore = 0, lastScore = 0, evidence: string[] = [], missing = ["Waiting for a completed-session liquidity sweep followed by a close-confirmed CHOCH."], lastFib: number | null = null, lastM5Time: string | null = null;
   let m5Pointer = -1, silverPointer = -1, currentDay = "", runningDayHigh = -Infinity, runningDayLow = Infinity, priorHigh: number | null = null, priorLow: number | null = null, priorNySession: { high: number; low: number } | null = null;
   let silverLastHigh: number | null = null, silverPreviousHigh: number | null = null, silverLastLow: number | null = null, silverPreviousLow: number | null = null;
   let activeTargetSessionId = 0, targetActiveHigh: number | null = null, targetActiveLow: number | null = null, targetPreviousHigh: number | null = null, targetPreviousLow: number | null = null;
@@ -423,7 +423,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
       if (targetsValid && (isBuy ? sl < entry : sl > entry)) {
         active = { timeframe, direction: dir, entry, stopLoss: sl, tp1: tps[0], tp2: tps[1], tp3: tps[2], tp4: tps[3], tp5: tps[4], fibLevel: pct, entryTime: new Date(closeTime).toISOString(), confirmationTime: m5b ? new Date(m5b.time + confirmationDurationMs).toISOString() : new Date(closeTime).toISOString(), lotSize, targetHits: [false, false, false, false, false], status: "ACTIVE", orderBlock: ob, liquidityTarget: isBuy ? targetHigher! : targetLower! };
         lastOb = ob; lastLiq = isBuy ? targetHigher : targetLower; lastScore = isBuy ? bScore : sScore; lastFib = pct;
-        evidence = ["Institutional order detected", "Fib pullback selected at " + pct + "%", `${timeframe.toUpperCase()} retest and candle confirmation completed`, `${confirmationTimeframe.toUpperCase()} displacement confirmation passed`, "External liquidity and opposing target OB aligned", "Confluence score " + lastScore + "/100 passed"];
+        evidence = [isBuy ? "Bullish CHOCH confirmed" : "Bearish CHOCH confirmed", isBuy ? "Bullish institutional-order candle confirmed" : "Bearish institutional-order candle confirmed", "Fib pullback selected at " + pct + "%", `${timeframe.toUpperCase()} retest and directional candle confirmation completed`, `${confirmationTimeframe.toUpperCase()} displacement confirmation passed`, "External liquidity target and opposing target OB aligned", "OB-wick stop geometry and 2% risk cap passed", "Normalized confluence score " + lastScore + "/100 passed"];
         missing = [];
         if (isBuy) buySetup = newSetup();
         else sellSetup = newSetup();
@@ -432,8 +432,8 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     if (i === c.length - 1 && !active) {
       if (buySetup.state === 1) missing = ["Bullish institutional order is armed; waiting for the preferred Fib pullback (68.1%, then 78.6%, then 88.0%)."];
       else if (sellSetup.state === 1) missing = ["Bearish institutional order is armed; waiting for the preferred Fib pullback (68.1%, then 78.6%, then 88.0%)."];
-      else if (buySetup.state === 2) missing = [`Bullish Fib pullback touched; waiting for the ${timeframe.toUpperCase()} retest and bullish candle confirmation.`];
-      else if (sellSetup.state === 2) missing = [`Bearish Fib pullback touched; waiting for the ${timeframe.toUpperCase()} retest and bearish candle confirmation.`];
+      else if (buySetup.state === 2) missing = [`Bullish Fib pullback touched; waiting for the ${timeframe.toUpperCase()} retest to hold and a bullish candle close above the prior high.`];
+      else if (sellSetup.state === 2) missing = [`Bearish Fib pullback touched; waiting for the ${timeframe.toUpperCase()} retest to hold and a bearish candle close below the prior low.`];
       else if (buySetup.state === 3) missing = [
         ...(buySetup.fib == null || b.low > buySetup.fib || b.close < buySetup.fib ? [`Waiting for the ${timeframe.toUpperCase()} candle to retest and hold the selected Fib entry.`] : []),
         ...(!m5Bull ? [`Waiting for a completed bullish ${confirmationTimeframe.toUpperCase()} displacement candle.`] : []),
@@ -452,7 +452,9 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
         ...(bearOb && sellStopRiskPct > MAX_STOP_RISK_PCT ? ["Bearish OB stop distance exceeds the Pine 2.0% maximum risk cap."] : []),
         ...(sScore < MIN_SCORE ? ["Bearish confluence is below 60/100."] : []),
       ];
-      else missing = ["Waiting for a confirmed institutional order."];
+      else if (bullActive) missing = ["Bullish CHOCH is confirmed; waiting for the separate bullish institutional-order candle."];
+      else if (bearActive) missing = ["Bearish CHOCH is confirmed; waiting for the separate bearish institutional-order candle."];
+      else missing = ["Waiting for a completed-session liquidity sweep followed by a close-confirmed CHOCH."];
     }
     if (m5b) lastM5Time = new Date(m5b.time + confirmationDurationMs).toISOString();
   }
