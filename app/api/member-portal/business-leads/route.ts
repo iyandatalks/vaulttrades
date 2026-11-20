@@ -13,16 +13,23 @@ async function getAccess() {
   const { data: profile } = await db.from("users").select("id,email,role,referral_code").eq("auth_user_id", user.id).maybeSingle();
   if (!profile) return { response: NextResponse.json({ error: "PROFILE_NOT_FOUND" }, { status: 404 }) };
   if (profile.role !== "admin") {
+    const isPartnerRole = profile.role === "partner" || profile.role === "reseller";
+    const { data: portalOverride } = isPartnerRole
+      ? await db.from("partner_portal_access_overrides").select("decision").eq("auth_user_id", user.id).maybeSingle()
+      : { data: null };
+    const partnerGranted = isPartnerRole && portalOverride?.decision === "grant";
     const { data: licences } = await db.from("product_licenses")
       .select("entitlement_code,start_at,end_at,status")
       .eq("user_id", profile.id).eq("status", "active").in("entitlement_code", MEMBERSHIP_CODES);
     const now = Date.now();
-    const eligible = (licences ?? []).some(row => {
+    const hasMembership = (licences ?? []).some(row => {
       const start = row.start_at ? new Date(row.start_at).getTime() : 0;
       const end = row.end_at ? new Date(row.end_at).getTime() : Number.POSITIVE_INFINITY;
       return Number.isFinite(start) && start <= now && end > now;
     });
-    if (!eligible) return { response: NextResponse.json({ error: "MEMBERSHIP_REQUIRED" }, { status: 403 }) };
+    if (portalOverride?.decision === "revoke" || (!partnerGranted && !hasMembership)) {
+      return { response: NextResponse.json({ error: "PARTNER_PORTAL_ACCESS_REQUIRED" }, { status: 403 }) };
+    }
   }
   if (!profile.referral_code) {
     const referralCode = `VT-${crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase()}`;
