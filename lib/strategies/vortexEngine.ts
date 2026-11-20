@@ -223,8 +223,13 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     vwap: null,
   });
   if (c.length < 300 || m5.length < 30) return empty(`Waiting for sufficient ${timeframe.toUpperCase()} history and completed ${confirmationTimeframe.toUpperCase()} confirmation candles.`);
-  const structurePivotLen = 5;
-  const atr = atrSeries(c), atr5 = atrSeries(m5), m5Levels = periodLevels(m5), silverEma = emaSeries(silver.map(x => x.close), 50), vwapSeries = weeklyVwapSeries(c);
+  const timeframeSeconds: Record<VortexTimeframe, number> = {
+    "1m": 60, "5m": 300, "10m": 600, "15m": 900, "30m": 1800,
+    "1H": 3600, "4H": 14400, "1D": 86400, "1W": 604800, "1M": 2592000,
+  };
+  // Mirrors Pine's autoFibTimeframe/effectivePivotLen default.
+  const structurePivotLen = timeframeSeconds[timeframe] <= 300 ? 5 : timeframeSeconds[timeframe] <= 1800 ? 4 : 3;
+  const atr = atrSeries(c), atr5 = atrSeries(m5), selectedPeriodLevels = periodLevels(c), silverEma = emaSeries(silver.map(x => x.close), 50), vwapSeries = weeklyVwapSeries(c);
   const highs: number[] = [], lows: number[] = [], targetHighs: number[] = [], targetLows: number[] = [];
   const ranges = new Map<string, { asia?: { high: number; low: number }; london?: { high: number; low: number }; ny?: { high: number; low: number }; last: "Asia" | "London" | "New York" }>();
   let bullActive = false, bearActive = false, bullArmed = false, bearArmed = false;
@@ -371,7 +376,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
       lastHigh: silverLastHigh, previousHigh: silverPreviousHigh, lastLow: silverLastLow, previousLow: silverPreviousLow,
       avgVolume: silverPointer >= 19 ? silver.slice(silverPointer - 19, silverPointer + 1).reduce((sum, x) => sum + (x.volume ?? 0), 0) / 20 : null,
     };
-    const pd = { high: priorHigh, low: priorLow, weekHigh: m5i >= 0 ? m5Levels[m5i]?.weekHigh ?? null : null, weekLow: m5i >= 0 ? m5Levels[m5i]?.weekLow ?? null : null };
+    const pd = { high: selectedPeriodLevels[i]?.high ?? priorHigh, low: selectedPeriodLevels[i]?.low ?? priorLow, weekHigh: selectedPeriodLevels[i]?.weekHigh ?? null, weekLow: selectedPeriodLevels[i]?.weekLow ?? null };
     let targetHigher = nearest(targetHighs, b.high, true);
     let targetLower = nearest(targetLows, b.low, false);
     if (targetPreviousHigh != null && targetPreviousHigh > b.high && (targetHigher == null || targetPreviousHigh < targetHigher)) targetHigher = targetPreviousHigh;
