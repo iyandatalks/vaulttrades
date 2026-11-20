@@ -209,9 +209,8 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
   const c = [...input.m1Candles].sort((a, b) => a.time - b.time), m5 = [...input.m5Candles].sort((a, b) => a.time - b.time);
   const silver = [...(input.silverCandles ?? [])].sort((a, b) => a.time - b.time);
   const lotSize = input.lotSize ?? 0.05, tick = input.tickSize ?? 0.01;
-  const timeframe = input.timeframe ?? "1m", barDurationMs = TIMEFRAME_MS[timeframe];
+  const timeframe = input.timeframe ?? "1m";
   const confirmationTimeframe = "5m" as const;
-  const confirmationDurationMs = TIMEFRAME_MS[confirmationTimeframe];
   const empty = (reason: string): VortexResult => ({
     source: "VAULTTRADES_VORTEX_S1_FIB_VWAP_CONFLUENCE", timeframe, state: "WAITING", direction: "NO TRADE",
     structuralDirection: "NEUTRAL", entryConfirmed: false,
