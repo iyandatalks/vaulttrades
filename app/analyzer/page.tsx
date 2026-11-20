@@ -612,7 +612,7 @@ export default function AnalyzerPage() {
             <h2 className="title" style={{ marginBottom: 8 }}>{title}</h2>
             <p className="muted" style={{ marginTop: 0 }}>{active
               ? (strategy === "vortex" ? (lot != null && lot < 0.05 ? "The position remains active until its stop loss or TP1 is reached on a completed candle." : "The position remains active until its stop loss or all five progressive take-profit targets are reached on completed candles.") : (result.strategyEngine?.lifecycleReason ?? "The recorded entry, stop loss and target remain in force until reached on a completed candle."))
-              : strategy === "vortex" && closed ? `Last trade closed at ${closed.status === "TP_HIT" ? "take profit" : "stop loss"}.` : (result.strategyEngine?.lifecycleReason ?? result.strategyEngine?.reason ?? s?.waitReason ?? "Waiting for the next qualifying signal.")}</p>
+              : strategy === "vortex" && closed ? `Last trade closed at ${closed.status === "TP_HIT" ? "take profit" : "stop loss"}.` : (result.strategyEngine?.lifecycleReason ?? result.strategyEngine?.statusReason ?? s?.waitReason ?? "Waiting for the next qualifying signal.")}</p>
             {(active || (strategy === "vortex" && closed)) && direction && entry != null && stop != null && target != null && <>
               <strong style={{ fontSize: 18, color: direction === "BUY" ? "#35c98a" : "#f06b72" }}>{direction} · {active ? "TRADE ACTIVE" : "TRADE CLOSED"}</strong>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8, marginTop: 10 }}>
