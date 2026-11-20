@@ -13,7 +13,7 @@ export type VortexTrade = {
   exitTime?: string; exitPrice?: number;
 };
 export type VortexResult = {
-  source: "VAULTTRADES_VORTEX_PINE_V12"; timeframe: "1m" | "5m" | "15m"; state: "WAITING" | "SETUP DEVELOPING" | "TRADE ACTIVE" | "TP HIT" | "SL HIT";
+  source: "VAULTTRADES_VORTEX_S1_FIB_VWAP_CONFLUENCE"; timeframe: "1m" | "5m" | "15m"; state: "WAITING" | "SETUP DEVELOPING" | "TRADE ACTIVE" | "TP HIT" | "SL HIT";
   direction: VortexDirection | "NO TRADE"; structuralDirection: VortexDirection | "NEUTRAL"; entryConfirmed: boolean;
   entry: number | null; stopLoss: number | null;
   tp1: number | null; tp2: number | null; tp3: number | null; tp4: number | null; tp5: number | null;
@@ -203,7 +203,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
   const confirmationTimeframe = input.confirmationTimeframe ?? (timeframe === "1m" ? "5m" : timeframe);
   const confirmationDurationMs = TIMEFRAME_MS[confirmationTimeframe];
   const empty = (reason: string): VortexResult => ({
-    source: "VAULTTRADES_VORTEX_PINE_V12", timeframe, state: "WAITING", direction: "NO TRADE",
+    source: "VAULTTRADES_VORTEX_S1_FIB_VWAP_CONFLUENCE", timeframe, state: "WAITING", direction: "NO TRADE",
     structuralDirection: "NEUTRAL", entryConfirmed: false,
     entry: null, stopLoss: null, tp1: null, tp2: null, tp3: null, tp4: null, tp5: null, fibLevel: null,
     score: 0, buyConfluence: 0, sellConfluence: 0, liquidityTarget: null, orderBlock: null,
@@ -386,23 +386,32 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
       bearActive && !!sellSetup.ob && !!bearOb && bearOb.top > sellSetup.fib && sScore >= MIN_SCORE;
 
     if (active) {
-      const slHit = active.direction === "BUY" ? b.low <= active.stopLoss : b.high >= active.stopLoss;
-      const targets = [active.tp1, active.tp2, active.tp3, active.tp4, active.tp5];
-      if (slHit) {
+      const isBuy = active.direction === "BUY";
+      const stopTouched = isBuy ? b.low <= active.stopLoss : b.high >= active.stopLoss;
+      const targetList = [active.tp1, active.tp2, active.tp3, active.tp4, active.tp5];
+      const relevantTargets = lotSize < 0.05 ? [active.tp1] : targetList;
+      const anyTargetTouched = relevantTargets.some((target, index) => !active!.targetHits[index] && (isBuy ? b.high >= target : b.low <= target));
+      // Match TradingView's historical OHLC path assumption when a candle spans
+      // both a protective stop and a target: price visits the nearer extreme first.
+      const highFirst = Math.abs(b.open - b.high) < Math.abs(b.open - b.low);
+      const stopWinsCollision = isBuy ? !highFirst : highFirst;
+      if (stopTouched && anyTargetTouched && stopWinsCollision) {
+        active.status = "SL_HIT"; active.exitTime = new Date(closeTime).toISOString(); active.exitPrice = active.stopLoss; closed = active; active = null;
+      } else if (stopTouched && !anyTargetTouched) {
         active.status = "SL_HIT"; active.exitTime = new Date(closeTime).toISOString(); active.exitPrice = active.stopLoss; closed = active; active = null;
       } else if (lotSize < 0.05) {
-        if (!active.targetHits[0] && (active.direction === "BUY" ? b.high >= active.tp1 : b.low <= active.tp1)) {
+        if (!active.targetHits[0] && (isBuy ? b.high >= active.tp1 : b.low <= active.tp1)) {
           active.targetHits[0] = true; active.status = "TP_HIT"; active.exitTime = new Date(closeTime).toISOString(); active.exitPrice = active.tp1; closed = active; active = null;
         }
       } else {
-        for (let targetIndex = 0; targetIndex < targets.length; targetIndex++) {
+        for (let targetIndex = 0; targetIndex < targetList.length; targetIndex++) {
           if (active.targetHits[targetIndex]) continue;
-          const targetPrice = targets[targetIndex];
-          const hit = active.direction === "BUY" ? b.high >= targetPrice : b.low <= targetPrice;
+          const targetPrice = targetList[targetIndex];
+          const hit = isBuy ? b.high >= targetPrice : b.low <= targetPrice;
           if (hit) active.targetHits[targetIndex] = true;
         }
         if (active.targetHits.every(Boolean)) {
-          active.status = "TP_HIT"; active.exitTime = new Date(closeTime).toISOString(); active.exitPrice = active.tp3; closed = active; active = null;
+          active.status = "TP_HIT"; active.exitTime = new Date(closeTime).toISOString(); active.exitPrice = active.tp5; closed = active; active = null;
         }
       }
     }
@@ -474,7 +483,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
   const projectedTp4 = selectedProjectionFib !== null ? selectedProjectionFib * (projectionDirection === "BUY" ? 1.015 : 0.985) : null;
   const projectedTp5 = selectedProjectionFib !== null ? selectedProjectionFib * (projectionDirection === "BUY" ? 1.0181 : 0.9819) : null;
   return {
-    source: "VAULTTRADES_VORTEX_PINE_V12", timeframe, state, direction: trade?.direction ?? "NO TRADE",
+    source: "VAULTTRADES_VORTEX_S1_FIB_VWAP_CONFLUENCE", timeframe, state, direction: trade?.direction ?? "NO TRADE",
     structuralDirection: bullActive ? "BUY" : bearActive ? "SELL" : "NEUTRAL", entryConfirmed: !!active,
     entry: trade?.entry ?? selectedProjectionFib, stopLoss: trade?.stopLoss ?? projectedStop,
     tp1: trade?.tp1 ?? projectedFibTargets[0], tp2: trade?.tp2 ?? projectedFibTargets[1],
