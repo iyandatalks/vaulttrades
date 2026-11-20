@@ -62,7 +62,7 @@ type LockedTrade = {
   liquidityTarget: number | null;
 };
 
-type VortexEngineView = { timeframe?: string; state?: string; direction?: string; entry?: number | null; stopLoss?: number | null; tp1?: number | null; tp2?: number | null; tp3?: number | null; score?: number; fibLevel?: number | null; lotSize?: number; lotModel?: string; targetHits?: boolean[]; orderBlock?: { direction: string; top: number; bottom: number } | null; statusReason?: string; missingConditions?: string[]; };
+type VortexEngineView = { timeframe?: string; state?: string; direction?: string; entry?: number | null; stopLoss?: number | null; tp1?: number | null; tp2?: number | null; tp3?: number | null; tp4?: number | null; tp5?: number | null; entryTime?: string | null; exitTime?: string; exitPrice?: number; score?: number; fibLevel?: number | null; lotSize?: number; lotModel?: string; targetHits?: boolean[]; orderBlock?: { direction: string; top: number; bottom: number } | null; statusReason?: string; missingConditions?: string[]; latestClosedTrade?: { direction: string; entry: number; stopLoss: number; tp1: number; tp2: number; tp3: number; tp4: number; tp5: number; entryTime: string; exitTime?: string; exitPrice?: number; status: string } | null; openTrade?: { direction: string; entry: number; stopLoss: number; tp1: number; tp2: number; tp3: number; tp4: number; tp5: number; entryTime: string; targetHits: boolean[]; lotSize: number } | null; };
 
 type Result = {
   dataSource?: string;
@@ -515,7 +515,6 @@ export default function AnalyzerPage() {
     {result && <>
       {strategy === "vortex" && result.timeframeEngines && <section className="card">
         <div className="section-label">INDEPENDENT VORTEX TIMEFRAME ENGINES</div>
-        <p className="muted" style={{ marginTop: 0 }}>Each timeframe evaluates its own candles, Fib retracement, order block, entry, stop loss and TP1–TP3. A position on one timeframe does not suppress a signal on another.</p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 12 }}>
           {(["1m", "5m", "15m"] as const).map(tf => {
             const engine = result.timeframeEngines?.[tf];
@@ -591,19 +590,53 @@ export default function AnalyzerPage() {
         </>}
       </section> : <section className="card execution-card" style={{ border: "1px solid rgba(212,166,55,.28)", background: "linear-gradient(145deg, rgba(10,16,30,.98), rgba(5,8,18,.98))" }}>
         <div className="section-label">TRADE STATUS</div>
-        <h2 className="title" style={{ marginBottom: 12 }}>{scannerStatus}</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10, marginTop: 12 }}>
-          <PriceLevel label="ENTRY" value={scannerEntry} kind="entry" symbol={symbol} />
-          <PriceLevel label="STOP LOSS" value={scannerStop} kind="sl" symbol={symbol} />
-          <PriceLevel label="TAKE PROFIT" value={scannerTp1} kind="tp" symbol={symbol} />
-        </div>
-        {scannerEntry != null && scannerStop != null && scannerTp1 != null && s?.cycleStatus === "ACTIVE" && <div style={{ marginTop: 16 }}>
-          <button className="primary" type="button" onClick={() => openRiskManager()}>Calculate Lot Size</button>
-        </div>}
+        {(() => {
+          const v = strategy === "vortex" ? result.strategyEngine : null;
+          const open = strategy === "vortex" ? v?.openTrade : null;
+          const closed = strategy === "vortex" ? v?.latestClosedTrade : null;
+          const active = strategy === "vortex" ? !!open : strategy === "ema20" ? tradeIsRunning : false;
+          const direction = strategy === "vortex" ? (open?.direction ?? closed?.direction ?? v?.direction) : (result.strategyEngine?.signal ?? displayDirection);
+          const entry = strategy === "vortex" ? (open?.entry ?? closed?.entry ?? scannerEntry) : scannerEntry;
+          const stop = strategy === "vortex" ? (open?.stopLoss ?? closed?.stopLoss ?? scannerStop) : scannerStop;
+          const lot = strategy === "vortex" ? (open?.lotSize ?? v?.lotSize ?? 0.05) : null;
+          const target = strategy === "vortex" ? (lot != null && lot < 0.05 ? (open?.tp1 ?? closed?.tp1 ?? v?.tp1) : (open?.tp5 ?? closed?.tp5 ?? v?.tp5)) : scannerTp1;
+          const current = Number(result.market?.currentPrice);
+          const hasCurrent = Number.isFinite(current);
+          const move = hasCurrent && entry != null && direction ? (direction === "BUY" ? current - entry : entry - current) : null;
+          const toTarget = hasCurrent && target != null && direction ? (direction === "BUY" ? target - current : current - target) : null;
+          const toStop = hasCurrent && stop != null && direction ? (direction === "BUY" ? current - stop : stop - current) : null;
+          const title = active ? "TRADE ACTIVE" : strategy === "vortex" && closed ? (closed.status === "TP_HIT" ? "TAKE PROFIT HIT" : "STOP LOSS HIT") : scannerStatus;
+          const entryTime = strategy === "vortex" ? (open?.entryTime ?? closed?.entryTime) : result.strategyEngine?.entryTime;
+          const targetLabel = strategy === "vortex" && lot != null && lot >= 0.05 ? "FINAL TAKE PROFIT" : "TAKE PROFIT";
+          return <>
+            <h2 className="title" style={{ marginBottom: 8 }}>{title}</h2>
+            <p className="muted" style={{ marginTop: 0 }}>{active
+              ? (strategy === "vortex" ? (lot != null && lot < 0.05 ? "The position remains active until its stop loss or TP1 is reached on a completed candle." : "The position remains active until its stop loss or all five progressive take-profit targets are reached on completed candles.") : (result.strategyEngine?.lifecycleReason ?? "The recorded entry, stop loss and target remain in force until reached on a completed candle."))
+              : strategy === "vortex" && closed ? `Last trade closed at ${closed.status === "TP_HIT" ? "take profit" : "stop loss"}.` : (result.strategyEngine?.lifecycleReason ?? result.strategyEngine?.reason ?? s?.waitReason ?? "Waiting for the next qualifying signal.")}</p>
+            {(active || (strategy === "vortex" && closed)) && direction && entry != null && stop != null && target != null && <>
+              <strong style={{ fontSize: 18, color: direction === "BUY" ? "#35c98a" : "#f06b72" }}>{direction} · {active ? "TRADE ACTIVE" : "TRADE CLOSED"}</strong>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8, marginTop: 10 }}>
+                <PriceLevel label="ENTRY" value={entry} kind="entry" symbol={symbol} />
+                <PriceLevel label="STOP LOSS" value={stop} kind="sl" symbol={symbol} />
+                <PriceLevel label={targetLabel} value={target} kind="tp" symbol={symbol} />
+              </div>
+              <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>Signal date: {entryTime ? new Date(entryTime).toLocaleDateString() : "—"} · Entry time: {entryTime ? new Date(entryTime).toLocaleString() : "—"}</div>
+              {active && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(125px,1fr))", gap: 8, marginTop: 10 }}>
+                <div className="condition-box"><strong>CURRENT PRICE</strong><div style={{ marginTop: 5 }}>{hasCurrent ? fmt(current, symbol) : "Unavailable"}</div></div>
+                <div className="condition-box"><strong>MOVE FROM ENTRY</strong><div style={{ marginTop: 5 }}>{move == null ? "—" : (move > 0 ? "+" : "") + fmt(move, symbol)}</div></div>
+                <div className="condition-box"><strong>DISTANCE TO TP</strong><div style={{ marginTop: 5 }}>{toTarget == null ? "—" : fmt(toTarget, symbol)}</div></div>
+                <div className="condition-box"><strong>DISTANCE TO SL</strong><div style={{ marginTop: 5 }}>{toStop == null ? "—" : fmt(toStop, symbol)}</div></div>
+              </div>}
+              {!active && strategy === "vortex" && <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>Exit time: {closed?.exitTime ? new Date(closed.exitTime).toLocaleString() : "—"} · Exit price: {fmt(closed?.exitPrice, symbol)}</div>}
+              {active && <button className="primary" type="button" style={{ marginTop: 12 }} onClick={() => openRiskManager({ direction: direction as "BUY" | "SELL", entry, stopLoss: stop, takeProfit: target })}>Calculate Lot Size</button>}
+            </>}
+            {!active && !(strategy === "vortex" && closed) && <p className="muted" style={{ marginBottom: 0 }}>No active position. {scannerReason[0]}</p>}
+          </>;
+        })()}
       </section>}
       {strategy === "vortex" && result.strategyEngine && <section className="card">
         <div className="section-label">VORTEX FIB / TARGET LADDER</div>
-        <div className="muted" style={{ marginBottom: 10 }}>Independent {String(result.strategyEngine.timeframe ?? timeframe).toUpperCase()} engine · M1 additionally confirms with M5 displacement · Entry Fib {result.strategyEngine.fibLevel == null ? "—" : result.strategyEngine.fibLevel + "%"} · Feed: {result.dataSource ?? "Market provider"}</div>
+        <div className="muted" style={{ marginBottom: 10 }}>Entry Fib {result.strategyEngine.fibLevel == null ? "—" : result.strategyEngine.fibLevel + "%"} · Feed: {result.dataSource ?? "Market provider"}</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(110px,1fr))", gap: 9 }}>
           {[
             ["TP1", result.strategyEngine.tp1, 0], ["TP2", result.strategyEngine.tp2, 1], ["TP3", result.strategyEngine.tp3, 2],
