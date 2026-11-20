@@ -32,7 +32,6 @@ const TP_FIBS = [38.2, 0, -23.6];
 const TIMEFRAME_MS = { "1m": 60_000, "5m": 300_000, "15m": 900_000 } as const;
 const RETEST_BARS = 8;
 const MIN_SCORE = 60;
-const MAX_STOP_RISK_PCT = 2.0;
 const PIVOT = 5;
 const NY = "America/New_York";
 
@@ -379,14 +378,12 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     const bScore = (activeBuyReady || buySetup.state > 0) ? confluence(1, c, i, buyFib(setupBuyTop, setupBuyBottom, 68.1), buyFib(setupBuyTop, setupBuyBottom, 88), bullActive, pd, silverContext, vwapNow).score : 0;
     const sScore = (activeSellReady || sellSetup.state > 0) ? confluence(-1, c, i, sellFib(setupSellTop, setupSellBottom, 68.1), sellFib(setupSellTop, setupSellBottom, 88), bearActive, pd, silverContext, vwapNow).score : 0;
     buyScore = bScore; sellScore = sScore;
-    const buyStopRiskPct = buySetup.fib != null && bullOb ? Math.abs(buySetup.fib - (bullOb.bottom - tick)) / buySetup.fib * 100 : Infinity;
-    const sellStopRiskPct = sellSetup.fib != null && bearOb ? Math.abs((bearOb.top + tick) - sellSetup.fib) / sellSetup.fib * 100 : Infinity;
     const buyValid = buySetup.state === 3 && buySetup.fib != null && buySetup.start !== null && buySetup.end !== null &&
       b.low <= buySetup.fib && b.close >= buySetup.fib && m5Bull && targetHigher != null && targetHigher > buySetup.fib &&
-      bullActive && !!buySetup.ob && !!bullOb && bullOb.bottom < buySetup.fib && buyStopRiskPct <= MAX_STOP_RISK_PCT && bScore >= MIN_SCORE;
+      bullActive && !!buySetup.ob && !!bullOb && bullOb.bottom < buySetup.fib && bScore >= MIN_SCORE;
     const sellValid = sellSetup.state === 3 && sellSetup.fib != null && sellSetup.start !== null && sellSetup.end !== null &&
       b.high >= sellSetup.fib && b.close <= sellSetup.fib && m5Bear && targetLower != null && targetLower < sellSetup.fib &&
-      bearActive && !!sellSetup.ob && !!bearOb && bearOb.top > sellSetup.fib && sellStopRiskPct <= MAX_STOP_RISK_PCT && sScore >= MIN_SCORE;
+      bearActive && !!sellSetup.ob && !!bearOb && bearOb.top > sellSetup.fib && sScore >= MIN_SCORE;
 
     if (active) {
       const slHit = active.direction === "BUY" ? b.low <= active.stopLoss : b.high >= active.stopLoss;
@@ -423,7 +420,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
       if (targetsValid && (isBuy ? sl < entry : sl > entry)) {
         active = { timeframe, direction: dir, entry, stopLoss: sl, tp1: tps[0], tp2: tps[1], tp3: tps[2], tp4: tps[3], tp5: tps[4], fibLevel: pct, entryTime: new Date(closeTime).toISOString(), confirmationTime: m5b ? new Date(m5b.time + confirmationDurationMs).toISOString() : new Date(closeTime).toISOString(), lotSize, targetHits: [false, false, false, false, false], status: "ACTIVE", orderBlock: ob, liquidityTarget: isBuy ? targetHigher! : targetLower! };
         lastOb = ob; lastLiq = isBuy ? targetHigher : targetLower; lastScore = isBuy ? bScore : sScore; lastFib = pct;
-        evidence = [isBuy ? "Bullish CHOCH confirmed" : "Bearish CHOCH confirmed", isBuy ? "Bullish institutional-order candle confirmed" : "Bearish institutional-order candle confirmed", "Fib pullback selected at " + pct + "%", `${timeframe.toUpperCase()} retest and directional candle confirmation completed`, `${confirmationTimeframe.toUpperCase()} displacement confirmation passed`, "External liquidity target and opposing target OB aligned", "OB-wick stop geometry and 2% risk cap passed", "Normalized confluence score " + lastScore + "/100 passed"];
+        evidence = [isBuy ? "Bullish CHOCH confirmed" : "Bearish CHOCH confirmed", isBuy ? "Bullish institutional-order candle confirmed" : "Bearish institutional-order candle confirmed", "Fib pullback selected at " + pct + "%", `${timeframe.toUpperCase()} retest and directional candle confirmation completed`, `${confirmationTimeframe.toUpperCase()} displacement confirmation passed`, "External liquidity target and opposing target OB aligned", "OB-wick stop geometry passed", "Normalized confluence score " + lastScore + "/100 passed"];
         missing = [];
         if (isBuy) buySetup = newSetup();
         else sellSetup = newSetup();
@@ -440,7 +437,6 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
         ...(targetHigher == null || buySetup.fib == null || targetHigher <= buySetup.fib ? ["No valid higher-liquidity target above the selected Fib entry."] : []),
         ...(!bullOb ? ["Waiting for the bullish target order block below lower liquidity."] : []),
         ...(bullOb && buySetup.fib != null && bullOb.bottom >= buySetup.fib ? ["Bullish target OB is not below the selected Fib entry."] : []),
-        ...(bullOb && buyStopRiskPct > MAX_STOP_RISK_PCT ? ["Bullish OB stop distance exceeds the Pine 2.0% maximum risk cap."] : []),
         ...(bScore < MIN_SCORE ? ["Bullish confluence is below 60/100."] : []),
       ];
       else if (sellSetup.state === 3) missing = [
@@ -449,7 +445,6 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
         ...(targetLower == null || sellSetup.fib == null || targetLower >= sellSetup.fib ? ["No valid lower-liquidity target below the selected Fib entry."] : []),
         ...(!bearOb ? ["Waiting for the bearish target order block above higher liquidity."] : []),
         ...(bearOb && sellSetup.fib != null && bearOb.top <= sellSetup.fib ? ["Bearish target OB is not above the selected Fib entry."] : []),
-        ...(bearOb && sellStopRiskPct > MAX_STOP_RISK_PCT ? ["Bearish OB stop distance exceeds the Pine 2.0% maximum risk cap."] : []),
         ...(sScore < MIN_SCORE ? ["Bearish confluence is below 60/100."] : []),
       ];
       else if (bullActive) missing = ["Bullish CHOCH is confirmed; waiting for the separate bullish institutional-order candle."];
