@@ -705,7 +705,7 @@ Return JSON only.`;
       structure: { ...lockedStructure }, volatility: context.volatility,
       strategyEngine: strategyId === "vortex" ? vortexEngine : strategyId === "lsobr" ? lsobrEngineEvidence : strategyId === "srbOb" ? srbObEngineEvidence : strategyId === "fibRetracement" ? autoFibEngineEvidence : strategyId === "supplyDemand" ? supplyDemandEngine : nativeEngineOutput,
       scanner: strategyId === "vortex" ? {
-        projectedDirection: vortexEngine?.structuralDirection === "BUY" ? "BUY" : vortexEngine?.structuralDirection === "SELL" ? "SELL" : "NO TRADE",
+        projectedDirection: vortexEngine?.plannedDirection ?? "NO TRADE",
         analysisState: vortexEngine?.state === "TRADE ACTIVE" ? "ACTIVE" : vortexEngine?.state === "SETUP DEVELOPING" ? "DEVELOPING" : vortexEngine?.state === "TP HIT" || vortexEngine?.state === "SL HIT" ? "COMPLETED" : "WAITING",
         statusMessage: vortexEngine?.statusReason ?? "Waiting for a valid Vortex setup.",
         cycleStatus: vortexEngine?.state === "TRADE ACTIVE" ? "ACTIVE" : vortexEngine?.state === "SETUP DEVELOPING" ? "SETUP_DEVELOPING" : vortexEngine?.state === "TP HIT" ? "TP_HIT" : vortexEngine?.state === "SL HIT" ? "SL_HIT" : "WAITING",
