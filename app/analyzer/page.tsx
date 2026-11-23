@@ -587,7 +587,7 @@ export default function AnalyzerPage() {
             : [];
           const highestTargetHit = targetHits.lastIndexOf(true);
           const vortexStatus = active
-            ? highestTargetHit >= 0 ? `TP${highestTargetHit + 1} HIT · ACTIVE` : "ACTIVE"
+            ? highestTargetHit >= 0 ? `TP${highestTargetHit + 1} HIT` : "ACTIVE"
             : closed ? closed.status === "TP_HIT" ? (lot != null && lot < 0.05 ? "TP1 HIT" : "TP5 HIT") : "SL HIT"
             : "WAIT";
           const title = strategy === "vortex" ? vortexStatus : active ? "TRADE ACTIVE" : scannerStatus;
