@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import "./start.css";
+import VaultTradesFaq from "../VaultTradesFaq";
 
 export default function StartPage() {
   const router = useRouter();
@@ -183,6 +184,7 @@ export default function StartPage() {
           <p className="vts-memberships-note">Choose the package based on the products and support you want included. Payments and access remain subject to verification. Trading involves risk; no trading or business income is guaranteed.</p>
         </div>
       </section>
+      <VaultTradesFaq />
       <section className="vts-disclaimer"><strong>Important:</strong> Trading involves risk and losses are possible. No trading profits, business income or reseller commissions are guaranteed. Take time to understand the opportunity and its terms before making a decision.</section>
     </main>
   );

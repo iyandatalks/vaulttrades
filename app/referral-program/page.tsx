@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import VaultTradesFaq from "../VaultTradesFaq";
 import { useEffect, useMemo, useState } from "react";
 
 type ReferralInfo = { enabled?: boolean; code?: string | null; url?: string | null };
@@ -105,6 +106,7 @@ export default function ReferralProgramPage() {
         </div>
       </section>
 
+      <VaultTradesFaq />
       <section className="vt-referral-final-cta"><div className="vt-referral-kicker">START WITH YOUR NETWORK</div><h2>Share a product you believe in.</h2><p>Join VaultTrades, explore the programme and use your personal referral tools when your account is eligible.</p>{memberLinkActive ? <div className="vt-referral-final-actions"><button className="vt-referral-primary" onClick={copyLink}>{copied ? "LINK COPIED" : "COPY YOUR REFERRAL LINK"} ↗</button><Link className="vt-referral-secondary" href="/referral-vault">Open Referral Vault</Link></div> : <div className="vt-referral-final-actions"><Link className="vt-referral-primary" href={authenticated ? "/referral-vault" : "/auth/register?next=%2Fprofile"}>{authenticated ? "CHECK REFERRAL ELIGIBILITY" : "CREATE YOUR ACCOUNT"} ↗</Link><Link className="vt-referral-secondary" href="/products">Explore Products</Link></div>}</section>
       <div className="vt-referral-disclaimer">Referral commissions are conditional on eligible product purchases and programme rules. Illustrative calculator figures are not guaranteed income, actual earnings, financial advice or a promise of future results. Trading involves risk, and no VaultTrades product guarantees profits.</div>
     </main>

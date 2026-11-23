@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import PartnerNetworkSection from "./PartnerNetworkSection";
+import VaultTradesFaq from "./VaultTradesFaq";
 
 const products = [
   { number: "01", name: "VaultTrades Analyzer", type: "MARKET ANALYSIS", description: "A structured analysis environment built around market context, strategy conditions and disciplined trade planning.", detail: "For traders who want a defined process before considering execution.", href: "/contact-partner", action: "Explore Analyzer access", visual: "analyzer" },
@@ -130,6 +131,7 @@ export default function HomePage() {
       </section>
 
       
+      <VaultTradesFaq />
     </main>
   );
 }

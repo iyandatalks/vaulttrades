@@ -1,5 +1,6 @@
 import Link from "next/link";
 import "./plans.css";
+import VaultTradesFaq from "../VaultTradesFaq";
 
 const plans = [
   {
@@ -87,6 +88,7 @@ export default function PlansPage() {
         <h2>Before you get started</h2>
         <p>All package and setup payments are once-off. Personal website setup is $39; choosing or connecting a personalised domain is optional.</p>
       </section>
+      <VaultTradesFaq />
     </main>
   );
 }

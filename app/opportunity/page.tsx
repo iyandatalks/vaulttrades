@@ -1,5 +1,6 @@
 import "./opportunity.css";
 import OpportunityIncomeSection from "./OpportunityIncomeSection";
+import VaultTradesFaq from "../VaultTradesFaq";
 import Link from "next/link";
 
 const stages = [
@@ -16,16 +17,6 @@ const learningSteps = [
   ["CONNECT", "Learn how to communicate value, build relationships and grow a network."],
   ["EXPAND", "Explore selected digital products and external affiliate opportunities."],
   ["SCALE", "Develop your skills and build consistently over time, without relying on quick-result promises."],
-];
-
-const faqs = [
-  ["Do I need trading experience?", "You can begin by learning the foundations, but trading requires study, practice and risk awareness. No experience does not mean no learning is required."],
-  ["Will automated trading generate income every day?", "No. Automation can execute a defined strategy, but it cannot guarantee a trading opportunity, a winning trade or daily income. Trading can result in losses."],
-  ["Is this only about trading?", "No. The wider opportunity also includes membership, selected digital products, learning and a scaling affiliate pathway. The options available depend on the membership selected."],
-  ["Can I access individual digital products?", "Selected products may be available independently for people who want a particular capability without joining the wider membership ecosystem. Availability and terms are shown with the relevant product."],
-  ["How does the membership opportunity work?", "Membership gives access to a defined set of benefits and may include eligibility for participation in the wider network. Any applicable commissions, qualifying conditions and payment terms are explained before a person joins."],
-  ["Are trading returns or commissions guaranteed?", "No. Trading outcomes vary and losses are possible. Any commission depends on qualifying activity and the applicable terms. No income level or number of sales is promised."],
-  ["Are brokers and proprietary trading firms part of VaultTrades?", "No. Brokers and proprietary trading firms are independent third parties. Their services are subject to their own terms and conditions."],
 ];
 
 const resultStages = [
@@ -222,10 +213,7 @@ export default function OpportunityPage() {
         </div>
       </section>
 
-      <section className="vto-container vto-section vto-faq">
-        <div className="vto-section-heading"><div className="vto-kicker">CLEAR ANSWERS BEFORE YOU DECIDE</div><h2>Frequently asked questions.</h2></div>
-        <div className="vto-faq-list">{faqs.map(([question, answer]) => (<details key={question}><summary>{question}<span>+</span></summary><p>{answer}</p></details>))}</div>
-      </section>
+      <VaultTradesFaq />
 
       <section className="vto-final">
         <div className="vto-container">
