@@ -628,7 +628,7 @@ export default function AnalyzerPage() {
                 <div className="condition-box"><strong>DISTANCE TO TP</strong><div style={{ marginTop: 5 }}>{toTarget == null ? "—" : fmt(toTarget, symbol)}</div></div>
                 <div className="condition-box"><strong>DISTANCE TO SL</strong><div style={{ marginTop: 5 }}>{toStop == null ? "—" : fmt(toStop, symbol)}</div></div>
               </div>}
-              {active && strategy !== "vortex" && <button className="primary" type="button" style={{ marginTop: 12 }} onClick={() => openRiskManager({ direction: direction as "BUY" | "SELL", entry, stopLoss: stop, takeProfit: target! })}>Calculate Lot Size</button>}
+              {active && strategy !== "vortex" && <button className="primary" type="button" style={{ marginTop: 12 }} onClick={() => openRiskManager({ direction: direction as "BUY" | "SELL", entry: entry!, stopLoss: stop!, takeProfit: target! })}>Calculate Lot Size</button>}
             </>}
             {!active && !(strategy === "vortex" && closed) && strategy !== "vortex" && <p className="muted" style={{ marginBottom: 0 }}>No active position. {scannerReason[0]}</p>}
           </>;
