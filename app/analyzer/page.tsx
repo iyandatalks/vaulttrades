@@ -62,7 +62,7 @@ type LockedTrade = {
   liquidityTarget: number | null;
 };
 
-type VortexEngineView = { timeframe?: string; state?: string; direction?: string; entry?: number | null; stopLoss?: number | null; tp1?: number | null; tp2?: number | null; tp3?: number | null; tp4?: number | null; tp5?: number | null; entryTime?: string | null; exitTime?: string; exitPrice?: number; score?: number; fibLevel?: number | null; lotSize?: number; lotModel?: string; targetHits?: boolean[]; orderBlock?: { direction: string; top: number; bottom: number } | null; statusReason?: string; missingConditions?: string[]; latestClosedTrade?: { direction: string; entry: number; stopLoss: number; tp1: number; tp2: number; tp3: number; tp4: number; tp5: number; entryTime: string; exitTime?: string; exitPrice?: number; status: string } | null; openTrade?: { direction: string; entry: number; stopLoss: number; tp1: number; tp2: number; tp3: number; tp4: number; tp5: number; entryTime: string; targetHits: boolean[]; lotSize: number } | null; };
+type VortexEngineView = { timeframe?: string; state?: string; direction?: string; structuralDirection?: string; entry?: number | null; stopLoss?: number | null; tp1?: number | null; tp2?: number | null; tp3?: number | null; tp4?: number | null; tp5?: number | null; entryTime?: string | null; exitTime?: string; exitPrice?: number; score?: number; fibLevel?: number | null; lotSize?: number; lotModel?: string; targetHits?: boolean[]; orderBlock?: { direction: string; top: number; bottom: number } | null; statusReason?: string; missingConditions?: string[]; latestClosedTrade?: { direction: string; entry: number; stopLoss: number; tp1: number; tp2: number; tp3: number; tp4: number; tp5: number; entryTime: string; exitTime?: string; exitPrice?: number; status: string } | null; openTrade?: { direction: string; entry: number; stopLoss: number; tp1: number; tp2: number; tp3: number; tp4: number; tp5: number; entryTime: string; targetHits: boolean[]; lotSize: number } | null; };
 
 type Result = {
   dataSource?: string;
@@ -440,15 +440,19 @@ export default function AnalyzerPage() {
   };
   const scannerTp2 = (strategy === "srbOb" || strategy === "lsobr") ? null : projectedTp2;
   const vortexView = result?.strategyEngine;
-  const vortexChartLevels = strategy === "vortex" && vortexView?.state === "TRADE ACTIVE" && typeof vortexView.entry === "number" && typeof vortexView.stopLoss === "number"
+  const vortexChartDirection = vortexView?.openTrade?.direction ??
+    (vortexView?.structuralDirection === "BUY" || vortexView?.structuralDirection === "SELL" ? vortexView.structuralDirection : null);
+  const vortexChartLevels = strategy === "vortex" && vortexChartDirection && typeof vortexView?.entry === "number" && typeof vortexView.stopLoss === "number"
     ? {
-        direction: vortexView.direction ?? "BUY",
+        direction: vortexChartDirection,
         levels: [
           { label: "ENTRY", price: vortexView.entry, kind: "ENTRY" as const },
           { label: "SL", price: vortexView.stopLoss, kind: "SL" as const },
           { label: "TP1", price: vortexView.tp1, kind: "TP" as const },
           { label: "TP2", price: vortexView.tp2, kind: "TP" as const },
           { label: "TP3", price: vortexView.tp3, kind: "TP" as const },
+          { label: "TP4", price: vortexView.tp4, kind: "TP" as const },
+          { label: "TP5", price: vortexView.tp5, kind: "TP" as const },
         ].filter((level): level is { label: string; price: number; kind: "ENTRY" | "SL" | "TP" } => typeof level.price === "number"),
       }
     : null;
