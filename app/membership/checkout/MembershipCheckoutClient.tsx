@@ -110,7 +110,7 @@ export default function MembershipCheckoutClient({ planCode, plan, email, resell
     </section>
 
     <section className="vt-checkout-section">
-      <div className="vt-checkout-section-heading"><span className="vt-checkout-section-number">1</span><div><h2>Pay partner membership fee</h2><p>Pay the partner membership fee using the button below. After payment, return here and confirm the payment details.</p></div></div>
+      <div className="vt-checkout-section-heading"><span className="vt-checkout-section-number">1</span><div><h2>Pay partner payment</h2><p>Pay the partner payment using the button below. After payment, return here and confirm the payment details.</p></div></div>
       {partnerPaymentUrl
         ? <a className="vt-checkout-pay" href={partnerPaymentUrl} target="_blank" rel="noreferrer">{"Pay partner · $" + MRR[planCode].toFixed(2) + " USD"}</a>
         : <div className="vt-checkout-pending"><strong>Partner payment link unavailable</strong><span>Please reopen this checkout using the purchase link supplied by your partner.</span></div>}
@@ -121,7 +121,7 @@ export default function MembershipCheckoutClient({ planCode, plan, email, resell
     <section className="vt-checkout-section vt-checkout-declaration">
       <div className="vt-checkout-section-heading"><span className="vt-checkout-section-number">1A</span><div><h2>Confirm your partner payment</h2><p>After paying your partner above, submit the details here. Your partner will independently check PayPal and confirm receipt.</p></div></div>
       {declarationSubmitted
-        ? <div className="vt-checkout-pending"><strong>{resellerConfirmed ? "Partner payment confirmed" : "Partner payment declaration received"}</strong><span>{resellerConfirmed ? "Your partner has confirmed receipt." : "Your declaration is recorded. Your partner still needs to confirm that the membership payment was received. This does not require another payment from you."}</span></div>
+        ? <div className="vt-checkout-pending"><strong>{resellerConfirmed ? "Partner payment confirmed" : "Partner payment declaration received"}</strong><span>{resellerConfirmed ? "Your partner has confirmed receipt." : "Your declaration is recorded. Your partner still needs to confirm that the partner payment was received. This does not require another payment from you."}</span></div>
         : isAuthenticated
           ? <form className="vt-checkout-form" onSubmit={submitCheckout}>
               <label>Actual amount paid (USD)<input required type="number" min="0.01" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} /></label>
@@ -148,8 +148,8 @@ export default function MembershipCheckoutClient({ planCode, plan, email, resell
     <section className="vt-checkout-section">
       <div className="vt-checkout-section-heading"><span className="vt-checkout-section-number">3</span><div><h2>Setup your page</h2><p>Complete both setup payments below: your selected digital product setup and your VaultTrades website setup.</p></div></div>
       <p className="vt-checkout-note"><strong>Important:</strong> Use the same PayPal email address as your VaultTrades profile so PayPal can match your setup payment to this order.</p>
-      <div className="vt-checkout-addon"><span><strong>{plan.eaName} · digital product setup</strong><small>{statuses?.eaSetupPaid ? "Payment verified by VaultTrades." : "Awaiting PayPal verification."}</small></span><b>{statuses?.eaSetupPaid ? "Verified ✓" : "$" + DIGITAL_SETUP[planCode].toFixed(2) + " USD"}</b></div>
-      {!statuses?.eaSetupPaid && <a className="vt-checkout-pay" href={DIGITAL_SETUP_PAYPAL[planCode]} target="_blank" rel="noreferrer">{"Pay digital product setup · $" + EA[planCode].toFixed(2) + " USD"}</a>}
+      <div className="vt-checkout-addon"><span><strong>{plan.productName} · digital product setup</strong><small>{statuses?.eaSetupPaid ? "Payment verified by VaultTrades." : "Awaiting PayPal verification."}</small></span><b>{statuses?.eaSetupPaid ? "Verified ✓" : "$" + DIGITAL_SETUP[planCode].toFixed(2) + " USD"}</b></div>
+      {!statuses?.eaSetupPaid && <a className="vt-checkout-pay" href={DIGITAL_SETUP_PAYPAL[planCode]} target="_blank" rel="noreferrer">{"Pay digital product setup · $" + DIGITAL_SETUP[planCode].toFixed(2) + " USD"}</a>}
       <div className="vt-checkout-addon"><span><strong>VaultTrades website setup</strong><small>{statuses?.websiteSetupPaid ? "Payment verified by VaultTrades." : "Awaiting PayPal verification."}</small></span><b>{statuses?.websiteSetupPaid ? "Verified ✓" : "$39.00 USD"}</b></div>
       {!statuses?.websiteSetupPaid && <a className="vt-checkout-pay" href={WEBSITE_PAYPAL} target="_blank" rel="noreferrer">Pay website setup · $39.00 USD</a>}
       <button type="button" className="vt-checkout-secondary-button" onClick={() => window.location.reload()}>Refresh VaultTrades payment status</button>
@@ -160,8 +160,8 @@ export default function MembershipCheckoutClient({ planCode, plan, email, resell
       <p>{setupComplete
         ? resellerConfirmed
           ? "Your VaultTrades package setup payments and partner payment are confirmed. Open your profile to access the Knowledge Base and community."
-          : "Your VaultTrades package setup payments are verified. You can access your profile and Knowledge Base while your partner completes the separate membership payment confirmation."
-        : "Complete both VaultTrades setup payments. Once verified, your profile and Knowledge Base will show your package setup status. Your partner confirms the membership payment separately."}</p>
+          : "Your VaultTrades package setup payments are verified. You can access your profile and Knowledge Base while your partner completes the separate partner payment confirmation."
+        : "Complete both VaultTrades setup payments. Once verified, your profile and Knowledge Base will show your package setup status. Your partner confirms the partner payment separately."}</p>
       <div className="vt-checkout-actions"><Link href="/profile" className="vt-checkout-secondary-button">Open VaultTrades profile</Link>{setupComplete && <Link href="/member-portal" className="vt-checkout-secondary-button">Open Knowledge Base</Link>}</div>
     </div>}
 
