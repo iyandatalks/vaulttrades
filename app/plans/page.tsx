@@ -53,7 +53,7 @@ const plans = [
   },
 ];
 
-const money = (amount: number) => "$" + amount.toFixed(2);
+const money = (amount: number) => "$" + amount.toLocaleString("en-US", { maximumFractionDigits: 0 });
 
 export default function PlansPage() {
   return (
