@@ -1,3 +1,5 @@
+"use client";
+
 const questions = [
   {
     question: "What is VaultTrades?",
