@@ -603,7 +603,7 @@ export default function AnalyzerPage() {
             {strategy === "vortex" && !active && !closed && direction && entry != null && <div style={{ marginTop: -2, marginBottom: 10 }}>
               <strong style={{ fontSize: 17, color: direction === "BUY" ? "#35c98a" : "#f06b72" }}>{direction} SETUP</strong>
               <div className="muted" style={{ marginTop: 4 }}>
-                Waiting for {direction} at {fmt(entry, symbol)} · {fmt(typeof fibLevel === "number" ? fibLevel : 68.1, symbol)}% Fib retracement.
+                Waiting for {direction} at {fmt(entry, symbol)} · {(typeof fibLevel === "number" ? fibLevel : 68.1).toFixed(1)}% Fib retracement.
                 {pendingDistance != null && pendingSide ? ` Current price is ${fmt(current, symbol)} (${fmt(pendingDistance, symbol)} ${pendingSide} entry).` : ""}
               </div>
             </div>}
