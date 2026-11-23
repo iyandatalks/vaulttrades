@@ -76,7 +76,7 @@ export default function PlansPage() {
             <div className="vt-plan-breakdown">
               <div><span>Partner payment</span><strong>{money(plan.partnerPayment)} <small>USD</small></strong></div>
               <div><span>Digital product setup · once-off</span><strong>{money(plan.digitalSetup)} <small>USD</small></strong></div>
-              <div><span>Website setup · once-off</span><strong>$39.00 <small>USD</small></strong></div>
+              <div><span>Website setup · once-off</span><strong>$39 <small>USD</small></strong></div>
               <p>Personal website setup is included in the total. A personalised domain is optional.</p>
             </div>
             <Link className="vt-plan-select" href={`/membership/checkout?plan=${plan.code}`}>Explore this plan <span>→</span></Link>
