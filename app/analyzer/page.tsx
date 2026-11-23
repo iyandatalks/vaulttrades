@@ -62,7 +62,7 @@ type LockedTrade = {
   liquidityTarget: number | null;
 };
 
-type VortexEngineView = { timeframe?: string; state?: string; direction?: string; entry?: number | null; stopLoss?: number | null; tp1?: number | null; tp2?: number | null; tp3?: number | null; tp4?: number | null; tp5?: number | null; entryTime?: string | null; exitTime?: string; exitPrice?: number; score?: number; fibLevel?: number | null; lotSize?: number; lotModel?: string; targetHits?: boolean[]; orderBlock?: { direction: string; top: number; bottom: number } | null; statusReason?: string; missingConditions?: string[]; latestClosedTrade?: { direction: string; entry: number; stopLoss: number; tp1: number; tp2: number; tp3: number; tp4: number; tp5: number; entryTime: string; exitTime?: string; exitPrice?: number; status: string } | null; openTrade?: { direction: string; entry: number; stopLoss: number; tp1: number; tp2: number; tp3: number; tp4: number; tp5: number; entryTime: string; targetHits: boolean[]; lotSize: number } | null; };
+type VortexEngineView = { timeframe?: string; state?: string; direction?: string; plannedDirection?: "BUY" | "SELL" | null; entry?: number | null; stopLoss?: number | null; tp1?: number | null; tp2?: number | null; tp3?: number | null; tp4?: number | null; tp5?: number | null; entryTime?: string | null; exitTime?: string; exitPrice?: number; score?: number; fibLevel?: number | null; lotSize?: number; lotModel?: string; targetHits?: boolean[]; orderBlock?: { direction: string; top: number; bottom: number } | null; statusReason?: string; missingConditions?: string[]; latestClosedTrade?: { direction: string; entry: number; stopLoss: number; tp1: number; tp2: number; tp3: number; tp4: number; tp5: number; entryTime: string; exitTime?: string; exitPrice?: number; status: string } | null; openTrade?: { direction: string; entry: number; stopLoss: number; tp1: number; tp2: number; tp3: number; tp4: number; tp5: number; entryTime: string; targetHits: boolean[]; lotSize: number } | null; };
 
 type Result = {
   dataSource?: string;
@@ -572,9 +572,12 @@ export default function AnalyzerPage() {
           const open = strategy === "vortex" ? v?.openTrade : null;
           const closed = strategy === "vortex" ? v?.latestClosedTrade : null;
           const active = strategy === "vortex" ? !!open : strategy === "ema20" ? tradeIsRunning : false;
-          const direction = strategy === "vortex" ? (open?.direction ?? closed?.direction ?? v?.direction) : (result.strategyEngine?.signal ?? displayDirection);
+          const direction = strategy === "vortex"
+            ? (open?.direction ?? closed?.direction ?? v?.plannedDirection ?? (v?.direction === "BUY" || v?.direction === "SELL" ? v.direction : null))
+            : (result.strategyEngine?.signal ?? displayDirection);
           const entry = strategy === "vortex" ? (open?.entry ?? closed?.entry ?? scannerEntry) : scannerEntry;
           const stop = strategy === "vortex" ? (open?.stopLoss ?? closed?.stopLoss ?? scannerStop) : scannerStop;
+          const fibLevel = strategy === "vortex" ? (open?.fibLevel ?? closed?.fibLevel ?? v?.fibLevel ?? null) : null;
           const lot = strategy === "vortex" ? (open?.lotSize ?? v?.lotSize ?? 0.05) : null;
           const target = strategy === "vortex" ? (lot != null && lot < 0.05 ? (open?.tp1 ?? closed?.tp1 ?? v?.tp1) : (open?.tp5 ?? closed?.tp5 ?? v?.tp5)) : scannerTp1;
           const current = Number(result.market?.currentPrice);
@@ -593,15 +596,25 @@ export default function AnalyzerPage() {
           const title = strategy === "vortex" ? vortexStatus : active ? "TRADE ACTIVE" : scannerStatus;
           const entryTime = strategy === "vortex" ? (open?.entryTime ?? closed?.entryTime) : result.strategyEngine?.entryTime;
           const targetLabel = "TAKE PROFIT";
+          const pendingDistance = hasCurrent && entry != null ? Math.abs(current - entry) : null;
+          const pendingSide = hasCurrent && entry != null ? current > entry ? "above" : current < entry ? "below" : "at" : null;
           return <>
             <h2 className="title" style={{ marginBottom: 8 }}>{title}</h2>
+            {strategy === "vortex" && !active && !closed && direction && entry != null && <div style={{ marginTop: -2, marginBottom: 10 }}>
+              <strong style={{ fontSize: 17, color: direction === "BUY" ? "#35c98a" : "#f06b72" }}>{direction} SETUP</strong>
+              <div className="muted" style={{ marginTop: 4 }}>
+                Waiting for {direction} at {fmt(entry, symbol)} · {fmt(typeof fibLevel === "number" ? fibLevel : 68.1, symbol)}% Fib retracement.
+                {pendingDistance != null && pendingSide ? ` Current price is ${fmt(current, symbol)} (${fmt(pendingDistance, symbol)} ${pendingSide} entry).` : ""}
+              </div>
+            </div>}
+            {strategy === "vortex" && !active && !closed && (!direction || entry == null) && <p className="muted" style={{ marginTop: 0 }}>No BUY or SELL Fib setup is currently anchored.</p>}
             {strategy !== "vortex" && <p className="muted" style={{ marginTop: 0 }}>{active
               ? (result.strategyEngine?.lifecycleReason ?? "The recorded entry, stop loss and target remain in force until reached on a completed candle.")
               : (result.strategyEngine?.lifecycleReason ?? result.strategyEngine?.statusReason ?? s?.waitReason ?? "Waiting for the next qualifying signal.")}</p>}
             {(strategy === "vortex" ? entry != null && stop != null : (active || (strategy === "vortex" && closed)) && direction && entry != null && stop != null && target != null) && <>
               {strategy !== "vortex" && <strong style={{ fontSize: 18, color: direction === "BUY" ? "#35c98a" : "#f06b72" }}>{direction} · {active ? "TRADE ACTIVE" : "TRADE CLOSED"}</strong>}
               {strategy === "vortex" ? <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(115px,1fr))", gap: 8, marginTop: 10 }}>
-                <PriceLevel label="ENTRY" value={entry} kind="entry" symbol={symbol} />
+                <PriceLevel label={strategy === "vortex" && !active && !closed ? `ENTRY · ${typeof fibLevel === "number" ? fibLevel : 68.1}% FIB` : "ENTRY"} value={entry} kind="entry" symbol={symbol} />
                 <PriceLevel label="STOP LOSS" value={stop} kind="sl" symbol={symbol} />
                 {[
                   ["TP1", open?.tp1 ?? closed?.tp1 ?? v?.tp1, 0],
