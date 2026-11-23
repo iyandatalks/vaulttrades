@@ -4,10 +4,11 @@ import type { FormEvent } from "react";
 import Link from "next/link";
 
 type PlanCode = "nexus" | "nexus_plus" | "vortex";
-type Plan = { name: string; eaName: string; price: number; description: string };
+const money = (amount: number) => "$" + amount.toLocaleString("en-US", { maximumFractionDigits: 0 });
+type Plan = { name: string; productName: string; totalPrice: number; price: number; description: string };
 const MRR: Record<PlanCode, number> = { nexus: 120, nexus_plus: 200, vortex: 440 };
-const EA: Record<PlanCode, number> = { nexus: 30, nexus_plus: 50, vortex: 110 };
-const EA_PAYPAL: Record<PlanCode, string> = {
+const DIGITAL_SETUP: Record<PlanCode, number> = { nexus: 30, nexus_plus: 50, vortex: 110 };
+const DIGITAL_SETUP_PAYPAL: Record<PlanCode, string> = {
   nexus: "https://www.paypal.com/ncp/payment/KCLJNRHL8ES2A",
   nexus_plus: "https://www.paypal.com/ncp/payment/XZUE222GL354L",
   vortex: "https://www.paypal.com/ncp/payment/BKSANDDAJT7M6",
@@ -95,33 +96,33 @@ export default function MembershipCheckoutClient({ planCode, plan, email, resell
   const loginNext = "/membership/checkout?plan=" + encodeURIComponent(planCode) + "&ref=" + encodeURIComponent(resellerCode) + (activeDeclarationId ? "&declaration=" + encodeURIComponent(activeDeclarationId) : "");
 
   return <main className="vt-checkout-shell"><section className="vt-checkout-card">
-    <div className="vt-checkout-kicker">YOUR MEMBERSHIP CHECKOUT</div>
+    <div className="vt-checkout-kicker">YOUR PACKAGE CHECKOUT</div>
     <h1>Complete your {plan.name} order</h1>
     <p className="vt-checkout-intro">Complete each step in order. Return to this page after each payment or registration.. Your selected plan and partner reference stay attached throughout checkout.</p>
 
-    <div className="vt-checkout-plan"><div><span>YOUR SELECTED MEMBERSHIP</span><h2>{plan.name}</h2><p>{plan.description}</p><p className="vt-checkout-automation-name"><strong>INCLUDED PRODUCT:</strong> {plan.eaName}</p></div><strong>{plan.name}</strong></div>
+    <div className="vt-checkout-plan"><div><span>YOUR SELECTED PACKAGE</span><h2>{plan.name}</h2><p>{plan.description}</p><p className="vt-checkout-automation-name"><strong>INCLUDED PACKAGE:</strong> {plan.productName}</p></div><strong>{money(plan.totalPrice) + " USD · once-off total"}</strong></div>
 
     <section className="vt-checkout-progress" aria-label="Checkout steps">
       <h2>Your checkout steps</h2>
-      <Step number={1} complete={declarationSubmitted} title="Pay partner membership fee" detail="Pay your partner's membership fee using the button below, return here, and submit the payment confirmation." />
+      <Step number={1} complete={declarationSubmitted} title="Pay partner payment" detail="Pay your partner payment using the button below, return here, and submit the payment confirmation." />
       <Step number={2} complete={isAuthenticated} title="Create profile" detail={isAuthenticated ? "Your profile is already verified. You are signed in as " + email + "." : "Create your VaultTrades profile using the button below. Verify your email, then return to this page."} />
-      <Step number={3} complete={setupComplete} title="Setup your page" detail={setupComplete ? "Your EA and website setup payments have both been verified." : "Use the setup links below to pay for your selected EA and your VaultTrades website setup."} />
-      <Step number={4} complete={setupComplete && resellerConfirmed} title="Access the product" detail={setupComplete && resellerConfirmed ? "Your setup and partner membership payment are confirmed. Access your product from your VaultTrades profile." : "Product access is enabled after VaultTrades verifies your setup payments and your partner confirms the MRR payment."} />
+      <Step number={3} complete={setupComplete} title="Setup your page" detail={setupComplete ? "Your digital product and website setup payments have both been verified." : "Use the setup links below to complete your digital product setup and VaultTrades website setup."} />
+      <Step number={4} complete={setupComplete && resellerConfirmed} title="Access your package" detail={setupComplete && resellerConfirmed ? "Your package setup and partner payment are confirmed. Access your package from your VaultTrades profile." : "Package access is enabled after VaultTrades verifies your setup payments and your partner confirms the partner payment."} />
     </section>
 
     <section className="vt-checkout-section">
-      <div className="vt-checkout-section-heading"><span className="vt-checkout-section-number">1</span><div><h2>Pay partner membership fee</h2><p>Pay the partner membership fee using the button below. After payment, return here and confirm the payment details.</p></div></div>
+      <div className="vt-checkout-section-heading"><span className="vt-checkout-section-number">1</span><div><h2>Pay partner payment</h2><p>Pay the partner payment using the button below. After payment, return here and confirm the payment details.</p></div></div>
       {partnerPaymentUrl
-        ? <a className="vt-checkout-pay" href={partnerPaymentUrl} target="_blank" rel="noreferrer">{"Pay partner · $" + MRR[planCode].toFixed(2) + " USD"}</a>
+        ? <a className="vt-checkout-pay" href={partnerPaymentUrl} target="_blank" rel="noreferrer">{"Pay partner · " + money(MRR[planCode]) + " USD"}</a>
         : <div className="vt-checkout-pending"><strong>Partner payment link unavailable</strong><span>Please reopen this checkout using the purchase link supplied by your partner.</span></div>}
-      <p className="vt-checkout-note">This payment goes directly to your partner. VaultTrades does not collect this membership fee and will not ask you to pay it again.</p>
+      <p className="vt-checkout-note">This payment goes directly to your partner. VaultTrades does not collect this partner payment and will not ask you to pay it again.</p>
     </section>
 
 
     <section className="vt-checkout-section vt-checkout-declaration">
       <div className="vt-checkout-section-heading"><span className="vt-checkout-section-number">1A</span><div><h2>Confirm your partner payment</h2><p>After paying your partner above, submit the details here. Your partner will independently check PayPal and confirm receipt.</p></div></div>
       {declarationSubmitted
-        ? <div className="vt-checkout-pending"><strong>{resellerConfirmed ? "Partner payment confirmed" : "Partner payment declaration received"}</strong><span>{resellerConfirmed ? "Your partner has confirmed receipt." : "Your declaration is recorded. Your partner still needs to confirm that the membership payment was received. This does not require another payment from you."}</span></div>
+        ? <div className="vt-checkout-pending"><strong>{resellerConfirmed ? "Partner payment confirmed" : "Partner payment declaration received"}</strong><span>{resellerConfirmed ? "Your partner has confirmed receipt." : "Your declaration is recorded. Your partner still needs to confirm that the partner payment was received. This does not require another payment from you."}</span></div>
         : isAuthenticated
           ? <form className="vt-checkout-form" onSubmit={submitCheckout}>
               <label>Actual amount paid (USD)<input required type="number" min="0.01" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} /></label>
@@ -146,12 +147,12 @@ export default function MembershipCheckoutClient({ planCode, plan, email, resell
     </section>
 
     <section className="vt-checkout-section">
-      <div className="vt-checkout-section-heading"><span className="vt-checkout-section-number">3</span><div><h2>Setup your page</h2><p>Complete both setup payments below: your selected EA setup and your VaultTrades website setup.</p></div></div>
+      <div className="vt-checkout-section-heading"><span className="vt-checkout-section-number">3</span><div><h2>Setup your page</h2><p>Complete both setup payments below: your selected digital product setup and your VaultTrades website setup.</p></div></div>
       <p className="vt-checkout-note"><strong>Important:</strong> Use the same PayPal email address as your VaultTrades profile so PayPal can match your setup payment to this order.</p>
-      <div className="vt-checkout-addon"><span><strong>{plan.eaName} · EA setup</strong><small>{statuses?.eaSetupPaid ? "Payment verified by VaultTrades." : "Awaiting PayPal verification."}</small></span><b>{statuses?.eaSetupPaid ? "Verified ✓" : "$" + EA[planCode].toFixed(2) + " USD"}</b></div>
-      {!statuses?.eaSetupPaid && <a className="vt-checkout-pay" href={EA_PAYPAL[planCode]} target="_blank" rel="noreferrer">{"Pay EA setup · $" + EA[planCode].toFixed(2) + " USD"}</a>}
-      <div className="vt-checkout-addon"><span><strong>VaultTrades website setup</strong><small>{statuses?.websiteSetupPaid ? "Payment verified by VaultTrades." : "Awaiting PayPal verification."}</small></span><b>{statuses?.websiteSetupPaid ? "Verified ✓" : "$39.00 USD"}</b></div>
-      {!statuses?.websiteSetupPaid && <a className="vt-checkout-pay" href={WEBSITE_PAYPAL} target="_blank" rel="noreferrer">Pay website setup · $39.00 USD</a>}
+      <div className="vt-checkout-addon"><span><strong>{plan.productName} · digital product setup</strong><small>{statuses?.eaSetupPaid ? "Payment verified by VaultTrades." : "Awaiting PayPal verification."}</small></span><b>{statuses?.eaSetupPaid ? "Verified ✓" : money(DIGITAL_SETUP[planCode]) + " USD"}</b></div>
+      {!statuses?.eaSetupPaid && <a className="vt-checkout-pay" href={DIGITAL_SETUP_PAYPAL[planCode]} target="_blank" rel="noreferrer">{"Pay digital product setup · " + money(DIGITAL_SETUP[planCode]) + " USD"}</a>}
+      <div className="vt-checkout-addon"><span><strong>VaultTrades website setup</strong><small>{statuses?.websiteSetupPaid ? "Payment verified by VaultTrades." : "Awaiting PayPal verification."}</small></span><b>{statuses?.websiteSetupPaid ? "Verified ✓" : "$39 USD"}</b></div>
+      {!statuses?.websiteSetupPaid && <a className="vt-checkout-pay" href={WEBSITE_PAYPAL} target="_blank" rel="noreferrer">Pay website setup · $39 USD</a>}
       <button type="button" className="vt-checkout-secondary-button" onClick={() => window.location.reload()}>Refresh VaultTrades payment status</button>
     </section>
 
@@ -159,9 +160,9 @@ export default function MembershipCheckoutClient({ planCode, plan, email, resell
       <strong>{setupComplete ? "VaultTrades setup is active" : "Your order is being processed"}</strong>
       <p>{setupComplete
         ? resellerConfirmed
-          ? "Your VaultTrades setup payments and partner membership payment are confirmed. Open your profile to access the Knowledge Base and community."
-          : "Your VaultTrades setup payments are verified. You can access your profile and Knowledge Base while your partner completes the separate membership payment confirmation."
-        : "Complete both VaultTrades setup payments. Once verified, your profile and Knowledge Base will show your setup status. Your partner confirms the membership payment separately."}</p>
+          ? "Your VaultTrades package setup payments and partner payment are confirmed. Open your profile to access the Knowledge Base and community."
+          : "Your VaultTrades package setup payments are verified. You can access your profile and Knowledge Base while your partner completes the separate partner payment confirmation."
+        : "Complete both VaultTrades setup payments. Once verified, your profile and Knowledge Base will show your package setup status. Your partner confirms the partner payment separately."}</p>
       <div className="vt-checkout-actions"><Link href="/profile" className="vt-checkout-secondary-button">Open VaultTrades profile</Link>{setupComplete && <Link href="/member-portal" className="vt-checkout-secondary-button">Open Knowledge Base</Link>}</div>
     </div>}
 
