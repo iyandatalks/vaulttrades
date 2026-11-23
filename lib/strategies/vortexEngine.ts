@@ -15,7 +15,7 @@ export type VortexTrade = {
 };
 export type VortexResult = {
   source: "VAULTTRADES_VORTEX_S1_FIB_VWAP_CONFLUENCE"; timeframe: VortexTimeframe; state: "WAITING" | "SETUP DEVELOPING" | "TRADE ACTIVE" | "TP HIT" | "SL HIT";
-  direction: VortexDirection | "NO TRADE"; structuralDirection: VortexDirection | "NEUTRAL"; entryConfirmed: boolean;
+  direction: VortexDirection | "NO TRADE"; plannedDirection: VortexDirection | null; structuralDirection: VortexDirection | "NEUTRAL"; entryConfirmed: boolean;
   entry: number | null; stopLoss: number | null;
   tp1: number | null; tp2: number | null; tp3: number | null; tp4: number | null; tp5: number | null;
   fibLevel: number | null; score: number; buyConfluence: number; sellConfluence: number;
@@ -212,7 +212,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
   const timeframe = input.timeframe ?? "1m";
   const confirmationTimeframe = "5m" as const;
   const empty = (reason: string): VortexResult => ({
-    source: "VAULTTRADES_VORTEX_S1_FIB_VWAP_CONFLUENCE", timeframe, state: "WAITING", direction: "NO TRADE",
+    source: "VAULTTRADES_VORTEX_S1_FIB_VWAP_CONFLUENCE", timeframe, state: "WAITING", direction: "NO TRADE", plannedDirection: null,
     structuralDirection: "NEUTRAL", entryConfirmed: false,
     entry: null, stopLoss: null, tp1: null, tp2: null, tp3: null, tp4: null, tp5: null, fibLevel: null,
     score: 0, buyConfluence: 0, sellConfluence: 0, liquidityTarget: null, orderBlock: null,
@@ -495,16 +495,23 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     ? TP_FIBS.map(x => projectionDirection === "BUY" ? buyFib(projectionTop, projectionBottom, x) : sellFib(projectionTop, projectionBottom, x))
     : [null, null, null];
   const projectionOb = projectionDirection === "BUY" ? (buySetup.ob ?? (lastOb?.direction === "BUY" ? lastOb : null)) : projectionDirection === "SELL" ? (sellSetup.ob ?? (lastOb?.direction === "SELL" ? lastOb : null)) : null;
-  const projectedStop = projectionOb ? (projectionDirection === "BUY" ? projectionOb.bottom - tick : projectionOb.top + tick) : null;
+  const provisionalM5Atr = atr5.at(-1) ?? 0;
+  // Match the Pine pre-entry ladder: provisional SL is 2x M5 ATR, capped at 2% of entry.
+  // Once a trade confirms, the frozen trade SL remains anchored to the opposing target-OB wick.
+  const projectedStop = selectedProjectionFib !== null && projectionDirection && provisionalM5Atr > 0
+    ? projectionDirection === "BUY"
+      ? selectedProjectionFib - Math.min(provisionalM5Atr * 2, selectedProjectionFib * 0.02)
+      : selectedProjectionFib + Math.min(provisionalM5Atr * 2, selectedProjectionFib * 0.02)
+    : null;
   const projectedTp4 = selectedProjectionFib !== null ? selectedProjectionFib * (projectionDirection === "BUY" ? 1.015 : 0.985) : null;
   const projectedTp5 = selectedProjectionFib !== null ? selectedProjectionFib * (projectionDirection === "BUY" ? 1.0181 : 0.9819) : null;
   return {
-    source: "VAULTTRADES_VORTEX_S1_FIB_VWAP_CONFLUENCE", timeframe, state, direction: trade?.direction ?? "NO TRADE",
+    source: "VAULTTRADES_VORTEX_S1_FIB_VWAP_CONFLUENCE", timeframe, state, direction: trade?.direction ?? "NO TRADE", plannedDirection: active ? active.direction : projectionDirection,
     structuralDirection: bullActive ? "BUY" : bearActive ? "SELL" : "NEUTRAL", entryConfirmed: !!active,
     entry: trade?.entry ?? selectedProjectionFib, stopLoss: trade?.stopLoss ?? projectedStop,
     tp1: trade?.tp1 ?? projectedFibTargets[0], tp2: trade?.tp2 ?? projectedFibTargets[1],
     tp3: trade?.tp3 ?? projectedFibTargets[2], tp4: trade?.tp4 ?? projectedTp4, tp5: trade?.tp5 ?? projectedTp5,
-    fibLevel: trade?.fibLevel ?? buySetup.pct ?? sellSetup.pct ?? lastFib,
+    fibLevel: trade?.fibLevel ?? buySetup.pct ?? sellSetup.pct ?? (projectionDirection ? 68.1 : lastFib),
     score: active ? lastScore : Math.max(buyScore, sellScore), buyConfluence: buyScore, sellConfluence: sellScore, liquidityTarget: trade?.liquidityTarget ?? lastLiq, orderBlock: trade?.orderBlock ?? lastOb,
     entryTime: trade?.entryTime ?? null, confirmationTime: trade?.confirmationTime ?? lastM5Time, lotSize,
     lotModel: lotSize < 0.05 ? "FULL CLOSE AT TP1" : "FIVE TARGETS · 20% EACH",
