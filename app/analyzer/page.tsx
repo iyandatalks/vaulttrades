@@ -578,56 +578,57 @@ export default function AnalyzerPage() {
           const move = hasCurrent && entry != null && direction ? (direction === "BUY" ? current - entry : entry - current) : null;
           const toTarget = hasCurrent && target != null && direction ? (direction === "BUY" ? target - current : current - target) : null;
           const toStop = hasCurrent && stop != null && direction ? (direction === "BUY" ? current - stop : stop - current) : null;
-          const title = active ? "TRADE ACTIVE" : strategy === "vortex" && closed ? (closed.status === "TP_HIT" ? "TAKE PROFIT HIT" : "STOP LOSS HIT") : scannerStatus;
+          const targetHits = strategy === "vortex"
+            ? (open?.targetHits ?? v?.targetHits ?? [false, false, false, false, false])
+            : [];
+          const highestTargetHit = targetHits.lastIndexOf(true);
+          const vortexStatus = active
+            ? highestTargetHit >= 0 ? `TP${highestTargetHit + 1} HIT · ACTIVE` : "ACTIVE"
+            : closed ? closed.status === "TP_HIT" ? (lot != null && lot < 0.05 ? "TP1 HIT" : "TP5 HIT") : "SL HIT"
+            : "WAIT";
+          const title = strategy === "vortex" ? vortexStatus : active ? "TRADE ACTIVE" : scannerStatus;
           const entryTime = strategy === "vortex" ? (open?.entryTime ?? closed?.entryTime) : result.strategyEngine?.entryTime;
-          const targetLabel = strategy === "vortex" && lot != null && lot >= 0.05 ? "FINAL TAKE PROFIT" : "TAKE PROFIT";
+          const targetLabel = "TAKE PROFIT";
           return <>
             <h2 className="title" style={{ marginBottom: 8 }}>{title}</h2>
-            <p className="muted" style={{ marginTop: 0 }}>{active
-              ? (strategy === "vortex" ? (lot != null && lot < 0.05 ? "The position remains active until its stop loss or TP1 is reached on a completed candle." : "The position remains active until its stop loss or all five progressive take-profit targets are reached on completed candles.") : (result.strategyEngine?.lifecycleReason ?? "The recorded entry, stop loss and target remain in force until reached on a completed candle."))
-              : strategy === "vortex" && closed ? `Last trade closed at ${closed.status === "TP_HIT" ? "take profit" : "stop loss"}.` : (result.strategyEngine?.lifecycleReason ?? result.strategyEngine?.statusReason ?? s?.waitReason ?? "Waiting for the next qualifying signal.")}</p>
-            {(active || (strategy === "vortex" && closed)) && direction && entry != null && stop != null && target != null && <>
-              <strong style={{ fontSize: 18, color: direction === "BUY" ? "#35c98a" : "#f06b72" }}>{direction} · {active ? "TRADE ACTIVE" : "TRADE CLOSED"}</strong>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8, marginTop: 10 }}>
+            {strategy !== "vortex" && <p className="muted" style={{ marginTop: 0 }}>{active
+              ? (result.strategyEngine?.lifecycleReason ?? "The recorded entry, stop loss and target remain in force until reached on a completed candle.")
+              : (result.strategyEngine?.lifecycleReason ?? result.strategyEngine?.statusReason ?? s?.waitReason ?? "Waiting for the next qualifying signal.")}</p>}
+            {(strategy === "vortex" ? entry != null && stop != null : (active || (strategy === "vortex" && closed)) && direction && entry != null && stop != null && target != null) && <>
+              {strategy !== "vortex" && <strong style={{ fontSize: 18, color: direction === "BUY" ? "#35c98a" : "#f06b72" }}>{direction} · {active ? "TRADE ACTIVE" : "TRADE CLOSED"}</strong>}
+              {strategy === "vortex" ? <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(115px,1fr))", gap: 8, marginTop: 10 }}>
                 <PriceLevel label="ENTRY" value={entry} kind="entry" symbol={symbol} />
                 <PriceLevel label="STOP LOSS" value={stop} kind="sl" symbol={symbol} />
-                <PriceLevel label={targetLabel} value={target} kind="tp" symbol={symbol} />
-              </div>
-              <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>Signal date: {entryTime ? new Date(entryTime).toLocaleDateString() : "—"} · Entry time: {entryTime ? new Date(entryTime).toLocaleString() : "—"}</div>
-              {active && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(125px,1fr))", gap: 8, marginTop: 10 }}>
+                {[
+                  ["TP1", open?.tp1 ?? closed?.tp1 ?? v?.tp1, 0],
+                  ["TP2", open?.tp2 ?? closed?.tp2 ?? v?.tp2, 1],
+                  ["TP3", open?.tp3 ?? closed?.tp3 ?? v?.tp3, 2],
+                  ["TP4", open?.tp4 ?? closed?.tp4 ?? v?.tp4, 3],
+                  ["TP5", open?.tp5 ?? closed?.tp5 ?? v?.tp5, 4],
+                ].map(([label, value, index]) => <div className="condition-box" key={String(label)}>
+                  <strong>{label}</strong>
+                  <div style={{ fontSize: 16, fontWeight: 800, marginTop: 5 }}>{fmt(typeof value === "number" ? value : null, symbol)}</div>
+                  <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>
+                    {targetHits[Number(index)] ? "HIT" : "PENDING"}
+                  </div>
+                </div>)}
+              </div> : <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8, marginTop: 10 }}>
+                <PriceLevel label="ENTRY" value={entry} kind="entry" symbol={symbol} />
+                <PriceLevel label="STOP LOSS" value={stop} kind="sl" symbol={symbol} />
+                <PriceLevel label={targetLabel} value={target!} kind="tp" symbol={symbol} />
+              </div>}
+              {strategy !== "vortex" && <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>Signal date: {entryTime ? new Date(entryTime).toLocaleDateString() : "—"} · Entry time: {entryTime ? new Date(entryTime).toLocaleString() : "—"}</div>}
+              {active && strategy !== "vortex" && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(125px,1fr))", gap: 8, marginTop: 10 }}>
                 <div className="condition-box"><strong>CURRENT PRICE</strong><div style={{ marginTop: 5 }}>{hasCurrent ? fmt(current, symbol) : "Unavailable"}</div></div>
                 <div className="condition-box"><strong>MOVE FROM ENTRY</strong><div style={{ marginTop: 5 }}>{move == null ? "—" : (move > 0 ? "+" : "") + fmt(move, symbol)}</div></div>
                 <div className="condition-box"><strong>DISTANCE TO TP</strong><div style={{ marginTop: 5 }}>{toTarget == null ? "—" : fmt(toTarget, symbol)}</div></div>
                 <div className="condition-box"><strong>DISTANCE TO SL</strong><div style={{ marginTop: 5 }}>{toStop == null ? "—" : fmt(toStop, symbol)}</div></div>
               </div>}
-              {!active && strategy === "vortex" && <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>Exit time: {closed?.exitTime ? new Date(closed.exitTime).toLocaleString() : "—"} · Exit price: {fmt(closed?.exitPrice, symbol)}</div>}
-              {active && <button className="primary" type="button" style={{ marginTop: 12 }} onClick={() => openRiskManager({ direction: direction as "BUY" | "SELL", entry, stopLoss: stop, takeProfit: target })}>Calculate Lot Size</button>}
+              {active && strategy !== "vortex" && <button className="primary" type="button" style={{ marginTop: 12 }} onClick={() => openRiskManager({ direction: direction as "BUY" | "SELL", entry, stopLoss: stop, takeProfit: target! })}>Calculate Lot Size</button>}
             </>}
-            {!active && !(strategy === "vortex" && closed) && <p className="muted" style={{ marginBottom: 0 }}>No active position. {scannerReason[0]}</p>}
+            {!active && !(strategy === "vortex" && closed) && strategy !== "vortex" && <p className="muted" style={{ marginBottom: 0 }}>No active position. {scannerReason[0]}</p>}
           </>;
         })()}
-      </section>}
-      {strategy === "vortex" && result.strategyEngine && <section className="card">
-        <div className="section-label">VORTEX FIB / TARGET LADDER</div>
-        <div className="muted" style={{ marginBottom: 10 }}>Entry Fib {result.strategyEngine.fibLevel == null ? "—" : result.strategyEngine.fibLevel + "%"} · Feed: {result.dataSource ?? "Market provider"}</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(110px,1fr))", gap: 9 }}>
-          {[
-            ["TP1", result.strategyEngine.tp1, 0], ["TP2", result.strategyEngine.tp2, 1], ["TP3", result.strategyEngine.tp3, 2],
-            ["TP4", result.strategyEngine.tp4, 3], ["TP5", result.strategyEngine.tp5, 4],
-          ].map(([label, value, index]) => <div className="condition-box" key={String(label)}>
-            <strong>{label}</strong>
-            <div style={{ fontSize: 16, fontWeight: 800, marginTop: 5 }}>{fmt(typeof value === "number" ? value : null, symbol)}</div>
-            <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>
-              {result.strategyEngine?.lotSize != null && result.strategyEngine.lotSize < 0.05
-                ? (index === 0 ? "FULL CLOSE" : "NOT USED AT THIS LOT")
-                : result.strategyEngine?.targetHits?.[Number(index)] ? "HIT" : "PENDING"}
-            </div>
-          </div>)}
-        </div>
-        <div className="muted" style={{ marginTop: 12 }}>
-          Default lot: 0.05 · Selected lot: {result.strategyEngine.lotSize?.toFixed(2) ?? "0.05"} · {result.strategyEngine.lotModel ?? "FIVE TARGETS · 20% EACH"}
-        </div>
-        {result.strategyEngine.score != null && <div className="muted" style={{ marginTop: 5 }}>Vortex confluence: {result.strategyEngine.score}/100 · Minimum: 60</div>}
       </section>}
       {strategy === "vaulttradesNexus" && result.strategyEngine?.performance && <section className="card">
         <div className="section-label">PERFORMANCE</div>
