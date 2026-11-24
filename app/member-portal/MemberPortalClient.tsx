@@ -69,7 +69,7 @@ const defaultSections: KnowledgeSection[] = [
   { id: "admin", label: "Manage Knowledge Base", group: "ADMINISTRATION", sortOrder: 34, isPublished: true, content: "" },
 ] as const;
 
-function normalizeAutomationSections(input: KnowledgeSection[]): KnowledgeSection[] {
+function normalizeAutomationSections(input: readonly KnowledgeSection[]): KnowledgeSection[] {
   const automationGroup = "AUTOMATION LICENSING, DELIVERY, INSTALLATION & OPERATION";
   const updates: Record<string, Partial<KnowledgeSection>> = {
     licensing: { group: automationGroup, sortOrder: 4 },
