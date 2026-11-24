@@ -131,8 +131,8 @@ export default function MemberPortalClient({
     const result: { group: string; items: KnowledgeSection[] }[] = [];
     const query = topicSearch.trim().toLowerCase();
     for (const item of [...knowledgeSections].filter(item =>
-      (isAdmin || item.id !== "admin") && item.isPublished !== false &&
-      (!partnerAccessOnly || partnerLearningSections.has(item.id)) &&
+      (isAdmin || item.id !== "admin") && (isAdmin || item.isPublished !== false) &&
+      (!partnerAccessOnly || partnerLearningSections.has(item.id) || item.isCustom === true) &&
       (partnerAccessOnly || planEligibleSection(item.id))
     ).sort((a,b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id))) {
       if (query && !item.label.toLowerCase().includes(query) && !item.group.toLowerCase().includes(query)) continue;
