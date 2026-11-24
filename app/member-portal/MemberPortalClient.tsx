@@ -143,7 +143,7 @@ export default function MemberPortalClient({
     return result;
   }, [topicSearch, isAdmin, partnerAccessOnly, plan, knowledgeSections]);
   const activeSection = visibleSections.find(item => item.id === active) ?? visibleSections[0];
-  const activeIndex = visibleSections.findIndex(item => item.id === active) + 1;
+  const activeIndex = visibleSections.findIndex(item => item.id === activeSection?.id) + 1;
   const communityReferralUrl = useMemo(() => {
     if (!referralUrl) return "https://vaulttradesve.com/community/join";
     try {
@@ -235,7 +235,7 @@ export default function MemberPortalClient({
     if (activeSection && !activeSection.isCustom && activeSection.content?.trim()) {
       return <><Eyebrow>ADMINISTRATOR-EDITED GUIDE</Eyebrow><h1>{activeSection.label}</h1><div className="vt-member-lead" style={{ whiteSpace: "pre-wrap" }}>{activeSection.content}</div></>;
     }
-    switch (active) {
+    switch (activeSection?.id ?? active) {
       case "welcome":
         return <>
           <Eyebrow>YOUR MEMBER WORKSPACE</Eyebrow>
@@ -697,7 +697,7 @@ export default function MemberPortalClient({
           </label>
           {groups.length ? groups.map(group => <div className="vt-member-nav-group" key={group.group}>
             <div className="vt-member-nav-heading"><span>{group.group}</span><small>{group.items.length}</small></div>
-            {group.items.map(item => <button type="button" key={item.id} className={active === item.id ? "vt-member-nav-item active" : "vt-member-nav-item"} onClick={() => setActive(item.id)} aria-current={active === item.id ? "page" : undefined}>
+            {group.items.map(item => <button type="button" key={item.id} className={activeSection?.id === item.id ? "vt-member-nav-item active" : "vt-member-nav-item"} onClick={() => setActive(item.id)} aria-current={activeSection?.id === item.id ? "page" : undefined}>
               <span className="vt-member-nav-dot" aria-hidden="true" /> <span className="vt-member-sequence">{String(item.sortOrder).padStart(2,"0")}</span> {item.label}
             </button>)}
           </div>) : <p className="vt-member-no-results">No topics match that search.</p>}
@@ -708,7 +708,7 @@ export default function MemberPortalClient({
             <small>GUIDE {String(activeIndex).padStart(2, "0")} / {visibleSections.length}</small>
           </div>
           {renderContent()}
-          <ResourceShelf key={active} active={active} resources={knowledgeResources.filter(resource => resource.section_id === active)} isAdmin={isAdmin} onResourcesChange={(items) => setKnowledgeResources(current => [...current.filter(resource => resource.section_id !== active), ...items])} />
+          <ResourceShelf key={activeSection.id} active={activeSection.id} resources={knowledgeResources.filter(resource => resource.section_id === activeSection.id)} isAdmin={isAdmin} onResourcesChange={(items) => setKnowledgeResources(current => [...current.filter(resource => resource.section_id !== active), ...items])} />
           <div className="vt-member-content-footer">
             <span>VaultTrades Member Knowledge Base</span>
             <button type="button" onClick={() => { const next = visibleSections[Math.min(activeIndex, visibleSections.length - 1)]; setActive(next.id); window.scrollTo({ top: 0, behavior: "smooth" }); }} disabled={activeIndex >= visibleSections.length}>Next topic →</button>
@@ -858,8 +858,9 @@ function KnowledgeBaseStructureAdmin({ sections, onSaved }: { sections: Knowledg
   function update(id: string, patch: Partial<KnowledgeSection>) { setDrafts(current => current.map(item => item.id === id ? { ...item, ...patch } : item)); }
   function addTopic() {
     const label = newTitle.trim(); if (!label) return;
-    const base = label.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,36) || "new-topic";
-    let id = base, suffix = 2; while (drafts.some(item => item.id === id)) id = `${base}-${suffix++}`;
+    const base = label.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"") .slice(0,36);
+    const safeBase = base.length >= 2 ? base : "new-topic";
+    let id = safeBase, suffix = 2; while (drafts.some(item => item.id === id)) id = `${base}-${suffix++}`;
     setDrafts(current => [...current, { id, label, group: newGroup.trim() || "ADDITIONAL LEARNING", sortOrder: current.length ? Math.max(...current.map(item => item.sortOrder)) + 1 : 0, isPublished: true, content: newContent, isCustom: true }]);
     setNewTitle(""); setNewContent(""); setMessage("New topic added to the unsaved changes list.");
   }
