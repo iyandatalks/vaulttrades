@@ -100,7 +100,7 @@ export default function MemberPortalClient({
   useEffect(() => { fetch("/api/member-portal/content", { cache: "no-store" }).then(r => r.ok ? r.json() : Promise.reject(new Error("Resources unavailable"))).then(data => { setKnowledgeResources(data.resources ?? []); if (Array.isArray(data.sections) && data.sections.length) setKnowledgeSections(data.sections); }).catch(() => setKnowledgeResources([])); }, []);
   useEffect(() => {
     const requestedSection = new URLSearchParams(window.location.search).get("section");
-    if (requestedSection === "community") setActive("community");
+    if (requestedSection === "community" || (requestedSection === "admin" && isAdmin)) setActive(requestedSection);
   }, []);
   useEffect(() => {
     const refreshLicensing = async () => {
@@ -679,7 +679,7 @@ export default function MemberPortalClient({
     <main className="vt-member-shell">
       <header className="vt-member-header">
         <div><span className="vt-member-kicker">VAULTTRADES MEMBER WORKSPACE</span><h1>Knowledge Base</h1><p>One place for onboarding, EA licensing, learning and business resources.</p></div>
-        <div className="vt-member-header-actions"><span className="vt-member-plan">{accessLabel || planNames[plan]}</span><Link href="/member-portal/reseller-onboarding" className="vt-member-outline">Reseller onboarding</Link><Link href="/member-portal/reseller-payments" className="vt-member-outline">Payment verification</Link><Link href="/profile" className="vt-member-outline">My profile</Link></div>
+        <div className="vt-member-header-actions">{isAdmin && <Link href="/member-portal?section=admin" className="vt-member-outline">Manage Knowledge Base</Link>}<span className="vt-member-plan">{accessLabel || planNames[plan]}</span><Link href="/member-portal/reseller-onboarding" className="vt-member-outline">Reseller onboarding</Link><Link href="/member-portal/reseller-payments" className="vt-member-outline">Payment verification</Link><Link href="/profile" className="vt-member-outline">My profile</Link></div>
       </header>
       <div className="vt-member-layout">
         <aside className="vt-member-sidebar" aria-label="Knowledge Base topics">
