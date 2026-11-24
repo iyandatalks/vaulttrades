@@ -51,6 +51,29 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const action = String(body.action ?? "");
 
+  if (action === "knowledge_sections_save") {
+    const raw = Array.isArray(body.sections) ? body.sections : [];
+    if (!raw.length || raw.length > 150) return NextResponse.json({ error: "The Knowledge Base must contain between 1 and 150 topics." }, { status: 400 });
+    const seen = new Set<string>();
+    const sections = [];
+    for (const item of raw) {
+      const id = String(item?.id ?? "").trim();
+      const label = String(item?.label ?? "").trim();
+      const group = String(item?.group ?? "ADDITIONAL LEARNING").trim();
+      const sortOrder = Number(item?.sortOrder);
+      if (!/^[a-z0-9-]{2,48}$/.test(id) || seen.has(id) || label.length < 2 || label.length > 140 || group.length < 2 || group.length > 80 || !Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder > 9999) {
+        return NextResponse.json({ error: "Check topic IDs, titles, groups and sequence numbers. Each topic needs a unique ID and a valid non-negative order number." }, { status: 400 });
+      }
+      seen.add(id);
+      sections.push({ id, label, group, sortOrder, isPublished: item?.isPublished !== false, ...(typeof item?.content === "string" ? { content: item.content.slice(0, 20000) } : {}), ...(item?.isCustom === true ? { isCustom: true } : {}) });
+    }
+    const { error } = await db.from("member_portal_settings").upsert({
+      setting_key: "knowledge_base_sections", setting_value: JSON.stringify(sections), updated_by: user.id, updated_at: new Date().toISOString(),
+    }, { onConflict: "setting_key" });
+    if (error) return NextResponse.json({ error: "Unable to save the Knowledge Base structure." }, { status: 500 });
+    return NextResponse.json({ ok: true, sections });
+  }
+
   if (action === "resource_upsert") {
     const id = String(body.id ?? "").trim();
     const sectionId = String(body.sectionId ?? "").trim();
