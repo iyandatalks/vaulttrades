@@ -32,41 +32,41 @@ type Props = {
 };
 
 const defaultSections: KnowledgeSection[] = [
-  { id: "welcome", label: "Welcome & Your Roadmap", group: "START HERE", sortOrder: 0, isPublished: true },
-  { id: "community", label: "Join the Community", group: "START HERE", sortOrder: 1, isPublished: true },
-  { id: "broker", label: "Broker Registration", group: "ACCOUNT SETUP", sortOrder: 2, isPublished: true },
-  { id: "mt5", label: "Open Your MT5 Account", group: "ACCOUNT SETUP", sortOrder: 3, isPublished: true },
-  { id: "licensing", label: "Submit Your MT5 Number", group: "AUTOMATION LICENSING & DELIVERY", sortOrder: 4, isPublished: true },
-  { id: "generation", label: "Personalised Automation Preparation", group: "AUTOMATION LICENSING & DELIVERY", sortOrder: 5, isPublished: true },
-  { id: "download", label: "Download Your Licensed Automation", group: "AUTOMATION LICENSING & DELIVERY", sortOrder: 6, isPublished: true },
-  { id: "before-install", label: "Pre-installation Checklist", group: "AUTOMATION INSTALLATION & OPERATION", sortOrder: 7, isPublished: true },
-  { id: "installation", label: "VaultTrades Nexus – Automation Installation Guide", group: "EA INSTALLATION & OPERATION", sortOrder: 8, isPublished: true },
-  { id: "understanding", label: "Understanding VaultTrades Nexus – Automation", group: "EA INSTALLATION & OPERATION", sortOrder: 9, isPublished: true },
-  { id: "ea-settings", label: "EA Settings & Risk Inputs", group: "EA INSTALLATION & OPERATION", sortOrder: 10, isPublished: true },
-  { id: "broker-detection", label: "Broker & Symbol Detection", group: "EA INSTALLATION & OPERATION", sortOrder: 11, isPublished: true },
-  { id: "signals", label: "How Trading Signals Work", group: "EA INSTALLATION & OPERATION", sortOrder: 12, isPublished: true },
-  { id: "execution", label: "Signal-to-Order Lifecycle", group: "EA INSTALLATION & OPERATION", sortOrder: 13, isPublished: true },
-  { id: "timeframes", label: "Recommended Timeframes", group: "EA INSTALLATION & OPERATION", sortOrder: 14, isPublished: true },
-  { id: "nexus-plus", label: "VaultTrades Nexus Plus – Automation Installation", group: "EA INSTALLATION & OPERATION", sortOrder: 15, isPublished: true },
-  { id: "vortex-manual", label: "VaultTrades Vortex – Automation User Manual", group: "EA INSTALLATION & OPERATION", sortOrder: 16, isPublished: true },
-  { id: "vortex-install", label: "VaultTrades Vortex – Automation Installation Guide", group: "EA INSTALLATION & OPERATION", sortOrder: 17, isPublished: true },
-  { id: "troubleshooting", label: "Troubleshooting", group: "EA INSTALLATION & OPERATION", sortOrder: 18, isPublished: true },
-  { id: "vps", label: "Required VPS Setup", group: "AUTOMATION & DAILY USE", sortOrder: 19, isPublished: true },
-  { id: "daily", label: "Your Daily Trading Routine", group: "AUTOMATION & DAILY USE", sortOrder: 20, isPublished: true },
-  { id: "trading-room", label: "Morning Trading Room", group: "LEARNING & DEVELOPMENT", sortOrder: 21, isPublished: true },
-  { id: "mentorship", label: "Seven-Day Mentorship", group: "LEARNING & DEVELOPMENT", sortOrder: 22, isPublished: true },
-  { id: "scaling", label: "Scaling & KPI Development", group: "LEARNING & DEVELOPMENT", sortOrder: 23, isPublished: true },
-  { id: "business", label: "Understand the Reseller Programme", group: "BUILD YOUR BUSINESS", sortOrder: 24, isPublished: true },
-  { id: "referrals", label: "Your Existing Referral Link", group: "BUILD YOUR BUSINESS", sortOrder: 25, isPublished: true },
-  { id: "business-leads", label: "Business Leads & Prospect Follow-up", group: "BUILD YOUR BUSINESS", sortOrder: 26, isPublished: true },
-  { id: "website", label: "Your Personal Website", group: "WEBSITE & PAYMENT SETUP", sortOrder: 27, isPublished: true },
-  { id: "paypal-setup", label: "PayPal Setup & Payment Links", group: "WEBSITE & PAYMENT SETUP", sortOrder: 28, isPublished: true },
-  { id: "resources", label: "Partners & Resource Directory", group: "TOOLS & SUPPORT", sortOrder: 29, isPublished: true },
-  { id: "tools", label: "Plan-Included Digital Tools", group: "TOOLS & SUPPORT", sortOrder: 30, isPublished: true },
-  { id: "risk", label: "Risk & Important Information", group: "TOOLS & SUPPORT", sortOrder: 31, isPublished: true },
-  { id: "faq", label: "Frequently Asked Questions", group: "TOOLS & SUPPORT", sortOrder: 32, isPublished: true },
-  { id: "notifications", label: "Member Notifications", group: "TOOLS & SUPPORT", sortOrder: 33, isPublished: true },
-  { id: "admin", label: "Manage Knowledge Base", group: "ADMINISTRATION", sortOrder: 34, isPublished: true },
+  { id: "welcome", label: "Welcome & Your Roadmap", group: "START HERE", sortOrder: 0, isPublished: true, content: "" },
+  { id: "community", label: "Join the Community", group: "START HERE", sortOrder: 1, isPublished: true, content: "" },
+  { id: "broker", label: "Broker Registration", group: "ACCOUNT SETUP", sortOrder: 2, isPublished: true, content: "" },
+  { id: "mt5", label: "Open Your MT5 Account", group: "ACCOUNT SETUP", sortOrder: 3, isPublished: true, content: "" },
+  { id: "licensing", label: "Submit Your MT5 Number", group: "AUTOMATION LICENSING & DELIVERY", sortOrder: 4, isPublished: true, content: "" },
+  { id: "generation", label: "Personalised Automation Preparation", group: "AUTOMATION LICENSING & DELIVERY", sortOrder: 5, isPublished: true, content: "" },
+  { id: "download", label: "Download Your Licensed Automation", group: "AUTOMATION LICENSING & DELIVERY", sortOrder: 6, isPublished: true, content: "" },
+  { id: "before-install", label: "Pre-installation Checklist", group: "AUTOMATION INSTALLATION & OPERATION", sortOrder: 7, isPublished: true, content: "" },
+  { id: "installation", label: "VaultTrades Nexus – Automation Installation Guide", group: "EA INSTALLATION & OPERATION", sortOrder: 8, isPublished: true, content: "" },
+  { id: "understanding", label: "Understanding VaultTrades Nexus – Automation", group: "EA INSTALLATION & OPERATION", sortOrder: 9, isPublished: true, content: "" },
+  { id: "ea-settings", label: "EA Settings & Risk Inputs", group: "EA INSTALLATION & OPERATION", sortOrder: 10, isPublished: true, content: "" },
+  { id: "broker-detection", label: "Broker & Symbol Detection", group: "EA INSTALLATION & OPERATION", sortOrder: 11, isPublished: true, content: "" },
+  { id: "signals", label: "How Trading Signals Work", group: "EA INSTALLATION & OPERATION", sortOrder: 12, isPublished: true, content: "" },
+  { id: "execution", label: "Signal-to-Order Lifecycle", group: "EA INSTALLATION & OPERATION", sortOrder: 13, isPublished: true, content: "" },
+  { id: "timeframes", label: "Recommended Timeframes", group: "EA INSTALLATION & OPERATION", sortOrder: 14, isPublished: true, content: "" },
+  { id: "nexus-plus", label: "VaultTrades Nexus Plus – Automation Installation", group: "EA INSTALLATION & OPERATION", sortOrder: 15, isPublished: true, content: "" },
+  { id: "vortex-manual", label: "VaultTrades Vortex – Automation User Manual", group: "EA INSTALLATION & OPERATION", sortOrder: 16, isPublished: true, content: "" },
+  { id: "vortex-install", label: "VaultTrades Vortex – Automation Installation Guide", group: "EA INSTALLATION & OPERATION", sortOrder: 17, isPublished: true, content: "" },
+  { id: "troubleshooting", label: "Troubleshooting", group: "EA INSTALLATION & OPERATION", sortOrder: 18, isPublished: true, content: "" },
+  { id: "vps", label: "Required VPS Setup", group: "AUTOMATION & DAILY USE", sortOrder: 19, isPublished: true, content: "" },
+  { id: "daily", label: "Your Daily Trading Routine", group: "AUTOMATION & DAILY USE", sortOrder: 20, isPublished: true, content: "" },
+  { id: "trading-room", label: "Morning Trading Room", group: "LEARNING & DEVELOPMENT", sortOrder: 21, isPublished: true, content: "" },
+  { id: "mentorship", label: "Seven-Day Mentorship", group: "LEARNING & DEVELOPMENT", sortOrder: 22, isPublished: true, content: "" },
+  { id: "scaling", label: "Scaling & KPI Development", group: "LEARNING & DEVELOPMENT", sortOrder: 23, isPublished: true, content: "" },
+  { id: "business", label: "Understand the Reseller Programme", group: "BUILD YOUR BUSINESS", sortOrder: 24, isPublished: true, content: "" },
+  { id: "referrals", label: "Your Existing Referral Link", group: "BUILD YOUR BUSINESS", sortOrder: 25, isPublished: true, content: "" },
+  { id: "business-leads", label: "Business Leads & Prospect Follow-up", group: "BUILD YOUR BUSINESS", sortOrder: 26, isPublished: true, content: "" },
+  { id: "website", label: "Your Personal Website", group: "WEBSITE & PAYMENT SETUP", sortOrder: 27, isPublished: true, content: "" },
+  { id: "paypal-setup", label: "PayPal Setup & Payment Links", group: "WEBSITE & PAYMENT SETUP", sortOrder: 28, isPublished: true, content: "" },
+  { id: "resources", label: "Partners & Resource Directory", group: "TOOLS & SUPPORT", sortOrder: 29, isPublished: true, content: "" },
+  { id: "tools", label: "Plan-Included Digital Tools", group: "TOOLS & SUPPORT", sortOrder: 30, isPublished: true, content: "" },
+  { id: "risk", label: "Risk & Important Information", group: "TOOLS & SUPPORT", sortOrder: 31, isPublished: true, content: "" },
+  { id: "faq", label: "Frequently Asked Questions", group: "TOOLS & SUPPORT", sortOrder: 32, isPublished: true, content: "" },
+  { id: "notifications", label: "Member Notifications", group: "TOOLS & SUPPORT", sortOrder: 33, isPublished: true, content: "" },
+  { id: "admin", label: "Manage Knowledge Base", group: "ADMINISTRATION", sortOrder: 34, isPublished: true, content: "" },
 ] as const;
 
 const planNames: Record<Plan, string> = {
@@ -123,8 +123,8 @@ export default function MemberPortalClient({
   };
   const partnerLearningSections = new Set(["welcome", "community", "trading-room", "mentorship", "scaling", "business", "referrals", "business-leads", "website", "paypal-setup", "resources", "tools", "risk", "faq", "notifications"]);
   const visibleSections = [...knowledgeSections].filter(item =>
-    (isAdmin || item.id !== "admin") && item.isPublished !== false &&
-    (!partnerAccessOnly || partnerLearningSections.has(item.id)) &&
+    (isAdmin || item.id !== "admin") && (isAdmin || item.isPublished !== false) &&
+    (!partnerAccessOnly || partnerLearningSections.has(item.id) || item.isCustom === true) &&
     (partnerAccessOnly || planEligibleSection(item.id))
   ).sort((a,b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id));
   const groups = useMemo(() => {
