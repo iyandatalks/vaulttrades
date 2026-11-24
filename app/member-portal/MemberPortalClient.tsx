@@ -708,7 +708,7 @@ export default function MemberPortalClient({
             <small>GUIDE {String(activeIndex).padStart(2, "0")} / {visibleSections.length}</small>
           </div>
           {renderContent()}
-          <ResourceShelf key={activeSection.id} active={activeSection.id} resources={knowledgeResources.filter(resource => resource.section_id === activeSection.id)} isAdmin={isAdmin} onResourcesChange={(items) => setKnowledgeResources(current => [...current.filter(resource => resource.section_id !== active), ...items])} />
+          <ResourceShelf key={activeSection.id} active={activeSection.id} resources={knowledgeResources.filter(resource => resource.section_id === activeSection.id)} isAdmin={isAdmin} onResourcesChange={(items) => setKnowledgeResources(current => [...current.filter(resource => resource.section_id !== activeSection.id), ...items])} />
           <div className="vt-member-content-footer">
             <span>VaultTrades Member Knowledge Base</span>
             <button type="button" onClick={() => { const next = visibleSections[Math.min(activeIndex, visibleSections.length - 1)]; setActive(next.id); window.scrollTo({ top: 0, behavior: "smooth" }); }} disabled={activeIndex >= visibleSections.length}>Next topic →</button>
