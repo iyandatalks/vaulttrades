@@ -282,6 +282,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, message: "Classroom topic saved.", id: result.data.id });
   }
 
+  if (action === "classroom_archive") {
+    if (!isAdmin) return fail("Only VaultTrades administrators can manage Classroom lessons.", 403);
+    const id = typeof body.id === "string" ? body.id : "";
+    if (!id) return fail("Choose a Classroom topic to archive.");
+    const { data, error } = await db.from("community_classroom_topics")
+      .update({ is_published: false, updated_at: new Date().toISOString() })
+      .eq("id", id).select("id").maybeSingle();
+    if (error || !data) return fail("The Classroom topic could not be archived.", 500);
+    return NextResponse.json({ ok: true, message: "Topic archived. Its learning material has been preserved and can be republished at any time." });
+  }
+
   if (action === "classroom_delete") {
     if (!isAdmin) return fail("Only VaultTrades administrators can manage Classroom lessons.", 403);
     const id = typeof body.id === "string" ? body.id : "";
