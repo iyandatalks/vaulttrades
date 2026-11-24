@@ -36,9 +36,9 @@ const defaultSections: KnowledgeSection[] = [
   { id: "community", label: "Join the Community", group: "START HERE", sortOrder: 1, isPublished: true, content: "" },
   { id: "broker", label: "Broker Registration", group: "ACCOUNT SETUP", sortOrder: 2, isPublished: true, content: "" },
   { id: "mt5", label: "Open Your MT5 Account", group: "ACCOUNT SETUP", sortOrder: 3, isPublished: true, content: "" },
-  { id: "licensing", label: "Submit Your MT5 Number", group: "AUTOMATION LICENSING & DELIVERY", sortOrder: 4, isPublished: true, content: "" },
-  { id: "generation", label: "Personalised Automation Preparation", group: "AUTOMATION LICENSING & DELIVERY", sortOrder: 5, isPublished: true, content: "" },
-  { id: "download", label: "Download Your Licensed Automation", group: "AUTOMATION LICENSING & DELIVERY", sortOrder: 6, isPublished: true, content: "" },
+  { id: "licensing", label: "Submit Your MT5 Number", group: "AUTOMATION LICENSING, DELIVERY, INSTALLATION & OPERATION", sortOrder: 4, isPublished: true, content: "" },
+  { id: "generation", label: "Personalised Automation Preparation", group: "AUTOMATION LICENSING, DELIVERY, INSTALLATION & OPERATION", sortOrder: 5, isPublished: true, content: "" },
+  { id: "download", label: "Download Your Licensed Automation", group: "AUTOMATION LICENSING, DELIVERY, INSTALLATION & OPERATION", sortOrder: 6, isPublished: true, content: "" },
   { id: "before-install", label: "Pre-installation Checklist", group: "AUTOMATION INSTALLATION & OPERATION", sortOrder: 7, isPublished: true, content: "" },
   { id: "installation", label: "VaultTrades Nexus – Automation Installation Guide", group: "EA INSTALLATION & OPERATION", sortOrder: 8, isPublished: true, content: "" },
   { id: "understanding", label: "Understanding VaultTrades Nexus – Automation", group: "EA INSTALLATION & OPERATION", sortOrder: 9, isPublished: true, content: "" },
@@ -69,6 +69,35 @@ const defaultSections: KnowledgeSection[] = [
   { id: "admin", label: "Manage Knowledge Base", group: "ADMINISTRATION", sortOrder: 34, isPublished: true, content: "" },
 ] as const;
 
+function normalizeAutomationSections(input: KnowledgeSection[]): KnowledgeSection[] {
+  const automationGroup = "AUTOMATION LICENSING, DELIVERY, INSTALLATION & OPERATION";
+  const updates: Record<string, Partial<KnowledgeSection>> = {
+    licensing: { group: automationGroup, sortOrder: 4 },
+    generation: { group: automationGroup, sortOrder: 5 },
+    download: { group: automationGroup, sortOrder: 6 },
+    "before-install": { group: automationGroup, isPublished: false, sortOrder: 7 },
+    installation: { label: "VaultTrades Nexus", group: automationGroup, sortOrder: 8 },
+    understanding: { group: automationGroup, isPublished: false, sortOrder: 9 },
+    "ea-settings": { group: automationGroup, isPublished: false, sortOrder: 10 },
+    "broker-detection": { label: "Broker Compatibility", group: automationGroup, sortOrder: 11 },
+    signals: { group: automationGroup, isPublished: false, sortOrder: 12 },
+    execution: { group: automationGroup, isPublished: false, sortOrder: 13 },
+    timeframes: { label: "Recommended Timeframes", group: automationGroup, sortOrder: 14 },
+    "nexus-plus": { label: "VaultTrades Nexus Plus", group: automationGroup, sortOrder: 15 },
+    "vortex-manual": { label: "VaultTrades Vortex", group: automationGroup, sortOrder: 16 },
+    "vortex-install": { group: automationGroup, isPublished: false, sortOrder: 17 },
+    troubleshooting: { group: automationGroup, isPublished: false, sortOrder: 18 },
+  };
+  const sections = input.map(item => ({ ...item, ...(updates[item.id] ?? {}) }));
+  if (!sections.some(item => item.id === "analyzer")) {
+    sections.push({ id: "analyzer", label: "Analyzer", group: automationGroup, sortOrder: 7, isPublished: true, content: "Choose the VaultTrades automation product included with your membership. Open the product topic below for its purpose, installation guidance and supporting video links. Use the recommended timeframe reference when setting up your charts.", isCustom: true });
+  } else {
+    const analyzer = sections.find(item => item.id === "analyzer")!;
+    Object.assign(analyzer, { group: automationGroup, sortOrder: 7, isPublished: true });
+  }
+  return sections.sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id));
+}
+
 const planNames: Record<Plan, string> = {
   nexus: "VaultTrades Nexus",
   nexus_plus: "VaultTrades Nexus Plus",
@@ -97,7 +126,7 @@ export default function MemberPortalClient({
   const [customDomain, setCustomDomain] = useState("");
   const [websiteSubmitting, setWebsiteSubmitting] = useState(false);
   const [websiteMessage, setWebsiteMessage] = useState("");
-  useEffect(() => { fetch("/api/member-portal/content", { cache: "no-store" }).then(r => r.ok ? r.json() : Promise.reject(new Error("Resources unavailable"))).then(data => { setKnowledgeResources(data.resources ?? []); if (Array.isArray(data.sections) && data.sections.length) setKnowledgeSections(data.sections); }).catch(() => setKnowledgeResources([])); }, []);
+  useEffect(() => { fetch("/api/member-portal/content", { cache: "no-store" }).then(r => r.ok ? r.json() : Promise.reject(new Error("Resources unavailable"))).then(data => { setKnowledgeResources(data.resources ?? []); if (Array.isArray(data.sections) && data.sections.length) setKnowledgeSections(normalizeAutomationSections(data.sections)); else setKnowledgeSections(normalizeAutomationSections(defaultSections)); }).catch(() => { setKnowledgeResources([]); setKnowledgeSections(normalizeAutomationSections(defaultSections)); }); }, []);
   useEffect(() => {
     const requestedSection = new URLSearchParams(window.location.search).get("section");
     if (requestedSection === "community" || (requestedSection === "admin" && isAdmin)) setActive(requestedSection);
