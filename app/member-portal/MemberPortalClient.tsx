@@ -232,6 +232,9 @@ export default function MemberPortalClient({
   }
 
     function renderContent() {
+    if (activeSection && !activeSection.isCustom && activeSection.content?.trim()) {
+      return <><Eyebrow>ADMINISTRATOR-EDITED GUIDE</Eyebrow><h1>{activeSection.label}</h1><div className="vt-member-lead" style={{ whiteSpace: "pre-wrap" }}>{activeSection.content}</div></>;
+    }
     switch (active) {
       case "welcome":
         return <>
@@ -705,7 +708,6 @@ export default function MemberPortalClient({
             <small>GUIDE {String(activeIndex).padStart(2, "0")} / {visibleSections.length}</small>
           </div>
           {renderContent()}
-          {!activeSection.isCustom && activeSection.content?.trim() && <section className="vt-member-custom-topic-content"><Eyebrow>ADMINISTRATOR NOTES</Eyebrow><div style={{ whiteSpace: "pre-wrap" }}>{activeSection.content}</div></section>}
           <ResourceShelf key={active} active={active} resources={knowledgeResources.filter(resource => resource.section_id === active)} isAdmin={isAdmin} onResourcesChange={(items) => setKnowledgeResources(current => [...current.filter(resource => resource.section_id !== active), ...items])} />
           <div className="vt-member-content-footer">
             <span>VaultTrades Member Knowledge Base</span>
@@ -873,7 +875,7 @@ function KnowledgeBaseStructureAdmin({ sections, onSaved }: { sections: Knowledg
   }
   return <section className="vt-member-admin-card">
     <h2>Knowledge Base structure & learning order</h2>
-    <p>Change a sequence number to move a topic. Lower numbers appear first. Rename topics, change their group, hide topics without deleting them, and add new learning topics. Existing topic content stays attached to its original topic.</p>
+    <p>Change a sequence number to move a topic. Lower numbers appear first. Rename topics, change their group, replace or add learning text, hide topics without deleting them, and add new topics. Leave an existing topic's content box blank to keep its current guide.</p>
     <div className="vt-member-kb-admin-list">
       {drafts.slice().sort((a,b)=>a.sortOrder-b.sortOrder || a.id.localeCompare(b.id)).map(item=><div className="vt-member-kb-admin-row" key={item.id}>
         <div className="vt-member-kb-admin-fields">
@@ -882,7 +884,7 @@ function KnowledgeBaseStructureAdmin({ sections, onSaved }: { sections: Knowledg
           <label>Section / group<input value={item.group} onChange={e=>update(item.id,{group:e.target.value.toUpperCase().slice(0,80)})} maxLength={80}/></label>
           <label className="vt-member-kb-visible"><input type="checkbox" checked={item.isPublished !== false} onChange={e=>update(item.id,{isPublished:e.target.checked})}/> Visible to eligible members</label>
         </div>
-        {(item.isCustom || item.content !== undefined) && <label>Learning content / admin notes<textarea rows={3} value={item.content || ""} onChange={e=>update(item.id,{content:e.target.value})} placeholder="Add or update learning content for this topic."/></label>}
+        <label>{item.isCustom ? "Learning content" : "Topic content override (optional)"}<textarea rows={4} value={item.content || ""} onChange={e=>update(item.id,{content:e.target.value})} placeholder={item.isCustom ? "Write the new topic's learning material." : "Leave blank to keep the existing guide. Enter text here to replace what members currently see for this topic."}/></label>
         <small>{item.isCustom ? "New topic" : `Existing topic · ${item.id}`} · Content is retained when hidden.</small>
       </div>)}
     </div>
