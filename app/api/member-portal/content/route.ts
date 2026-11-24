@@ -37,6 +37,12 @@ export async function GET(request: Request) {
   const [year, monthNumber] = month.split("-").map(Number);
   const start = new Date(Date.UTC(year, monthNumber - 1, 1, -2, 0, 0));
   const end = new Date(Date.UTC(year, monthNumber, 1, -2, 0, 0));
+  const { data: sectionSetting } = await db.from("member_portal_settings").select("setting_value").eq("setting_key", "knowledge_base_sections").maybeSingle();
+  let sections: any[] = [];
+  try { sections = sectionSetting?.setting_value ? JSON.parse(sectionSetting.setting_value) : []; } catch { sections = []; }
+  if (!Array.isArray(sections)) sections = [];
+  if (profile.role !== "admin") sections = sections.filter(section => section.isPublished !== false);
+
   const [{ data: resources, error: resourceError }, { data: events, error: eventError }] = await Promise.all([
     db.from("member_knowledge_resources").select("id,section_id,title,description,resource_kind,resource_url,plan_codes,sort_order,created_at")
       .eq("is_published", true).order("sort_order").order("created_at"),
@@ -46,5 +52,5 @@ export async function GET(request: Request) {
   if (resourceError || eventError) return NextResponse.json({ error: "MEMBER_CONTENT_UNAVAILABLE" }, { status: 500 });
   const rank = (value: string | null) => value === "vortex" ? 3 : value === "nexus_plus" ? 2 : value === "nexus" ? 1 : 0;
   const resourcesForPlan = (resources ?? []).filter(item => !item.plan_codes?.length || item.plan_codes.some((code: string) => rank(plan) >= rank(code)));
-  return NextResponse.json({ resources: resourcesForPlan, events: events ?? [], month, plan, isAdmin: profile.role === "admin" });
+  return NextResponse.json({ resources: resourcesForPlan, events: events ?? [], month, plan, isAdmin: profile.role === "admin", sections });
 }
