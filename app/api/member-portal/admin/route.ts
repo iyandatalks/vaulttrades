@@ -52,8 +52,16 @@ export async function POST(request: Request) {
   const action = String(body.action ?? "");
 
   if (action === "knowledge_sections_save") {
-    const raw = Array.isArray(body.sections) ? body.sections : [];
-    if (!raw.length || raw.length > 150) return NextResponse.json({ error: "The Knowledge Base must contain between 1 and 150 topics." }, { status: 400 });
+    const submitted = Array.isArray(body.sections) ? body.sections : [];
+    if (!submitted.length || submitted.length > 150) return NextResponse.json({ error: "The Knowledge Base must contain between 1 and 150 topics." }, { status: 400 });
+    const { data: currentSetting } = await db.from("member_portal_settings").select("setting_value").eq("setting_key", "knowledge_base_sections").maybeSingle();
+    let currentSections: any[] = [];
+    try { currentSections = currentSetting?.setting_value ? JSON.parse(currentSetting.setting_value) : []; } catch { currentSections = []; }
+    if (!Array.isArray(currentSections)) currentSections = [];
+    const submittedIds = new Set(submitted.map((item: any) => String(item?.id ?? "")));
+    // Never remove an existing topic from the structure. Admins can hide it instead.
+    const raw = [...submitted, ...currentSections.filter(item => !submittedIds.has(String(item?.id ?? "")))];
+    if (raw.length > 150) return NextResponse.json({ error: "The Knowledge Base cannot contain more than 150 topics." }, { status: 400 });
     const seen = new Set<string>();
     const sections = [];
     for (const item of raw) {
