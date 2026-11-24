@@ -11,6 +11,7 @@ type LicensingRequest = { id: string; broker_name: string; broker_server: string
 type WebsiteRequest = { id: string; domain_preference: string; preferred_name_1: string | null; preferred_name_2: string | null; preferred_name_3: string | null; custom_domain: string | null; status: string; admin_notes: string | null; assigned_domain: string | null; submitted_at: string };
 type MemberNotification = { id: string; title: string; body: string; action_href: string; notification_type: string; created_at: string; read_at: string | null };
 type KnowledgeResource = { id: string; section_id: string; title: string; description: string | null; resource_kind: string; resource_url: string; plan_codes: string[]; created_at: string };
+type KnowledgeSection = { id: string; label: string; group: string; sortOrder: number; isPublished: boolean; content?: string; isCustom?: boolean };
 
 type Props = {
   plan: Plan;
@@ -30,42 +31,42 @@ type Props = {
   accessLabel?: string;
 };
 
-const sections = [
-  { id: "welcome", label: "Welcome & Your Roadmap", group: "START HERE" },
-  { id: "community", label: "1. Join the Community", group: "START HERE" },
-  { id: "broker", label: "2. Broker Registration", group: "ACCOUNT SETUP" },
-  { id: "mt5", label: "3. Open Your MT5 Account", group: "ACCOUNT SETUP" },
-  { id: "licensing", label: "4. Submit Your MT5 Number", group: "AUTOMATION LICENSING & DELIVERY" },
-  { id: "generation", label: "5. Personalised Automation Preparation", group: "AUTOMATION LICENSING & DELIVERY" },
-  { id: "download", label: "6. Download Your Licensed Automation", group: "AUTOMATION LICENSING & DELIVERY" },
-  { id: "before-install", label: "7. Pre-installation Checklist", group: "AUTOMATION INSTALLATION & OPERATION" },
-  { id: "installation", label: "VaultTrades Nexus – Automation Installation Guide", group: "EA INSTALLATION & OPERATION" },
-  { id: "understanding", label: "Understanding VaultTrades Nexus – Automation", group: "EA INSTALLATION & OPERATION" },
-  { id: "ea-settings", label: "EA Settings & Risk Inputs", group: "EA INSTALLATION & OPERATION" },
-  { id: "broker-detection", label: "Broker & Symbol Detection", group: "EA INSTALLATION & OPERATION" },
-  { id: "signals", label: "How Trading Signals Work", group: "EA INSTALLATION & OPERATION" },
-  { id: "execution", label: "Signal-to-Order Lifecycle", group: "EA INSTALLATION & OPERATION" },
-  { id: "timeframes", label: "Recommended Timeframes", group: "EA INSTALLATION & OPERATION" },
-  { id: "nexus-plus", label: "VaultTrades Nexus Plus – Automation Installation", group: "EA INSTALLATION & OPERATION" },
-  { id: "vortex-manual", label: "VaultTrades Vortex – Automation User Manual", group: "EA INSTALLATION & OPERATION" },
-  { id: "vortex-install", label: "VaultTrades Vortex – Automation Installation Guide", group: "EA INSTALLATION & OPERATION" },
-  { id: "troubleshooting", label: "Troubleshooting", group: "EA INSTALLATION & OPERATION" },
-  { id: "vps", label: "Required VPS Setup", group: "AUTOMATION & DAILY USE" },
-  { id: "daily", label: "Your Daily Trading Routine", group: "AUTOMATION & DAILY USE" },
-  { id: "trading-room", label: "Morning Trading Room", group: "LEARNING & DEVELOPMENT" },
-  { id: "mentorship", label: "Seven-Day Mentorship", group: "LEARNING & DEVELOPMENT" },
-  { id: "scaling", label: "Scaling & KPI Development", group: "LEARNING & DEVELOPMENT" },
-  { id: "business", label: "Understand the Reseller Programme", group: "BUILD YOUR BUSINESS" },
-  { id: "referrals", label: "Your Existing Referral Link", group: "BUILD YOUR BUSINESS" },
-  { id: "business-leads", label: "Business Leads & Prospect Follow-up", group: "BUILD YOUR BUSINESS" },
-  { id: "website", label: "Your Personal Website", group: "WEBSITE & PAYMENT SETUP" },
-  { id: "paypal-setup", label: "PayPal Setup & Payment Links", group: "WEBSITE & PAYMENT SETUP" },
-  { id: "resources", label: "Partners & Resource Directory", group: "TOOLS & SUPPORT" },
-  { id: "tools", label: "Plan-Included Digital Tools", group: "TOOLS & SUPPORT" },
-  { id: "risk", label: "Risk & Important Information", group: "TOOLS & SUPPORT" },
-  { id: "faq", label: "Frequently Asked Questions", group: "TOOLS & SUPPORT" },
-  { id: "notifications", label: "Member Notifications", group: "TOOLS & SUPPORT" },
-  { id: "admin", label: "Manage Knowledge Base", group: "ADMINISTRATION" },
+const defaultSections: KnowledgeSection[] = [
+  { id: "welcome", label: "Welcome & Your Roadmap", group: "START HERE", sortOrder: 0, isPublished: true },
+  { id: "community", label: "Join the Community", group: "START HERE", sortOrder: 1, isPublished: true },
+  { id: "broker", label: "Broker Registration", group: "ACCOUNT SETUP", sortOrder: 2, isPublished: true },
+  { id: "mt5", label: "Open Your MT5 Account", group: "ACCOUNT SETUP", sortOrder: 3, isPublished: true },
+  { id: "licensing", label: "Submit Your MT5 Number", group: "AUTOMATION LICENSING & DELIVERY", sortOrder: 4, isPublished: true },
+  { id: "generation", label: "Personalised Automation Preparation", group: "AUTOMATION LICENSING & DELIVERY", sortOrder: 5, isPublished: true },
+  { id: "download", label: "Download Your Licensed Automation", group: "AUTOMATION LICENSING & DELIVERY", sortOrder: 6, isPublished: true },
+  { id: "before-install", label: "Pre-installation Checklist", group: "AUTOMATION INSTALLATION & OPERATION", sortOrder: 7, isPublished: true },
+  { id: "installation", label: "VaultTrades Nexus – Automation Installation Guide", group: "EA INSTALLATION & OPERATION", sortOrder: 8, isPublished: true },
+  { id: "understanding", label: "Understanding VaultTrades Nexus – Automation", group: "EA INSTALLATION & OPERATION", sortOrder: 9, isPublished: true },
+  { id: "ea-settings", label: "EA Settings & Risk Inputs", group: "EA INSTALLATION & OPERATION", sortOrder: 10, isPublished: true },
+  { id: "broker-detection", label: "Broker & Symbol Detection", group: "EA INSTALLATION & OPERATION", sortOrder: 11, isPublished: true },
+  { id: "signals", label: "How Trading Signals Work", group: "EA INSTALLATION & OPERATION", sortOrder: 12, isPublished: true },
+  { id: "execution", label: "Signal-to-Order Lifecycle", group: "EA INSTALLATION & OPERATION", sortOrder: 13, isPublished: true },
+  { id: "timeframes", label: "Recommended Timeframes", group: "EA INSTALLATION & OPERATION", sortOrder: 14, isPublished: true },
+  { id: "nexus-plus", label: "VaultTrades Nexus Plus – Automation Installation", group: "EA INSTALLATION & OPERATION", sortOrder: 15, isPublished: true },
+  { id: "vortex-manual", label: "VaultTrades Vortex – Automation User Manual", group: "EA INSTALLATION & OPERATION", sortOrder: 16, isPublished: true },
+  { id: "vortex-install", label: "VaultTrades Vortex – Automation Installation Guide", group: "EA INSTALLATION & OPERATION", sortOrder: 17, isPublished: true },
+  { id: "troubleshooting", label: "Troubleshooting", group: "EA INSTALLATION & OPERATION", sortOrder: 18, isPublished: true },
+  { id: "vps", label: "Required VPS Setup", group: "AUTOMATION & DAILY USE", sortOrder: 19, isPublished: true },
+  { id: "daily", label: "Your Daily Trading Routine", group: "AUTOMATION & DAILY USE", sortOrder: 20, isPublished: true },
+  { id: "trading-room", label: "Morning Trading Room", group: "LEARNING & DEVELOPMENT", sortOrder: 21, isPublished: true },
+  { id: "mentorship", label: "Seven-Day Mentorship", group: "LEARNING & DEVELOPMENT", sortOrder: 22, isPublished: true },
+  { id: "scaling", label: "Scaling & KPI Development", group: "LEARNING & DEVELOPMENT", sortOrder: 23, isPublished: true },
+  { id: "business", label: "Understand the Reseller Programme", group: "BUILD YOUR BUSINESS", sortOrder: 24, isPublished: true },
+  { id: "referrals", label: "Your Existing Referral Link", group: "BUILD YOUR BUSINESS", sortOrder: 25, isPublished: true },
+  { id: "business-leads", label: "Business Leads & Prospect Follow-up", group: "BUILD YOUR BUSINESS", sortOrder: 26, isPublished: true },
+  { id: "website", label: "Your Personal Website", group: "WEBSITE & PAYMENT SETUP", sortOrder: 27, isPublished: true },
+  { id: "paypal-setup", label: "PayPal Setup & Payment Links", group: "WEBSITE & PAYMENT SETUP", sortOrder: 28, isPublished: true },
+  { id: "resources", label: "Partners & Resource Directory", group: "TOOLS & SUPPORT", sortOrder: 29, isPublished: true },
+  { id: "tools", label: "Plan-Included Digital Tools", group: "TOOLS & SUPPORT", sortOrder: 30, isPublished: true },
+  { id: "risk", label: "Risk & Important Information", group: "TOOLS & SUPPORT", sortOrder: 31, isPublished: true },
+  { id: "faq", label: "Frequently Asked Questions", group: "TOOLS & SUPPORT", sortOrder: 32, isPublished: true },
+  { id: "notifications", label: "Member Notifications", group: "TOOLS & SUPPORT", sortOrder: 33, isPublished: true },
+  { id: "admin", label: "Manage Knowledge Base", group: "ADMINISTRATION", sortOrder: 34, isPublished: true },
 ] as const;
 
 const planNames: Record<Plan, string> = {
@@ -80,6 +81,7 @@ export default function MemberPortalClient({
   const [active, setActive] = useState<string>("welcome");
   const [topicSearch, setTopicSearch] = useState("");
   const [knowledgeResources, setKnowledgeResources] = useState<KnowledgeResource[]>([]);
+  const [knowledgeSections, setKnowledgeSections] = useState<KnowledgeSection[]>(defaultSections);
   const [copied, setCopied] = useState(false);
   const [communityCopied, setCommunityCopied] = useState(false);
   const [requests, setRequests] = useState<LicensingRequest[]>(licensingRequests);
@@ -95,7 +97,7 @@ export default function MemberPortalClient({
   const [customDomain, setCustomDomain] = useState("");
   const [websiteSubmitting, setWebsiteSubmitting] = useState(false);
   const [websiteMessage, setWebsiteMessage] = useState("");
-  useEffect(() => { fetch("/api/member-portal/content", { cache: "no-store" }).then(r => r.ok ? r.json() : Promise.reject(new Error("Resources unavailable"))).then(data => setKnowledgeResources(data.resources ?? [])).catch(() => setKnowledgeResources([])); }, []);
+  useEffect(() => { fetch("/api/member-portal/content", { cache: "no-store" }).then(r => r.ok ? r.json() : Promise.reject(new Error("Resources unavailable"))).then(data => { setKnowledgeResources(data.resources ?? []); if (Array.isArray(data.sections) && data.sections.length) setKnowledgeSections(data.sections); }).catch(() => setKnowledgeResources([])); }, []);
   useEffect(() => {
     const requestedSection = new URLSearchParams(window.location.search).get("section");
     if (requestedSection === "community") setActive("community");
@@ -120,26 +122,26 @@ export default function MemberPortalClient({
     return true;
   };
   const partnerLearningSections = new Set(["welcome", "community", "trading-room", "mentorship", "scaling", "business", "referrals", "business-leads", "website", "paypal-setup", "resources", "tools", "risk", "faq", "notifications"]);
-  const visibleSections = sections.filter(item =>
-    (isAdmin || item.id !== "admin") &&
+  const visibleSections = [...knowledgeSections].filter(item =>
+    (isAdmin || item.id !== "admin") && item.isPublished !== false &&
     (!partnerAccessOnly || partnerLearningSections.has(item.id)) &&
     (partnerAccessOnly || planEligibleSection(item.id))
-  );
+  ).sort((a,b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id));
   const groups = useMemo(() => {
-    const result: { group: string; items: typeof sections[number][] }[] = [];
+    const result: { group: string; items: KnowledgeSection[] }[] = [];
     const query = topicSearch.trim().toLowerCase();
-    for (const item of sections.filter(item =>
-      (isAdmin || item.id !== "admin") &&
+    for (const item of [...knowledgeSections].filter(item =>
+      (isAdmin || item.id !== "admin") && item.isPublished !== false &&
       (!partnerAccessOnly || partnerLearningSections.has(item.id)) &&
       (partnerAccessOnly || planEligibleSection(item.id))
-    )) {
+    ).sort((a,b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id))) {
       if (query && !item.label.toLowerCase().includes(query) && !item.group.toLowerCase().includes(query)) continue;
       let group = result.find(entry => entry.group === item.group);
       if (!group) { group = { group: item.group, items: [] }; result.push(group); }
       group.items.push(item);
     }
     return result;
-  }, [topicSearch, isAdmin, partnerAccessOnly, plan]);
+  }, [topicSearch, isAdmin, partnerAccessOnly, plan, knowledgeSections]);
   const activeSection = visibleSections.find(item => item.id === active) ?? visibleSections[0];
   const activeIndex = visibleSections.findIndex(item => item.id === active) + 1;
   const communityReferralUrl = useMemo(() => {
@@ -255,7 +257,7 @@ export default function MemberPortalClient({
           <p className="vt-member-note">Use the left-hand topics in order. Supporting materials are added as named links to approved cloud-hosted resources, rather than uploading large files into the website.</p>
         </>;
       case "admin":
-        return isAdmin ? <><div className="vt-member-highlight"><strong>Administrative access controls</strong><span>Manage Community approvals, Partners Portal manual overrides, and partner registration when automated processing needs correction.</span><a className="vt-member-button" href="/admin/access-management">Open Access & Partner Management ↗</a></div><MemberPortalAdminPanel /></> : <><h1>Not available.</h1></>;
+        return isAdmin ? <><div className="vt-member-highlight"><strong>Administrative access controls</strong><span>Manage Community approvals, Partners Portal manual overrides, and partner registration when automated processing needs correction.</span><a className="vt-member-button" href="/admin/access-management">Open Access & Partner Management ↗</a></div><KnowledgeBaseStructureAdmin sections={knowledgeSections} onSaved={setKnowledgeSections} /><MemberPortalAdminPanel /></> : <><h1>Not available.</h1></>;
       case "notifications":
         return <>
           <Eyebrow>MEMBER UPDATES</Eyebrow><h1>Your notifications.</h1>
@@ -669,7 +671,7 @@ export default function MemberPortalClient({
           </div>
         </>;
       default:
-        return <><h1>Choose a topic.</h1><p>Select a topic from the left navigation to read its guide.</p></>;
+        return activeSection?.isCustom ? <><Eyebrow>KNOWLEDGE BASE TOPIC</Eyebrow><h1>{activeSection.label}</h1><div className="vt-member-lead" style={{ whiteSpace: "pre-wrap" }}>{activeSection.content || "Learning material will be added here."}</div></> : <><h1>Choose a topic.</h1><p>Select a topic from the left navigation to read its guide.</p></>;
     }
   }
 
@@ -684,7 +686,7 @@ export default function MemberPortalClient({
           <div className="vt-member-sidebar-intro">
             <span>YOUR LEARNING PATH</span>
             <strong>Choose a topic</strong>
-            <small>{sections.length} guides and resources</small>
+            <small>{visibleSections.length} guides and resources</small>
           </div>
           <label className="vt-member-topic-search">
             <span className="sr-only">Search Knowledge Base topics</span>
@@ -693,16 +695,17 @@ export default function MemberPortalClient({
           {groups.length ? groups.map(group => <div className="vt-member-nav-group" key={group.group}>
             <div className="vt-member-nav-heading"><span>{group.group}</span><small>{group.items.length}</small></div>
             {group.items.map(item => <button type="button" key={item.id} className={active === item.id ? "vt-member-nav-item active" : "vt-member-nav-item"} onClick={() => setActive(item.id)} aria-current={active === item.id ? "page" : undefined}>
-              <span className="vt-member-nav-dot" aria-hidden="true" />{item.label}
+              <span className="vt-member-nav-dot" aria-hidden="true" /> <span className="vt-member-sequence">{String(item.sortOrder).padStart(2,"0")}</span> {item.label}
             </button>)}
           </div>) : <p className="vt-member-no-results">No topics match that search.</p>}
         </aside>
         <article className="vt-member-content" aria-live="polite">
           <div className="vt-member-content-toolbar">
-            <div><span>{activeSection.group}</span><strong>{activeSection.label}</strong></div>
+            <div><span>{activeSection.group}</span><strong>{String(activeSection.sortOrder).padStart(2,"0")} · {activeSection.label}</strong></div>
             <small>GUIDE {String(activeIndex).padStart(2, "0")} / {visibleSections.length}</small>
           </div>
           {renderContent()}
+          {!activeSection.isCustom && activeSection.content?.trim() && <section className="vt-member-custom-topic-content"><Eyebrow>ADMINISTRATOR NOTES</Eyebrow><div style={{ whiteSpace: "pre-wrap" }}>{activeSection.content}</div></section>}
           <ResourceShelf key={active} active={active} resources={knowledgeResources.filter(resource => resource.section_id === active)} isAdmin={isAdmin} onResourcesChange={(items) => setKnowledgeResources(current => [...current.filter(resource => resource.section_id !== active), ...items])} />
           <div className="vt-member-content-footer">
             <span>VaultTrades Member Knowledge Base</span>
@@ -839,4 +842,58 @@ function Tool({ title, description, href, unlocked, lockedLabel = "Unlocked with
     <div><strong>{title}</strong><p>{description}</p></div>
     {unlocked ? <Link href={href} className="vt-member-tool-link">Open tool ↗</Link> : <span className="vt-member-locked">{lockedLabel}</span>}
   </div>;
+}
+
+
+function KnowledgeBaseStructureAdmin({ sections, onSaved }: { sections: KnowledgeSection[]; onSaved: (items: KnowledgeSection[]) => void }) {
+  const [drafts, setDrafts] = useState<KnowledgeSection[]>(sections.map(item => ({ ...item })));
+  const [newTitle, setNewTitle] = useState("");
+  const [newGroup, setNewGroup] = useState("START HERE");
+  const [newContent, setNewContent] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  useEffect(() => setDrafts(sections.map(item => ({ ...item }))), [sections]);
+  function update(id: string, patch: Partial<KnowledgeSection>) { setDrafts(current => current.map(item => item.id === id ? { ...item, ...patch } : item)); }
+  function addTopic() {
+    const label = newTitle.trim(); if (!label) return;
+    const base = label.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,36) || "new-topic";
+    let id = base, suffix = 2; while (drafts.some(item => item.id === id)) id = `${base}-${suffix++}`;
+    setDrafts(current => [...current, { id, label, group: newGroup.trim() || "ADDITIONAL LEARNING", sortOrder: current.length ? Math.max(...current.map(item => item.sortOrder)) + 1 : 0, isPublished: true, content: newContent, isCustom: true }]);
+    setNewTitle(""); setNewContent(""); setMessage("New topic added to the unsaved changes list.");
+  }
+  async function save() {
+    setSaving(true); setMessage("");
+    try {
+      const response = await fetch("/api/member-portal/admin", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ action:"knowledge_sections_save", sections:drafts }) });
+      const data = await response.json(); if (!response.ok) throw new Error(data.error || "Unable to save Knowledge Base structure.");
+      const saved = (data.sections ?? drafts).sort((a:KnowledgeSection,b:KnowledgeSection) => a.sortOrder-b.sortOrder || a.id.localeCompare(b.id));
+      onSaved(saved); setDrafts(saved); setMessage("Knowledge Base structure saved. Member navigation now follows these sequence numbers.");
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Unable to save Knowledge Base structure."); }
+    finally { setSaving(false); }
+  }
+  return <section className="vt-member-admin-card">
+    <h2>Knowledge Base structure & learning order</h2>
+    <p>Change a sequence number to move a topic. Lower numbers appear first. Rename topics, change their group, hide topics without deleting them, and add new learning topics. Existing topic content stays attached to its original topic.</p>
+    <div className="vt-member-kb-admin-list">
+      {drafts.slice().sort((a,b)=>a.sortOrder-b.sortOrder || a.id.localeCompare(b.id)).map(item=><div className="vt-member-kb-admin-row" key={item.id}>
+        <div className="vt-member-kb-admin-fields">
+          <label>Order<input type="number" min="0" max="9999" step="1" value={item.sortOrder} onChange={e=>update(item.id,{sortOrder:Math.max(0,Number(e.target.value)||0)})}/></label>
+          <label>Topic title<input value={item.label} onChange={e=>update(item.id,{label:e.target.value})} maxLength={140}/></label>
+          <label>Section / group<input value={item.group} onChange={e=>update(item.id,{group:e.target.value.toUpperCase().slice(0,80)})} maxLength={80}/></label>
+          <label className="vt-member-kb-visible"><input type="checkbox" checked={item.isPublished !== false} onChange={e=>update(item.id,{isPublished:e.target.checked})}/> Visible to eligible members</label>
+        </div>
+        {(item.isCustom || item.content !== undefined) && <label>Learning content / admin notes<textarea rows={3} value={item.content || ""} onChange={e=>update(item.id,{content:e.target.value})} placeholder="Add or update learning content for this topic."/></label>}
+        <small>{item.isCustom ? "New topic" : `Existing topic · ${item.id}`} · Content is retained when hidden.</small>
+      </div>)}
+    </div>
+    <div className="vt-member-kb-add">
+      <h3>Add a new topic</h3>
+      <label>Topic title<input value={newTitle} onChange={e=>setNewTitle(e.target.value)} maxLength={140} placeholder="e.g. Daily Business Operations"/></label>
+      <label>Section / group<input value={newGroup} onChange={e=>setNewGroup(e.target.value)} maxLength={80}/></label>
+      <label>Learning content<textarea rows={4} value={newContent} onChange={e=>setNewContent(e.target.value)} placeholder="Write the new topic's learning material."/></label>
+      <button type="button" className="vt-member-button" onClick={addTopic} disabled={!newTitle.trim()}>Add topic to list</button>
+    </div>
+    <div className="vt-calendar-form-actions"><button type="button" className="vt-member-button" onClick={()=>void save()} disabled={saving}>{saving?"Saving…":"Save Knowledge Base changes"}</button><button type="button" className="vt-member-outline" onClick={()=>setDrafts(sections.map(item=>({...item})))} disabled={saving}>Discard unsaved changes</button></div>
+    {message && <p className="vt-member-submit-message" role="status">{message}</p>}
+  </section>;
 }
