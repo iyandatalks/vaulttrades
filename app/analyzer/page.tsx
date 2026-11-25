@@ -622,7 +622,6 @@ export default function AnalyzerPage() {
             : (result.strategyEngine?.signal ?? displayDirection);
           const entry = strategy === "vortex" ? (open?.entry ?? closed?.entry ?? scannerEntry) : scannerEntry;
           const stop = strategy === "vortex" ? (open?.stopLoss ?? closed?.stopLoss ?? scannerStop) : scannerStop;
-          const fibLevel = strategy === "vortex" ? (open?.fibLevel ?? closed?.fibLevel ?? v?.fibLevel ?? null) : null;
           const target = strategy === "vortex" ? (open?.tp1 ?? closed?.tp1 ?? v?.tp1) : scannerTp1;
           const current = Number(result.market?.currentPrice);
           const hasCurrent = Number.isFinite(current);
@@ -636,8 +635,6 @@ export default function AnalyzerPage() {
               : v?.state === "SETUP DEVELOPING" ? "SETUP DEVELOPING" : "WAITING FOR VALID SIGNAL";
           const title = strategy === "vortex" ? vortexStatus : active ? "TRADE ACTIVE" : scannerStatus;
           const entryTime = strategy === "vortex" ? (open?.entryTime ?? closed?.entryTime) : result.strategyEngine?.entryTime;
-          const pendingDistance = hasCurrent && entry != null ? Math.abs(current - entry) : null;
-          const pendingSide = hasCurrent && entry != null ? current > entry ? "above" : current < entry ? "below" : "at" : null;
           return <>
             <h2 className="title" style={{ marginBottom: 8 }}>{title}</h2>
             {strategy !== "vortex" && <p className="muted" style={{ marginTop: 0 }}>{active
