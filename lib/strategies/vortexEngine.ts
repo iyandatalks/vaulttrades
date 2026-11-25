@@ -257,28 +257,31 @@ function evaluateH4H1Confirmation(h4Input: VortexCandle[], h1Input: VortexCandle
   const wick = direction === "BUY" ? anchor.low : anchor.high;
   const afterAnchor = h1.filter(bar => bar.time >= anchor!.time + TIMEFRAME_MS["4H"]);
   const latest = afterAnchor.at(-1);
+  if (!latest) return {
+    direction, h4Level: level, h4WickExtreme: wick,
+    h4AnchorTime: new Date(anchor.time).toISOString(),
+    h1BreakTime: null, h1RetestTime: null, h1BreakKind: "NO_TEST",
+    h1CandleDirection: null, h1Close: null, h1BodyShare: null, h1DirectionalCloses: 0,
+    confirmed: false,
+    reason: `H4 ${direction} reference locked at ${level}. No subsequent H1 candle is available to assess the level yet.`,
+  };
+  const latestDirection = latest.close > latest.open ? "BULLISH" : latest.close < latest.open ? "BEARISH" : "NEUTRAL";
+  let directionalCloses = 0;
+  if (latestDirection !== "NEUTRAL") {
+    for (let i = afterAnchor.length - 1; i >= 0; i--) {
+      const bar = afterAnchor[i];
+      const barDirection = bar.close > bar.open ? "BULLISH" : bar.close < bar.open ? "BEARISH" : "NEUTRAL";
+      if (barDirection !== latestDirection) break;
+      directionalCloses++;
+    }
+  }
   const base = {
     direction, h4Level: level, h4WickExtreme: wick,
     h4AnchorTime: new Date(anchor.time).toISOString(), h1RetestTime: null,
-    h1CandleDirection: latest.close > latest.open ? "BULLISH" as const : latest.close < latest.open ? "BEARISH" as const : "NEUTRAL" as const,
+    h1CandleDirection: latestDirection,
     h1Close: latest.close,
     h1BodyShare: Math.round((Math.abs(latest.close - latest.open) / Math.max(latest.high - latest.low, Number.EPSILON)) * 100),
-    h1DirectionalCloses: (() => {
-      const candleDir = latest.close > latest.open ? "BULLISH" : latest.close < latest.open ? "BEARISH" : "NEUTRAL";
-      if (candleDir === "NEUTRAL") return 0;
-      let count = 0;
-      for (let i = afterAnchor.length - 1; i >= 0; i--) {
-        const bar = afterAnchor[i];
-        const dir = bar.close > bar.open ? "BULLISH" : bar.close < bar.open ? "BEARISH" : "NEUTRAL";
-        if (dir !== candleDir) break;
-        count++;
-      }
-      return count;
-    })(),
-  };
-  if (!latest) return {
-    ...base, h1BreakTime: null, h1BreakKind: "NO_TEST", confirmed: false,
-    reason: `H4 ${direction} reference locked at ${level}. No subsequent H1 candle is available to assess the level yet.`,
+    h1DirectionalCloses: directionalCloses,
   };
 
   const closeBeyond = direction === "BUY" ? latest.close > level : latest.close < level;
