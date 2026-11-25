@@ -640,39 +640,19 @@ export default function AnalyzerPage() {
           const pendingSide = hasCurrent && entry != null ? current > entry ? "above" : current < entry ? "below" : "at" : null;
           return <>
             <h2 className="title" style={{ marginBottom: 8 }}>{title}</h2>
-            {strategy === "vortex" && !active && !closed && direction && entry != null && <div style={{ marginTop: -2, marginBottom: 10 }}>
-              <strong style={{ fontSize: 17, color: direction === "BUY" ? "#35c98a" : "#f06b72" }}>{direction} SETUP</strong>
-              <div className="muted" style={{ marginTop: 4 }}>
-                Waiting for {direction} at {fmt(entry, symbol)} · {(typeof fibLevel === "number" ? fibLevel : 68.1).toFixed(1)}% Fib retracement.
-                {pendingDistance != null && pendingSide ? ` Current price is ${fmt(current, symbol)} (${fmt(pendingDistance, symbol)} ${pendingSide} entry).` : ""}
-              </div>
-            </div>}
-            {strategy === "vortex" && !active && !closed && (!direction || entry == null) && <p className="muted" style={{ marginTop: 0 }}>No BUY or SELL Fib setup is currently anchored.</p>}
-            <p className="muted" style={{ marginTop: 0 }}>{strategy === "vortex" ? (!active && !closed && (!direction || entry == null) ? "Waiting for a completed-session liquidity sweep followed by a close-confirmed CHOCH." : (v?.statusReason ?? "Waiting for the next qualifying Vortex signal.")) : active
+            {strategy !== "vortex" && <p className="muted" style={{ marginTop: 0 }}>{active
               ? (result.strategyEngine?.lifecycleReason ?? "The recorded entry, stop loss and target remain in force until reached on a completed candle.")
-              : (result.strategyEngine?.lifecycleReason ?? result.strategyEngine?.statusReason ?? s?.waitReason ?? "Waiting for the next qualifying signal.")}</p>
-            {strategy === "vortex" && v?.htfConfirmation && <div className="condition-box" style={{ marginTop: 10 }}>
-              <strong>H4 / H1 MARKET STRUCTURE CONTEXT</strong>
-              <div className="muted" style={{ marginTop: 5 }}>
-                H4 reference: {v.htfConfirmation.h4Level != null ? fmt(v.htfConfirmation.h4Level, symbol) : "Unavailable"}
-                {" · "}H1 assessment: {v.htfConfirmation.h1BreakKind === "CLOSE_BEYOND" || v.htfConfirmation.h1BreakKind === "COUNTER_CLOSE" ? "CLOSE BEYOND" : (v.htfConfirmation.h1BreakKind ?? "UNAVAILABLE").replaceAll("_", " ")}
-              </div>
-              {v.htfConfirmation.h1BreakKind === "CLOSE_BEYOND" && <div className="muted" style={{ marginTop: 5, fontSize: 12 }}>
-                H1 {((v.htfConfirmation.h1CandleDirection ?? "NEUTRAL").toLowerCase())} candle CLOSED beyond the H4 {v.htfConfirmation.direction} reference {v.htfConfirmation.h4Level != null ? fmt(v.htfConfirmation.h4Level, symbol) : ""}{v.htfConfirmation.h1BodyShare != null ? ` (body ${v.htfConfirmation.h1BodyShare}% of range` : ""}{v.htfConfirmation.h1DirectionalCloses != null ? `; ${v.htfConfirmation.h1DirectionalCloses} consecutive ${(v.htfConfirmation.h1CandleDirection ?? "directional").toLowerCase()} H1 closes)` : ")"}. This is not an entry signal. A break against an existing setup invalidates that setup; an opposite setup still requires the existing MSS and entry rules.
-              </div>}
-              {v.htfConfirmation.h1BreakKind !== "CLOSE_BEYOND" && <div className="muted" style={{ marginTop: 5, fontSize: 12 }}>
-                {v.htfConfirmation.h1BreakKind === "COUNTER_CLOSE" ? "H1 closed on the opposite side of the H4 reference. Assess candle body, wick and the following H1 close." : v.htfConfirmation.h1BreakKind === "WICK_ONLY" ? "H1 wicked beyond the H4 reference but has not closed beyond it." : v.htfConfirmation.h1BreakKind === "NO_TEST" ? "No subsequent H1 test of the H4 reference yet." : "H4/H1 candle history is not available for assessment."}
-              </div>}
-              <div className="muted" style={{ marginTop: 5, fontSize: 11 }}>MTF context only. Existing Vortex MSS, Fib, order-block, candle and M5 entry rules remain unchanged. No additional H4 retest is required.</div>
-            </div>}
+              : (result.strategyEngine?.lifecycleReason ?? result.strategyEngine?.statusReason ?? s?.waitReason ?? "Waiting for the next qualifying signal.")}</p>}
+            {strategy === "vortex" && closed?.status === "TP_HIT" && <p className="muted" style={{ marginTop: 0 }}>Take profit was reached and the trade is closed. A fresh qualifying signal may open the next sequential trade.</p>}
             {(strategy === "vortex" ? entry != null && stop != null : (active || (strategy === "vortex" && closed)) && direction && entry != null && stop != null && target != null) && <>
-              {strategy !== "vortex" && <strong style={{ fontSize: 18, color: direction === "BUY" ? "#35c98a" : "#f06b72" }}>{direction} · {active ? "TRADE ACTIVE" : "TRADE CLOSED"}</strong>}
+              <strong style={{ fontSize: 18, color: direction === "BUY" ? "#35c98a" : "#f06b72" }}>{direction} · {active ? "TRADE ACTIVE" : "TRADE CLOSED"}</strong>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8, marginTop: 10 }}>
-                <PriceLevel label={strategy === "vortex" && !active && !closed ? `ENTRY · ${typeof fibLevel === "number" ? fibLevel : 68.1}% FIB` : "ENTRY"} value={entry} kind="entry" symbol={symbol} />
+                <PriceLevel label="ENTRY" value={entry} kind="entry" symbol={symbol} />
                 <PriceLevel label="STOP LOSS" value={stop} kind="sl" symbol={symbol} />
-                <PriceLevel label="TAKE PROFIT · TP1" value={target!} kind="tp" symbol={symbol} />
+                <PriceLevel label={strategy === "vortex" ? "TAKE PROFIT (TP1)" : "TAKE PROFIT · TP1"} value={target!} kind="tp" symbol={symbol} />
               </div>
-              <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>Signal date: {entryTime ? new Date(entryTime).toLocaleDateString() : "—"} · Entry time: {entryTime ? new Date(entryTime).toLocaleString() : "—"}</div>
+              {strategy === "vortex" && closed ? <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>Entry: {closed.entryTime ?? "—"} · Exit: {closed.exitTime ?? "—"} · Exit price: {fmt(closed.exitPrice, symbol)}</div>
+                : <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>Signal date: {entryTime ? new Date(entryTime).toLocaleDateString() : "—"} · Entry time: {entryTime ? new Date(entryTime).toLocaleString() : "—"}</div>}
               {active && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(125px,1fr))", gap: 8, marginTop: 10 }}>
                 <div className="condition-box"><strong>CURRENT PRICE</strong><div style={{ marginTop: 5 }}>{hasCurrent ? fmt(current, symbol) : "Unavailable"}</div></div>
                 <div className="condition-box"><strong>MOVE FROM ENTRY</strong><div style={{ marginTop: 5 }}>{move == null ? "—" : (move > 0 ? "+" : "") + fmt(move, symbol)}</div></div>
