@@ -451,8 +451,6 @@ export default function AnalyzerPage() {
           { label: "TP1", price: vortexView.tp1, kind: "TP" as const },
           { label: "TP2", price: vortexView.tp2, kind: "TP" as const },
           { label: "TP3", price: vortexView.tp3, kind: "TP" as const },
-          { label: "TP4", price: vortexView.tp4, kind: "TP" as const },
-          { label: "TP5", price: vortexView.tp5, kind: "TP" as const },
         ].filter((level): level is { label: string; price: number; kind: "ENTRY" | "SL" | "TP" } => typeof level.price === "number"),
       }
     : null;
@@ -510,7 +508,7 @@ export default function AnalyzerPage() {
       <div className="condition-box" style={{ marginTop: 14 }}><strong>{strategyDisplayName(strategy)}</strong></div>
       {strategy === "vortex" && <label className="muted" style={{ display: "block", marginTop: 14 }}>Vortex lot size
         <input type="number" min="0.01" step="0.01" value={vortexLotSize} disabled={loading} onChange={e => setVortexLotSize(Math.max(0.01, Number(e.target.value) || 0.01))} style={{ width: "100%", marginTop: 7, padding: 13, borderRadius: 10, background: "#050812", color: "#f4f6fb", border: "1px solid rgba(212,166,55,.35)" }} />
-        <span className="muted" style={{ display: "block", marginTop: 5, fontSize: 12 }}>Default 0.05. Lot sizes 0.01–0.04 close fully at TP1; 0.05 and above split across three progressive targets.</span>
+        <span className="muted" style={{ display: "block", marginTop: 5, fontSize: 12 }}>Default 0.05. All lot sizes close fully at TP1. TP2 and TP3 are Fibonacci reference levels only; no partial exits.</span>
       </label>}
     </section>
 
