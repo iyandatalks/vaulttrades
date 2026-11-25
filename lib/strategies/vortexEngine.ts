@@ -15,7 +15,7 @@ export type VortexTrade = {
 };
 export type VortexResult = {
   source: "VAULTTRADES_VORTEX_S1_FIB_VWAP_CONFLUENCE"; timeframe: VortexTimeframe; state: "WAITING" | "SETUP DEVELOPING" | "TRADE ACTIVE" | "TP HIT" | "SL HIT";
-  direction: VortexDirection | "NO TRADE"; plannedDirection: VortexDirection | null; structuralDirection: VortexDirection | "NEUTRAL"; entryConfirmed: boolean;
+  direction: VortexDirection | "NO TRADE"; plannedDirection: VortexDirection | null; structuralDirection: VortexDirection | "NEUTRAL"; entryConfirmed: boolean; htfConfirmation: VortexHtfConfirmation;
   entry: number | null; stopLoss: number | null;
   tp1: number | null; tp2: number | null; tp3: number | null; tp4: number | null; tp5: number | null;
   fibLevel: number | null; score: number; buyConfluence: number; sellConfluence: number;
