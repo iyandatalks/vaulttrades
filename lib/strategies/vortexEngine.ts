@@ -298,12 +298,14 @@ function evaluateH1ToLtfRetest(candles: VortexCandle[], timeframe: VortexTimefra
     timeframe: "not-required", confirmed: true, retestTime: null,
     reason: "No additional M15/M30 gate for this selected timeframe.",
   };
-  if (!htf.confirmed || !htf.h1BreakTime || htf.h4Level == null || (htf.direction !== "BUY" && htf.direction !== "SELL")) return {
+  if (!htf.confirmed || !htf.h1RetestTime || htf.h4Level == null || (htf.direction !== "BUY" && htf.direction !== "SELL")) return {
     timeframe, confirmed: false, retestTime: null,
-    reason: "Waiting for the H1 level break-and-close before checking the separate M15/M30 retest.",
+    reason: "Waiting for the completed H1 break-and-close and its separate H1 retest before checking M15/M30.",
   };
-  const breakTime = Date.parse(htf.h1BreakTime);
-  const bars = [...candles].sort((a,b)=>a.time-b.time).filter(bar => bar.time >= breakTime + 3_600_000);
+  // h1RetestTime is the H1 candle open timestamp. M15/M30 may only begin
+  // their independent retest after that H1 confirmation candle has closed.
+  const h1ConfirmationCloseTime = Date.parse(htf.h1RetestTime) + TIMEFRAME_MS["1H"];
+  const bars = [...candles].sort((a,b)=>a.time-b.time).filter(bar => bar.time >= h1ConfirmationCloseTime);
   for (const bar of bars) {
     const retest = htf.direction === "BUY"
       ? bar.low <= htf.h4Level && bar.close > htf.h4Level && bar.close > bar.open
@@ -322,9 +324,10 @@ function evaluateH1ToLtfRetest(candles: VortexCandle[], timeframe: VortexTimefra
 export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
   const c = [...input.m1Candles].sort((a, b) => a.time - b.time), m5 = [...input.m5Candles].sort((a, b) => a.time - b.time);
   const silver = [...(input.silverCandles ?? [])].sort((a, b) => a.time - b.time);
-  const htf = evaluateH4H1Confirmation(input.h4Candles ?? [], input.h1Candles ?? []);\n  const ltf = evaluateH1ToLtfRetest(c, input.timeframe ?? "1m", htf);
-  const lotSize = input.lotSize ?? 0.05, tick = input.tickSize ?? 0.01;
   const timeframe = input.timeframe ?? "1m";
+  const htf = evaluateH4H1Confirmation(input.h4Candles ?? [], input.h1Candles ?? []);
+  const ltf = evaluateH1ToLtfRetest(c, timeframe, htf);
+  const lotSize = input.lotSize ?? 0.05, tick = input.tickSize ?? 0.01;
   const confirmationTimeframe = "5m" as const;
   const empty = (reason: string): VortexResult => ({
     source: "VAULTTRADES_VORTEX_S1_FIB_VWAP_CONFLUENCE", timeframe, state: "WAITING", direction: "NO TRADE", plannedDirection: null,
