@@ -265,7 +265,8 @@ function evaluateH4H1Confirmation(h4Input: VortexCandle[], h1Input: VortexCandle
     confirmed: false,
     reason: `H4 ${direction} reference locked at ${level}. No subsequent H1 candle is available to assess the level yet.`,
   };
-  const latestDirection = latest.close > latest.open ? "BULLISH" : latest.close < latest.open ? "BEARISH" : "NEUTRAL";
+  const latestDirection: VortexHtfConfirmation["h1CandleDirection"] =
+    latest.close > latest.open ? "BULLISH" : latest.close < latest.open ? "BEARISH" : "NEUTRAL";
   let directionalCloses = 0;
   if (latestDirection !== "NEUTRAL") {
     for (let i = afterAnchor.length - 1; i >= 0; i--) {
