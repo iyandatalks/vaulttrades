@@ -214,6 +214,10 @@ export type VortexHtfConfirmation = {
   h1BreakTime: string | null;
   h1RetestTime: string | null;
   h1BreakKind: "CLOSE_BEYOND" | "WICK_ONLY" | "COUNTER_CLOSE" | "NO_TEST" | "UNAVAILABLE";
+  h1CandleDirection: "BULLISH" | "BEARISH" | "NEUTRAL" | null;
+  h1Close: number | null;
+  h1BodyShare: number | null;
+  h1DirectionalCloses: number;
   confirmed: boolean;
   reason: string;
 };
@@ -222,7 +226,9 @@ function evaluateH4H1Confirmation(h4Input: VortexCandle[], h1Input: VortexCandle
   const h1 = [...h1Input].sort((a, b) => a.time - b.time);
   const waiting = (reason: string): VortexHtfConfirmation => ({
     direction: "WAITING", h4Level: null, h4WickExtreme: null, h4AnchorTime: null,
-    h1BreakTime: null, h1RetestTime: null, h1BreakKind: "UNAVAILABLE", confirmed: false, reason,
+    h1BreakTime: null, h1RetestTime: null, h1BreakKind: "UNAVAILABLE",
+    h1CandleDirection: null, h1Close: null, h1BodyShare: null, h1DirectionalCloses: 0,
+    confirmed: false, reason,
   });
   if (h4.length < 3 || h1.length < 1) return waiting("Waiting for completed H4 and H1 candle history.");
 
@@ -254,6 +260,21 @@ function evaluateH4H1Confirmation(h4Input: VortexCandle[], h1Input: VortexCandle
   const base = {
     direction, h4Level: level, h4WickExtreme: wick,
     h4AnchorTime: new Date(anchor.time).toISOString(), h1RetestTime: null,
+    h1CandleDirection: latest.close > latest.open ? "BULLISH" as const : latest.close < latest.open ? "BEARISH" as const : "NEUTRAL" as const,
+    h1Close: latest.close,
+    h1BodyShare: Math.round((Math.abs(latest.close - latest.open) / Math.max(latest.high - latest.low, Number.EPSILON)) * 100),
+    h1DirectionalCloses: (() => {
+      const candleDir = latest.close > latest.open ? "BULLISH" : latest.close < latest.open ? "BEARISH" : "NEUTRAL";
+      if (candleDir === "NEUTRAL") return 0;
+      let count = 0;
+      for (let i = afterAnchor.length - 1; i >= 0; i--) {
+        const bar = afterAnchor[i];
+        const dir = bar.close > bar.open ? "BULLISH" : bar.close < bar.open ? "BEARISH" : "NEUTRAL";
+        if (dir !== candleDir) break;
+        count++;
+      }
+      return count;
+    })(),
   };
   if (!latest) return {
     ...base, h1BreakTime: null, h1BreakKind: "NO_TEST", confirmed: false,
@@ -271,11 +292,11 @@ function evaluateH4H1Confirmation(h4Input: VortexCandle[], h1Input: VortexCandle
 
   if (closeBeyond) return {
     ...base, h1BreakTime: candleTime, h1BreakKind: "CLOSE_BEYOND", confirmed: true,
-    reason: `H1 ${candleDirection} candle CLOSED beyond the H4 ${direction} reference ${level} (body ${bodyShare}% of range). This is a directional level-break observation, not an entry signal or a mandatory retest condition. Continue to evaluate the existing Vortex setup and Fib/OB/M5 entry rules.`,
+    reason: `H1 ${candleDirection} candle CLOSED beyond the H4 ${direction} reference ${level} (body ${bodyShare}% of range; ${base.h1DirectionalCloses} consecutive ${candleDirection} H1 closes). This records a break of the reference and its candle quality for MTF assessment. It does not create an entry, change the existing Vortex setup, or impose a retest. A break against an existing setup is an invalidation event for that setup; a new opposite-direction setup still requires the existing MSS and entry rules.`,
   };
   if (counterClose) return {
     ...base, h1BreakTime: candleTime, h1BreakKind: "COUNTER_CLOSE", confirmed: false,
-    reason: `H1 ${candleDirection} candle CLOSED on the opposite side of the H4 ${direction} reference ${level} (body ${bodyShare}% of range). Treat this as counter-direction structural evidence; inspect the candle body, wick and following H1 close before deciding whether the reference has failed or price is making a false break.`,
+    reason: `H1 ${candleDirection} candle CLOSED on the opposite side of the H4 ${direction} reference ${level} (body ${bodyShare}% of range; ${base.h1DirectionalCloses} consecutive ${candleDirection} H1 closes). Treat this as counter-direction structural evidence. Compare the body and wick, then observe the following H1 close and any adjacent unmitigated zone before classifying a failure or false break. This MTF assessment does not alter the existing entry rules.`,
   };
   if (wickBeyond) return {
     ...base, h1BreakTime: null, h1BreakKind: "WICK_ONLY", confirmed: false,
