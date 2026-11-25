@@ -598,7 +598,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
   const latestBarClose = c.length ? candleCloseTime(c, c.length - 1, timeframe) : 0;
   const recentClosed = closed && closed.exitTime && latestBarClose - Date.parse(closed.exitTime) <= TIMEFRAME_MS[timeframe] * 1.5 ? closed : null;
   const trade = active ?? (setupDeveloping ? null : recentClosed);
-  const state = active ? "TRADE ACTIVE" : setupDeveloping ? "SETUP DEVELOPING" : recentClosed?.status === "TP_HIT" ? "TP HIT" : recentClosed?.status === "SL_HIT" ? "SL HIT" : "WAITING";
+  const state = active ? "TRADE ACTIVE" : !htf.confirmed || !ltf.confirmed ? "WAITING" : setupDeveloping ? "SETUP DEVELOPING" : recentClosed?.status === "TP_HIT" ? "TP HIT" : recentClosed?.status === "SL_HIT" ? "SL HIT" : "WAITING";
   const sLast = silver.at(-1), sPrev = silver.at(-2), sMa = silver.length >= 50 ? silverEma[silverEma.length - 1] : null;
   const sFlow = sLast && sPrev ? sLast.close < sPrev.close ? "FALLING" : sLast.close > sPrev.close ? "RISING" : "FLAT" : "UNAVAILABLE";
   const finalVwap = vwapSeries.at(-1) ?? null;
