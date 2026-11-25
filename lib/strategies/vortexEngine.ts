@@ -7,7 +7,7 @@ const newSetup = (): VortexSetup => ({ state: 0, orderBar: -1, pullback: -1, fib
 export type VortexVwap = { value: number | null; sd: number | null; upperInner: number | null; upperOuter: number | null; lowerInner: number | null; lowerOuter: number | null; available: boolean; buyAligned: boolean; sellAligned: boolean };
 export type VortexTrade = {
   timeframe: VortexTimeframe; direction: VortexDirection; entry: number; stopLoss: number;
-  tp1: number; tp2: number; tp3: number; tp4: number; tp5: number;
+  tp1: number; tp2: number; tp3: number; tp4: null; tp5: null;
   fibLevel: number; entryTime: string; confirmationTime: string;
   lotSize: number; targetHits: boolean[]; status: "ACTIVE" | "TP_HIT" | "SL_HIT";
   orderBlock: VortexOrderBlock; liquidityTarget: number;
@@ -217,7 +217,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     entry: null, stopLoss: null, tp1: null, tp2: null, tp3: null, tp4: null, tp5: null, fibLevel: null,
     score: 0, buyConfluence: 0, sellConfluence: 0, liquidityTarget: null, orderBlock: null,
     entryTime: null, confirmationTime: null, lotSize, lotModel: "FULL CLOSE AT TP1",
-    targetHits: [false, false, false, false, false], openTrade: null, latestClosedTrade: null,
+    targetHits: [false, false, false], openTrade: null, latestClosedTrade: null,
     evidence: [], missingConditions: [reason], invalidation: `The setup expires after 8 ${timeframe.toUpperCase()} bars or when its structure is invalidated.`,
     statusReason: reason, riskReward: null, silver: { available: silver.length > 51, close: silver.at(-1)?.close ?? null, flow: "UNAVAILABLE", ma: null },
     vwap: null,
@@ -430,12 +430,10 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
       const ob = (isBuy ? bullOb : bearOb)!;
       const entry = fib, sl = isBuy ? ob.bottom - tick : ob.top + tick;
       const fibTps = TP_FIBS.map(x => isBuy ? buyFib(setupBuyTop, setupBuyBottom, x) : sellFib(setupSellTop, setupSellBottom, x));
-      const tp4 = isBuy ? entry * 1.015 : entry * 0.985;
-      const tp5 = isBuy ? entry * 1.0181 : entry * 0.9819;
-      const tps = [...fibTps, tp4, tp5];
+      const tps = fibTps;
       const targetsValid = tps.every(x => isBuy ? x > entry : x < entry);
       if (targetsValid && (isBuy ? sl < entry : sl > entry)) {
-        active = { timeframe, direction: dir, entry, stopLoss: sl, tp1: tps[0], tp2: tps[1], tp3: tps[2], tp4: tps[3], tp5: tps[4], fibLevel: pct, entryTime: new Date(closeTime).toISOString(), confirmationTime: m5b ? new Date(m5b.time + TIMEFRAME_MS["5m"]).toISOString() : new Date(closeTime).toISOString(), lotSize, targetHits: [false, false, false, false, false], status: "ACTIVE", orderBlock: ob, liquidityTarget: isBuy ? targetHigher! : targetLower! };
+        active = { timeframe, direction: dir, entry, stopLoss: sl, tp1: tps[0], tp2: tps[1], tp3: tps[2], tp4: null, tp5: null, fibLevel: pct, entryTime: new Date(closeTime).toISOString(), confirmationTime: m5b ? new Date(m5b.time + TIMEFRAME_MS["5m"]).toISOString() : new Date(closeTime).toISOString(), lotSize, targetHits: [false, false, false], status: "ACTIVE", orderBlock: ob, liquidityTarget: isBuy ? targetHigher! : targetLower! };
         lastOb = ob; lastLiq = isBuy ? targetHigher : targetLower; lastScore = isBuy ? bScore : sScore; lastFib = pct;
         evidence = [isBuy ? "Bullish CHOCH confirmed" : "Bearish CHOCH confirmed", isBuy ? "Bullish institutional-order candle confirmed" : "Bearish institutional-order candle confirmed", "Fib pullback selected at " + pct + "%", `${timeframe.toUpperCase()} retest and directional candle confirmation completed`, `${confirmationTimeframe.toUpperCase()} displacement confirmation passed`, "External liquidity target and opposing target OB aligned", "OB-wick stop geometry passed", "Normalized confluence score " + lastScore + "/100 passed"];
         missing = [];
@@ -497,19 +495,17 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
       ? selectedProjectionFib - Math.min(provisionalM5Atr * 2, selectedProjectionFib * 0.02)
       : selectedProjectionFib + Math.min(provisionalM5Atr * 2, selectedProjectionFib * 0.02)
     : null;
-  const projectedTp4 = selectedProjectionFib !== null ? selectedProjectionFib * (projectionDirection === "BUY" ? 1.015 : 0.985) : null;
-  const projectedTp5 = selectedProjectionFib !== null ? selectedProjectionFib * (projectionDirection === "BUY" ? 1.0181 : 0.9819) : null;
   return {
     source: "VAULTTRADES_VORTEX_S1_FIB_VWAP_CONFLUENCE", timeframe, state, direction: trade?.direction ?? "NO TRADE", plannedDirection: active ? active.direction : projectionDirection,
     structuralDirection: bullActive ? "BUY" : bearActive ? "SELL" : "NEUTRAL", entryConfirmed: !!active,
     entry: trade?.entry ?? selectedProjectionFib, stopLoss: trade?.stopLoss ?? projectedStop,
     tp1: trade?.tp1 ?? projectedFibTargets[0], tp2: trade?.tp2 ?? projectedFibTargets[1],
-    tp3: trade?.tp3 ?? projectedFibTargets[2], tp4: trade?.tp4 ?? projectedTp4, tp5: trade?.tp5 ?? projectedTp5,
+    tp3: trade?.tp3 ?? projectedFibTargets[2], tp4: null, tp5: null,
     fibLevel: trade?.fibLevel ?? buySetup.pct ?? sellSetup.pct ?? (projectionDirection ? 68.1 : lastFib),
     score: active ? lastScore : Math.max(buyScore, sellScore), buyConfluence: buyScore, sellConfluence: sellScore, liquidityTarget: trade?.liquidityTarget ?? lastLiq, orderBlock: trade?.orderBlock ?? lastOb,
     entryTime: trade?.entryTime ?? null, confirmationTime: trade?.confirmationTime ?? lastM5Time, lotSize,
     lotModel: "FULL CLOSE AT TP1",
-    targetHits: trade?.targetHits ?? [false, false, false, false, false], openTrade: active, latestClosedTrade: recentClosed,
+    targetHits: trade?.targetHits ?? [false, false, false], openTrade: active, latestClosedTrade: recentClosed,
     evidence, missingConditions: active ? [] : missing,
     invalidation: `The ${timeframe.toUpperCase()} setup expires after 8 bars or when its structure is invalidated. SL is anchored to the opposing target-OB wick.`,
     statusReason: active ? "Trade active. The full position closes at TP1; lot size does not create partial exits." : setupDeveloping ? `Vortex ${timeframe.toUpperCase()} setup developing. Waiting for the next qualification event.` : recentClosed ? "The previous trade has closed. Waiting for the next qualifying Vortex setup." : missing[0],
