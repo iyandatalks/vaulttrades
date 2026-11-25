@@ -327,6 +327,13 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
   const timeframe = input.timeframe ?? "1m";
   const htf = evaluateH4H1Confirmation(input.h4Candles ?? [], input.h1Candles ?? []);
   const ltf = evaluateH1ToLtfRetest(c, timeframe, htf);
+  // Do not allow an earlier chart candle to activate using a later M15/M30 retest.
+  // Other selected timeframes retain their existing confirmation behavior.
+  const ltfRetestCloseTime = ltf.timeframe === "not-required"
+    ? Number.NEGATIVE_INFINITY
+    : ltf.retestTime
+      ? Date.parse(ltf.retestTime) + TIMEFRAME_MS[timeframe]
+      : Number.POSITIVE_INFINITY;
   const lotSize = input.lotSize ?? 0.05, tick = input.tickSize ?? 0.01;
   const confirmationTimeframe = "5m" as const;
   const empty = (reason: string): VortexResult => ({
@@ -510,10 +517,10 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     const bScore = (activeBuyReady || buySetup.state > 0) ? confluence(1, c, i, buyFib(setupBuyTop, setupBuyBottom, 68.1), buyFib(setupBuyTop, setupBuyBottom, 88), bullActive, pd, silverContext, vwapNow).score : 0;
     const sScore = (activeSellReady || sellSetup.state > 0) ? confluence(-1, c, i, sellFib(setupSellTop, setupSellBottom, 68.1), sellFib(setupSellTop, setupSellBottom, 88), bearActive, pd, silverContext, vwapNow).score : 0;
     buyScore = bScore; sellScore = sScore;
-    const buyValid = htf.confirmed && ltf.confirmed && htf.direction === "BUY" && buySetup.state === 3 && buySetup.fib != null && buySetup.start !== null && buySetup.end !== null &&
+    const buyValid = htf.confirmed && ltf.confirmed && b.time + TIMEFRAME_MS[timeframe] >= ltfRetestCloseTime && htf.direction === "BUY" && buySetup.state === 3 && buySetup.fib != null && buySetup.start !== null && buySetup.end !== null &&
       b.low <= buySetup.fib && b.close >= buySetup.fib && m5Bull && targetHigher != null && targetHigher > buySetup.fib &&
       bullActive && !!buySetup.ob && !!bullOb && bullOb.bottom < buySetup.fib && bScore >= MIN_SCORE;
-    const sellValid = htf.confirmed && ltf.confirmed && htf.direction === "SELL" && sellSetup.state === 3 && sellSetup.fib != null && sellSetup.start !== null && sellSetup.end !== null &&
+    const sellValid = htf.confirmed && ltf.confirmed && b.time + TIMEFRAME_MS[timeframe] >= ltfRetestCloseTime && htf.direction === "SELL" && sellSetup.state === 3 && sellSetup.fib != null && sellSetup.start !== null && sellSetup.end !== null &&
       b.high >= sellSetup.fib && b.close <= sellSetup.fib && m5Bear && targetLower != null && targetLower < sellSetup.fib &&
       bearActive && !!sellSetup.ob && !!bearOb && bearOb.top > sellSetup.fib && sScore >= MIN_SCORE;
 
