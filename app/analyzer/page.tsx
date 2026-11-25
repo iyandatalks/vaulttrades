@@ -62,7 +62,7 @@ type LockedTrade = {
   liquidityTarget: number | null;
 };
 
-type VortexEngineView = { timeframe?: string; state?: string; direction?: string; plannedDirection?: "BUY" | "SELL" | null; entry?: number | null; stopLoss?: number | null; tp1?: number | null; tp2?: number | null; tp3?: number | null; tp4?: number | null; tp5?: number | null; entryTime?: string | null; exitTime?: string; exitPrice?: number; score?: number; fibLevel?: number | null; lotSize?: number; lotModel?: string; targetHits?: boolean[]; orderBlock?: { direction: string; top: number; bottom: number } | null; statusReason?: string; missingConditions?: string[]; latestClosedTrade?: { direction: string; entry: number; stopLoss: number; fibLevel?: number; tp1: number; tp2: number; tp3: number; tp4: number; tp5: number; entryTime: string; exitTime?: string; exitPrice?: number; status: string } | null; openTrade?: { direction: string; entry: number; stopLoss: number; tp1: number; tp2: number; tp3: number; tp4: number; tp5: number; entryTime: string; targetHits: boolean[]; lotSize: number } | null; };
+type VortexEngineView = { timeframe?: string; state?: string; direction?: string; plannedDirection?: "BUY" | "SELL" | null; htfConfirmation?: { direction?: string; h4Level?: number | null; h4WickExtreme?: number | null; h4AnchorTime?: string | null; h1BreakTime?: string | null; h1BreakKind?: "CLOSE_BEYOND" | "WICK_ONLY" | "COUNTER_CLOSE" | "NO_TEST" | "UNAVAILABLE"; confirmed?: boolean; reason?: string }; ltfConfirmation?: { timeframe?: string; confirmed?: boolean; reason?: string }; entry?: number | null; stopLoss?: number | null; tp1?: number | null; tp2?: number | null; tp3?: number | null; tp4?: number | null; tp5?: number | null; entryTime?: string | null; exitTime?: string; exitPrice?: number; score?: number; fibLevel?: number | null; lotSize?: number; lotModel?: string; targetHits?: boolean[]; orderBlock?: { direction: string; top: number; bottom: number } | null; statusReason?: string; missingConditions?: string[]; latestClosedTrade?: { direction: string; entry: number; stopLoss: number; fibLevel?: number; tp1: number; tp2: number; tp3: number; tp4: number; tp5: number; entryTime: string; exitTime?: string; exitPrice?: number; status: string } | null; openTrade?: { direction: string; entry: number; stopLoss: number; tp1: number; tp2: number; tp3: number; tp4: number; tp5: number; entryTime: string; targetHits: boolean[]; lotSize: number } | null; };
 
 type Result = {
   dataSource?: string;
@@ -651,6 +651,15 @@ export default function AnalyzerPage() {
             <p className="muted" style={{ marginTop: 0 }}>{strategy === "vortex" ? (v?.statusReason ?? "Waiting for the next qualifying Vortex signal.") : active
               ? (result.strategyEngine?.lifecycleReason ?? "The recorded entry, stop loss and target remain in force until reached on a completed candle.")
               : (result.strategyEngine?.lifecycleReason ?? result.strategyEngine?.statusReason ?? s?.waitReason ?? "Waiting for the next qualifying signal.")}</p>
+            {strategy === "vortex" && v?.htfConfirmation && <div className="condition-box" style={{ marginTop: 10 }}>
+              <strong>H4 / H1 MARKET STRUCTURE CONTEXT</strong>
+              <div className="muted" style={{ marginTop: 5 }}>
+                H4 reference: {v.htfConfirmation.h4Level != null ? fmt(v.htfConfirmation.h4Level, symbol) : "Unavailable"}
+                {" · "}H1 assessment: {(v.htfConfirmation.h1BreakKind ?? "UNAVAILABLE").replaceAll("_", " ")}
+              </div>
+              <div className="muted" style={{ marginTop: 5, fontSize: 12 }}>{v.htfConfirmation.reason}</div>
+              <div className="muted" style={{ marginTop: 5, fontSize: 11 }}>MTF context only — the existing Vortex Fib, order-block, candle and M5 entry conditions remain unchanged. No extra H4-level retest is required.</div>
+            </div>}
             {(strategy === "vortex" ? entry != null && stop != null : (active || (strategy === "vortex" && closed)) && direction && entry != null && stop != null && target != null) && <>
               {strategy !== "vortex" && <strong style={{ fontSize: 18, color: direction === "BUY" ? "#35c98a" : "#f06b72" }}>{direction} · {active ? "TRADE ACTIVE" : "TRADE CLOSED"}</strong>}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8, marginTop: 10 }}>
