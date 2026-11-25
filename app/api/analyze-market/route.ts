@@ -643,7 +643,7 @@ Return JSON only.`;
       stopLoss: ema20Engine?.stopLoss ?? stopLoss,
       finalTp: ema20Engine?.target ?? finalTp,
       closedDirection: ema20Engine?.state === "TP HIT" || ema20Engine?.state === "SL HIT"
-        ? (ema20Bar?.newLong ? "BUY" : ema20Bar?.newShort ? "SELL" : null)
+        ? (ema20Engine?.sourceBar?.newLong ? "BUY" : ema20Engine?.sourceBar?.newShort ? "SELL" : null)
         : null,
       ema20: ema20Bar?.ema20 ?? null,
       slowEMA: ema20Bar?.slowEMA ?? null,
