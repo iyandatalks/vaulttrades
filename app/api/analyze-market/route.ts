@@ -637,9 +637,14 @@ Return JSON only.`;
       signal: ema20Engine?.direction,
       newLong: ema20Bar?.newLong ?? false,
       newShort: ema20Bar?.newShort ?? false,
-      entry,
-      stopLoss,
-      finalTp,
+      // Preserve original Nexus Plus execution levels for the completed result card.
+      // This is display data only; the strategy engine and its lifecycle rules are unchanged.
+      entry: ema20Engine?.entry ?? entry,
+      stopLoss: ema20Engine?.stopLoss ?? stopLoss,
+      finalTp: ema20Engine?.target ?? finalTp,
+      closedDirection: ema20Engine?.state === "TP HIT" || ema20Engine?.state === "SL HIT"
+        ? (ema20Bar?.newLong ? "BUY" : ema20Bar?.newShort ? "SELL" : null)
+        : null,
       ema20: ema20Bar?.ema20 ?? null,
       slowEMA: ema20Bar?.slowEMA ?? null,
       atr: ema20Bar?.atr ?? null,
