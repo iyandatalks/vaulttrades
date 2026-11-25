@@ -213,6 +213,7 @@ export type VortexHtfConfirmation = {
   h4AnchorTime: string | null;
   h1BreakTime: string | null;
   h1RetestTime: string | null;
+  h1BreakKind: "CLOSE_BEYOND" | "WICK_ONLY" | "COUNTER_CLOSE" | "NO_TEST" | "UNAVAILABLE";
   confirmed: boolean;
   reason: string;
 };
@@ -221,11 +222,12 @@ function evaluateH4H1Confirmation(h4Input: VortexCandle[], h1Input: VortexCandle
   const h1 = [...h1Input].sort((a, b) => a.time - b.time);
   const waiting = (reason: string): VortexHtfConfirmation => ({
     direction: "WAITING", h4Level: null, h4WickExtreme: null, h4AnchorTime: null,
-    h1BreakTime: null, h1RetestTime: null, confirmed: false, reason,
+    h1BreakTime: null, h1RetestTime: null, h1BreakKind: "UNAVAILABLE", confirmed: false, reason,
   });
-  if (h4.length < 3 || h1.length < 10) return waiting("Waiting for completed H4 and H1 candle history.");
-  // Lock the first directional H4 candle in the latest uninterrupted directional run.
-  // The candle open is the body boundary; the wick extreme is retained separately.
+  if (h4.length < 3 || h1.length < 1) return waiting("Waiting for completed H4 and H1 candle history.");
+
+  // Keep the existing H4 reference selection. Its open is the body boundary;
+  // its wick extreme remains separate. This is MTF context, not a new entry gate.
   let anchor: VortexCandle | null = null;
   let direction: VortexDirection | null = null;
   for (let i = h4.length - 1; i >= 1; i--) {
@@ -244,45 +246,44 @@ function evaluateH4H1Confirmation(h4Input: VortexCandle[], h1Input: VortexCandle
     if (beganAfterOpposing) { anchor = h4[first]; direction = dir; break; }
   }
   if (!anchor || !direction) return waiting("Waiting for a completed H4 directional reference candle.");
+
   const level = anchor.open;
   const wick = direction === "BUY" ? anchor.low : anchor.high;
   const afterAnchor = h1.filter(bar => bar.time >= anchor!.time + TIMEFRAME_MS["4H"]);
-  let breakIndex = -1;
-  for (let i = 0; i < afterAnchor.length; i++) {
-    const bar = afterAnchor[i];
-    if (direction === "BUY" ? bar.close > level : bar.close < level) { breakIndex = i; break; }
-  }
-  if (breakIndex < 0) return {
-    direction: "WAITING", h4Level: level, h4WickExtreme: wick,
-    h4AnchorTime: new Date(anchor.time).toISOString(), h1BreakTime: null, h1RetestTime: null,
-    confirmed: false, reason: `H4 ${direction} reference locked at ${level}; waiting for a completed H1 close beyond the H4 body boundary.`,
+  const latest = afterAnchor.at(-1);
+  const base = {
+    direction, h4Level: level, h4WickExtreme: wick,
+    h4AnchorTime: new Date(anchor.time).toISOString(), h1RetestTime: null,
   };
-  const breakBar = afterAnchor[breakIndex];
-  for (let i = breakIndex + 1; i < afterAnchor.length; i++) {
-    const bar = afterAnchor[i];
-    const retest = direction === "BUY"
-      ? bar.low <= level && bar.close > level && bar.close > bar.open
-      : bar.high >= level && bar.close < level && bar.close < bar.open;
-    if (retest) return {
-      direction, h4Level: level, h4WickExtreme: wick,
-      h4AnchorTime: new Date(anchor.time).toISOString(),
-      h1BreakTime: new Date(breakBar.time).toISOString(),
-      h1RetestTime: new Date(bar.time).toISOString(),
-      confirmed: true,
-      reason: `H4 ${direction} reference locked; H1 break-and-close and separate H1 retest/rejection confirmed.`,
-    };
-    if (direction === "BUY" ? bar.close < wick : bar.close > wick) return {
-      direction: "WAITING", h4Level: level, h4WickExtreme: wick,
-      h4AnchorTime: new Date(anchor.time).toISOString(),
-      h1BreakTime: new Date(breakBar.time).toISOString(), h1RetestTime: null,
-      confirmed: false, reason: "H1 invalidated the H4 reference before a valid retest; waiting for a new H4 reference.",
-    };
-  }
+  if (!latest) return {
+    ...base, h1BreakTime: null, h1BreakKind: "NO_TEST", confirmed: false,
+    reason: `H4 ${direction} reference locked at ${level}. No subsequent H1 candle is available to assess the level yet.`,
+  };
+
+  const closeBeyond = direction === "BUY" ? latest.close > level : latest.close < level;
+  const wickBeyond = direction === "BUY" ? latest.high > level : latest.low < level;
+  const counterClose = direction === "BUY" ? latest.close < level : latest.close > level;
+  const candleDirection = latest.close > latest.open ? "bullish" : latest.close < latest.open ? "bearish" : "neutral";
+  const body = Math.abs(latest.close - latest.open);
+  const range = Math.max(latest.high - latest.low, Number.EPSILON);
+  const bodyShare = Math.round((body / range) * 100);
+  const candleTime = new Date(latest.time).toISOString();
+
+  if (closeBeyond) return {
+    ...base, h1BreakTime: candleTime, h1BreakKind: "CLOSE_BEYOND", confirmed: true,
+    reason: `H1 ${candleDirection} candle CLOSED beyond the H4 ${direction} reference ${level} (body ${bodyShare}% of range). This is a directional level-break observation, not an entry signal or a mandatory retest condition. Continue to evaluate the existing Vortex setup and Fib/OB/M5 entry rules.`,
+  };
+  if (counterClose) return {
+    ...base, h1BreakTime: candleTime, h1BreakKind: "COUNTER_CLOSE", confirmed: false,
+    reason: `H1 ${candleDirection} candle CLOSED on the opposite side of the H4 ${direction} reference ${level} (body ${bodyShare}% of range). Treat this as counter-direction structural evidence; inspect the candle body, wick and following H1 close before deciding whether the reference has failed or price is making a false break.`,
+  };
+  if (wickBeyond) return {
+    ...base, h1BreakTime: null, h1BreakKind: "WICK_ONLY", confirmed: false,
+    reason: `H1 wicked through the H4 ${direction} reference ${level} but did not close beyond it. This is not a confirmed break. Monitor the candle close and the next H1 candle, especially where another nearby zone remains unmitigated.`,
+  };
   return {
-    direction: "WAITING", h4Level: level, h4WickExtreme: wick,
-    h4AnchorTime: new Date(anchor.time).toISOString(),
-    h1BreakTime: new Date(breakBar.time).toISOString(), h1RetestTime: null,
-    confirmed: false, reason: `H1 broke the H4 level; waiting for a separate ${direction} H1 retest and directional close.`,
+    ...base, h1BreakTime: null, h1BreakKind: "NO_TEST", confirmed: false,
+    reason: `H1 has not yet tested or closed beyond the H4 ${direction} reference ${level}. H4 remains the stronger structural reference; continue monitoring H1 candle closes.`,
   };
 }
 
