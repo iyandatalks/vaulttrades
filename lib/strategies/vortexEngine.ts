@@ -216,7 +216,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     structuralDirection: "NEUTRAL", entryConfirmed: false,
     entry: null, stopLoss: null, tp1: null, tp2: null, tp3: null, tp4: null, tp5: null, fibLevel: null,
     score: 0, buyConfluence: 0, sellConfluence: 0, liquidityTarget: null, orderBlock: null,
-    entryTime: null, confirmationTime: null, lotSize, lotModel: lotSize < 0.05 ? "FULL CLOSE AT TP1" : "FIVE TARGETS · 20% EACH",
+    entryTime: null, confirmationTime: null, lotSize, lotModel: "FULL CLOSE AT TP1",
     targetHits: [false, false, false, false, false], openTrade: null, latestClosedTrade: null,
     evidence: [], missingConditions: [reason], invalidation: `The setup expires after 8 ${timeframe.toUpperCase()} bars or when its structure is invalidated.`,
     statusReason: reason, riskReward: null, silver: { available: silver.length > 51, close: silver.at(-1)?.close ?? null, flow: "UNAVAILABLE", ma: null },
@@ -402,8 +402,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     if (active) {
       const isBuy = active.direction === "BUY";
       const stopTouched = isBuy ? b.low <= active.stopLoss : b.high >= active.stopLoss;
-      const targetList = [active.tp1, active.tp2, active.tp3, active.tp4, active.tp5];
-      const relevantTargets = lotSize < 0.05 ? [active.tp1] : targetList;
+      const relevantTargets = [active.tp1];
       const anyTargetTouched = relevantTargets.some((target, index) => !active!.targetHits[index] && (isBuy ? b.high >= target : b.low <= target));
       // Match TradingView's historical OHLC path assumption when a candle spans
       // both a protective stop and a target: price visits the nearer extreme first.
@@ -413,20 +412,15 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
         active.status = "SL_HIT"; active.exitTime = new Date(closeTime).toISOString(); active.exitPrice = active.stopLoss; closed = active; active = null;
       } else if (stopTouched && !anyTargetTouched) {
         active.status = "SL_HIT"; active.exitTime = new Date(closeTime).toISOString(); active.exitPrice = active.stopLoss; closed = active; active = null;
-      } else if (lotSize < 0.05) {
-        if (!active.targetHits[0] && (isBuy ? b.high >= active.tp1 : b.low <= active.tp1)) {
-          active.targetHits[0] = true; active.status = "TP_HIT"; active.exitTime = new Date(closeTime).toISOString(); active.exitPrice = active.tp1; closed = active; active = null;
-        }
-      } else {
-        for (let targetIndex = 0; targetIndex < targetList.length; targetIndex++) {
-          if (active.targetHits[targetIndex]) continue;
-          const targetPrice = targetList[targetIndex];
-          const hit = isBuy ? b.high >= targetPrice : b.low <= targetPrice;
-          if (hit) active.targetHits[targetIndex] = true;
-        }
-        if (active.targetHits.every(Boolean)) {
-          active.status = "TP_HIT"; active.exitTime = new Date(closeTime).toISOString(); active.exitPrice = active.tp5; closed = active; active = null;
-        }
+      } else if (!active.targetHits[0] && (isBuy ? b.high >= active.tp1 : b.low <= active.tp1)) {
+        // Full-position exit at the first Pine target for every lot size.
+        // TP2-TP5 remain calculated reference levels, not partial-close instructions.
+        active.targetHits[0] = true;
+        active.status = "TP_HIT";
+        active.exitTime = new Date(closeTime).toISOString();
+        active.exitPrice = active.tp1;
+        closed = active;
+        active = null;
       }
     }
     if (!active && (buyValid || sellValid)) {
@@ -514,12 +508,12 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     fibLevel: trade?.fibLevel ?? buySetup.pct ?? sellSetup.pct ?? (projectionDirection ? 68.1 : lastFib),
     score: active ? lastScore : Math.max(buyScore, sellScore), buyConfluence: buyScore, sellConfluence: sellScore, liquidityTarget: trade?.liquidityTarget ?? lastLiq, orderBlock: trade?.orderBlock ?? lastOb,
     entryTime: trade?.entryTime ?? null, confirmationTime: trade?.confirmationTime ?? lastM5Time, lotSize,
-    lotModel: lotSize < 0.05 ? "FULL CLOSE AT TP1" : "FIVE TARGETS · 20% EACH",
+    lotModel: "FULL CLOSE AT TP1",
     targetHits: trade?.targetHits ?? [false, false, false, false, false], openTrade: active, latestClosedTrade: recentClosed,
     evidence, missingConditions: active ? [] : missing,
     invalidation: `The ${timeframe.toUpperCase()} setup expires after 8 bars or when its structure is invalidated. SL is anchored to the opposing target-OB wick.`,
-    statusReason: active ? (lotSize < 0.05 ? "Trade active. This lot size closes fully at TP1." : "Trade active. Five targets are managed progressively in equal 20% tranches.") : setupDeveloping ? `Vortex ${timeframe.toUpperCase()} setup developing. Waiting for the next qualification event.` : recentClosed ? "The previous trade has closed. Waiting for the next qualifying Vortex setup." : missing[0],
-    riskReward: trade ? Math.abs(trade.tp5 - trade.entry) / Math.abs(trade.entry - trade.stopLoss) : projectedStop !== null && selectedProjectionFib !== null && projectedTp5 !== null ? Math.abs(projectedTp5 - selectedProjectionFib) / Math.abs(selectedProjectionFib - projectedStop) : null,
+    statusReason: active ? "Trade active. The full position closes at TP1; lot size does not create partial exits." : setupDeveloping ? `Vortex ${timeframe.toUpperCase()} setup developing. Waiting for the next qualification event.` : recentClosed ? "The previous trade has closed. Waiting for the next qualifying Vortex setup." : missing[0],
+    riskReward: trade ? Math.abs(trade.tp1 - trade.entry) / Math.abs(trade.entry - trade.stopLoss) : projectedStop !== null && selectedProjectionFib !== null && projectedFibTargets[0] !== null ? Math.abs(projectedFibTargets[0]! - selectedProjectionFib) / Math.abs(selectedProjectionFib - projectedStop) : null,
     silver: { available: silver.length > 1, close: sLast?.close ?? null, flow: sFlow, ma: sMa },
     vwap: finalVwap,
   };

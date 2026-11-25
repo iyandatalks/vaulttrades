@@ -62,7 +62,7 @@ export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
     "M5 or M15 completed displacement confirmation, according to the selected Analyzer timeframe",
     "weekly anchored VWAP with 1.618 and 2.618 deviation channels as confluence only",
     "external liquidity target and opposing target order block",
-    "OB-wick stop loss and five progressive targets",
+    "OB-wick stop loss and a single full-position TP1 exit",
     "optional inverse Silver confluence"
   ], [
     "VaultTrades Vortex is an independent deterministic strategy. Do not call the Auto Fib, Nexus or Nexus Plus engines.",
@@ -76,9 +76,9 @@ export const ANALYZER_STRATEGIES: readonly AnalyzerStrategyProfile[] = [
     "Final BUY/SELL entry requires all separate gates: selected Fib retest, directional candle confirmation, completed displacement, external liquidity in the trade direction, locked opposing target OB, valid OB-wick stop geometry and normalized confluence >= 60. Do not add a separate 2% risk veto to the confirmed OB-wick stop.",
     "Weekly anchored VWAP and its 1.618/2.618 deviation bands contribute weighted confluence only. VWAP is never an independent entry trigger or a hard veto. Silver is optional confluence and must not be a mandatory data dependency.",
     "Do not apply New York Silver Bullet windows as an entry condition. A valid Vortex setup may qualify at any time.",
-    "Entry is the selected Fib price. TP1-TP3 are 38.2%, 0% and -23.6% Fib levels; TP4 is +1.50% and TP5 is +1.81% from entry (reverse signs for SELL).",
+    "Entry is the selected Fib price. TP1 is the first Pine Fib target at 38.2%; TP2-TP5 may be retained as reference levels only and must not create partial exits.",
     "Stop is one tick beyond the opposing target-OB wick. Do not substitute an ATR stop or move targets to force a generic R:R.",
-    "Default lot size is 0.05. At 0.05 or greater, split across five progressive targets (20% each). A selected lot from 0.01 to 0.04 closes fully at TP1.",
+    "Default lot size is 0.05. All lot sizes close the full position at TP1. Remove every lot-size-dependent partial-close or progressive-target allocation rule. Use the shared Analyzer Risk Manager to calculate position size from account risk and entry-to-OB-wick-stop distance.",
     "Risk Manager and Journal remain shared. Do not add generic SMC, 2R, or AI-generated entry gates."
   ]),
   profile("continuation", "Continuation", "MY CUSTOM STRATEGIES", ["continuation"], ["expansion", "correction", "structural hold", "recovery", "confirmed continuation", "entry event"], ["Use the Continuation source as sole primary authority.", "The source explicitly uses ATR thresholds for correction, support/resistance interaction and continuation movement. No EMA, ADX, RVOL or VWAP is source-required.", "Expansion, correction, structural hold, recovery and confirmed break must remain separate states."]),
