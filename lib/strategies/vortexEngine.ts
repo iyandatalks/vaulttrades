@@ -246,7 +246,7 @@ function evaluateH4H1Confirmation(h4Input: VortexCandle[], h1Input: VortexCandle
   if (!anchor || !direction) return waiting("Waiting for a completed H4 directional reference candle.");
   const level = anchor.open;
   const wick = direction === "BUY" ? anchor.low : anchor.high;
-  const afterAnchor = h1.filter(bar => bar.time > anchor!.time);
+  const afterAnchor = h1.filter(bar => bar.time >= anchor!.time + TIMEFRAME_MS["4H"]);
   let breakIndex = -1;
   for (let i = 0; i < afterAnchor.length; i++) {
     const bar = afterAnchor[i];
