@@ -402,7 +402,6 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     if (active) {
       const isBuy = active.direction === "BUY";
       const stopTouched = isBuy ? b.low <= active.stopLoss : b.high >= active.stopLoss;
-      const targetList = [active.tp1, active.tp2, active.tp3, active.tp4, active.tp5];
       const relevantTargets = [active.tp1];
       const anyTargetTouched = relevantTargets.some((target, index) => !active!.targetHits[index] && (isBuy ? b.high >= target : b.low <= target));
       // Match TradingView's historical OHLC path assumption when a candle spans
@@ -514,7 +513,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     evidence, missingConditions: active ? [] : missing,
     invalidation: `The ${timeframe.toUpperCase()} setup expires after 8 bars or when its structure is invalidated. SL is anchored to the opposing target-OB wick.`,
     statusReason: active ? "Trade active. The full position closes at TP1; lot size does not create partial exits." : setupDeveloping ? `Vortex ${timeframe.toUpperCase()} setup developing. Waiting for the next qualification event.` : recentClosed ? "The previous trade has closed. Waiting for the next qualifying Vortex setup." : missing[0],
-    riskReward: trade ? Math.abs(trade.tp5 - trade.entry) / Math.abs(trade.entry - trade.stopLoss) : projectedStop !== null && selectedProjectionFib !== null && projectedTp5 !== null ? Math.abs(projectedTp5 - selectedProjectionFib) / Math.abs(selectedProjectionFib - projectedStop) : null,
+    riskReward: trade ? Math.abs(trade.tp1 - trade.entry) / Math.abs(trade.entry - trade.stopLoss) : projectedStop !== null && selectedProjectionFib !== null && projectedFibTargets[0] !== null ? Math.abs(projectedFibTargets[0]! - selectedProjectionFib) / Math.abs(selectedProjectionFib - projectedStop) : null,
     silver: { available: silver.length > 1, close: sLast?.close ?? null, flow: sFlow, ma: sMa },
     vwap: finalVwap,
   };
