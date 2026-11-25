@@ -15,7 +15,7 @@ export type VortexTrade = {
 };
 export type VortexResult = {
   source: "VAULTTRADES_VORTEX_S1_FIB_VWAP_CONFLUENCE"; timeframe: VortexTimeframe; state: "WAITING" | "SETUP DEVELOPING" | "TRADE ACTIVE" | "TP HIT" | "SL HIT";
-  direction: VortexDirection | "NO TRADE"; plannedDirection: VortexDirection | null; structuralDirection: VortexDirection | "NEUTRAL"; entryConfirmed: boolean; htfConfirmation: VortexHtfConfirmation;
+  direction: VortexDirection | "NO TRADE"; plannedDirection: VortexDirection | null; structuralDirection: VortexDirection | "NEUTRAL"; entryConfirmed: boolean; htfConfirmation: VortexHtfConfirmation; ltfConfirmation: VortexLtfConfirmation;
   entry: number | null; stopLoss: number | null;
   tp1: number | null; tp2: number | null; tp3: number | null; tp4: number | null; tp5: number | null;
   fibLevel: number | null; score: number; buyConfluence: number; sellConfluence: number;
@@ -286,16 +286,49 @@ function evaluateH4H1Confirmation(h4Input: VortexCandle[], h1Input: VortexCandle
   };
 }
 
+
+export type VortexLtfConfirmation = {
+  timeframe: "15m" | "30m" | "not-required";
+  confirmed: boolean;
+  retestTime: string | null;
+  reason: string;
+};
+function evaluateH1ToLtfRetest(candles: VortexCandle[], timeframe: VortexTimeframe, htf: VortexHtfConfirmation): VortexLtfConfirmation {
+  if (timeframe !== "15m" && timeframe !== "30m") return {
+    timeframe: "not-required", confirmed: true, retestTime: null,
+    reason: "No additional M15/M30 gate for this selected timeframe.",
+  };
+  if (!htf.confirmed || !htf.h1BreakTime || htf.h4Level == null || (htf.direction !== "BUY" && htf.direction !== "SELL")) return {
+    timeframe, confirmed: false, retestTime: null,
+    reason: "Waiting for the H1 level break-and-close before checking the separate M15/M30 retest.",
+  };
+  const breakTime = Date.parse(htf.h1BreakTime);
+  const bars = [...candles].sort((a,b)=>a.time-b.time).filter(bar => bar.time >= breakTime + 3_600_000);
+  for (const bar of bars) {
+    const retest = htf.direction === "BUY"
+      ? bar.low <= htf.h4Level && bar.close > htf.h4Level && bar.close > bar.open
+      : bar.high >= htf.h4Level && bar.close < htf.h4Level && bar.close < bar.open;
+    if (retest) return {
+      timeframe, confirmed: true, retestTime: new Date(bar.time).toISOString(),
+      reason: `H1 level broken; separate ${timeframe.toUpperCase()} retest and directional ${htf.direction} close confirmed.`,
+    };
+  }
+  return {
+    timeframe, confirmed: false, retestTime: null,
+    reason: `H1 level broken; waiting for a separate ${htf.direction} ${timeframe.toUpperCase()} retest and directional close.`,
+  };
+}
+
 export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
   const c = [...input.m1Candles].sort((a, b) => a.time - b.time), m5 = [...input.m5Candles].sort((a, b) => a.time - b.time);
   const silver = [...(input.silverCandles ?? [])].sort((a, b) => a.time - b.time);
-  const htf = evaluateH4H1Confirmation(input.h4Candles ?? [], input.h1Candles ?? []);
+  const htf = evaluateH4H1Confirmation(input.h4Candles ?? [], input.h1Candles ?? []);\n  const ltf = evaluateH1ToLtfRetest(c, input.timeframe ?? "1m", htf);
   const lotSize = input.lotSize ?? 0.05, tick = input.tickSize ?? 0.01;
   const timeframe = input.timeframe ?? "1m";
   const confirmationTimeframe = "5m" as const;
   const empty = (reason: string): VortexResult => ({
     source: "VAULTTRADES_VORTEX_S1_FIB_VWAP_CONFLUENCE", timeframe, state: "WAITING", direction: "NO TRADE", plannedDirection: null,
-    structuralDirection: "NEUTRAL", entryConfirmed: false, htfConfirmation: htf,
+    structuralDirection: "NEUTRAL", entryConfirmed: false, htfConfirmation: htf, ltfConfirmation: ltf,
     entry: null, stopLoss: null, tp1: null, tp2: null, tp3: null, tp4: null, tp5: null, fibLevel: null,
     score: 0, buyConfluence: 0, sellConfluence: 0, liquidityTarget: null, orderBlock: null,
     entryTime: null, confirmationTime: null, lotSize, lotModel: "FULL CLOSE AT TP1",
@@ -474,10 +507,10 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     const bScore = (activeBuyReady || buySetup.state > 0) ? confluence(1, c, i, buyFib(setupBuyTop, setupBuyBottom, 68.1), buyFib(setupBuyTop, setupBuyBottom, 88), bullActive, pd, silverContext, vwapNow).score : 0;
     const sScore = (activeSellReady || sellSetup.state > 0) ? confluence(-1, c, i, sellFib(setupSellTop, setupSellBottom, 68.1), sellFib(setupSellTop, setupSellBottom, 88), bearActive, pd, silverContext, vwapNow).score : 0;
     buyScore = bScore; sellScore = sScore;
-    const buyValid = htf.confirmed && htf.direction === "BUY" && buySetup.state === 3 && buySetup.fib != null && buySetup.start !== null && buySetup.end !== null &&
+    const buyValid = htf.confirmed && ltf.confirmed && htf.direction === "BUY" && buySetup.state === 3 && buySetup.fib != null && buySetup.start !== null && buySetup.end !== null &&
       b.low <= buySetup.fib && b.close >= buySetup.fib && m5Bull && targetHigher != null && targetHigher > buySetup.fib &&
       bullActive && !!buySetup.ob && !!bullOb && bullOb.bottom < buySetup.fib && bScore >= MIN_SCORE;
-    const sellValid = htf.confirmed && htf.direction === "SELL" && sellSetup.state === 3 && sellSetup.fib != null && sellSetup.start !== null && sellSetup.end !== null &&
+    const sellValid = htf.confirmed && ltf.confirmed && htf.direction === "SELL" && sellSetup.state === 3 && sellSetup.fib != null && sellSetup.start !== null && sellSetup.end !== null &&
       b.high >= sellSetup.fib && b.close <= sellSetup.fib && m5Bear && targetLower != null && targetLower < sellSetup.fib &&
       bearActive && !!sellSetup.ob && !!bearOb && bearOb.top > sellSetup.fib && sScore >= MIN_SCORE;
 
@@ -579,7 +612,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     : null;
   return {
     source: "VAULTTRADES_VORTEX_S1_FIB_VWAP_CONFLUENCE", timeframe, state, direction: trade?.direction ?? "NO TRADE", plannedDirection: active ? active.direction : projectionDirection,
-    structuralDirection: bullActive ? "BUY" : bearActive ? "SELL" : "NEUTRAL", entryConfirmed: !!active, htfConfirmation: htf,
+    structuralDirection: bullActive ? "BUY" : bearActive ? "SELL" : "NEUTRAL", entryConfirmed: !!active, htfConfirmation: htf, ltfConfirmation: ltf,
     entry: trade?.entry ?? selectedProjectionFib, stopLoss: trade?.stopLoss ?? projectedStop,
     tp1: trade?.tp1 ?? projectedFibTargets[0], tp2: trade?.tp2 ?? projectedFibTargets[1],
     tp3: trade?.tp3 ?? projectedFibTargets[2], tp4: null, tp5: null,
@@ -588,9 +621,9 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     entryTime: trade?.entryTime ?? null, confirmationTime: trade?.confirmationTime ?? lastM5Time, lotSize,
     lotModel: "FULL CLOSE AT TP1",
     targetHits: trade?.targetHits ?? [false, false, false], openTrade: active, latestClosedTrade: recentClosed,
-    evidence, missingConditions: active ? [] : [...missing, ...(!htf.confirmed ? [htf.reason] : [])],
+    evidence, missingConditions: active ? [] : [...missing, ...(!htf.confirmed ? [htf.reason] : []), ...(!ltf.confirmed ? [ltf.reason] : [])],
     invalidation: `The ${timeframe.toUpperCase()} setup expires after 8 bars or when its structure is invalidated. SL is anchored to the opposing target-OB wick.`,
-    statusReason: active ? "Trade active. The full position closes at TP1; lot size does not create partial exits." : !htf.confirmed ? htf.reason : setupDeveloping ? `Vortex ${timeframe.toUpperCase()} setup developing. Waiting for the next qualification event.` : recentClosed ? "The previous trade has closed. Waiting for the next qualifying Vortex setup." : missing[0],
+    statusReason: active ? "Trade active. The full position closes at TP1; lot size does not create partial exits." : !htf.confirmed ? htf.reason : !ltf.confirmed ? ltf.reason : setupDeveloping ? `Vortex ${timeframe.toUpperCase()} setup developing. Waiting for the next qualification event.` : recentClosed ? "The previous trade has closed. Waiting for the next qualifying Vortex setup." : missing[0],
     riskReward: trade ? Math.abs(trade.tp1 - trade.entry) / Math.abs(trade.entry - trade.stopLoss) : projectedStop !== null && selectedProjectionFib !== null && projectedFibTargets[0] !== null ? Math.abs(projectedFibTargets[0]! - selectedProjectionFib) / Math.abs(selectedProjectionFib - projectedStop) : null,
     silver: { available: silver.length > 1, close: sLast?.close ?? null, flow: sFlow, ma: sMa },
     vwap: finalVwap,
