@@ -625,7 +625,6 @@ export default function AnalyzerPage() {
           const entry = strategy === "vortex" ? (open?.entry ?? closed?.entry ?? scannerEntry) : scannerEntry;
           const stop = strategy === "vortex" ? (open?.stopLoss ?? closed?.stopLoss ?? scannerStop) : scannerStop;
           const fibLevel = strategy === "vortex" ? (open?.fibLevel ?? closed?.fibLevel ?? v?.fibLevel ?? null) : null;
-          const lot = strategy === "vortex" ? (open?.lotSize ?? v?.lotSize ?? 0.05) : null;
           const target = strategy === "vortex" ? (open?.tp1 ?? closed?.tp1 ?? v?.tp1) : scannerTp1;
           const current = Number(result.market?.currentPrice);
           const hasCurrent = Number.isFinite(current);
@@ -639,7 +638,6 @@ export default function AnalyzerPage() {
               : v?.state === "SETUP DEVELOPING" ? "SETUP DEVELOPING" : "WAITING FOR VALID SIGNAL";
           const title = strategy === "vortex" ? vortexStatus : active ? "TRADE ACTIVE" : scannerStatus;
           const entryTime = strategy === "vortex" ? (open?.entryTime ?? closed?.entryTime) : result.strategyEngine?.entryTime;
-          const targetLabel = "TAKE PROFIT";
           const pendingDistance = hasCurrent && entry != null ? Math.abs(current - entry) : null;
           const pendingSide = hasCurrent && entry != null ? current > entry ? "above" : current < entry ? "below" : "at" : null;
           return <>
@@ -652,9 +650,9 @@ export default function AnalyzerPage() {
               </div>
             </div>}
             {strategy === "vortex" && !active && !closed && (!direction || entry == null) && <p className="muted" style={{ marginTop: 0 }}>No BUY or SELL Fib setup is currently anchored.</p>}
-            {strategy !== "vortex" && <p className="muted" style={{ marginTop: 0 }}>{active
+            <p className="muted" style={{ marginTop: 0 }}>{strategy === "vortex" ? (v?.statusReason ?? "Waiting for the next qualifying Vortex signal.") : active
               ? (result.strategyEngine?.lifecycleReason ?? "The recorded entry, stop loss and target remain in force until reached on a completed candle.")
-              : (result.strategyEngine?.lifecycleReason ?? result.strategyEngine?.statusReason ?? s?.waitReason ?? "Waiting for the next qualifying signal.")}</p>}
+              : (result.strategyEngine?.lifecycleReason ?? result.strategyEngine?.statusReason ?? s?.waitReason ?? "Waiting for the next qualifying signal.")}</p>
             {(strategy === "vortex" ? entry != null && stop != null : (active || (strategy === "vortex" && closed)) && direction && entry != null && stop != null && target != null) && <>
               {strategy !== "vortex" && <strong style={{ fontSize: 18, color: direction === "BUY" ? "#35c98a" : "#f06b72" }}>{direction} · {active ? "TRADE ACTIVE" : "TRADE CLOSED"}</strong>}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8, marginTop: 10 }}>
@@ -662,7 +660,7 @@ export default function AnalyzerPage() {
                 <PriceLevel label="STOP LOSS" value={stop} kind="sl" symbol={symbol} />
                 <PriceLevel label="TAKE PROFIT · TP1" value={target!} kind="tp" symbol={symbol} />
               </div>
-              <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>Signal date: {entryTime ? new Date(entryTime).toLocaleDateString() : "—"} · Entry time: {entryTime ? new Date(entryTime).toLocaleString() : "—"}</div>}
+              <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>Signal date: {entryTime ? new Date(entryTime).toLocaleDateString() : "—"} · Entry time: {entryTime ? new Date(entryTime).toLocaleString() : "—"}</div>
               {active && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(125px,1fr))", gap: 8, marginTop: 10 }}>
                 <div className="condition-box"><strong>CURRENT PRICE</strong><div style={{ marginTop: 5 }}>{hasCurrent ? fmt(current, symbol) : "Unavailable"}</div></div>
                 <div className="condition-box"><strong>MOVE FROM ENTRY</strong><div style={{ marginTop: 5 }}>{move == null ? "—" : (move > 0 ? "+" : "") + fmt(move, symbol)}</div></div>
