@@ -293,31 +293,18 @@ export type VortexLtfConfirmation = {
   retestTime: string | null;
   reason: string;
 };
-function evaluateH1ToLtfRetest(candles: VortexCandle[], timeframe: VortexTimeframe, htf: VortexHtfConfirmation): VortexLtfConfirmation {
-  if (timeframe !== "15m" && timeframe !== "30m") return {
-    timeframe: "not-required", confirmed: true, retestTime: null,
-    reason: "No additional M15/M30 gate for this selected timeframe.",
-  };
-  if (!htf.confirmed || !htf.h1RetestTime || htf.h4Level == null || (htf.direction !== "BUY" && htf.direction !== "SELL")) return {
-    timeframe, confirmed: false, retestTime: null,
-    reason: "Waiting for the completed H1 break-and-close and its separate H1 retest before checking M15/M30.",
-  };
-  // h1RetestTime is the H1 candle open timestamp. M15/M30 may only begin
-  // their independent retest after that H1 confirmation candle has closed.
-  const h1ConfirmationCloseTime = Date.parse(htf.h1RetestTime) + TIMEFRAME_MS["1H"];
-  const bars = [...candles].sort((a,b)=>a.time-b.time).filter(bar => bar.time >= h1ConfirmationCloseTime);
-  for (const bar of bars) {
-    const retest = htf.direction === "BUY"
-      ? bar.low <= htf.h4Level && bar.close > htf.h4Level && bar.close > bar.open
-      : bar.high >= htf.h4Level && bar.close < htf.h4Level && bar.close < bar.open;
-    if (retest) return {
-      timeframe, confirmed: true, retestTime: new Date(bar.time).toISOString(),
-      reason: `H1 level broken; separate ${timeframe.toUpperCase()} retest and directional ${htf.direction} close confirmed.`,
-    };
-  }
+function evaluateH1ToLtfRetest(_candles: VortexCandle[], timeframe: VortexTimeframe, htf: VortexHtfConfirmation): VortexLtfConfirmation {
+  // M15/M30 remain the chart timeframes on which the existing Vortex Fib,
+  // OB and M5 displacement entry logic runs. They do not have an extra
+  // mandatory retest of the H4 reference level.
+  const selected = timeframe === "15m" || timeframe === "30m" ? timeframe : "not-required";
   return {
-    timeframe, confirmed: false, retestTime: null,
-    reason: `H1 level broken; waiting for a separate ${htf.direction} ${timeframe.toUpperCase()} retest and directional close.`,
+    timeframe: selected,
+    confirmed: true,
+    retestTime: null,
+    reason: htf.confirmed
+      ? "H1/H4 context is available. Existing Vortex Fib, OB, candle and M5 entry rules remain authoritative; no additional M15/M30 H4-level retest is imposed."
+      : "H1/H4 context is displayed for clarity only. Existing Vortex entry rules remain unchanged; no additional M15/M30 H4-level retest is imposed.",
   };
 }
 
@@ -327,13 +314,6 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
   const timeframe = input.timeframe ?? "1m";
   const htf = evaluateH4H1Confirmation(input.h4Candles ?? [], input.h1Candles ?? []);
   const ltf = evaluateH1ToLtfRetest(c, timeframe, htf);
-  // Do not allow an earlier chart candle to activate using a later M15/M30 retest.
-  // Other selected timeframes retain their existing confirmation behavior.
-  const ltfRetestCloseTime = ltf.timeframe === "not-required"
-    ? Number.NEGATIVE_INFINITY
-    : ltf.retestTime
-      ? Date.parse(ltf.retestTime) + TIMEFRAME_MS[timeframe]
-      : Number.POSITIVE_INFINITY;
   const lotSize = input.lotSize ?? 0.05, tick = input.tickSize ?? 0.01;
   const confirmationTimeframe = "5m" as const;
   const empty = (reason: string): VortexResult => ({
@@ -517,10 +497,12 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     const bScore = (activeBuyReady || buySetup.state > 0) ? confluence(1, c, i, buyFib(setupBuyTop, setupBuyBottom, 68.1), buyFib(setupBuyTop, setupBuyBottom, 88), bullActive, pd, silverContext, vwapNow).score : 0;
     const sScore = (activeSellReady || sellSetup.state > 0) ? confluence(-1, c, i, sellFib(setupSellTop, setupSellBottom, 68.1), sellFib(setupSellTop, setupSellBottom, 88), bearActive, pd, silverContext, vwapNow).score : 0;
     buyScore = bScore; sellScore = sScore;
-    const buyValid = htf.confirmed && ltf.confirmed && b.time + TIMEFRAME_MS[timeframe] >= ltfRetestCloseTime && htf.direction === "BUY" && buySetup.state === 3 && buySetup.fib != null && buySetup.start !== null && buySetup.end !== null &&
+    // Preserve the existing Vortex entry model. H4/H1 is surfaced as MTF
+    // context; it must not add a second H4-level retest requirement to Fib entries.
+    const buyValid = buySetup.state === 3 && buySetup.fib != null && buySetup.start !== null && buySetup.end !== null &&
       b.low <= buySetup.fib && b.close >= buySetup.fib && m5Bull && targetHigher != null && targetHigher > buySetup.fib &&
       bullActive && !!buySetup.ob && !!bullOb && bullOb.bottom < buySetup.fib && bScore >= MIN_SCORE;
-    const sellValid = htf.confirmed && ltf.confirmed && b.time + TIMEFRAME_MS[timeframe] >= ltfRetestCloseTime && htf.direction === "SELL" && sellSetup.state === 3 && sellSetup.fib != null && sellSetup.start !== null && sellSetup.end !== null &&
+    const sellValid = sellSetup.state === 3 && sellSetup.fib != null && sellSetup.start !== null && sellSetup.end !== null &&
       b.high >= sellSetup.fib && b.close <= sellSetup.fib && m5Bear && targetLower != null && targetLower < sellSetup.fib &&
       bearActive && !!sellSetup.ob && !!bearOb && bearOb.top > sellSetup.fib && sScore >= MIN_SCORE;
 
@@ -598,7 +580,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
   const latestBarClose = c.length ? candleCloseTime(c, c.length - 1, timeframe) : 0;
   const recentClosed = closed && closed.exitTime && latestBarClose - Date.parse(closed.exitTime) <= TIMEFRAME_MS[timeframe] * 1.5 ? closed : null;
   const trade = active ?? (setupDeveloping ? null : recentClosed);
-  const state = active ? "TRADE ACTIVE" : !htf.confirmed || !ltf.confirmed ? "WAITING" : setupDeveloping ? "SETUP DEVELOPING" : recentClosed?.status === "TP_HIT" ? "TP HIT" : recentClosed?.status === "SL_HIT" ? "SL HIT" : "WAITING";
+  const state = active ? "TRADE ACTIVE" : setupDeveloping ? "SETUP DEVELOPING" : recentClosed?.status === "TP_HIT" ? "TP HIT" : recentClosed?.status === "SL_HIT" ? "SL HIT" : "WAITING";
   const sLast = silver.at(-1), sPrev = silver.at(-2), sMa = silver.length >= 50 ? silverEma[silverEma.length - 1] : null;
   const sFlow = sLast && sPrev ? sLast.close < sPrev.close ? "FALLING" : sLast.close > sPrev.close ? "RISING" : "FLAT" : "UNAVAILABLE";
   const finalVwap = vwapSeries.at(-1) ?? null;
@@ -631,9 +613,9 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     entryTime: trade?.entryTime ?? null, confirmationTime: trade?.confirmationTime ?? lastM5Time, lotSize,
     lotModel: "FULL CLOSE AT TP1",
     targetHits: trade?.targetHits ?? [false, false, false], openTrade: active, latestClosedTrade: recentClosed,
-    evidence, missingConditions: active ? [] : [...missing, ...(!htf.confirmed ? [htf.reason] : []), ...(!ltf.confirmed ? [ltf.reason] : [])],
+    evidence, missingConditions: active ? [] : missing,
     invalidation: `The ${timeframe.toUpperCase()} setup expires after 8 bars or when its structure is invalidated. SL is anchored to the opposing target-OB wick.`,
-    statusReason: active ? "Trade active. The full position closes at TP1; lot size does not create partial exits." : !htf.confirmed ? htf.reason : !ltf.confirmed ? ltf.reason : setupDeveloping ? `Vortex ${timeframe.toUpperCase()} setup developing. Waiting for the next qualification event.` : recentClosed ? "The previous trade has closed. Waiting for the next qualifying Vortex setup." : missing[0],
+    statusReason: active ? "Trade active. The full position closes at TP1; lot size does not create partial exits." : setupDeveloping ? `Vortex ${timeframe.toUpperCase()} setup developing. Waiting for the next qualification event.` : recentClosed ? "The previous trade has closed. Waiting for the next qualifying Vortex setup." : missing[0],
     riskReward: trade ? Math.abs(trade.tp1 - trade.entry) / Math.abs(trade.entry - trade.stopLoss) : projectedStop !== null && selectedProjectionFib !== null && projectedFibTargets[0] !== null ? Math.abs(projectedFibTargets[0]! - selectedProjectionFib) / Math.abs(selectedProjectionFib - projectedStop) : null,
     silver: { available: silver.length > 1, close: sLast?.close ?? null, flow: sFlow, ma: sMa },
     vwap: finalVwap,
