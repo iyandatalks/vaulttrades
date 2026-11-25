@@ -288,6 +288,12 @@ export async function POST(request: Request) {
     const vortexM5Feed = strategyId === "vortex"
       ? timeframe === "5m" ? { candles: market.candles, source: marketDataSource } : await getVortexFeed(symbol, "5m", oandaConfigured)
       : null;
+    const [vortexH4Feed, vortexH1Feed] = strategyId === "vortex"
+      ? await Promise.all([
+          timeframe === "4H" ? Promise.resolve({ candles: market.candles, source: marketDataSource }) : getVortexFeed(symbol, "4H", oandaConfigured),
+          timeframe === "1H" ? Promise.resolve({ candles: market.candles, source: marketDataSource }) : getVortexFeed(symbol, "1H", oandaConfigured),
+        ])
+      : [null, null];
     const vortexSilverSelectedFeed = strategyId === "vortex" && isGoldInstrument
       ? await getVortexFeed("XAG/USD", timeframe, oandaConfigured).catch(() => ({ candles: [], source: "Unavailable" }))
       : null;
@@ -323,7 +329,7 @@ export async function POST(request: Request) {
     const nexusEngine = strategyId === "vaulttradesNexus"
       ? evaluateVaultTradesNexus(market.candles, { timeframe, exchangeTimezone: market.exchangeTimezone })
       : null;
-    const toVortexCandles = (candles: MarketDataCandle[], tf: Timeframe | "5m") => completedEma20Candles(candles, tf).map(c => ({
+    const toVortexCandles = (candles: MarketDataCandle[], tf: Timeframe) => completedEma20Candles(candles, tf).map(c => ({
       time: Date.parse(c.datetime), open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume ?? undefined,
     }));
     const vortexLotSize = Number.isFinite(Number(body.lotSize)) && Number(body.lotSize) >= 0.01 ? Math.floor(Number(body.lotSize) * 100) / 100 : 0.05;
@@ -333,6 +339,8 @@ export async function POST(request: Request) {
       // Its only lower-timeframe confirmation is the source-defined M5 displacement.
       m1Candles: toVortexCandles(market.candles, timeframe),
       m5Candles: toVortexCandles(vortexM5Feed?.candles ?? [], "5m"),
+      h4Candles: toVortexCandles(vortexH4Feed?.candles ?? [], "4H"),
+      h1Candles: toVortexCandles(vortexH1Feed?.candles ?? [], "1H"),
       silverCandles: toVortexCandles(vortexSilverSelectedFeed?.candles ?? [], timeframe),
       timeframe: timeframe as VortexTimeframe,
       confirmationTimeframe: "5m",
