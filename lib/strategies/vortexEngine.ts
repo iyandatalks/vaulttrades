@@ -15,7 +15,7 @@ export type VortexTrade = {
 };
 export type VortexResult = {
   source: "VAULTTRADES_VORTEX_S1_FIB_VWAP_CONFLUENCE"; timeframe: VortexTimeframe; state: "WAITING" | "SETUP DEVELOPING" | "TRADE ACTIVE" | "TP HIT" | "SL HIT";
-  direction: VortexDirection | "NO TRADE"; plannedDirection: VortexDirection | null; structuralDirection: VortexDirection | "NEUTRAL"; entryConfirmed: boolean;
+  direction: VortexDirection | "NO TRADE"; plannedDirection: VortexDirection | null; structuralDirection: VortexDirection | "NEUTRAL"; entryConfirmed: boolean; htfConfirmation: VortexHtfConfirmation;
   entry: number | null; stopLoss: number | null;
   tp1: number | null; tp2: number | null; tp3: number | null; tp4: number | null; tp5: number | null;
   fibLevel: number | null; score: number; buyConfluence: number; sellConfluence: number;
@@ -26,7 +26,7 @@ export type VortexResult = {
   riskReward: number | null; silver: { available: boolean; close: number | null; flow: string; ma: number | null };
   vwap: VortexVwap | null;
 };
-export type EvaluateVortexInput = { m1Candles: VortexCandle[]; m5Candles: VortexCandle[]; silverCandles?: VortexCandle[]; timeframe?: VortexTimeframe; confirmationTimeframe?: "5m"; tickSize?: number; lotSize?: number };
+export type EvaluateVortexInput = { m1Candles: VortexCandle[]; m5Candles: VortexCandle[]; h4Candles?: VortexCandle[]; h1Candles?: VortexCandle[]; silverCandles?: VortexCandle[]; timeframe?: VortexTimeframe; confirmationTimeframe?: "5m"; tickSize?: number; lotSize?: number };
 
 const ENTRY_FIBS = [68.1, 78.6, 88.0];
 const TP_FIBS = [38.2, 0, -23.6];
@@ -205,15 +205,97 @@ function confluence(dir: 1 | -1, c: VortexCandle[], i: number, f68: number, f88:
   }
   return { score: Math.max(0, Math.min(100, Math.round(raw / available * 100))), flow };
 }
+
+export type VortexHtfConfirmation = {
+  direction: VortexDirection | "WAITING" | "NEUTRAL";
+  h4Level: number | null;
+  h4WickExtreme: number | null;
+  h4AnchorTime: string | null;
+  h1BreakTime: string | null;
+  h1RetestTime: string | null;
+  confirmed: boolean;
+  reason: string;
+};
+function evaluateH4H1Confirmation(h4Input: VortexCandle[], h1Input: VortexCandle[]): VortexHtfConfirmation {
+  const h4 = [...h4Input].sort((a, b) => a.time - b.time);
+  const h1 = [...h1Input].sort((a, b) => a.time - b.time);
+  const waiting = (reason: string): VortexHtfConfirmation => ({
+    direction: "WAITING", h4Level: null, h4WickExtreme: null, h4AnchorTime: null,
+    h1BreakTime: null, h1RetestTime: null, confirmed: false, reason,
+  });
+  if (h4.length < 3 || h1.length < 10) return waiting("Waiting for completed H4 and H1 candle history.");
+  // Lock the first directional H4 candle in the latest uninterrupted directional run.
+  // The candle open is the body boundary; the wick extreme is retained separately.
+  let anchor: VortexCandle | null = null;
+  let direction: VortexDirection | null = null;
+  for (let i = h4.length - 1; i >= 1; i--) {
+    const bar = h4[i];
+    const dir: VortexDirection | null = bar.close > bar.open ? "BUY" : bar.close < bar.open ? "SELL" : null;
+    if (!dir) continue;
+    let first = i;
+    while (first > 0) {
+      const prior = h4[first - 1];
+      const same = dir === "BUY" ? prior.close > prior.open : prior.close < prior.open;
+      if (!same) break;
+      first--;
+    }
+    const prior = h4[first - 1];
+    const beganAfterOpposing = !prior || (dir === "BUY" ? prior.close <= prior.open : prior.close >= prior.open);
+    if (beganAfterOpposing) { anchor = h4[first]; direction = dir; break; }
+  }
+  if (!anchor || !direction) return waiting("Waiting for a completed H4 directional reference candle.");
+  const level = anchor.open;
+  const wick = direction === "BUY" ? anchor.low : anchor.high;
+  const afterAnchor = h1.filter(bar => bar.time >= anchor!.time + TIMEFRAME_MS["4H"]);
+  let breakIndex = -1;
+  for (let i = 0; i < afterAnchor.length; i++) {
+    const bar = afterAnchor[i];
+    if (direction === "BUY" ? bar.close > level : bar.close < level) { breakIndex = i; break; }
+  }
+  if (breakIndex < 0) return {
+    direction: "WAITING", h4Level: level, h4WickExtreme: wick,
+    h4AnchorTime: new Date(anchor.time).toISOString(), h1BreakTime: null, h1RetestTime: null,
+    confirmed: false, reason: `H4 ${direction} reference locked at ${level}; waiting for a completed H1 close beyond the H4 body boundary.`,
+  };
+  const breakBar = afterAnchor[breakIndex];
+  for (let i = breakIndex + 1; i < afterAnchor.length; i++) {
+    const bar = afterAnchor[i];
+    const retest = direction === "BUY"
+      ? bar.low <= level && bar.close > level && bar.close > bar.open
+      : bar.high >= level && bar.close < level && bar.close < bar.open;
+    if (retest) return {
+      direction, h4Level: level, h4WickExtreme: wick,
+      h4AnchorTime: new Date(anchor.time).toISOString(),
+      h1BreakTime: new Date(breakBar.time).toISOString(),
+      h1RetestTime: new Date(bar.time).toISOString(),
+      confirmed: true,
+      reason: `H4 ${direction} reference locked; H1 break-and-close and separate H1 retest/rejection confirmed.`,
+    };
+    if (direction === "BUY" ? bar.close < wick : bar.close > wick) return {
+      direction: "WAITING", h4Level: level, h4WickExtreme: wick,
+      h4AnchorTime: new Date(anchor.time).toISOString(),
+      h1BreakTime: new Date(breakBar.time).toISOString(), h1RetestTime: null,
+      confirmed: false, reason: "H1 invalidated the H4 reference before a valid retest; waiting for a new H4 reference.",
+    };
+  }
+  return {
+    direction: "WAITING", h4Level: level, h4WickExtreme: wick,
+    h4AnchorTime: new Date(anchor.time).toISOString(),
+    h1BreakTime: new Date(breakBar.time).toISOString(), h1RetestTime: null,
+    confirmed: false, reason: `H1 broke the H4 level; waiting for a separate ${direction} H1 retest and directional close.`,
+  };
+}
+
 export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
   const c = [...input.m1Candles].sort((a, b) => a.time - b.time), m5 = [...input.m5Candles].sort((a, b) => a.time - b.time);
   const silver = [...(input.silverCandles ?? [])].sort((a, b) => a.time - b.time);
+  const htf = evaluateH4H1Confirmation(input.h4Candles ?? [], input.h1Candles ?? []);
   const lotSize = input.lotSize ?? 0.05, tick = input.tickSize ?? 0.01;
   const timeframe = input.timeframe ?? "1m";
   const confirmationTimeframe = "5m" as const;
   const empty = (reason: string): VortexResult => ({
     source: "VAULTTRADES_VORTEX_S1_FIB_VWAP_CONFLUENCE", timeframe, state: "WAITING", direction: "NO TRADE", plannedDirection: null,
-    structuralDirection: "NEUTRAL", entryConfirmed: false,
+    structuralDirection: "NEUTRAL", entryConfirmed: false, htfConfirmation: htf,
     entry: null, stopLoss: null, tp1: null, tp2: null, tp3: null, tp4: null, tp5: null, fibLevel: null,
     score: 0, buyConfluence: 0, sellConfluence: 0, liquidityTarget: null, orderBlock: null,
     entryTime: null, confirmationTime: null, lotSize, lotModel: "FULL CLOSE AT TP1",
@@ -392,10 +474,10 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     const bScore = (activeBuyReady || buySetup.state > 0) ? confluence(1, c, i, buyFib(setupBuyTop, setupBuyBottom, 68.1), buyFib(setupBuyTop, setupBuyBottom, 88), bullActive, pd, silverContext, vwapNow).score : 0;
     const sScore = (activeSellReady || sellSetup.state > 0) ? confluence(-1, c, i, sellFib(setupSellTop, setupSellBottom, 68.1), sellFib(setupSellTop, setupSellBottom, 88), bearActive, pd, silverContext, vwapNow).score : 0;
     buyScore = bScore; sellScore = sScore;
-    const buyValid = buySetup.state === 3 && buySetup.fib != null && buySetup.start !== null && buySetup.end !== null &&
+    const buyValid = htf.confirmed && htf.direction === "BUY" && buySetup.state === 3 && buySetup.fib != null && buySetup.start !== null && buySetup.end !== null &&
       b.low <= buySetup.fib && b.close >= buySetup.fib && m5Bull && targetHigher != null && targetHigher > buySetup.fib &&
       bullActive && !!buySetup.ob && !!bullOb && bullOb.bottom < buySetup.fib && bScore >= MIN_SCORE;
-    const sellValid = sellSetup.state === 3 && sellSetup.fib != null && sellSetup.start !== null && sellSetup.end !== null &&
+    const sellValid = htf.confirmed && htf.direction === "SELL" && sellSetup.state === 3 && sellSetup.fib != null && sellSetup.start !== null && sellSetup.end !== null &&
       b.high >= sellSetup.fib && b.close <= sellSetup.fib && m5Bear && targetLower != null && targetLower < sellSetup.fib &&
       bearActive && !!sellSetup.ob && !!bearOb && bearOb.top > sellSetup.fib && sScore >= MIN_SCORE;
 
@@ -497,7 +579,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     : null;
   return {
     source: "VAULTTRADES_VORTEX_S1_FIB_VWAP_CONFLUENCE", timeframe, state, direction: trade?.direction ?? "NO TRADE", plannedDirection: active ? active.direction : projectionDirection,
-    structuralDirection: bullActive ? "BUY" : bearActive ? "SELL" : "NEUTRAL", entryConfirmed: !!active,
+    structuralDirection: bullActive ? "BUY" : bearActive ? "SELL" : "NEUTRAL", entryConfirmed: !!active, htfConfirmation: htf,
     entry: trade?.entry ?? selectedProjectionFib, stopLoss: trade?.stopLoss ?? projectedStop,
     tp1: trade?.tp1 ?? projectedFibTargets[0], tp2: trade?.tp2 ?? projectedFibTargets[1],
     tp3: trade?.tp3 ?? projectedFibTargets[2], tp4: null, tp5: null,
@@ -506,9 +588,9 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     entryTime: trade?.entryTime ?? null, confirmationTime: trade?.confirmationTime ?? lastM5Time, lotSize,
     lotModel: "FULL CLOSE AT TP1",
     targetHits: trade?.targetHits ?? [false, false, false], openTrade: active, latestClosedTrade: recentClosed,
-    evidence, missingConditions: active ? [] : missing,
+    evidence, missingConditions: active ? [] : [...missing, ...(!htf.confirmed ? [htf.reason] : [])],
     invalidation: `The ${timeframe.toUpperCase()} setup expires after 8 bars or when its structure is invalidated. SL is anchored to the opposing target-OB wick.`,
-    statusReason: active ? "Trade active. The full position closes at TP1; lot size does not create partial exits." : setupDeveloping ? `Vortex ${timeframe.toUpperCase()} setup developing. Waiting for the next qualification event.` : recentClosed ? "The previous trade has closed. Waiting for the next qualifying Vortex setup." : missing[0],
+    statusReason: active ? "Trade active. The full position closes at TP1; lot size does not create partial exits." : !htf.confirmed ? htf.reason : setupDeveloping ? `Vortex ${timeframe.toUpperCase()} setup developing. Waiting for the next qualification event.` : recentClosed ? "The previous trade has closed. Waiting for the next qualifying Vortex setup." : missing[0],
     riskReward: trade ? Math.abs(trade.tp1 - trade.entry) / Math.abs(trade.entry - trade.stopLoss) : projectedStop !== null && selectedProjectionFib !== null && projectedFibTargets[0] !== null ? Math.abs(projectedFibTargets[0]! - selectedProjectionFib) / Math.abs(selectedProjectionFib - projectedStop) : null,
     silver: { available: silver.length > 1, close: sLast?.close ?? null, flow: sFlow, ma: sMa },
     vwap: finalVwap,
