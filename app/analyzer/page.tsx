@@ -626,20 +626,17 @@ export default function AnalyzerPage() {
           const stop = strategy === "vortex" ? (open?.stopLoss ?? closed?.stopLoss ?? scannerStop) : scannerStop;
           const fibLevel = strategy === "vortex" ? (open?.fibLevel ?? closed?.fibLevel ?? v?.fibLevel ?? null) : null;
           const lot = strategy === "vortex" ? (open?.lotSize ?? v?.lotSize ?? 0.05) : null;
-          const target = strategy === "vortex" ? (lot != null && lot < 0.05 ? (open?.tp1 ?? closed?.tp1 ?? v?.tp1) : (open?.tp5 ?? closed?.tp5 ?? v?.tp5)) : scannerTp1;
+          const target = strategy === "vortex" ? (open?.tp1 ?? closed?.tp1 ?? v?.tp1) : scannerTp1;
           const current = Number(result.market?.currentPrice);
           const hasCurrent = Number.isFinite(current);
           const move = hasCurrent && entry != null && direction ? (direction === "BUY" ? current - entry : entry - current) : null;
           const toTarget = hasCurrent && target != null && direction ? (direction === "BUY" ? target - current : current - target) : null;
           const toStop = hasCurrent && stop != null && direction ? (direction === "BUY" ? current - stop : stop - current) : null;
-          const targetHits = strategy === "vortex"
-            ? (open?.targetHits ?? v?.targetHits ?? [false, false, false, false, false])
-            : [];
-          const highestTargetHit = targetHits.lastIndexOf(true);
           const vortexStatus = active
-            ? highestTargetHit >= 0 ? `TP${highestTargetHit + 1} HIT` : "ACTIVE"
-            : closed ? closed.status === "TP_HIT" ? (lot != null && lot < 0.05 ? "TP1 HIT" : "TP5 HIT") : "SL HIT"
-            : "WAIT";
+            ? "TRADE ACTIVE"
+            : closed
+              ? closed.status === "TP_HIT" ? "TAKE PROFIT HIT" : "STOP LOSS HIT"
+              : v?.state === "SETUP DEVELOPING" ? "SETUP DEVELOPING" : "WAITING FOR VALID SIGNAL";
           const title = strategy === "vortex" ? vortexStatus : active ? "TRADE ACTIVE" : scannerStatus;
           const entryTime = strategy === "vortex" ? (open?.entryTime ?? closed?.entryTime) : result.strategyEngine?.entryTime;
           const targetLabel = "TAKE PROFIT";
@@ -660,35 +657,19 @@ export default function AnalyzerPage() {
               : (result.strategyEngine?.lifecycleReason ?? result.strategyEngine?.statusReason ?? s?.waitReason ?? "Waiting for the next qualifying signal.")}</p>}
             {(strategy === "vortex" ? entry != null && stop != null : (active || (strategy === "vortex" && closed)) && direction && entry != null && stop != null && target != null) && <>
               {strategy !== "vortex" && <strong style={{ fontSize: 18, color: direction === "BUY" ? "#35c98a" : "#f06b72" }}>{direction} · {active ? "TRADE ACTIVE" : "TRADE CLOSED"}</strong>}
-              {strategy === "vortex" ? <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(115px,1fr))", gap: 8, marginTop: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8, marginTop: 10 }}>
                 <PriceLevel label={strategy === "vortex" && !active && !closed ? `ENTRY · ${typeof fibLevel === "number" ? fibLevel : 68.1}% FIB` : "ENTRY"} value={entry} kind="entry" symbol={symbol} />
                 <PriceLevel label="STOP LOSS" value={stop} kind="sl" symbol={symbol} />
-                {[
-                  ["TP1", open?.tp1 ?? closed?.tp1 ?? v?.tp1, 0],
-                  ["TP2", open?.tp2 ?? closed?.tp2 ?? v?.tp2, 1],
-                  ["TP3", open?.tp3 ?? closed?.tp3 ?? v?.tp3, 2],
-                  ["TP4", open?.tp4 ?? closed?.tp4 ?? v?.tp4, 3],
-                  ["TP5", open?.tp5 ?? closed?.tp5 ?? v?.tp5, 4],
-                ].map(([label, value, index]) => <div className="condition-box" key={String(label)}>
-                  <strong>{label}</strong>
-                  <div style={{ fontSize: 16, fontWeight: 800, marginTop: 5 }}>{fmt(typeof value === "number" ? value : null, symbol)}</div>
-                  <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>
-                    {targetHits[Number(index)] ? "HIT" : "PENDING"}
-                  </div>
-                </div>)}
-              </div> : <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8, marginTop: 10 }}>
-                <PriceLevel label="ENTRY" value={entry} kind="entry" symbol={symbol} />
-                <PriceLevel label="STOP LOSS" value={stop} kind="sl" symbol={symbol} />
-                <PriceLevel label={targetLabel} value={target!} kind="tp" symbol={symbol} />
-              </div>}
-              {strategy !== "vortex" && <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>Signal date: {entryTime ? new Date(entryTime).toLocaleDateString() : "—"} · Entry time: {entryTime ? new Date(entryTime).toLocaleString() : "—"}</div>}
-              {active && strategy !== "vortex" && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(125px,1fr))", gap: 8, marginTop: 10 }}>
+                <PriceLevel label="TAKE PROFIT · TP1" value={target!} kind="tp" symbol={symbol} />
+              </div>
+              <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>Signal date: {entryTime ? new Date(entryTime).toLocaleDateString() : "—"} · Entry time: {entryTime ? new Date(entryTime).toLocaleString() : "—"}</div>}
+              {active && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(125px,1fr))", gap: 8, marginTop: 10 }}>
                 <div className="condition-box"><strong>CURRENT PRICE</strong><div style={{ marginTop: 5 }}>{hasCurrent ? fmt(current, symbol) : "Unavailable"}</div></div>
                 <div className="condition-box"><strong>MOVE FROM ENTRY</strong><div style={{ marginTop: 5 }}>{move == null ? "—" : (move > 0 ? "+" : "") + fmt(move, symbol)}</div></div>
                 <div className="condition-box"><strong>DISTANCE TO TP</strong><div style={{ marginTop: 5 }}>{toTarget == null ? "—" : fmt(toTarget, symbol)}</div></div>
                 <div className="condition-box"><strong>DISTANCE TO SL</strong><div style={{ marginTop: 5 }}>{toStop == null ? "—" : fmt(toStop, symbol)}</div></div>
               </div>}
-              {active && strategy !== "vortex" && <button className="primary" type="button" style={{ marginTop: 12 }} onClick={() => openRiskManager({ direction: direction as "BUY" | "SELL", entry: entry!, stopLoss: stop!, takeProfit: target! })}>Calculate Lot Size</button>}
+              {active && <button className="primary" type="button" style={{ marginTop: 12 }} onClick={() => openRiskManager({ direction: direction as "BUY" | "SELL", entry: entry!, stopLoss: stop!, takeProfit: target! })}>Calculate Lot Size</button>}
             </>}
             {!active && !(strategy === "vortex" && closed) && strategy !== "vortex" && <p className="muted" style={{ marginBottom: 0 }}>No active position. {scannerReason[0]}</p>}
           </>;
