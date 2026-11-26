@@ -10,7 +10,7 @@ type Props = {
   tradeLevels?: { direction: string; levels: TradeLevel[] } | null;
   candles: Candle[];
   channel?: { upper: number | null; lower: number | null; middle?: number | null };
-  liquidityTargets?: { buySide: { price: number; source: string; touches: number } | null; sellSide: { price: number; source: string; touches: number } | null };
+  liquidityTargets?: { buySide: { price: number; source: string; touches: number } | null; sellSide: { price: number; source: string; touches: number } | null; levels?: Array<{ timeframe: string; side: "BUY_SIDE" | "SELL_SIDE"; price: number; source: string; pivotTime: string }> };
   orderBlock?: { direction: string; top: number; bottom: number; createdAt?: string } | null;
   orderBlocks?: Array<{ direction: string; top: number; bottom: number; label?: string; state?: string }>;
 };
@@ -49,8 +49,8 @@ export function LiveMarketChart({ symbol = "", candles, channel, liquidityTarget
   const volumeBottom = 490;
   const chartWidth = width - left - right;
   const priceHeight = priceBottom - top;
-  const priceMin = Math.min(...data.map(c => c.low), channel?.lower ?? Infinity, liquidityTargets?.sellSide?.price ?? Infinity, ...visibleOrderBlocks.map(block => block.bottom), ...(tradeLevels?.levels.map(level => level.price) ?? []));
-  const priceMax = Math.max(...data.map(c => c.high), channel?.upper ?? -Infinity, liquidityTargets?.buySide?.price ?? -Infinity, ...visibleOrderBlocks.map(block => block.top), ...(tradeLevels?.levels.map(level => level.price) ?? []));
+  const priceMin = Math.min(...data.map(c => c.low), channel?.lower ?? Infinity, liquidityTargets?.sellSide?.price ?? Infinity, ...(liquidityTargets?.levels?.map(level => level.price) ?? []), ...visibleOrderBlocks.map(block => block.bottom), ...(tradeLevels?.levels.map(level => level.price) ?? []));
+  const priceMax = Math.max(...data.map(c => c.high), channel?.upper ?? -Infinity, liquidityTargets?.buySide?.price ?? -Infinity, ...(liquidityTargets?.levels?.map(level => level.price) ?? []), ...visibleOrderBlocks.map(block => block.top), ...(tradeLevels?.levels.map(level => level.price) ?? []));
   const priceRange = Math.max(priceMax - priceMin, Math.abs(priceMax) * 0.00001, 1e-9);
   const maxVolume = Math.max(...data.map(c => c.volume ?? 0), 1);
   const bodyWidth = Math.max(3, Math.min(11, chartWidth / data.length * 0.62));
@@ -116,17 +116,31 @@ export function LiveMarketChart({ symbol = "", candles, channel, liquidityTarget
         {channel?.middle != null && (
           <line x1={left} x2={width - right} y1={y(channel.middle)} y2={y(channel.middle)} stroke="rgba(212,166,55,.38)" strokeDasharray="3 5" />
         )}
-        {liquidityTargets?.buySide && (
-          <g>
-            <line x1={left} x2={width - right} y1={y(liquidityTargets.buySide.price)} y2={y(liquidityTargets.buySide.price)} stroke="#22c55e" strokeDasharray="3 5" strokeWidth="2" />
-            <text x={left + 8} y={y(liquidityTargets.buySide.price) - 7} fill="#4ade80" fontSize="11" fontWeight="700">BUY-SIDE LIQUIDITY · {fmtPrice(liquidityTargets.buySide.price, symbol)}</text>
-          </g>
-        )}
-        {liquidityTargets?.sellSide && (
-          <g>
-            <line x1={left} x2={width - right} y1={y(liquidityTargets.sellSide.price)} y2={y(liquidityTargets.sellSide.price)} stroke="#f97316" strokeDasharray="3 5" strokeWidth="2" />
-            <text x={left + 8} y={y(liquidityTargets.sellSide.price) + 15} fill="#fb923c" fontSize="11" fontWeight="700">SELL-SIDE LIQUIDITY · {fmtPrice(liquidityTargets.sellSide.price, symbol)}</text>
-          </g>
+        {liquidityTargets?.levels?.length ? liquidityTargets.levels.map((level, index) => {
+          const buySide = level.side === "BUY_SIDE";
+          const lineColor = buySide ? "#22c55e" : "#f97316";
+          const labelColor = buySide ? "#4ade80" : "#fb923c";
+          return (
+            <g key={`vortex-liquidity-${level.timeframe}-${level.side}`}>
+              <line x1={left} x2={width - right} y1={y(level.price)} y2={y(level.price)} stroke={lineColor} strokeDasharray="3 5" strokeWidth="1.5" opacity="0.82" />
+              <text x={left + 8} y={y(level.price) + (buySide ? -7 : 15) + (index % 3) * 10} fill={labelColor} fontSize="10" fontWeight="700">{level.timeframe} {buySide ? "BUY-SIDE" : "SELL-SIDE"} LIQUIDITY · {fmtPrice(level.price, symbol)}</text>
+            </g>
+          );
+        }) : (
+          <>
+            {liquidityTargets?.buySide && (
+              <g>
+                <line x1={left} x2={width - right} y1={y(liquidityTargets.buySide.price)} y2={y(liquidityTargets.buySide.price)} stroke="#22c55e" strokeDasharray="3 5" strokeWidth="2" />
+                <text x={left + 8} y={y(liquidityTargets.buySide.price) - 7} fill="#4ade80" fontSize="11" fontWeight="700">BUY-SIDE LIQUIDITY · {fmtPrice(liquidityTargets.buySide.price, symbol)}</text>
+              </g>
+            )}
+            {liquidityTargets?.sellSide && (
+              <g>
+                <line x1={left} x2={width - right} y1={y(liquidityTargets.sellSide.price)} y2={y(liquidityTargets.sellSide.price)} stroke="#f97316" strokeDasharray="3 5" strokeWidth="2" />
+                <text x={left + 8} y={y(liquidityTargets.sellSide.price) + 15} fill="#fb923c" fontSize="11" fontWeight="700">SELL-SIDE LIQUIDITY · {fmtPrice(liquidityTargets.sellSide.price, symbol)}</text>
+              </g>
+            )}
+          </>
         )}
         {channel?.lower != null && (
           <>
