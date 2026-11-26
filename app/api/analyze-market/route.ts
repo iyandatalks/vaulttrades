@@ -10,7 +10,7 @@ import { evaluateLsObr } from "../../../lib/strategies/lsobrEngine";
 import { analyzeAutoFibRetrace } from "../../../lib/strategies/autoFibRetrace";
 import { evaluateSupplyDemand } from "../../../lib/strategies/supplyDemandEngine";
 import { evaluateVaultTradesNexus } from "../../../lib/strategies/vaulttradesNexusEngine";
-import { evaluateVortex, type VortexTimeframe } from "../../../lib/strategies/vortexEngine";
+import { detectVortexStructure, evaluateVortex, type VortexTimeframe } from "../../../lib/strategies/vortexEngine";
 import { resolveLiquidityTargets } from "../../../lib/market-data/liquidityTargets";
 
 export const runtime = "nodejs";
@@ -288,6 +288,14 @@ export async function POST(request: Request) {
     const vortexM5Feed = strategyId === "vortex"
       ? timeframe === "5m" ? { candles: market.candles, source: marketDataSource } : await getVortexFeed(symbol, "5m", oandaConfigured)
       : null;
+    // Structural detection is independently calculated from completed M1, M5 and M15 candles.
+    // These feeds are not confirmation gates for one another and do not depend on Fib/VWAP.
+    const [vortexM1Feed, vortexM15Feed] = strategyId === "vortex"
+      ? await Promise.all([
+          timeframe === "1m" ? Promise.resolve({ candles: market.candles, source: marketDataSource }) : getVortexFeed(symbol, "1m", oandaConfigured),
+          timeframe === "15m" ? Promise.resolve({ candles: market.candles, source: marketDataSource }) : getVortexFeed(symbol, "15m", oandaConfigured),
+        ])
+      : [null, null];
     const [vortexH4Feed, vortexH1Feed] = strategyId === "vortex"
       ? await Promise.all([
           timeframe === "4H" ? Promise.resolve({ candles: market.candles, source: marketDataSource }) : getVortexFeed(symbol, "4H", oandaConfigured),
@@ -332,6 +340,12 @@ export async function POST(request: Request) {
     const toVortexCandles = (candles: MarketDataCandle[], tf: Timeframe) => completedEma20Candles(candles, tf).map(c => ({
       time: Date.parse(c.datetime), open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume ?? undefined,
     }));
+    const vortexStructuralDetections = strategyId === "vortex" ? {
+      "1m": detectVortexStructure(toVortexCandles(vortexM1Feed?.candles ?? [], "1m"), "1m"),
+      "5m": detectVortexStructure(toVortexCandles(vortexM5Feed?.candles ?? [], "5m"), "5m"),
+      "15m": detectVortexStructure(toVortexCandles(vortexM15Feed?.candles ?? [], "15m"), "15m"),
+    } : null;
+    const selectedVortexStructure = vortexStructuralDetections?.[timeframe as "1m" | "5m" | "15m"] ?? null;
     const vortexLotSize = Number.isFinite(Number(body.lotSize)) && Number(body.lotSize) >= 0.01 ? Math.floor(Number(body.lotSize) * 100) / 100 : 0.05;
     const vortexTickSize = /XAU|XAG/.test(symbol.replace(/[^A-Z]/g, "")) ? 0.01 : /JPY/.test(symbol.replace(/[^A-Z]/g, "")) ? 0.001 : marketType === "FOREX" ? 0.00001 : 0.01;
     const vortexEngine = strategyId === "vortex" ? evaluateVortex({
@@ -398,11 +412,15 @@ export async function POST(request: Request) {
       silverCandles: silverMarket?.candles.map((c) => ({ time: new Date(c.datetime).getTime(), open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume ?? undefined })),
       m5Candles: (timeframe === "5m" ? market.candles : fibM5Market?.candles ?? []).map((c) => ({ time: new Date(c.datetime).getTime(), open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume ?? undefined })),
     }) : null;
-    const vortexLiquidityTargets = vortexEngine?.state === "TRADE ACTIVE" && vortexEngine.liquidityTarget != null ? {
-      buySide: vortexEngine.direction === "BUY" ? { price: vortexEngine.liquidityTarget, source: "Vortex higher liquidity target", touches: 0 } : null,
-      sellSide: vortexEngine.direction === "SELL" ? { price: vortexEngine.liquidityTarget, source: "Vortex lower liquidity target", touches: 0 } : null,
+    const vortexLiquidityTargets = strategyId === "vortex" ? {
+      buySide: selectedVortexStructure?.buySideLiquidityTarget != null ? { price: selectedVortexStructure.buySideLiquidityTarget, source: "Confirmed external buy-side swing liquidity", touches: 0 } : null,
+      sellSide: selectedVortexStructure?.sellSideLiquidityTarget != null ? { price: selectedVortexStructure.sellSideLiquidityTarget, source: "Confirmed external sell-side swing liquidity", touches: 0 } : null,
     } : { buySide: null, sellSide: null };
-    const visualOrderBlocks = strategyId === "vaulttradesNexus" ? [] : strategyId === "vortex" ? (vortexEngine?.orderBlock ? [{ direction: vortexEngine.orderBlock.direction === "BUY" ? "BULLISH" : "BEARISH", top: vortexEngine.orderBlock.top, bottom: vortexEngine.orderBlock.bottom, label: "VORTEX TARGET ORDER BLOCK", state: "ACTIVE" }] : []) : strategyId === "fibRetracement" && autoFibEngine
+    const structuralVisualBlocks = selectedVortexStructure ? [
+      ...(selectedVortexStructure.bullishOrderBlock ? [{ direction: "BULLISH", top: selectedVortexStructure.bullishOrderBlock.top, bottom: selectedVortexStructure.bullishOrderBlock.bottom, label: "VORTEX BULLISH INSTITUTIONAL OB", state: selectedVortexStructure.bullishOrderBlock.state }] : []),
+      ...(selectedVortexStructure.bearishOrderBlock ? [{ direction: "BEARISH", top: selectedVortexStructure.bearishOrderBlock.top, bottom: selectedVortexStructure.bearishOrderBlock.bottom, label: "VORTEX BEARISH INSTITUTIONAL OB", state: selectedVortexStructure.bearishOrderBlock.state }] : []),
+    ] : [];
+    const visualOrderBlocks = strategyId === "vaulttradesNexus" ? [] : strategyId === "vortex" ? structuralVisualBlocks : strategyId === "fibRetracement" && autoFibEngine
       ? [
           ...(autoFibEngine.orderBlocks.bullish.active && !autoFibEngine.orderBlocks.bullish.mitigated && !autoFibEngine.orderBlocks.bullish.breaker && autoFibEngine.orderBlocks.bullish.high != null && autoFibEngine.orderBlocks.bullish.low != null
             ? [{ direction:"BULLISH", top:autoFibEngine.orderBlocks.bullish.high, bottom:autoFibEngine.orderBlocks.bullish.low, label:"ACTIVE BULLISH OB · UNMITIGATED", state:"ACTIVE" }] : []),
@@ -715,6 +733,7 @@ Return JSON only.`;
       chart: { candles: market.candles, channel20: channel, orderBlocks: visualOrderBlocks },
       liquidityTargets: strategyId === "vortex" ? vortexLiquidityTargets : liquidityTargets,
       timeframeEngines: strategyId === "vortex" ? vortexEngines : undefined,
+      institutionalDetection: strategyId === "vortex" ? vortexStructuralDetections : undefined,
       structure: { ...lockedStructure }, volatility: context.volatility,
       strategyEngine: strategyId === "vortex" ? vortexEngine : strategyId === "lsobr" ? lsobrEngineEvidence : strategyId === "srbOb" ? srbObEngineEvidence : strategyId === "fibRetracement" ? autoFibEngineEvidence : strategyId === "supplyDemand" ? supplyDemandEngine : nativeEngineOutput,
       scanner: strategyId === "vortex" ? {
