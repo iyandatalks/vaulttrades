@@ -285,13 +285,14 @@ export async function POST(request: Request) {
     const fibM5Market = strategyId === "fibRetracement" && timeframe !== "5m"
       ? await getTwelveDataTimeSeries({ symbol, timeframe: "5m", outputsize: 250 }).catch(() => null)
       : null;
-    const [vortexM1Feed, vortexM5Feed, vortexM15Feed] = strategyId === "vortex"
+    const [vortexM1Feed, vortexM5Feed, vortexM15Feed, vortexM30Feed] = strategyId === "vortex"
       ? await Promise.all([
           timeframe === "1m" ? Promise.resolve({ candles: market.candles, source: marketDataSource }) : getVortexFeed(symbol, "1m", oandaConfigured),
           timeframe === "5m" ? Promise.resolve({ candles: market.candles, source: marketDataSource }) : getVortexFeed(symbol, "5m", oandaConfigured),
           timeframe === "15m" ? Promise.resolve({ candles: market.candles, source: marketDataSource }) : getVortexFeed(symbol, "15m", oandaConfigured),
+          timeframe === "30m" ? Promise.resolve({ candles: market.candles, source: marketDataSource }) : getVortexFeed(symbol, "30m", oandaConfigured),
         ])
-      : [null, null, null];
+      : [null, null, null, null];
     const [vortexH4Feed, vortexH1Feed] = strategyId === "vortex"
       ? await Promise.all([
           timeframe === "4H" ? Promise.resolve({ candles: market.candles, source: marketDataSource }) : getVortexFeed(symbol, "4H", oandaConfigured),
@@ -338,29 +339,47 @@ export async function POST(request: Request) {
     }));
     const vortexLotSize = Number.isFinite(Number(body.lotSize)) && Number(body.lotSize) >= 0.01 ? Math.floor(Number(body.lotSize) * 100) / 100 : 0.05;
     const vortexTickSize = /XAU|XAG/.test(symbol.replace(/[^A-Z]/g, "")) ? 0.01 : /JPY/.test(symbol.replace(/[^A-Z]/g, "")) ? 0.001 : marketType === "FOREX" ? 0.00001 : 0.01;
-    const vortexEngine = strategyId === "vortex" ? evaluateVortex({
-      // The selected chart timeframe owns the trade lifecycle. M1/M5/M15
-      // structural detection is evaluated independently below and never borrowed
-      // as the selected timeframe's entry or direction.
-      m1Candles: toVortexCandles(market.candles, timeframe),
-      m5Candles: toVortexCandles(vortexM5Feed?.candles ?? [], "5m"),
-      h4Candles: toVortexCandles(vortexH4Feed?.candles ?? [], "4H"),
-      h1Candles: toVortexCandles(vortexH1Feed?.candles ?? [], "1H"),
-      silverCandles: toVortexCandles(vortexSilverSelectedFeed?.candles ?? [], timeframe),
-      timeframe: timeframe as VortexTimeframe,
-      confirmationTimeframe: "5m",
-      lotSize: vortexLotSize,
-      tickSize: vortexTickSize,
-    }) : null;
+    const vortexSelectedFeeds: Record<string, { candles: MarketDataCandle[]; source?: string }> = {
+      "5m": vortexM5Feed ?? { candles: [] },
+      "15m": vortexM15Feed ?? { candles: [] },
+      "30m": vortexM30Feed ?? { candles: [] },
+      "1H": vortexH1Feed ?? { candles: [] },
+      "4H": vortexH4Feed ?? { candles: [] },
+    };
+    const vortexM5Candles = toVortexCandles(vortexM5Feed?.candles ?? [], "5m");
+    const vortexH4Candles = toVortexCandles(vortexH4Feed?.candles ?? [], "4H");
+    const vortexH1Candles = toVortexCandles(vortexH1Feed?.candles ?? [], "1H");
+    const evaluateVortexStream = (tf: VortexTimeframe, candles: MarketDataCandle[], silver: VortexCandle[] = []) =>
+      evaluateVortex({
+        // Each stream owns its own completed candles and independent trade lifecycle.
+        m1Candles: toVortexCandles(candles, tf as Timeframe),
+        m5Candles: vortexM5Candles,
+        h4Candles: vortexH4Candles,
+        h1Candles: vortexH1Candles,
+        silverCandles: silver,
+        timeframe: tf,
+        confirmationTimeframe: "5m",
+        lotSize: vortexLotSize,
+        tickSize: vortexTickSize,
+      });
+    const vortexEngines: Record<string, ReturnType<typeof evaluateVortex>> | null = strategyId === "vortex" ? {
+      "5m": evaluateVortexStream("5m", vortexSelectedFeeds["5m"].candles, timeframe === "5m" ? toVortexCandles(vortexSilverSelectedFeed?.candles ?? [], "5m") : []),
+      "15m": evaluateVortexStream("15m", vortexSelectedFeeds["15m"].candles, timeframe === "15m" ? toVortexCandles(vortexSilverSelectedFeed?.candles ?? [], "15m") : []),
+      "30m": evaluateVortexStream("30m", vortexSelectedFeeds["30m"].candles, timeframe === "30m" ? toVortexCandles(vortexSilverSelectedFeed?.candles ?? [], "30m") : []),
+      "1H": evaluateVortexStream("1H", vortexSelectedFeeds["1H"].candles, timeframe === "1H" ? toVortexCandles(vortexSilverSelectedFeed?.candles ?? [], "1H") : []),
+      "4H": evaluateVortexStream("4H", vortexSelectedFeeds["4H"].candles, timeframe === "4H" ? toVortexCandles(vortexSilverSelectedFeed?.candles ?? [], "4H") : []),
+    } : null;
+    const vortexEngine = strategyId === "vortex"
+      ? (vortexEngines?.[timeframe] ?? evaluateVortexStream(timeframe as VortexTimeframe, market.candles, toVortexCandles(vortexSilverSelectedFeed?.candles ?? [], timeframe)))
+      : null;
     const vortexStructureByTimeframe: Record<string, VortexStructureDetection> | null = strategyId === "vortex" ? {
       "1m": detectVortexInstitutionalStructure(toVortexCandles(vortexM1Feed?.candles ?? [], "1m"), "1m"),
       "5m": detectVortexInstitutionalStructure(toVortexCandles(vortexM5Feed?.candles ?? [], "5m"), "5m"),
       "15m": detectVortexInstitutionalStructure(toVortexCandles(vortexM15Feed?.candles ?? [], "15m"), "15m"),
-      ...(timeframe !== "1m" && timeframe !== "5m" && timeframe !== "15m"
-        ? { [timeframe]: detectVortexInstitutionalStructure(toVortexCandles(market.candles, timeframe), timeframe as VortexTimeframe) }
-        : {}),
+      "30m": detectVortexInstitutionalStructure(toVortexCandles(vortexM30Feed?.candles ?? [], "30m"), "30m"),
+      "1H": detectVortexInstitutionalStructure(vortexH1Candles, "1H"),
+      "4H": detectVortexInstitutionalStructure(vortexH4Candles, "4H"),
     } : null;
-    const vortexEngines = strategyId === "vortex" ? { [timeframe]: vortexEngine } : null;
     const ema20Bar = ema20Engine?.engine ?? null;
     const ema20EngineEvidence = ema20Engine ? {
       source: "VAULTTRADES_NEXUS_PLUS_PINE_V6",
