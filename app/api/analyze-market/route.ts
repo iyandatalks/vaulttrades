@@ -416,10 +416,6 @@ export async function POST(request: Request) {
       referencePrice: liveCurrentPrice ?? market.candles.at(-1)?.close ?? 0,
       buySide: selectedVortexStructure.buySideLiquidity ? { price: selectedVortexStructure.buySideLiquidity.price, source: `${timeframe.toUpperCase()} ${selectedVortexStructure.buySideLiquidity.source}`, touches: 0, pivotTime: selectedVortexStructure.buySideLiquidity.pivotTime } : null,
       sellSide: selectedVortexStructure.sellSideLiquidity ? { price: selectedVortexStructure.sellSideLiquidity.price, source: `${timeframe.toUpperCase()} ${selectedVortexStructure.sellSideLiquidity.source}`, touches: 0, pivotTime: selectedVortexStructure.sellSideLiquidity.pivotTime } : null,
-      levels: Object.entries(vortexStructureByTimeframe ?? {}).flatMap(([tf, detection]) => [
-        ...(detection.buySideLiquidity ? [{ timeframe: tf.toUpperCase(), side: "BUY_SIDE", price: detection.buySideLiquidity.price, source: detection.buySideLiquidity.source, pivotTime: detection.buySideLiquidity.pivotTime }] : []),
-        ...(detection.sellSideLiquidity ? [{ timeframe: tf.toUpperCase(), side: "SELL_SIDE", price: detection.sellSideLiquidity.price, source: detection.sellSideLiquidity.source, pivotTime: detection.sellSideLiquidity.pivotTime }] : []),
-      ]),
       definition: "Nearest untaken confirmed external swing liquidity, detected independently on each reported timeframe.",
       pivotLength: selectedVortexStructure.swingLength,
       lookback: selectedVortexStructure.lookbackBars,
@@ -428,16 +424,17 @@ export async function POST(request: Request) {
       detection.orderBlocks.map(ob => ({
         direction: ob.direction === "BUY" ? "BULLISH" : "BEARISH",
         top: ob.top, bottom: ob.bottom,
-        label: `${tf.toUpperCase()} ${ob.direction === "BUY" ? "BULLISH" : "BEARISH"} OB · ${ob.state} · ORIGIN ${ob.formedAt.slice(0, 16).replace("T", " ")}`,
+        label: `${tf.toUpperCase()} ${ob.direction === "BUY" ? "BULLISH" : "BEARISH"} ACTIVE OB`,
         state: ob.state,
+        formedAt: ob.formedAt,
       }))
     );
     const visualOrderBlocks = strategyId === "vaulttradesNexus" ? [] : strategyId === "vortex" ? [
       ...vortexDetectedOrderBlocks,
       ...(vortexEngine?.orderBlock && !vortexDetectedOrderBlocks.some(ob => ob.top === vortexEngine.orderBlock!.top && ob.bottom === vortexEngine.orderBlock!.bottom && (ob.direction === (vortexEngine.orderBlock!.direction === "BUY" ? "BULLISH" : "BEARISH")))
-        ? [{ direction: vortexEngine.orderBlock.direction === "BUY" ? "BULLISH" : "BEARISH", top: vortexEngine.orderBlock.top, bottom: vortexEngine.orderBlock.bottom, label: `${timeframe.toUpperCase()} EXECUTION OB · CAUSAL FOOTPRINT`, state: "ACTIVE" }]
+        ? [{ direction: vortexEngine.orderBlock.direction === "BUY" ? "BULLISH" : "BEARISH", top: vortexEngine.orderBlock.top, bottom: vortexEngine.orderBlock.bottom, label: timeframe.toUpperCase() + " ACTIVE OB", state: "ACTIVE", formedAt: vortexEngine.entryTime ?? "" }]
         : []),
-    ] : strategyId === "fibRetracement" && autoFibEngine
+    ].filter(ob => ob.state === "ACTIVE").sort((a, b) => (Date.parse(b.formedAt ?? "") || 0) - (Date.parse(a.formedAt ?? "") || 0)).slice(0, 1) : strategyId === "fibRetracement" && autoFibEngine
       ? [
           ...(autoFibEngine.orderBlocks.bullish.active && !autoFibEngine.orderBlocks.bullish.mitigated && !autoFibEngine.orderBlocks.bullish.breaker && autoFibEngine.orderBlocks.bullish.high != null && autoFibEngine.orderBlocks.bullish.low != null
             ? [{ direction:"BULLISH", top:autoFibEngine.orderBlocks.bullish.high, bottom:autoFibEngine.orderBlocks.bullish.low, label:"ACTIVE BULLISH OB · UNMITIGATED", state:"ACTIVE" }] : []),
