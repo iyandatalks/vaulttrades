@@ -28,8 +28,8 @@ export type VortexStructureDetection = {
   swingLength: number;
   displacementAtr: number;
 };
-type VortexSetup = { state: number; orderBar: number; pullback: number; fib: number | null; pct: number | null; start: number | null; end: number | null; ob: VortexOrderBlock | null };
-const newSetup = (): VortexSetup => ({ state: 0, orderBar: -1, pullback: -1, fib: null, pct: null, start: null, end: null, ob: null });
+type VortexSetup = { state: number; orderBar: number; pullback: number; fib: number | null; pct: number | null; start: number | null; end: number | null; ob: VortexOrderBlock | null; liquidityTarget: number | null };
+const newSetup = (): VortexSetup => ({ state: 0, orderBar: -1, pullback: -1, fib: null, pct: null, start: null, end: null, ob: null, liquidityTarget: null });
 export type VortexVwap = { value: number | null; sd: number | null; upperInner: number | null; upperOuter: number | null; lowerInner: number | null; lowerOuter: number | null; available: boolean; buyAligned: boolean; sellAligned: boolean };
 export type VortexTrade = {
   timeframe: VortexTimeframe; direction: VortexDirection; entry: number; stopLoss: number;
@@ -509,6 +509,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
   let silverLastHigh: number | null = null, silverPreviousHigh: number | null = null, silverLastLow: number | null = null, silverPreviousLow: number | null = null;
   let activeTargetSessionId = 0, targetActiveHigh: number | null = null, targetActiveLow: number | null = null, targetPreviousHigh: number | null = null, targetPreviousLow: number | null = null;
   let targetBullOb: { top: number; bottom: number; direction: VortexDirection } | null = null, targetBearOb: { top: number; bottom: number; direction: VortexDirection } | null = null;
+  let targetBullLiquidityTarget: number | null = null, targetBearLiquidityTarget: number | null = null;
 
   for (let i = 20; i < c.length; i++) {
     const b = c[i], prev = c[i - 1], closeTime = candleCloseTime(c, i, timeframe), np = nyParts(b.time), m = np.minute;
@@ -551,6 +552,9 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
       bullActive = true; bearActive = false; bullStart = bullSweep; bullEnd = b.high; bullChochBar = i; bullArmed = false; bearArmed = false;
       targetBullOb = findCausalOrderBlock(c, atr, i, "BUY", bullLevel);
       targetBearOb = null;
+      targetBullLiquidityTarget = nearest(targetHighs, b.high, true);
+      if (targetPreviousHigh != null && targetPreviousHigh > b.high && (targetBullLiquidityTarget == null || targetPreviousHigh < targetBullLiquidityTarget)) targetBullLiquidityTarget = targetPreviousHigh;
+      targetBearLiquidityTarget = null;
       buySetup = newSetup(); sellSetup = newSetup(); bullSetupConsumed = false; bearSetupConsumed = true;
       evidence = ["Sell-side liquidity swept", "Bullish CHOCH confirmed by a completed close above the last confirmed swing high.", ...(targetBullOb ? ["Historical bullish Order Block identified from the opposing candle preceding the displacement."] : ["No unmitigated causal bullish Order Block was found in the structural leg."])];
       missing = [targetBullOb ? "Wait for the 68.1%, 78.6% or 88.0% Fib pullback." : "Waiting for a valid historical bullish Order Block."];
@@ -559,6 +563,9 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
       bearActive = true; bullActive = false; bearStart = bearSweep; bearEnd = b.low; bearChochBar = i; bearArmed = false; bullArmed = false;
       targetBearOb = findCausalOrderBlock(c, atr, i, "SELL", bearLevel);
       targetBullOb = null;
+      targetBearLiquidityTarget = nearest(targetLows, b.low, false);
+      if (targetPreviousLow != null && targetPreviousLow < b.low && (targetBearLiquidityTarget == null || targetPreviousLow > targetBearLiquidityTarget)) targetBearLiquidityTarget = targetPreviousLow;
+      targetBullLiquidityTarget = null;
       buySetup = newSetup(); sellSetup = newSetup(); bearSetupConsumed = false; bullSetupConsumed = true;
       evidence = ["Buy-side liquidity swept", "Bearish CHOCH confirmed by a completed close below the last confirmed swing low.", ...(targetBearOb ? ["Historical bearish Order Block identified from the opposing candle preceding the displacement."] : ["No unmitigated causal bearish Order Block was found in the structural leg."])];
       missing = [targetBearOb ? "Wait for the 68.1%, 78.6% or 88.0% Fib pullback." : "Waiting for a valid historical bearish Order Block."];
@@ -592,14 +599,14 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
       prev.close > prev.open && b.close < prev.low && atr[i] > 0 && b.open - b.close >= atr[i] * 0.5;
     if (bullInstitution) {
       bullSetupConsumed = true;
-      buySetup = { state: 1, orderBar: i, pullback: -1, fib: null, pct: null, start: bullStart, end: bullEnd, ob: targetBullOb ? { ...targetBullOb } : null };
+      buySetup = { state: 1, orderBar: i, pullback: -1, fib: null, pct: null, start: bullStart, end: bullEnd, ob: targetBullOb ? { ...targetBullOb } : null, liquidityTarget: targetBullLiquidityTarget };
       sellSetup = newSetup();
       evidence = ["Bullish CHOCH already confirmed", "Bullish institutional order: prior candle bearish, current close above prior high, bullish body >= 0.50 x ATR(14), and structural Buy Flip active."];
       missing = ["Wait for the 68.1%, 78.6% or 88.0% Fib pullback."];
     }
     if (bearInstitution) {
       bearSetupConsumed = true;
-      sellSetup = { state: 1, orderBar: i, pullback: -1, fib: null, pct: null, start: bearStart, end: bearEnd, ob: targetBearOb ? { ...targetBearOb } : null };
+      sellSetup = { state: 1, orderBar: i, pullback: -1, fib: null, pct: null, start: bearStart, end: bearEnd, ob: targetBearOb ? { ...targetBearOb } : null, liquidityTarget: targetBearLiquidityTarget };
       buySetup = newSetup();
       evidence = ["Bearish CHOCH already confirmed", "Bearish institutional order: prior candle bullish, current close below prior low, bearish body >= 0.50 x ATR(14), and structural Sell Flip active."];
       missing = ["Wait for the 68.1%, 78.6% or 88.0% Fib pullback."];
@@ -648,20 +655,20 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     let targetLower = nearest(targetLows, b.low, false);
     if (targetPreviousHigh != null && targetPreviousHigh > b.high && (targetHigher == null || targetPreviousHigh < targetHigher)) targetHigher = targetPreviousHigh;
     if (targetPreviousLow != null && targetPreviousLow < b.low && (targetLower == null || targetPreviousLow > targetLower)) targetLower = targetPreviousLow;
-    if (targetBearOb && b.close > targetBearOb.top) targetBearOb = null;
-    if (targetBullOb && b.close < targetBullOb.bottom) targetBullOb = null;
+    if (targetBearOb && b.close > targetBearOb.top) { targetBearOb = null; targetBearLiquidityTarget = null; }
+    if (targetBullOb && b.close < targetBullOb.bottom) { targetBullOb = null; targetBullLiquidityTarget = null; }
     const bullOb = buySetup.ob ?? targetBullOb, bearOb = sellSetup.ob ?? targetBearOb;
     const vwapNow = vwapSeries[i];
     lastOb = bullOb ?? bearOb;
-    lastLiq = bullOb ? targetHigher : bearOb ? targetLower : null;
+    lastLiq = bullOb ? (buySetup.liquidityTarget ?? targetHigher) : bearOb ? (sellSetup.liquidityTarget ?? targetLower) : null;
     const bScore = (activeBuyReady || buySetup.state > 0) ? confluence(1, c, i, buyFib(setupBuyTop, setupBuyBottom, 68.1), buyFib(setupBuyTop, setupBuyBottom, 88), bullActive, pd, silverContext, vwapNow).score : 0;
     const sScore = (activeSellReady || sellSetup.state > 0) ? confluence(-1, c, i, sellFib(setupSellTop, setupSellBottom, 68.1), sellFib(setupSellTop, setupSellBottom, 88), bearActive, pd, silverContext, vwapNow).score : 0;
     buyScore = bScore; sellScore = sScore;
     const buyValid = htf.confirmed && htf.direction === "BUY" && buySetup.state === 3 && buySetup.fib != null && buySetup.start !== null && buySetup.end !== null &&
-      b.low <= buySetup.fib && b.close >= buySetup.fib && m5Bull && targetHigher != null && targetHigher > buySetup.fib &&
+      b.low <= buySetup.fib && b.close >= buySetup.fib && m5Bull && buySetup.liquidityTarget != null && buySetup.liquidityTarget > buySetup.fib &&
       bullActive && !!buySetup.ob && !!bullOb && bullOb.bottom < buySetup.fib && bScore >= MIN_SCORE;
     const sellValid = htf.confirmed && htf.direction === "SELL" && sellSetup.state === 3 && sellSetup.fib != null && sellSetup.start !== null && sellSetup.end !== null &&
-      b.high >= sellSetup.fib && b.close <= sellSetup.fib && m5Bear && targetLower != null && targetLower < sellSetup.fib &&
+      b.high >= sellSetup.fib && b.close <= sellSetup.fib && m5Bear && sellSetup.liquidityTarget != null && sellSetup.liquidityTarget < sellSetup.fib &&
       bearActive && !!sellSetup.ob && !!bearOb && bearOb.top > sellSetup.fib && sScore >= MIN_SCORE;
 
     if (active) {
@@ -698,7 +705,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
       const tps = fibTps;
       const targetsValid = tps.every(x => isBuy ? x > entry : x < entry);
       if (targetsValid && (isBuy ? sl < entry : sl > entry)) {
-        active = { timeframe, direction: dir, entry, stopLoss: sl, tp1: tps[0], tp2: tps[1], tp3: tps[2], tp4: null, tp5: null, fibLevel: pct, entryTime: new Date(closeTime).toISOString(), confirmationTime: m5b ? new Date(m5b.time + TIMEFRAME_MS["5m"]).toISOString() : new Date(closeTime).toISOString(), lotSize, targetHits: [false, false, false], status: "ACTIVE", orderBlock: ob, liquidityTarget: isBuy ? targetHigher! : targetLower! };
+        active = { timeframe, direction: dir, entry, stopLoss: sl, tp1: tps[0], tp2: tps[1], tp3: tps[2], tp4: null, tp5: null, fibLevel: pct, entryTime: new Date(closeTime).toISOString(), confirmationTime: m5b ? new Date(m5b.time + TIMEFRAME_MS["5m"]).toISOString() : new Date(closeTime).toISOString(), lotSize, targetHits: [false, false, false], status: "ACTIVE", orderBlock: ob, liquidityTarget: isBuy ? buySetup.liquidityTarget! : sellSetup.liquidityTarget! };
         lastOb = ob; lastLiq = isBuy ? targetHigher : targetLower; lastScore = isBuy ? bScore : sScore; lastFib = pct;
         evidence = [isBuy ? "Bullish CHOCH confirmed" : "Bearish CHOCH confirmed", isBuy ? "Bullish institutional-order candle confirmed" : "Bearish institutional-order candle confirmed", "Fib pullback selected at " + pct + "%", `${timeframe.toUpperCase()} retest and directional candle confirmation completed`, `${confirmationTimeframe.toUpperCase()} displacement confirmation passed`, "External liquidity target and opposing target OB aligned", "OB-wick stop geometry passed", "Normalized confluence score " + lastScore + "/100 passed"];
         missing = [];
@@ -714,7 +721,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
       else if (buySetup.state === 3) missing = [
         ...(buySetup.fib == null || b.low > buySetup.fib || b.close < buySetup.fib ? [`Waiting for the ${timeframe.toUpperCase()} candle to retest and hold the selected Fib entry.`] : []),
         ...(!m5Bull ? [`Waiting for a completed bullish ${confirmationTimeframe.toUpperCase()} displacement candle.`] : []),
-        ...(targetHigher == null || buySetup.fib == null || targetHigher <= buySetup.fib ? ["No valid higher-liquidity target above the selected Fib entry."] : []),
+        ...(buySetup.liquidityTarget == null || buySetup.fib == null || buySetup.liquidityTarget <= buySetup.fib ? ["No valid frozen buy-side liquidity objective above the selected Fib entry."] : []),
         ...(!bullOb ? ["Waiting for the bullish target order block below lower liquidity."] : []),
         ...(bullOb && buySetup.fib != null && bullOb.bottom >= buySetup.fib ? ["Bullish target OB is not below the selected Fib entry."] : []),
         ...(bScore < MIN_SCORE ? ["Bullish confluence is below 60/100."] : []),
@@ -722,7 +729,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
       else if (sellSetup.state === 3) missing = [
         ...(sellSetup.fib == null || b.high < sellSetup.fib || b.close > sellSetup.fib ? [`Waiting for the ${timeframe.toUpperCase()} candle to retest and hold the selected Fib entry.`] : []),
         ...(!m5Bear ? [`Waiting for a completed bearish ${confirmationTimeframe.toUpperCase()} displacement candle.`] : []),
-        ...(targetLower == null || sellSetup.fib == null || targetLower >= sellSetup.fib ? ["No valid lower-liquidity target below the selected Fib entry."] : []),
+        ...(sellSetup.liquidityTarget == null || sellSetup.fib == null || sellSetup.liquidityTarget >= sellSetup.fib ? ["No valid frozen sell-side liquidity objective below the selected Fib entry."] : []),
         ...(!bearOb ? ["Waiting for the bearish target order block above higher liquidity."] : []),
         ...(bearOb && sellSetup.fib != null && bearOb.top <= sellSetup.fib ? ["Bearish target OB is not above the selected Fib entry."] : []),
         ...(sScore < MIN_SCORE ? ["Bearish confluence is below 60/100."] : []),
