@@ -12,7 +12,7 @@ type Props = {
   channel?: { upper: number | null; lower: number | null; middle?: number | null };
   liquidityTargets?: { buySide: { price: number; source: string; touches: number } | null; sellSide: { price: number; source: string; touches: number } | null; levels?: Array<{ timeframe: string; side: "BUY_SIDE" | "SELL_SIDE"; price: number; source: string; pivotTime: string }> };
   orderBlock?: { direction: string; top: number; bottom: number; createdAt?: string } | null;
-  orderBlocks?: Array<{ direction: string; top: number; bottom: number; label?: string; state?: string }>;
+  orderBlocks?: Array<{ direction: string; top: number; bottom: number; label?: string; state?: string; formedAt?: string }>;
 };
 
 function fmtPrice(value: number, symbol = ""): string {
@@ -26,15 +26,14 @@ function fmtPrice(value: number, symbol = ""): string {
 export function LiveMarketChart({ symbol = "", candles, channel, liquidityTargets, orderBlock, orderBlocks = [], tradeLevels = null }: Props) {
   const data = useMemo(() => candles.slice(-80), [candles]);
   const visibleOrderBlocks = useMemo(() => {
-    const supplied = orderBlocks.filter((block) =>
-      Number.isFinite(block.top) && Number.isFinite(block.bottom) && block.top > block.bottom
-    );
+    const supplied = orderBlocks
+      .filter((block) => block.state === "ACTIVE" && Number.isFinite(block.top) && Number.isFinite(block.bottom) && block.top > block.bottom)
+      .sort((a, b) => (Date.parse(b.formedAt ?? "") || 0) - (Date.parse(a.formedAt ?? "") || 0));
     const legacy = orderBlock && Number.isFinite(orderBlock.top) && Number.isFinite(orderBlock.bottom) && orderBlock.top > orderBlock.bottom
       ? [{ ...orderBlock, label: "ACTIVE ORDER BLOCK", state: "ACTIVE" }]
       : [];
-    return [...supplied, ...legacy.filter((candidate) => !supplied.some((block) =>
-      block.direction === candidate.direction && block.top === candidate.top && block.bottom === candidate.bottom
-    ))];
+    const selected = legacy.length ? legacy : supplied.slice(0, 1);
+    return selected;
   }, [orderBlocks, orderBlock]);
 
   if (!data.length) return <div className="condition-box">No live candles available.</div>;
