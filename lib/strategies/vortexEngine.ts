@@ -470,16 +470,40 @@ function evaluateH4H1Confirmation(h4Input: VortexCandle[], h1Input: VortexCandle
 export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
   const c = [...input.m1Candles].sort((a, b) => a.time - b.time), m5 = [...input.m5Candles].sort((a, b) => a.time - b.time);
   const silver = [...(input.silverCandles ?? [])].sort((a, b) => a.time - b.time);
-  const htf = evaluateH4H1Confirmation(input.h4Candles ?? [], input.h1Candles ?? []);
+  const baseHtf = evaluateH4H1Confirmation(input.h4Candles ?? [], input.h1Candles ?? []);
   const lotSize = input.lotSize ?? 0.05, tick = input.tickSize ?? 0.01;
   const timeframe = input.timeframe ?? "1m";
+  // M15/M30 must independently retest the H4 body boundary after the H1 break.
+  // An H1 retest alone is not accepted as the lower-timeframe entry confirmation.
+  const htf: VortexHtfConfirmation = timeframe === "15m" || timeframe === "30m"
+    ? (() => {
+        const level = baseHtf.h4Level;
+        const breakTime = baseHtf.h1BreakTime ? Date.parse(baseHtf.h1BreakTime) : NaN;
+        const direction: VortexDirection | null = baseHtf.direction === "BUY" || baseHtf.direction === "SELL"
+          ? baseHtf.direction
+          : level != null && baseHtf.h4WickExtreme != null
+            ? baseHtf.h4WickExtreme < level ? "BUY" : baseHtf.h4WickExtreme > level ? "SELL" : null
+            : null;
+        if (level == null || !Number.isFinite(breakTime) || !direction) {
+          return { ...baseHtf, confirmed: false, reason: baseHtf.reason };
+        }
+        const retest = c.find(bar => bar.time > breakTime && (
+          direction === "BUY"
+            ? bar.low <= level && bar.close > level && bar.close > bar.open
+            : bar.high >= level && bar.close < level && bar.close < bar.open
+        ));
+        return retest
+          ? { ...baseHtf, direction, confirmed: true, h1RetestTime: new Date(retest.time).toISOString(), reason: `H1 ${direction} break confirmed; separate ${timeframe.toUpperCase()} retest and directional close at the H4 reference level confirmed.` }
+          : { ...baseHtf, direction, confirmed: false, reason: `H1 ${direction} break confirmed; waiting for a separate ${timeframe.toUpperCase()} retest of the H1-broken H4 level and directional close.` };
+      })()
+    : baseHtf;
   const confirmationTimeframe = "5m" as const;
   const empty = (reason: string): VortexResult => ({
     source: "VAULTTRADES_VORTEX_S1_FIB_VWAP_CONFLUENCE", timeframe, state: "WAITING", direction: "NO TRADE", plannedDirection: null,
     structuralDirection: "NEUTRAL", entryConfirmed: false, htfConfirmation: htf,
     entry: null, stopLoss: null, tp1: null, tp2: null, tp3: null, tp4: null, tp5: null, fibLevel: null,
     score: 0, buyConfluence: 0, sellConfluence: 0, liquidityTarget: null, orderBlock: null,
-    entryTime: null, confirmationTime: null, lotSize, lotModel: "FULL CLOSE AT TP1",
+    entryTime: null, confirmationTime: null, lotSize, lotModel: "SEQUENTIAL TP1 → TP2 → TP3; CLOSE AT FINAL TP",
     targetHits: [false, false, false], openTrade: null, latestClosedTrade: null,
     evidence: [], missingConditions: [reason], invalidation: `The setup expires after 8 ${timeframe.toUpperCase()} bars or when its structure is invalidated.`,
     statusReason: reason, riskReward: null, silver: { available: silver.length > 51, close: silver.at(-1)?.close ?? null, flow: "UNAVAILABLE", ma: null },
@@ -672,25 +696,32 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     if (active) {
       const isBuy = active.direction === "BUY";
       const stopTouched = isBuy ? b.low <= active.stopLoss : b.high >= active.stopLoss;
-      const relevantTargets = [active.tp1];
-      const anyTargetTouched = relevantTargets.some((target, index) => !active!.targetHits[index] && (isBuy ? b.high >= target : b.low <= target));
-      // Match TradingView's historical OHLC path assumption when a candle spans
-      // both a protective stop and a target: price visits the nearer extreme first.
+      const targets = [active.tp1, active.tp2, active.tp3];
+      const firstUnhitIndex = active.targetHits.findIndex(hit => !hit);
+      const anyTargetTouched = firstUnhitIndex >= 0 && targets.slice(firstUnhitIndex).some(target => isBuy ? b.high >= target : b.low <= target);
+      // Preserve stop-first handling when the same completed candle spans SL and a target.
       const highFirst = Math.abs(b.open - b.high) < Math.abs(b.open - b.low);
       const stopWinsCollision = isBuy ? !highFirst : highFirst;
-      if (stopTouched && anyTargetTouched && stopWinsCollision) {
-        active.status = "SL_HIT"; active.exitTime = new Date(closeTime).toISOString(); active.exitPrice = active.stopLoss; closed = active; active = null;
-      } else if (stopTouched && !anyTargetTouched) {
-        active.status = "SL_HIT"; active.exitTime = new Date(closeTime).toISOString(); active.exitPrice = active.stopLoss; closed = active; active = null;
-      } else if (!active.targetHits[0] && (isBuy ? b.high >= active.tp1 : b.low <= active.tp1)) {
-        // Full-position exit at the first Pine target for every lot size.
-        // TP2-TP5 remain calculated reference levels, not partial-close instructions.
-        active.targetHits[0] = true;
-        active.status = "TP_HIT";
+      if (stopTouched && (!anyTargetTouched || stopWinsCollision)) {
+        active.status = "SL_HIT";
         active.exitTime = new Date(closeTime).toISOString();
-        active.exitPrice = active.tp1;
+        active.exitPrice = active.stopLoss;
         closed = active;
         active = null;
+      } else if (anyTargetTouched) {
+        // Record every sequential target crossed by this completed candle.
+        for (let targetIndex = Math.max(0, firstUnhitIndex); targetIndex < targets.length; targetIndex++) {
+          const touched = isBuy ? b.high >= targets[targetIndex] : b.low <= targets[targetIndex];
+          if (!touched) break;
+          active.targetHits[targetIndex] = true;
+        }
+        if (active.targetHits.slice(0, targets.length).every(Boolean)) {
+          active.status = "TP_HIT";
+          active.exitTime = new Date(closeTime).toISOString();
+          active.exitPrice = targets[targets.length - 1];
+          closed = active;
+          active = null;
+        }
       }
     }
     if (!active && (buyValid || sellValid)) {
@@ -774,11 +805,11 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     fibLevel: trade?.fibLevel ?? buySetup.pct ?? sellSetup.pct ?? (projectionDirection ? 68.1 : lastFib),
     score: active ? lastScore : Math.max(buyScore, sellScore), buyConfluence: buyScore, sellConfluence: sellScore, liquidityTarget: trade?.liquidityTarget ?? lastLiq, orderBlock: trade?.orderBlock ?? lastOb,
     entryTime: trade?.entryTime ?? null, confirmationTime: trade?.confirmationTime ?? lastM5Time, lotSize,
-    lotModel: "FULL CLOSE AT TP1",
+    lotModel: "SEQUENTIAL TP1 → TP2 → TP3; CLOSE AT FINAL TP",
     targetHits: trade?.targetHits ?? [false, false, false], openTrade: active, latestClosedTrade: recentClosed,
     evidence, missingConditions: active ? [] : [...missing, ...(!htf.confirmed ? [htf.reason] : [])],
     invalidation: `The ${timeframe.toUpperCase()} setup expires after 8 bars or when its structure is invalidated. SL is anchored to the opposing target-OB wick.`,
-    statusReason: active ? "Trade active. The full position closes at TP1; lot size does not create partial exits." : !htf.confirmed ? htf.reason : setupDeveloping ? `Vortex ${timeframe.toUpperCase()} setup developing. Waiting for the next qualification event.` : recentClosed ? "The previous trade has closed. Waiting for the next qualifying Vortex setup." : missing[0],
+    statusReason: active ? "Trade active. Targets are recorded sequentially; the trade closes only at the final configured TP or stop loss." : !htf.confirmed ? htf.reason : setupDeveloping ? `Vortex ${timeframe.toUpperCase()} setup developing. Waiting for the next qualification event.` : recentClosed ? "The previous trade has closed. Waiting for the next qualifying Vortex setup." : missing[0],
     riskReward: trade ? Math.abs(trade.tp1 - trade.entry) / Math.abs(trade.entry - trade.stopLoss) : projectedStop !== null && selectedProjectionFib !== null && projectedFibTargets[0] !== null ? Math.abs(projectedFibTargets[0]! - selectedProjectionFib) / Math.abs(selectedProjectionFib - projectedStop) : null,
     silver: { available: silver.length > 1, close: sLast?.close ?? null, flow: sFlow, ma: sMa },
     vwap: finalVwap,

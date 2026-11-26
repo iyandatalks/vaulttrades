@@ -453,18 +453,23 @@ export default function AnalyzerPage() {
   };
   const scannerTp2 = (strategy === "srbOb" || strategy === "lsobr") ? null : projectedTp2;
   const vortexView = result?.strategyEngine;
-  const vortexChartDirection = vortexView?.openTrade?.direction ??
-    (s?.projectedDirection === "BUY" || s?.projectedDirection === "SELL" ? s.projectedDirection : null);
-  const vortexChartLevels = strategy === "vortex" && vortexChartDirection && typeof vortexView?.entry === "number" && typeof vortexView.stopLoss === "number"
+  const vortexStreams = result?.timeframeEngines ?? {};
+  const vortexActiveStreams = Object.entries(vortexStreams).filter(([, engine]) => engine?.openTrade);
+  const vortexChartLevels = strategy === "vortex" && vortexActiveStreams.length
     ? {
-        direction: vortexChartDirection,
-        levels: [
-          { label: "ENTRY", price: vortexView.entry, kind: "ENTRY" as const },
-          { label: "SL", price: vortexView.stopLoss, kind: "SL" as const },
-          { label: "TP1", price: vortexView.tp1, kind: "TP" as const },
-          { label: "TP2", price: vortexView.tp2, kind: "TP" as const },
-          { label: "TP3", price: vortexView.tp3, kind: "TP" as const },
-        ].filter((level): level is { label: string; price: number; kind: "ENTRY" | "SL" | "TP" } => typeof level.price === "number"),
+        direction: vortexActiveStreams[0][1]?.openTrade?.direction ?? "MULTI",
+        levels: vortexActiveStreams.flatMap(([tf, engine]) => {
+          const trade = engine?.openTrade;
+          if (!trade) return [];
+          const hits = trade.targetHits ?? [];
+          return [
+            { label: `${tf.toUpperCase()} ENTRY`, price: trade.entry, kind: "ENTRY" as const },
+            { label: `${tf.toUpperCase()} SL`, price: trade.stopLoss, kind: "SL" as const },
+            { label: `${tf.toUpperCase()} TP1${hits[0] ? " HIT" : ""}`, price: trade.tp1, kind: "TP" as const },
+            { label: `${tf.toUpperCase()} TP2${hits[1] ? " HIT" : ""}`, price: trade.tp2, kind: "TP" as const },
+            { label: `${tf.toUpperCase()} TP3${hits[2] ? " HIT" : ""}`, price: trade.tp3, kind: "TP" as const },
+          ];
+        }).filter((level) => Number.isFinite(level.price)),
       }
     : null;
   const rawReasons = (strategy === "srbOb" || strategy === "lsobr")
@@ -636,7 +641,9 @@ export default function AnalyzerPage() {
           const entry = strategy === "vortex" ? (open?.entry ?? closed?.entry ?? scannerEntry) : scannerEntry;
           const stop = strategy === "vortex" ? (open?.stopLoss ?? closed?.stopLoss ?? scannerStop) : scannerStop;
           const fibLevel = strategy === "vortex" ? (open?.fibLevel ?? closed?.fibLevel ?? v?.fibLevel ?? null) : null;
-          const target = strategy === "vortex" ? (open?.tp1 ?? closed?.tp1 ?? v?.tp1) : scannerTp1;
+          const vortexTargets = strategy === "vortex" && open ? [open.tp1, open.tp2, open.tp3] : [];
+          const nextVortexTargetIndex = strategy === "vortex" && open ? (open.targetHits ?? []).findIndex((hit: boolean) => !hit) : -1;
+          const target = strategy === "vortex" ? (open && nextVortexTargetIndex >= 0 ? vortexTargets[nextVortexTargetIndex] : closed?.tp3 ?? v?.tp1) : scannerTp1;
           const current = Number(result.market?.currentPrice);
           const hasCurrent = Number.isFinite(current);
           const move = hasCurrent && entry != null && direction ? (direction === "BUY" ? current - entry : entry - current) : null;
@@ -669,7 +676,7 @@ export default function AnalyzerPage() {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8, marginTop: 10 }}>
                 <PriceLevel label={strategy === "vortex" && !active && !closed ? `ENTRY · ${typeof fibLevel === "number" ? fibLevel : 68.1}% FIB` : "ENTRY"} value={entry} kind="entry" symbol={symbol} />
                 <PriceLevel label="STOP LOSS" value={stop} kind="sl" symbol={symbol} />
-                <PriceLevel label="TAKE PROFIT · TP1" value={target!} kind="tp" symbol={symbol} />
+                <PriceLevel label={strategy === "vortex" && active ? `TAKE PROFIT · TP${nextVortexTargetIndex + 1}` : "TAKE PROFIT · TP3"} value={target!} kind="tp" symbol={symbol} />
               </div>
               <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>Signal date: {entryTime ? new Date(entryTime).toLocaleDateString() : "—"} · Entry time: {entryTime ? new Date(entryTime).toLocaleString() : "—"}</div>
               {active && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(125px,1fr))", gap: 8, marginTop: 10 }}>
@@ -683,6 +690,36 @@ export default function AnalyzerPage() {
             {!active && !(strategy === "vortex" && closed) && strategy !== "vortex" && <p className="muted" style={{ marginBottom: 0 }}>No active position. {scannerReason[0]}</p>}
           </>;
         })()}
+      </section>}
+      {strategy === "vortex" && <section className="card">
+        <div className="section-label">VORTEX · MULTI-TIMEFRAME TRADE STATUS</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
+          {(["5m", "15m", "30m", "1H", "4H"] as const).map((tf) => {
+            const engine = result.timeframeEngines?.[tf];
+            const trade = engine?.openTrade;
+            const closedTrade = engine?.latestClosedTrade;
+            const targets = trade ? [trade.tp1, trade.tp2, trade.tp3] : [];
+            const nextIndex = trade ? (trade.targetHits ?? []).findIndex((hit) => !hit) : -1;
+            const nextTarget = trade && nextIndex >= 0 ? targets[nextIndex] : null;
+            const status = trade ? "TRADE ACTIVE" : closedTrade ? (closedTrade.status === "TP_HIT" ? "TAKE PROFIT HIT" : "STOP LOSS HIT") : engine?.state ?? "WAITING";
+            const direction = trade?.direction ?? closedTrade?.direction;
+            return <div className="condition-box" key={tf}>
+              <strong>{tf.toUpperCase()} · {status}</strong>
+              {trade && <div style={{ marginTop: 8 }}>
+                <div style={{ color: trade.direction === "BUY" ? "#35c98a" : "#f06b72", fontWeight: 800 }}>{trade.direction} · TRADE ACTIVE</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 6, marginTop: 8 }}>
+                  <PriceLevel label="ENTRY" value={trade.entry} kind="entry" symbol={symbol} />
+                  <PriceLevel label="STOP LOSS" value={trade.stopLoss} kind="sl" symbol={symbol} />
+                  <PriceLevel label={nextIndex >= 0 ? `TAKE PROFIT · TP${nextIndex + 1}` : "FINAL TP HIT"} value={nextTarget} kind="tp" symbol={symbol} />
+                </div>
+              </div>}
+              {!trade && closedTrade && <div style={{ marginTop: 8, fontSize: 12 }}>
+                {direction} · TRADE CLOSED · Entry {fmt(closedTrade.entry, symbol)} · Exit {fmt(closedTrade.exitPrice, symbol)}
+              </div>}
+              {!trade && !closedTrade && <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>{engine?.statusReason ?? "Waiting for a qualifying setup."}</div>}
+            </div>;
+          })}
+        </div>
       </section>}
       {strategy === "vaulttradesNexus" && result.strategyEngine?.performance && <section className="card">
         <div className="section-label">PERFORMANCE</div>
