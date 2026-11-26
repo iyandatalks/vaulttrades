@@ -748,7 +748,7 @@ Return JSON only.`;
       timeframeEngines: strategyId === "vortex" ? vortexEngines : undefined,
       structure: { ...lockedStructure }, volatility: context.volatility,
       vortexStructureByTimeframe: strategyId === "vortex" ? vortexStructureByTimeframe : undefined,
-      strategyEngine: strategyId === "vortex" ? { ...vortexEngine, institutionalDetection: vortexStructureByTimeframe } : strategyId === "lsobr" ? lsobrEngineEvidence : strategyId === "srbOb" ? srbObEngineEvidence : strategyId === "fibRetracement" ? autoFibEngineEvidence : strategyId === "supplyDemand" ? supplyDemandEngine : nativeEngineOutput,
+      strategyEngine: strategyId === "vortex" ? { ...(vortexEngine ?? {}), institutionalDetection: vortexStructureByTimeframe } : strategyId === "lsobr" ? lsobrEngineEvidence : strategyId === "srbOb" ? srbObEngineEvidence : strategyId === "fibRetracement" ? autoFibEngineEvidence : strategyId === "supplyDemand" ? supplyDemandEngine : nativeEngineOutput,
       scanner: strategyId === "vortex" ? {
         projectedDirection: vortexEngine?.plannedDirection ?? "NO TRADE",
         analysisState: vortexEngine?.state === "TRADE ACTIVE" ? "ACTIVE" : vortexEngine?.state === "SETUP DEVELOPING" ? "DEVELOPING" : vortexEngine?.state === "TP HIT" || vortexEngine?.state === "SL HIT" ? "COMPLETED" : "WAITING",
