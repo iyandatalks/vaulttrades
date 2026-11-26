@@ -35,7 +35,7 @@ type Scanner = {
   confirmationPrice?: number | null;
   reversalPrice?: number | null;
   opposingLiquidityTarget?: number | null;
-  liquidityTargets?: { referencePrice: number; buySide: { price: number; source: string; touches: number } | null; sellSide: { price: number; source: string; touches: number } | null; definition: string };
+  liquidityTargets?: { referencePrice: number; buySide: { price: number; source: string; touches: number } | null; sellSide: { price: number; source: string; touches: number } | null; levels?: Array<{ timeframe: string; side: "BUY_SIDE" | "SELL_SIDE"; price: number; source: string; pivotTime: string }>; definition: string };
   waitReason?: string;
   tradeReason?: string;
   invalidation?: string;
