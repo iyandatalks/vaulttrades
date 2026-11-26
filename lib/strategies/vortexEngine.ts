@@ -781,7 +781,7 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     fibLevel: trade?.fibLevel ?? buySetup.pct ?? sellSetup.pct ?? (projectionDirection ? 68.1 : lastFib),
     score: active ? lastScore : Math.max(buyScore, sellScore), buyConfluence: buyScore, sellConfluence: sellScore, liquidityTarget: trade?.liquidityTarget ?? lastLiq, orderBlock: trade?.orderBlock ?? lastOb,
     entryTime: trade?.entryTime ?? null, confirmationTime: trade?.confirmationTime ?? lastM5Time, lotSize,
-    lotModel: "FULL CLOSE AT TP1",
+    lotModel: "SEQUENTIAL TP1 → TP2 → TP3; CLOSE AT FINAL TP",
     targetHits: trade?.targetHits ?? [false, false, false], openTrade: active, latestClosedTrade: recentClosed,
     evidence, missingConditions: active ? [] : [...missing, ...(!htf.confirmed ? [htf.reason] : [])],
     invalidation: `The ${timeframe.toUpperCase()} setup expires after 8 bars or when its structure is invalidated. SL is anchored to the opposing target-OB wick.`,
