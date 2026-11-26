@@ -2,6 +2,32 @@ export type VortexCandle = { time: number; open: number; high: number; low: numb
 export type VortexDirection = "BUY" | "SELL";
 export type VortexTimeframe = "1m" | "5m" | "10m" | "15m" | "30m" | "1H" | "4H" | "1D" | "1W" | "1M";
 export type VortexOrderBlock = { direction: VortexDirection; top: number; bottom: number };
+export type VortexDetectedOrderBlock = {
+  direction: VortexDirection;
+  top: number;
+  bottom: number;
+  formedAt: string;
+  displacementAt: string;
+  state: "ACTIVE" | "MITIGATED";
+};
+export type VortexDetectedLiquidity = {
+  price: number;
+  source: "CONFIRMED SWING HIGH" | "CONFIRMED SWING LOW";
+  pivotTime: string;
+};
+export type VortexStructureDetection = {
+  timeframe: VortexTimeframe;
+  asOf: string | null;
+  structuralDirection: VortexDirection | "NEUTRAL";
+  orderBlocks: VortexDetectedOrderBlock[];
+  buySideLiquidity: VortexDetectedLiquidity | null;
+  sellSideLiquidity: VortexDetectedLiquidity | null;
+  lastBullishDisplacementAt: string | null;
+  lastBearishDisplacementAt: string | null;
+  lookbackBars: number;
+  swingLength: number;
+  displacementAtr: number;
+};
 type VortexSetup = { state: number; orderBar: number; pullback: number; fib: number | null; pct: number | null; start: number | null; end: number | null; ob: VortexOrderBlock | null };
 const newSetup = (): VortexSetup => ({ state: 0, orderBar: -1, pullback: -1, fib: null, pct: null, start: null, end: null, ob: null });
 export type VortexVwap = { value: number | null; sd: number | null; upperInner: number | null; upperOuter: number | null; lowerInner: number | null; lowerOuter: number | null; available: boolean; buyAligned: boolean; sellAligned: boolean };
@@ -78,6 +104,161 @@ function pivot(c: VortexCandle[], i: number, len = PIVOT) {
     if (x.low >= c[p - k].low || x.low >= c[p + k].low) lo = false;
   }
   return { high: hi ? x.high : null, low: lo ? x.low : null };
+}
+
+export function detectVortexInstitutionalStructure(
+  input: VortexCandle[],
+  timeframe: VortexTimeframe,
+  options: { swingLength?: number; atrLength?: number; displacementAtr?: number; lookbackBars?: number } = {},
+): VortexStructureDetection {
+  const c = [...input].sort((a, b) => a.time - b.time);
+  const swingLength = options.swingLength ?? 3;
+  const atrLength = options.atrLength ?? 14;
+  const displacementAtr = options.displacementAtr ?? 0.8;
+  const lookbackBars = options.lookbackBars ?? 200;
+  const empty: VortexStructureDetection = {
+    timeframe, asOf: c.length ? new Date(c[c.length - 1].time).toISOString() : null,
+    structuralDirection: "NEUTRAL", orderBlocks: [], buySideLiquidity: null, sellSideLiquidity: null,
+    lastBullishDisplacementAt: null, lastBearishDisplacementAt: null,
+    lookbackBars, swingLength, displacementAtr,
+  };
+  if (c.length < Math.max(atrLength + 2, swingLength * 2 + 5)) return empty;
+
+  const atr = atrSeries(c, atrLength);
+  const highs: Array<{ price: number; index: number; time: number; swept: boolean }> = [];
+  const lows: Array<{ price: number; index: number; time: number; swept: boolean }> = [];
+  const blocks: Array<VortexDetectedOrderBlock & { formedIndex: number; displacementIndex: number }> = [];
+  let lastSwingHigh: { price: number; index: number } | null = null;
+  let lastSwingLow: { price: number; index: number } | null = null;
+  let structuralDirection: VortexDirection | "NEUTRAL" = "NEUTRAL";
+  let lastBullishDisplacementAt: string | null = null;
+  let lastBearishDisplacementAt: string | null = null;
+
+  for (let i = swingLength * 2; i < c.length; i++) {
+    const bar = c[i];
+    // Update lifecycle of already-formed footprints before considering a new one.
+    for (const ob of blocks) {
+      if (ob.state !== "ACTIVE" || i <= ob.displacementIndex) continue;
+      if (ob.direction === "BUY" && bar.close < ob.bottom) ob.state = "MITIGATED";
+      else if (ob.direction === "SELL" && bar.close > ob.top) ob.state = "MITIGATED";
+      else if (bar.low <= ob.top && bar.high >= ob.bottom) ob.state = "MITIGATED";
+    }
+
+    const confirmedPivot = pivot(c, i, swingLength);
+    if (confirmedPivot.high !== null) {
+      const index = i - swingLength;
+      lastSwingHigh = { price: confirmedPivot.high, index };
+      highs.push({ price: confirmedPivot.high, index, time: c[index].time, swept: bar.high > confirmedPivot.high });
+      if (highs.length > 80) highs.shift();
+    }
+    if (confirmedPivot.low !== null) {
+      const index = i - swingLength;
+      lastSwingLow = { price: confirmedPivot.low, index };
+      lows.push({ price: confirmedPivot.low, index, time: c[index].time, swept: bar.low < confirmedPivot.low });
+      if (lows.length > 80) lows.shift();
+    }
+
+    for (const level of highs) if (bar.high > level.price) level.swept = true;
+    for (const level of lows) if (bar.low < level.price) level.swept = true;
+
+    const a = atr[i];
+    if (!(a > 0)) continue;
+    const body = Math.abs(bar.close - bar.open);
+    const previous = c[i - 1];
+    const bullBreak = !!lastSwingHigh && previous.close <= lastSwingHigh.price &&
+      bar.close > lastSwingHigh.price && bar.close > bar.open && body >= a * displacementAtr;
+    const bearBreak = !!lastSwingLow && previous.close >= lastSwingLow.price &&
+      bar.close < lastSwingLow.price && bar.close < bar.open && body >= a * displacementAtr;
+
+    const findOrigin = (direction: VortexDirection, floorIndex: number) => {
+      const start = Math.max(floorIndex, i - lookbackBars, 0);
+      for (let j = i - 1; j >= start; j--) {
+        const base = c[j];
+        const opposing = direction === "BUY" ? base.close < base.open : base.close > base.open;
+        if (!opposing) continue;
+        const displacementClearsOrigin = direction === "BUY" ? bar.close > base.high : bar.close < base.low;
+        if (!displacementClearsOrigin) continue;
+        const revisitedBeforeBreak = c.slice(j + 1, i).some(x => x.low <= base.high && x.high >= base.low);
+        if (revisitedBeforeBreak) continue;
+        return { index: j, top: base.high, bottom: base.low };
+      }
+      return null;
+    };
+
+    if (bullBreak) {
+      const origin = findOrigin("BUY", lastSwingLow?.index ?? Math.max(0, i - lookbackBars));
+      if (origin) {
+        blocks.push({
+          direction: "BUY", top: origin.top, bottom: origin.bottom,
+          formedAt: new Date(c[origin.index].time).toISOString(),
+          displacementAt: new Date(bar.time).toISOString(), state: "ACTIVE",
+          formedIndex: origin.index, displacementIndex: i,
+        });
+        structuralDirection = "BUY";
+        lastBullishDisplacementAt = new Date(bar.time).toISOString();
+      }
+    }
+    if (bearBreak) {
+      const origin = findOrigin("SELL", lastSwingHigh?.index ?? Math.max(0, i - lookbackBars));
+      if (origin) {
+        blocks.push({
+          direction: "SELL", top: origin.top, bottom: origin.bottom,
+          formedAt: new Date(c[origin.index].time).toISOString(),
+          displacementAt: new Date(bar.time).toISOString(), state: "ACTIVE",
+          formedIndex: origin.index, displacementIndex: i,
+        });
+        structuralDirection = "SELL";
+        lastBearishDisplacementAt = new Date(bar.time).toISOString();
+      }
+    }
+    if (blocks.length > 40) blocks.shift();
+  }
+
+  const current = c[c.length - 1];
+  const buyTarget = highs.filter(x => !x.swept && x.price > current.close).sort((a, b) => a.price - b.price)[0];
+  const sellTarget = lows.filter(x => !x.swept && x.price < current.close).sort((a, b) => b.price - a.price)[0];
+  const visibleBlocks = blocks
+    .filter(x => x.state !== "MITIGATED")
+    .slice(-8)
+    .map(({ formedIndex: _formedIndex, displacementIndex: _displacementIndex, ...ob }) => ob);
+
+  return {
+    timeframe, asOf: new Date(current.time).toISOString(), structuralDirection,
+    orderBlocks: visibleBlocks,
+    buySideLiquidity: buyTarget ? { price: buyTarget.price, source: "CONFIRMED SWING HIGH", pivotTime: new Date(buyTarget.time).toISOString() } : null,
+    sellSideLiquidity: sellTarget ? { price: sellTarget.price, source: "CONFIRMED SWING LOW", pivotTime: new Date(sellTarget.time).toISOString() } : null,
+    lastBullishDisplacementAt, lastBearishDisplacementAt,
+    lookbackBars, swingLength, displacementAtr,
+  };
+}
+
+function findCausalOrderBlock(
+  c: VortexCandle[],
+  atr: number[],
+  impulseIndex: number,
+  direction: VortexDirection,
+  breakLevel: number,
+  lookback = 60,
+): VortexOrderBlock | null {
+  const impulse = c[impulseIndex];
+  const impulseAtr = atr[impulseIndex] ?? 0;
+  if (!impulse || impulseAtr <= 0) return null;
+  const body = Math.abs(impulse.close - impulse.open);
+  const validImpulse = direction === "BUY"
+    ? impulse.close > impulse.open && impulse.close > breakLevel && body >= impulseAtr * 0.5
+    : impulse.close < impulse.open && impulse.close < breakLevel && body >= impulseAtr * 0.5;
+  if (!validImpulse) return null;
+  for (let j = impulseIndex - 1; j >= Math.max(0, impulseIndex - lookback); j--) {
+    const base = c[j];
+    const opposing = direction === "BUY" ? base.close < base.open : base.close > base.open;
+    if (!opposing) continue;
+    const clearsBase = direction === "BUY" ? impulse.close > base.high : impulse.close < base.low;
+    if (!clearsBase) continue;
+    const revisitedBeforeImpulse = c.slice(j + 1, impulseIndex).some(x => x.low <= base.high && x.high >= base.low);
+    if (revisitedBeforeImpulse) continue;
+    return { direction, top: base.high, bottom: base.low };
+  }
+  return null;
 }
 function nearest(values: number[], price: number, above: boolean): number | null {
   const a = values.filter(x => above ? x > price : x < price);
@@ -368,15 +549,19 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     // after the liquidity sweep. A wick through the swing is not confirmation.
     if (bullArmed && bullLevel != null && b.close > bullLevel && i > bullSweepBar) {
       bullActive = true; bearActive = false; bullStart = bullSweep; bullEnd = b.high; bullChochBar = i; bullArmed = false; bearArmed = false;
+      targetBullOb = findCausalOrderBlock(c, atr, i, "BUY", bullLevel);
+      targetBearOb = null;
       buySetup = newSetup(); sellSetup = newSetup(); bullSetupConsumed = false; bearSetupConsumed = true;
-      evidence = ["Sell-side liquidity swept", "Bullish CHOCH confirmed by a completed close above the last confirmed swing high."];
-      missing = ["Wait for the separate bullish institutional-order confirmation."];
+      evidence = ["Sell-side liquidity swept", "Bullish CHOCH confirmed by a completed close above the last confirmed swing high.", ...(targetBullOb ? ["Historical bullish Order Block identified from the opposing candle preceding the displacement."] : ["No unmitigated causal bullish Order Block was found in the structural leg."])];
+      missing = [targetBullOb ? "Wait for the 68.1%, 78.6% or 88.0% Fib pullback." : "Waiting for a valid historical bullish Order Block."];
     }
     if (bearArmed && bearLevel != null && b.close < bearLevel && i > bearSweepBar) {
       bearActive = true; bullActive = false; bearStart = bearSweep; bearEnd = b.low; bearChochBar = i; bearArmed = false; bullArmed = false;
+      targetBearOb = findCausalOrderBlock(c, atr, i, "SELL", bearLevel);
+      targetBullOb = null;
       buySetup = newSetup(); sellSetup = newSetup(); bearSetupConsumed = false; bullSetupConsumed = true;
-      evidence = ["Buy-side liquidity swept", "Bearish CHOCH confirmed by a completed close below the last confirmed swing low."];
-      missing = ["Wait for the separate bearish institutional-order confirmation."];
+      evidence = ["Buy-side liquidity swept", "Bearish CHOCH confirmed by a completed close below the last confirmed swing low.", ...(targetBearOb ? ["Historical bearish Order Block identified from the opposing candle preceding the displacement."] : ["No unmitigated causal bearish Order Block was found in the structural leg."])];
+      missing = [targetBearOb ? "Wait for the 68.1%, 78.6% or 88.0% Fib pullback." : "Waiting for a valid historical bearish Order Block."];
     }
     if (bullActive && buySetup.state === 0 && b.high > (bullEnd ?? 0)) { bullEnd = b.high; bullChochBar = i; }
     if (bearActive && sellSetup.state === 0 && b.low < (bearEnd ?? Infinity)) { bearEnd = b.low; bearChochBar = i; }
@@ -463,14 +648,12 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     let targetLower = nearest(targetLows, b.low, false);
     if (targetPreviousHigh != null && targetPreviousHigh > b.high && (targetHigher == null || targetPreviousHigh < targetHigher)) targetHigher = targetPreviousHigh;
     if (targetPreviousLow != null && targetPreviousLow < b.low && (targetLower == null || targetPreviousLow > targetLower)) targetLower = targetPreviousLow;
-    if (bearSweepBar === i) targetBearOb = targetHigher != null ? targetOb(c, atr, i, targetHigher, true) : null;
-    if (bullSweepBar === i) targetBullOb = targetLower != null ? targetOb(c, atr, i, targetLower, false) : null;
     if (targetBearOb && b.close > targetBearOb.top) targetBearOb = null;
     if (targetBullOb && b.close < targetBullOb.bottom) targetBullOb = null;
     const bullOb = buySetup.ob ?? targetBullOb, bearOb = sellSetup.ob ?? targetBearOb;
     const vwapNow = vwapSeries[i];
     lastOb = bullOb ?? bearOb;
-    lastLiq = bullOb ? targetLower : bearOb ? targetHigher : null;
+    lastLiq = bullOb ? targetHigher : bearOb ? targetLower : null;
     const bScore = (activeBuyReady || buySetup.state > 0) ? confluence(1, c, i, buyFib(setupBuyTop, setupBuyBottom, 68.1), buyFib(setupBuyTop, setupBuyBottom, 88), bullActive, pd, silverContext, vwapNow).score : 0;
     const sScore = (activeSellReady || sellSetup.state > 0) ? confluence(-1, c, i, sellFib(setupSellTop, setupSellBottom, 68.1), sellFib(setupSellTop, setupSellBottom, 88), bearActive, pd, silverContext, vwapNow).score : 0;
     buyScore = bScore; sellScore = sScore;
