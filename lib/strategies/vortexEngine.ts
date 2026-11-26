@@ -83,6 +83,184 @@ function nearest(values: number[], price: number, above: boolean): number | null
   const a = values.filter(x => above ? x > price : x < price);
   return a.length ? (above ? Math.min(...a) : Math.max(...a)) : null;
 }
+export type VortexStructuralBlock = {
+  direction: VortexDirection;
+  top: number;
+  bottom: number;
+  originTime: string;
+  displacementTime: string;
+  sweepTime: string;
+  liquidityTarget: number | null;
+  state: "ACTIVE" | "MITIGATED" | "INVALIDATED";
+};
+export type VortexStructuralDetection = {
+  timeframe: VortexTimeframe;
+  barsAnalyzed: number;
+  lastConfirmedSwingHigh: number | null;
+  lastConfirmedSwingLow: number | null;
+  buySideLiquidityTarget: number | null;
+  sellSideLiquidityTarget: number | null;
+  sellSideSweepTime: string | null;
+  buySideSweepTime: string | null;
+  bullishOrderBlock: VortexStructuralBlock | null;
+  bearishOrderBlock: VortexStructuralBlock | null;
+  structuralDirection: VortexDirection | "NEUTRAL";
+  status: string;
+};
+
+/**
+ * Strategy-layer detector only. It deliberately does not calculate Fib,
+ * VWAP, confluence, session eligibility, entry confirmation or execution.
+ * It identifies a confirmed liquidity sweep, subsequent displacement/BOS,
+ * and the last unmitigated opposing candle that directly precedes that move.
+ */
+export function detectVortexStructure(
+  inputCandles: VortexCandle[],
+  timeframe: VortexTimeframe,
+): VortexStructuralDetection {
+  const c = [...inputCandles].sort((a, b) => a.time - b.time);
+  const seconds: Record<VortexTimeframe, number> = {
+    "1m": 60, "5m": 300, "10m": 600, "15m": 900, "30m": 1800,
+    "1H": 3600, "4H": 14400, "1D": 86400, "1W": 604800, "1M": 2592000,
+  };
+  const len = seconds[timeframe] <= 300 ? 3 : seconds[timeframe] <= 1800 ? 4 : 3;
+  const atr = atrSeries(c);
+  const highs: number[] = [], lows: number[] = [];
+  let lastHigh: number | null = null, lastLow: number | null = null;
+  let bullSweepIndex = -1, bearSweepIndex = -1;
+  let bullSweepPrice: number | null = null, bearSweepPrice: number | null = null;
+  let bullSweepLevel: number | null = null, bearSweepLevel: number | null = null;
+  let bullBlock: VortexStructuralBlock | null = null;
+  let bearBlock: VortexStructuralBlock | null = null;
+  const maxSweepBars = 30, lookback = 60, displacementAtr = 0.8;
+
+  const makeBlock = (
+    direction: VortexDirection,
+    originIndex: number,
+    displacementIndex: number,
+    sweepIndex: number,
+    liquidityTarget: number | null,
+  ): VortexStructuralBlock => ({
+    direction,
+    top: c[originIndex].high,
+    bottom: c[originIndex].low,
+    originTime: new Date(c[originIndex].time).toISOString(),
+    displacementTime: new Date(c[displacementIndex].time).toISOString(),
+    sweepTime: new Date(c[sweepIndex].time).toISOString(),
+    liquidityTarget,
+    state: "ACTIVE",
+  });
+
+  for (let i = len * 2; i < c.length; i++) {
+    const b = c[i];
+    const confirmed = pivot(c, i, len);
+    if (confirmed.high !== null) {
+      lastHigh = confirmed.high;
+      highs.push(confirmed.high);
+      if (highs.length > 100) highs.shift();
+    }
+    if (confirmed.low !== null) {
+      lastLow = confirmed.low;
+      lows.push(confirmed.low);
+      if (lows.length > 100) lows.shift();
+    }
+
+    // Update lifecycle of the previously confirmed footprints before looking
+    // for a new one. Wick overlap is mitigation; a close through the far wick
+    // is invalidation. The original coordinates never move.
+    if (bullBlock?.state === "ACTIVE") {
+      if (b.close < bullBlock.bottom) bullBlock = { ...bullBlock, state: "INVALIDATED" };
+      else if (b.low <= bullBlock.top && b.high >= bullBlock.bottom && b.time > Date.parse(bullBlock.displacementTime))
+        bullBlock = { ...bullBlock, state: "MITIGATED" };
+    }
+    if (bearBlock?.state === "ACTIVE") {
+      if (b.close > bearBlock.top) bearBlock = { ...bearBlock, state: "INVALIDATED" };
+      else if (b.high >= bearBlock.bottom && b.low <= bearBlock.top && b.time > Date.parse(bearBlock.displacementTime))
+        bearBlock = { ...bearBlock, state: "MITIGATED" };
+    }
+
+    // External liquidity sweep/reclaim. The sweep arms a directional event;
+    // it is not itself an entry or an Order Block.
+    if (lastLow !== null && b.low < lastLow && b.close > lastLow) {
+      bullSweepIndex = i;
+      bullSweepPrice = b.low;
+      bullSweepLevel = lastLow;
+    }
+    if (lastHigh !== null && b.high > lastHigh && b.close < lastHigh) {
+      bearSweepIndex = i;
+      bearSweepPrice = b.high;
+      bearSweepLevel = lastHigh;
+    }
+
+    const body = Math.abs(b.close - b.open);
+    const bullishBreak = lastHigh !== null && b.close > lastHigh && b.close > b.open &&
+      atr[i] > 0 && body >= atr[i] * displacementAtr &&
+      bullSweepIndex >= 0 && i > bullSweepIndex && i - bullSweepIndex <= maxSweepBars;
+    const bearishBreak = lastLow !== null && b.close < lastLow && b.close < b.open &&
+      atr[i] > 0 && body >= atr[i] * displacementAtr &&
+      bearSweepIndex >= 0 && i > bearSweepIndex && i - bearSweepIndex <= maxSweepBars;
+
+    if (bullishBreak) {
+      const firstCandidate = Math.max(bullSweepIndex + 1, i - lookback);
+      for (let origin = i - 1; origin >= firstCandidate; origin--) {
+        if (c[origin].close >= c[origin].open) continue;
+        const top = c[origin].high, bottom = c[origin].low;
+        let alreadyMitigated = false;
+        for (let k = origin + 1; k < i; k++) {
+          if (c[k].low <= top && c[k].high >= bottom) { alreadyMitigated = true; break; }
+        }
+        if (alreadyMitigated) continue;
+        const target = nearest(highs, b.close, true);
+        bullBlock = makeBlock("BUY", origin, i, bullSweepIndex, target);
+        break;
+      }
+      bullSweepIndex = -1;
+      bullSweepPrice = null;
+      bullSweepLevel = null;
+    }
+    if (bearishBreak) {
+      const firstCandidate = Math.max(bearSweepIndex + 1, i - lookback);
+      for (let origin = i - 1; origin >= firstCandidate; origin--) {
+        if (c[origin].close <= c[origin].open) continue;
+        const top = c[origin].high, bottom = c[origin].low;
+        let alreadyMitigated = false;
+        for (let k = origin + 1; k < i; k++) {
+          if (c[k].high >= bottom && c[k].low <= top) { alreadyMitigated = true; break; }
+        }
+        if (alreadyMitigated) continue;
+        const target = nearest(lows, b.close, false);
+        bearBlock = makeBlock("SELL", origin, i, bearSweepIndex, target);
+        break;
+      }
+      bearSweepIndex = -1;
+      bearSweepPrice = null;
+      bearSweepLevel = null;
+    }
+    if (bullSweepIndex >= 0 && i - bullSweepIndex > maxSweepBars) bullSweepIndex = -1;
+    if (bearSweepIndex >= 0 && i - bearSweepIndex > maxSweepBars) bearSweepIndex = -1;
+  }
+
+  const last = c.at(-1);
+  const buyTarget = last ? nearest(highs, last.close, true) : null;
+  const sellTarget = last ? nearest(lows, last.close, false) : null;
+  const direction: VortexDirection | "NEUTRAL" =
+    bullBlock?.state === "ACTIVE" ? "BUY" : bearBlock?.state === "ACTIVE" ? "SELL" : "NEUTRAL";
+  const status = c.length < 100
+    ? "INSUFFICIENT HISTORY"
+    : direction === "BUY" ? "BULLISH INSTITUTIONAL FOOTPRINT DETECTED"
+    : direction === "SELL" ? "BEARISH INSTITUTIONAL FOOTPRINT DETECTED"
+    : "WAITING FOR LIQUIDITY SWEEP, DISPLACEMENT AND ORDER BLOCK";
+  return {
+    timeframe, barsAnalyzed: c.length,
+    lastConfirmedSwingHigh: lastHigh, lastConfirmedSwingLow: lastLow,
+    buySideLiquidityTarget: buyTarget, sellSideLiquidityTarget: sellTarget,
+    sellSideSweepTime: bullSweepIndex >= 0 ? new Date(c[bullSweepIndex].time).toISOString() : null,
+    buySideSweepTime: bearSweepIndex >= 0 ? new Date(c[bearSweepIndex].time).toISOString() : null,
+    bullishOrderBlock: bullBlock, bearishOrderBlock: bearBlock,
+    structuralDirection: direction, status,
+  };
+}
+
 function periodLevels(c: VortexCandle[]) {
   const out: Array<{ high: number | null; low: number | null; weekHigh: number | null; weekLow: number | null }> = [];
   let dayKey = "", weekKey = "", dayHigh = -Infinity, dayLow = Infinity, weekHigh = -Infinity, weekLow = Infinity;
