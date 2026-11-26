@@ -10,7 +10,7 @@ import { evaluateLsObr } from "../../../lib/strategies/lsobrEngine";
 import { analyzeAutoFibRetrace } from "../../../lib/strategies/autoFibRetrace";
 import { evaluateSupplyDemand } from "../../../lib/strategies/supplyDemandEngine";
 import { evaluateVaultTradesNexus } from "../../../lib/strategies/vaulttradesNexusEngine";
-import { detectVortexInstitutionalStructure, evaluateVortex, type VortexStructureDetection, type VortexTimeframe } from "../../../lib/strategies/vortexEngine";
+import { detectVortexInstitutionalStructure, evaluateVortex, type VortexCandle, type VortexStructureDetection, type VortexTimeframe } from "../../../lib/strategies/vortexEngine";
 import { resolveLiquidityTargets } from "../../../lib/market-data/liquidityTargets";
 
 export const runtime = "nodejs";
