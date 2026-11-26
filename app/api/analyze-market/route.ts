@@ -416,7 +416,11 @@ export async function POST(request: Request) {
       referencePrice: liveCurrentPrice ?? market.candles.at(-1)?.close ?? 0,
       buySide: selectedVortexStructure.buySideLiquidity ? { price: selectedVortexStructure.buySideLiquidity.price, source: `${timeframe.toUpperCase()} ${selectedVortexStructure.buySideLiquidity.source}`, touches: 0, pivotTime: selectedVortexStructure.buySideLiquidity.pivotTime } : null,
       sellSide: selectedVortexStructure.sellSideLiquidity ? { price: selectedVortexStructure.sellSideLiquidity.price, source: `${timeframe.toUpperCase()} ${selectedVortexStructure.sellSideLiquidity.source}`, touches: 0, pivotTime: selectedVortexStructure.sellSideLiquidity.pivotTime } : null,
-      definition: "Nearest untaken confirmed external swing liquidity, detected independently on the selected timeframe.",
+      levels: Object.entries(vortexStructureByTimeframe ?? {}).flatMap(([tf, detection]) => [
+        ...(detection.buySideLiquidity ? [{ timeframe: tf.toUpperCase(), side: "BUY_SIDE", price: detection.buySideLiquidity.price, source: detection.buySideLiquidity.source, pivotTime: detection.buySideLiquidity.pivotTime }] : []),
+        ...(detection.sellSideLiquidity ? [{ timeframe: tf.toUpperCase(), side: "SELL_SIDE", price: detection.sellSideLiquidity.price, source: detection.sellSideLiquidity.source, pivotTime: detection.sellSideLiquidity.pivotTime }] : []),
+      ]),
+      definition: "Nearest untaken confirmed external swing liquidity, detected independently on each reported timeframe.",
       pivotLength: selectedVortexStructure.swingLength,
       lookback: selectedVortexStructure.lookbackBars,
     } : { referencePrice: liveCurrentPrice ?? 0, buySide: null, sellSide: null, definition: "No confirmed external liquidity levels are available.", pivotLength: 3, lookback: 200 };
