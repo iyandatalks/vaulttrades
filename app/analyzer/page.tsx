@@ -461,9 +461,9 @@ export default function AnalyzerPage() {
         levels: [
           { label: "ENTRY", price: vortexView.entry, kind: "ENTRY" as const },
           { label: "SL", price: vortexView.stopLoss, kind: "SL" as const },
-          { label: "TP1", price: vortexView.tp1, kind: "TP" as const },
-          { label: "TP2", price: vortexView.tp2, kind: "TP" as const },
-          { label: "TP3", price: vortexView.tp3, kind: "TP" as const },
+          { label: `${vortexView.openTrade?.targetHits?.[0] ? "TP1 HIT" : "TP1"}`, price: vortexView.tp1, kind: "TP" as const },
+          { label: `${vortexView.openTrade?.targetHits?.[1] ? "TP2 HIT" : "TP2"}`, price: vortexView.tp2, kind: "TP" as const },
+          { label: `${vortexView.openTrade?.targetHits?.[2] ? "TP3 HIT" : "TP3"}`, price: vortexView.tp3, kind: "TP" as const },
         ].filter((level): level is { label: string; price: number; kind: "ENTRY" | "SL" | "TP" } => typeof level.price === "number"),
       }
     : null;
@@ -636,7 +636,9 @@ export default function AnalyzerPage() {
           const entry = strategy === "vortex" ? (open?.entry ?? closed?.entry ?? scannerEntry) : scannerEntry;
           const stop = strategy === "vortex" ? (open?.stopLoss ?? closed?.stopLoss ?? scannerStop) : scannerStop;
           const fibLevel = strategy === "vortex" ? (open?.fibLevel ?? closed?.fibLevel ?? v?.fibLevel ?? null) : null;
-          const target = strategy === "vortex" ? (open?.tp1 ?? closed?.tp1 ?? v?.tp1) : scannerTp1;
+          const vortexTargets = strategy === "vortex" && open ? [open.tp1, open.tp2, open.tp3] : [];
+          const nextVortexTargetIndex = strategy === "vortex" && open ? (open.targetHits ?? []).findIndex((hit: boolean) => !hit) : -1;
+          const target = strategy === "vortex" ? (open && nextVortexTargetIndex >= 0 ? vortexTargets[nextVortexTargetIndex] : closed?.tp3 ?? v?.tp1) : scannerTp1;
           const current = Number(result.market?.currentPrice);
           const hasCurrent = Number.isFinite(current);
           const move = hasCurrent && entry != null && direction ? (direction === "BUY" ? current - entry : entry - current) : null;
@@ -669,7 +671,7 @@ export default function AnalyzerPage() {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8, marginTop: 10 }}>
                 <PriceLevel label={strategy === "vortex" && !active && !closed ? `ENTRY · ${typeof fibLevel === "number" ? fibLevel : 68.1}% FIB` : "ENTRY"} value={entry} kind="entry" symbol={symbol} />
                 <PriceLevel label="STOP LOSS" value={stop} kind="sl" symbol={symbol} />
-                <PriceLevel label="TAKE PROFIT · TP1" value={target!} kind="tp" symbol={symbol} />
+                <PriceLevel label={strategy === "vortex" && active ? `TAKE PROFIT · TP${nextVortexTargetIndex + 1}` : "TAKE PROFIT · TP3"} value={target!} kind="tp" symbol={symbol} />
               </div>
               <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>Signal date: {entryTime ? new Date(entryTime).toLocaleDateString() : "—"} · Entry time: {entryTime ? new Date(entryTime).toLocaleString() : "—"}</div>
               {active && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(125px,1fr))", gap: 8, marginTop: 10 }}>
