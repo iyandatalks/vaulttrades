@@ -674,20 +674,24 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
       const stopTouched = isBuy ? b.low <= active.stopLoss : b.high >= active.stopLoss;
       const targets = [active.tp1, active.tp2, active.tp3];
       const firstUnhitIndex = active.targetHits.findIndex(hit => !hit);
-      const nextTargetTouched = firstUnhitIndex >= 0 && (isBuy ? b.high >= targets[firstUnhitIndex] : b.low <= targets[firstUnhitIndex]);
-      // Preserve stop-first handling when the same completed candle spans SL and the next TP.
+      const anyTargetTouched = firstUnhitIndex >= 0 && targets.slice(firstUnhitIndex).some(target => isBuy ? b.high >= target : b.low <= target);
+      // Preserve stop-first handling when the same completed candle spans SL and a target.
       const highFirst = Math.abs(b.open - b.high) < Math.abs(b.open - b.low);
       const stopWinsCollision = isBuy ? !highFirst : highFirst;
-      if (stopTouched && (!nextTargetTouched || stopWinsCollision)) {
+      if (stopTouched && (!anyTargetTouched || stopWinsCollision)) {
         active.status = "SL_HIT";
         active.exitTime = new Date(closeTime).toISOString();
         active.exitPrice = active.stopLoss;
         closed = active;
         active = null;
-      } else if (nextTargetTouched) {
-        // TP1/TP2 are milestones. Keep the trade active until the final configured TP.
-        active.targetHits[firstUnhitIndex] = true;
-        if (active.targetHits.length >= targets.length && active.targetHits.slice(0, targets.length).every(Boolean)) {
+      } else if (anyTargetTouched) {
+        // Record every sequential target crossed by this completed candle.
+        for (let targetIndex = Math.max(0, firstUnhitIndex); targetIndex < targets.length; targetIndex++) {
+          const touched = isBuy ? b.high >= targets[targetIndex] : b.low <= targets[targetIndex];
+          if (!touched) break;
+          active.targetHits[targetIndex] = true;
+        }
+        if (active.targetHits.slice(0, targets.length).every(Boolean)) {
           active.status = "TP_HIT";
           active.exitTime = new Date(closeTime).toISOString();
           active.exitPrice = targets[targets.length - 1];
