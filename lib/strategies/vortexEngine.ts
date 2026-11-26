@@ -470,9 +470,33 @@ function evaluateH4H1Confirmation(h4Input: VortexCandle[], h1Input: VortexCandle
 export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
   const c = [...input.m1Candles].sort((a, b) => a.time - b.time), m5 = [...input.m5Candles].sort((a, b) => a.time - b.time);
   const silver = [...(input.silverCandles ?? [])].sort((a, b) => a.time - b.time);
-  const htf = evaluateH4H1Confirmation(input.h4Candles ?? [], input.h1Candles ?? []);
+  const baseHtf = evaluateH4H1Confirmation(input.h4Candles ?? [], input.h1Candles ?? []);
   const lotSize = input.lotSize ?? 0.05, tick = input.tickSize ?? 0.01;
   const timeframe = input.timeframe ?? "1m";
+  // M15/M30 must independently retest the H4 body boundary after the H1 break.
+  // An H1 retest alone is not accepted as the lower-timeframe entry confirmation.
+  const htf: VortexHtfConfirmation = timeframe === "15m" || timeframe === "30m"
+    ? (() => {
+        const level = baseHtf.h4Level;
+        const breakTime = baseHtf.h1BreakTime ? Date.parse(baseHtf.h1BreakTime) : NaN;
+        const direction: VortexDirection | null = baseHtf.direction === "BUY" || baseHtf.direction === "SELL"
+          ? baseHtf.direction
+          : level != null && baseHtf.h4WickExtreme != null
+            ? baseHtf.h4WickExtreme < level ? "BUY" : baseHtf.h4WickExtreme > level ? "SELL" : null
+            : null;
+        if (level == null || !Number.isFinite(breakTime) || !direction) {
+          return { ...baseHtf, confirmed: false, reason: baseHtf.reason };
+        }
+        const retest = c.find(bar => bar.time > breakTime && (
+          direction === "BUY"
+            ? bar.low <= level && bar.close > level && bar.close > bar.open
+            : bar.high >= level && bar.close < level && bar.close < bar.open
+        ));
+        return retest
+          ? { ...baseHtf, direction, confirmed: true, h1RetestTime: new Date(retest.time).toISOString(), reason: `H1 ${direction} break confirmed; separate ${timeframe.toUpperCase()} retest and directional close at the H4 reference level confirmed.` }
+          : { ...baseHtf, direction, confirmed: false, reason: `H1 ${direction} break confirmed; waiting for a separate ${timeframe.toUpperCase()} retest of the H1-broken H4 level and directional close.` };
+      })()
+    : baseHtf;
   const confirmationTimeframe = "5m" as const;
   const empty = (reason: string): VortexResult => ({
     source: "VAULTTRADES_VORTEX_S1_FIB_VWAP_CONFLUENCE", timeframe, state: "WAITING", direction: "NO TRADE", plannedDirection: null,
