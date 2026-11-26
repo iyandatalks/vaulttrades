@@ -245,7 +245,7 @@ function findCausalOrderBlock(
   if (!impulse || impulseAtr <= 0) return null;
   const body = Math.abs(impulse.close - impulse.open);
   const validImpulse = direction === "BUY"
-    ? impulse.close > impulse.open && impulse.close > breakLevel && body >= impulseAtr * 0.5
+    ? impulse.close > impulse.open && impulse.close > breakLevel && body >= impulseAtr * 0.8
     : impulse.close < impulse.open && impulse.close < breakLevel && body >= impulseAtr * 0.5;
   if (!validImpulse) return null;
   for (let j = impulseIndex - 1; j >= Math.max(0, impulseIndex - lookback); j--) {
