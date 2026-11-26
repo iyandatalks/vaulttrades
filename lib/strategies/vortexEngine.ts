@@ -593,22 +593,20 @@ export function evaluateVortex(input: EvaluateVortexInput): VortexResult {
     // never session Fib readiness alone.
     const buyFlip = bullActive && activeBuyReady && b.close >= (bt + bb) / 2;
     const sellFlip = bearActive && activeSellReady && b.close <= (st + sb) / 2;
-    const bullInstitution = !active && bullActive && !bullSetupConsumed && buySetup.state === 0 && buyFlip &&
-      prev.close < prev.open && b.close > prev.high && atr[i] > 0 && b.close - b.open >= atr[i] * 0.5;
-    const bearInstitution = !active && bearActive && !bearSetupConsumed && sellSetup.state === 0 && sellFlip &&
-      prev.close > prev.open && b.close < prev.low && atr[i] > 0 && b.open - b.close >= atr[i] * 0.5;
+    const bullInstitution = !active && bullActive && !bullSetupConsumed && buySetup.state === 0 && buyFlip && !!targetBullOb;
+    const bearInstitution = !active && bearActive && !bearSetupConsumed && sellSetup.state === 0 && sellFlip && !!targetBearOb;
     if (bullInstitution) {
       bullSetupConsumed = true;
       buySetup = { state: 1, orderBar: i, pullback: -1, fib: null, pct: null, start: bullStart, end: bullEnd, ob: targetBullOb ? { ...targetBullOb } : null, liquidityTarget: targetBullLiquidityTarget };
       sellSetup = newSetup();
-      evidence = ["Bullish CHOCH already confirmed", "Bullish institutional order: prior candle bearish, current close above prior high, bullish body >= 0.50 x ATR(14), and structural Buy Flip active."];
+      evidence = ["Bullish CHOCH confirmed", "Historical bullish Order Block identified from the opposing origin candle preceding structural displacement."];
       missing = ["Wait for the 68.1%, 78.6% or 88.0% Fib pullback."];
     }
     if (bearInstitution) {
       bearSetupConsumed = true;
       sellSetup = { state: 1, orderBar: i, pullback: -1, fib: null, pct: null, start: bearStart, end: bearEnd, ob: targetBearOb ? { ...targetBearOb } : null, liquidityTarget: targetBearLiquidityTarget };
       buySetup = newSetup();
-      evidence = ["Bearish CHOCH already confirmed", "Bearish institutional order: prior candle bullish, current close below prior low, bearish body >= 0.50 x ATR(14), and structural Sell Flip active."];
+      evidence = ["Bearish CHOCH confirmed", "Historical bearish Order Block identified from the opposing origin candle preceding structural displacement."];
       missing = ["Wait for the 68.1%, 78.6% or 88.0% Fib pullback."];
     }
     if (buySetup.state > 0 && !buySetup.ob && targetBullOb) buySetup.ob = { ...targetBullOb };
