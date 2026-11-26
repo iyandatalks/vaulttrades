@@ -8,7 +8,7 @@ export type VortexDetectedOrderBlock = {
   bottom: number;
   formedAt: string;
   displacementAt: string;
-  state: "ACTIVE" | "MITIGATED";
+  state: "ACTIVE" | "MITIGATED" | "INVALIDATED";
 };
 export type VortexDetectedLiquidity = {
   price: number;
@@ -138,10 +138,10 @@ export function detectVortexInstitutionalStructure(
     const bar = c[i];
     // Update lifecycle of already-formed footprints before considering a new one.
     for (const ob of blocks) {
-      if (ob.state !== "ACTIVE" || i <= ob.displacementIndex) continue;
-      if (ob.direction === "BUY" && bar.close < ob.bottom) ob.state = "MITIGATED";
-      else if (ob.direction === "SELL" && bar.close > ob.top) ob.state = "MITIGATED";
-      else if (bar.low <= ob.top && bar.high >= ob.bottom) ob.state = "MITIGATED";
+      if (ob.state === "INVALIDATED" || i <= ob.displacementIndex) continue;
+      if (ob.direction === "BUY" && bar.close < ob.bottom) ob.state = "INVALIDATED";
+      else if (ob.direction === "SELL" && bar.close > ob.top) ob.state = "INVALIDATED";
+      else if (ob.state === "ACTIVE" && bar.low <= ob.top && bar.high >= ob.bottom) ob.state = "MITIGATED";
     }
 
     const confirmedPivot = pivot(c, i, swingLength);
@@ -218,7 +218,7 @@ export function detectVortexInstitutionalStructure(
   const buyTarget = highs.filter(x => !x.swept && x.price > current.close).sort((a, b) => a.price - b.price)[0];
   const sellTarget = lows.filter(x => !x.swept && x.price < current.close).sort((a, b) => b.price - a.price)[0];
   const visibleBlocks = blocks
-    .filter(x => x.state !== "MITIGATED")
+    .filter(x => x.state !== "INVALIDATED")
     .slice(-8)
     .map(({ formedIndex: _formedIndex, displacementIndex: _displacementIndex, ...ob }) => ob);
 
