@@ -29,7 +29,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "VaultTrades profile was not found." }, { status: 400 });
     }
 
-    if ((productCode === "journal_tools_monthly" || productCode === "analyzer_reseller_monthly") && !["partner", "admin"].includes(String(profile.role || "").toLowerCase())) {\n      return NextResponse.json({ error: "MRR_MEMBERS_ONLY", message: "Journal + Core Tools and Analyzer Access are reserved for verified VaultTrades MRR members." }, { status: 403 });\n    }\n\n    const email = String(user.email || profile.email || "").trim().toLowerCase();
+    if ((productCode === "journal_tools_monthly" || productCode === "analyzer_reseller_monthly") && !["partner", "admin"].includes(String(profile.role || "").toLowerCase())) {
+      return NextResponse.json({ error: "MRR_MEMBERS_ONLY", message: "Journal + Core Tools and Analyzer Access are reserved for verified VaultTrades MRR members." }, { status: 403 });
+    }
+
+    const email = String(user.email || profile.email || "").trim().toLowerCase();
     let mt5Login = "";
     const paypalPlanId = product.planId;
 

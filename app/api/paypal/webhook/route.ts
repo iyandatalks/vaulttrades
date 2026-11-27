@@ -259,12 +259,12 @@ export async function POST(request: Request) {
     let authUserId = String(resource.custom_id || providerSubscription?.custom_id || "");
     let profile: any = null;
     if (authUserId) {
-      const { data } = await admin.from("users").select("id,auth_user_id,email").eq("auth_user_id", authUserId).maybeSingle();
+      const { data } = await admin.from("users").select("id,auth_user_id,email,referred_by").eq("auth_user_id", authUserId).maybeSingle();
       profile = data;
     }
     const subscriberEmail = String(resource.subscriber?.email_address || providerSubscription?.subscriber?.email_address || "").trim().toLowerCase();
     if (!profile && subscriberEmail) {
-      const { data } = await admin.from("users").select("id,auth_user_id,email").ilike("email", subscriberEmail).maybeSingle();
+      const { data } = await admin.from("users").select("id,auth_user_id,email,referred_by").ilike("email", subscriberEmail).maybeSingle();
       profile = data;
       authUserId = String(profile?.auth_user_id || "");
     }
