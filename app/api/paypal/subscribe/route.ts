@@ -21,12 +21,16 @@ export async function POST(request: Request) {
     const admin = createAdminClient();
     const { data: profile, error: profileError } = await admin
       .from("users")
-      .select("id,email")
+      .select("id,email,role")
       .eq("auth_user_id", user.id)
       .maybeSingle();
 
     if (profileError || !profile) {
       return NextResponse.json({ error: "VaultTrades profile was not found." }, { status: 400 });
+    }
+
+    if ((productCode === "journal_tools_monthly" || productCode === "analyzer_reseller_monthly") && !["partner", "admin"].includes(String(profile.role || "").toLowerCase())) {
+      return NextResponse.json({ error: "MRR_MEMBERS_ONLY", message: "Journal + Core Tools and Analyzer Access are reserved for verified VaultTrades MRR members." }, { status: 403 });
     }
 
     const email = String(user.email || profile.email || "").trim().toLowerCase();

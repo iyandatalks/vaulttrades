@@ -108,7 +108,7 @@ export async function POST(request: Request) {
       if (!component) return NextResponse.json({ received: true, ignored: true, reason: "Capture amount is not a configured VaultTrades payment" }, { status: 200 });
 
       const { data: customer } = await admin.from("users")
-        .select("id,auth_user_id,email")
+        .select("id,auth_user_id,email,referred_by")
         .ilike("email", payerEmail)
         .maybeSingle();
       if (!customer?.id || !customer.auth_user_id) {
@@ -259,12 +259,12 @@ export async function POST(request: Request) {
     let authUserId = String(resource.custom_id || providerSubscription?.custom_id || "");
     let profile: any = null;
     if (authUserId) {
-      const { data } = await admin.from("users").select("id,auth_user_id,email").eq("auth_user_id", authUserId).maybeSingle();
+      const { data } = await admin.from("users").select("id,auth_user_id,email,referred_by").eq("auth_user_id", authUserId).maybeSingle();
       profile = data;
     }
     const subscriberEmail = String(resource.subscriber?.email_address || providerSubscription?.subscriber?.email_address || "").trim().toLowerCase();
     if (!profile && subscriberEmail) {
-      const { data } = await admin.from("users").select("id,auth_user_id,email").ilike("email", subscriberEmail).maybeSingle();
+      const { data } = await admin.from("users").select("id,auth_user_id,email,referred_by").ilike("email", subscriberEmail).maybeSingle();
       profile = data;
       authUserId = String(profile?.auth_user_id || "");
     }
@@ -414,6 +414,34 @@ export async function POST(request: Request) {
     if (licenseUpdateError) {
       console.error("Unable to reconcile PayPal subscription licence", licenseUpdateError);
       return NextResponse.json({ error: "PayPal status was received, but membership access could not be reconciled." }, { status: 500 });
+    }
+
+
+    // Standard 20% referral commission on each verified recurring product payment.
+    if (eventType === "PAYMENT.SALE.COMPLETED") {
+      const saleAmount = Number(resource.amount?.total ?? resource.amount?.value ?? resource.amount?.gross_amount?.value);
+      const saleCurrency = String(resource.amount?.currency || resource.amount?.currency_code || "USD");
+      const referralCode = String(profile.referred_by || "").trim().toUpperCase();
+      if (Number.isFinite(saleAmount) && saleAmount > 0 && saleCurrency === "USD" && referralCode) {
+        const { data: referrer } = await admin.from("users").select("id").eq("referral_code", referralCode).maybeSingle();
+        if (referrer?.id && referrer.id !== profile.id) {
+          const commissionReference = `paypal-subscription:${subscriptionId}:${String(event.id || resource.id || event.create_time || "sale")}`;
+          const { data: existingCommission } = await admin.from("referral_commissions").select("id").eq("subscription_id", commissionReference).maybeSingle();
+          if (!existingCommission) {
+            const commissionAmount = Number((saleAmount * 0.2).toFixed(2));
+            const { error: commissionError } = await admin.from("referral_commissions").insert({
+              referrer_id: referrer.id,
+              referral_id: profile.id,
+              subscription_id: commissionReference,
+              subscription_amount_usd: saleAmount,
+              commission_rate: 20,
+              commission_amount_usd: commissionAmount,
+              status: "pending",
+            });
+            if (commissionError) console.error("Unable to record 20% product referral commission", commissionError);
+          }
+        }
+      }
     }
 
     await grantFeature(admin, profile.id, product.entitlement, start, accessEnd, status);
