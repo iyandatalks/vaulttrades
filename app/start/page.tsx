@@ -17,6 +17,7 @@ export default function StartPage() {
   const [partnerShareConsent, setPartnerShareConsent] = useState(false);
   const [paramsHasPartner, setParamsHasPartner] = useState(false);
   const [resolvedPartnerCode, setResolvedPartnerCode] = useState("");
+  const [generalContactWhatsApp, setGeneralContactWhatsApp] = useState("");
   useEffect(() => {
     const host = window.location.hostname.toLowerCase();
     const queryCode = new URLSearchParams(window.location.search).get("ref") || "";
@@ -24,11 +25,12 @@ export default function StartPage() {
     setParamsHasPartner(Boolean(queryCode) || partnerHost);
     if (queryCode) setResolvedPartnerCode(queryCode.toUpperCase());
     if (partnerHost) fetch("/api/partner-site", { cache: "no-store" }).then(r => r.json()).then(data => {
-      if (data.assigned && data.partnerCode) setResolvedPartnerCode(String(data.partnerCode).toUpperCase());
+      if (data.assigned && data.partnerCode) { setResolvedPartnerCode(String(data.partnerCode).toUpperCase()); setGeneralContactWhatsApp(String(data.generalContactWhatsApp || "")); }
       else setError("This partner website has not yet been assigned to an active VaultTrades partner account. Please contact VaultTrades before accepting enquiries.");
     }).catch(() => setError("We could not verify this partner website. Please try again later."));
   }, []);
   const [website, setWebsite] = useState("");
+  const publicWhatsAppUrl = generalContactWhatsApp ? "https://wa.me/" + generalContactWhatsApp.replace(/\D/g, "").replace(/^0/, "27") : "";
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -84,6 +86,7 @@ export default function StartPage() {
           <span className="vts-top-note">BUILT BY TRADERS.</span>
         </div>
 
+        {generalContactWhatsApp && <div style={{position:"absolute",zIndex:2,right:24,top:72,textAlign:"right",color:"#e8dfc9",fontSize:12}}><span style={{display:"block",fontSize:9,letterSpacing:".14em",color:"#d7b45a",fontWeight:800}}>GENERAL CONTACT · SALES</span><a href={publicWhatsAppUrl} target="_blank" rel="noreferrer" style={{fontWeight:800,textDecoration:"underline"}}>{generalContactWhatsApp}</a></div>}
         <div className="vts-content">
           <div className="vts-copy">
             <div className="vts-kicker">A NEW WAY TO APPROACH YOUR NEXT MOVE</div>

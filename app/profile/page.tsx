@@ -7,6 +7,7 @@ import { createBrowserClient } from "@supabase/ssr";
 
 type ReferralState = { enabled: boolean; code: string | null; url: string | null };
 type MembershipSetupState = { active: boolean; plan: string; partnerConfirmationPending: boolean } | null;
+type PriorityContact = { name: string; whatsapp: string } | null;
 type PartnerPortalState = { isPartner: boolean; status: "not_partner" | "pending" | "approved" | "revoked"; access: boolean; accessSource: string; reason: string | null };
 
 export default function ProfilePage() {
@@ -14,12 +15,12 @@ export default function ProfilePage() {
   const [email, setEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [hasWhatsAppSupport, setHasWhatsAppSupport] = useState(false);
   const [hasResellerProgramme, setHasResellerProgramme] = useState(false);
   const [resellerPlan, setResellerPlan] = useState<string | null>(null);
   const [referral, setReferral] = useState<ReferralState>({ enabled: false, code: null, url: null });
   const [membershipSetup, setMembershipSetup] = useState<MembershipSetupState>(null);
   const [partnerPortal, setPartnerPortal] = useState<PartnerPortalState | null>(null);
+  const [priorityContact, setPriorityContact] = useState<PriorityContact>(null);
 
   useEffect(() => {
     const sb = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
@@ -31,11 +32,11 @@ export default function ProfilePage() {
         if (response.ok) {
           setReferral(result?.referral ?? { enabled: false, code: null, url: null });
           setIsAdmin(result?.admin === true);
-          setHasWhatsAppSupport(result?.supportWhatsApp === true);
           setHasResellerProgramme(result?.reseller?.enabled === true);
           setResellerPlan(result?.reseller?.plan ?? null);
           setMembershipSetup(result?.membershipSetup ?? null);
           setPartnerPortal(result?.partnerPortal ?? null);
+          setPriorityContact(result?.priorityContact ?? null);
         }
       }
       setLoading(false);
@@ -76,6 +77,7 @@ export default function ProfilePage() {
           <article className="vt-info-card"><h3>Review Community Posts</h3><p className="muted">Approve, keep pending, or reject customer testimonials before publication.</p><Link className="vt-primary" href="/admin/community-testimonials" style={{ display: "inline-block", marginTop: 8 }}>Review Submissions →</Link></article>
           <article className="vt-info-card"><h3>EA Licensing Queue</h3><p className="muted">Review member MT5 submissions, generate personalised EA files and release private downloads.</p><Link className="vt-primary" href="/admin/ea-licensing" style={{ display: "inline-block", marginTop: 8 }}>Open Licensing Queue →</Link></article>
           <article className="vt-info-card"><h3>Website Requests</h3><p className="muted">Review member subdomain preferences and custom-domain setup requests.</p><Link className="vt-primary" href="/admin/website-requests" style={{ display: "inline-block", marginTop: 8 }}>Open Website Requests →</Link></article>
+          <article className="vt-info-card"><h3>Partner Website Management</h3><p className="muted">Create and edit partner websites, configure their public sales contact and payment links.</p><Link className="vt-primary" href="/admin/partner-websites" style={{ display: "inline-block", marginTop: 8 }}>Manage Partner Websites →</Link></article>
           <article className="vt-info-card"><h3>Manage Partners</h3><p className="muted">Manage the partner catalogue and public partner page.</p><Link className="vt-primary" href="/admin/partners" style={{ display: "inline-block", marginTop: 8 }}>Open Partner Management →</Link></article>
           <article className="vt-info-card"><h3>Revenue Model</h3><p className="muted">Private notes on reseller commissions, product revenue, website services and payment settlement.</p><Link className="vt-primary" href="/admin/revenue-model" style={{ display: "inline-block", marginTop: 8 }}>Open Revenue Model →</Link></article>
         </div>
@@ -131,11 +133,12 @@ export default function ProfilePage() {
         <Link className="vt-primary" href="/vaulttrades-process" style={{ display: "inline-block", marginTop: 10 }}>View VaultTrades Process →</Link>
       </section>
 
-      {hasWhatsAppSupport && <section className="vt-info-card" style={{ marginTop: 24, textAlign: "left", border: "1px solid rgba(212,166,55,.35)" }}>
-        <div className="vt-label">PRIORITY CUSTOMER SUPPORT</div><h2 style={{ margin: "10px 0 8px", fontSize: 27 }}>WhatsApp Business Support</h2>
-        <p style={{ maxWidth: 760 }}>Direct WhatsApp support is available to customers with an active paid VaultTrades product or access granted by the VaultTrades team.</p>
-        <a className="vt-primary" href="https://wa.me/27746653633?text=Hello%20VaultTrades%20Support%2C%20I%20need%20assistance%20with%20my%20account." target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 12 }}>WhatsApp Business Support</a>
-        <p className="muted" style={{ marginTop: 10, fontSize: 12 }}>Access to this support link is checked against your current VaultTrades product entitlement.</p>
+
+      {priorityContact?.whatsapp && <section className="vt-info-card" style={{ marginTop: 24, textAlign: "left", border: "1px solid rgba(212,166,55,.35)" }}>
+        <div className="vt-label">PRIVATE · VISIBLE ONLY IN YOUR PROFILE</div><h2 style={{ margin: "10px 0 8px", fontSize: 27 }}>Your Priority Contact</h2>
+        <p style={{ maxWidth: 760 }}>This is the partner who referred you into VaultTrades. Contact them first when you need partner support. This number is not displayed on your public website.</p>
+        <p style={{ marginTop: 10 }}><strong>{priorityContact.name}</strong></p>
+        <a className="vt-primary" href={`https://wa.me/${priorityContact.whatsapp.replace(/\D/g, "").replace(/^0/, "27")}?text=Hello%2C%20I%20need%20support%20with%20my%20VaultTrades%20partner%20account.`} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 8 }}>WhatsApp Priority Contact · {priorityContact.whatsapp}</a>
       </section>}
     </>}
   </section></main>;
