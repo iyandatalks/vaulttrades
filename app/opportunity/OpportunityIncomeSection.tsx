@@ -7,15 +7,15 @@ const channels = [
     number: "01",
     title: "RESELLER'S ECOSYSTEM RIGHTS",
     tag: "100% MRR COMMISSION",
-    description: "Participate in the VaultTrades membership ecosystem with your assigned reseller rights and branded digital presence. You receive 100% commission on the eligible MRR membership component attributed to your channel. Separately priced EA setup, annual licensing, website setup, tools, Analyzer and signals are excluded from that MRR commission.",
+    description: "Participate in the VaultTrades membership ecosystem with your assigned reseller rights and branded digital presence. You receive 100% commission on the eligible Master Reseller MRR attributed to your channel. Separately priced business setup, annual licensing, website setup, tools, Analyzer and signals are excluded from that MRR commission.",
     detail: "Your assigned presence and lead flow are activated after the opportunity purchase is verified. The platform, infrastructure and service providers remain centrally managed.",
   },
   {
     number: "02",
     title: "DIGITAL PRODUCT PORTFOLIO",
-    tag: "50% ANALYZER RATE*",
-    description: "Introduce people to eligible VaultTrades digital products, including Analyzer and the wider collection of trading tools and resources. Analyzer carries a stated 50% reseller commission on qualifying activity.",
-    detail: "*The 50% rate applies to Analyzer only. Other digital products have their own access, attribution and referral conditions. Product access is separate and is not automatically included with a referral.",
+    tag: "20% REFERRAL COMMISSION",
+    description: "Introduce people to eligible VaultTrades digital products, including Analyzer and the wider collection of trading tools and resources. A standard 20% referral commission applies across all eligible products, regardless of which product is referred, subject to qualifying activity.",
+    detail: "The same 20% referral commission applies across eligible VaultTrades digital products. There is no separate 50% Analyzer rate or 50% product discount. Product access is separate and is not automatically included with a referral.",
   },
   {
     number: "03",
@@ -116,9 +116,9 @@ export default function OpportunityIncomeSection() {
           <div>
             <div className="vto-kicker">KNOW YOUR OPERATING COSTS</div>
             <h3>Digital product access is separate from ecosystem rights.</h3>
-            <p>Members who choose to use the tools pay separately for access. The reseller rate is $20/month for Analyzer and $10/month for the bundle of other digital tools. The opportunity purchase does not include free tool subscriptions.</p>
+            <p>Members who choose to use the tools pay separately for access. MRR members can subscribe separately at $20/month for Analyzer Access and $10/month for Journal + Core Tools. The opportunity purchase does not include free tool subscriptions.</p>
           </div>
-          <div className="vto-cost-pills"><span><b>$20</b><small>MONTHLY ANALYZER ACCESS</small></span><span><b>$10</b><small>MONTHLY OTHER-TOOLS BUNDLE</small></span></div>
+          <div className="vto-cost-pills"><span><b>$20</b><small>MRR MEMBER ANALYZER ACCESS</small></span><span><b>$10</b><small>MRR MEMBER JOURNAL + CORE TOOLS</small></span></div>
         </div>
 
         <div className="vto-income-disclaimer">
