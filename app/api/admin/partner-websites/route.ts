@@ -58,7 +58,7 @@ export async function POST(request: Request) {
     user_id: partner.id, auth_user_id: partner.auth_user_id, member_email: partner.email,
     domain_preference: "vaulttrades_subdomain", custom_domain: null, assigned_domain: domain, general_contact_whatsapp: generalContactWhatsApp,
     preferred_name_1: domain.split(".")[0].slice(0, 30), preferred_name_2: domain.split(".")[0].slice(0, 24) + "-alt", preferred_name_3: domain.split(".")[0].slice(0, 23) + "-site",
-    status: "ready", admin_notes: notes, general_contact_whatsapp: generalContactWhatsApp, story_title: storyTitle, story_body: storyBody, story_image_url: storyImageUrl, story_updated_at: now, reviewed_by: auth.user.id, updated_at: now,
+    status: "ready", admin_notes: notes, story_title: storyTitle, story_body: storyBody, story_image_url: storyImageUrl, story_updated_at: now, reviewed_by: auth.user.id, updated_at: now,
   };
   let saved;
   let saveError;
