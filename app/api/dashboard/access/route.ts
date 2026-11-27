@@ -18,11 +18,29 @@ export async function GET() {
     const hasServiceRole = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
     const db = hasServiceRole ? createAdminClient() : supabase;
     const { data: profile } = await db.from("users")
-      .select("id,role,referral_code")
+      .select("id,role,referral_code,whatsapp,first_name,last_name,referred_by")
       .eq("auth_user_id", user.id)
       .maybeSingle();
 
     if (!profile) return NextResponse.json({ authenticated: true, access: {} });
+    let priorityContact: { name: string; whatsapp: string } | null = null;
+    const { data: referralRelationship } = await db.from("referral_relationships")
+      .select("referrer_id,registered_at")
+      .eq("referred_user_id", profile.id)
+      .order("registered_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    let referrerProfile: any = null;
+    if (referralRelationship?.referrer_id) {
+      const { data } = await db.from("users").select("first_name,last_name,whatsapp").eq("id", referralRelationship.referrer_id).maybeSingle();
+      referrerProfile = data;
+    } else if (profile.referred_by) {
+      const { data } = await db.from("users").select("first_name,last_name,whatsapp").ilike("referral_code", String(profile.referred_by)).maybeSingle();
+      referrerProfile = data;
+    }
+    const contactProfile = referrerProfile || profile;
+    const contactName = [contactProfile.first_name, contactProfile.last_name].filter(Boolean).join(" ").trim();
+    if (contactProfile.whatsapp) priorityContact = { name: contactName || (referrerProfile ? "Your referring partner" : "Your own contact"), whatsapp: contactProfile.whatsapp };
 
     if (profile.role === "admin") {
       let code = profile.referral_code ?? null;
@@ -34,6 +52,7 @@ export async function GET() {
         authenticated: true,
         admin: true,
         supportWhatsApp: true,
+        priorityContact,
         access: Object.fromEntries(FEATURES.map(feature => [feature, true])),
         referral: { enabled: true, code, url: code ? "https://vaulttradesve.com/ref/" + code : null },
         reseller: { enabled: true, plan: "vortex" },
@@ -46,6 +65,7 @@ export async function GET() {
         authenticated: true,
         admin: false,
         supportWhatsApp: false,
+        priorityContact,
         access: emptyAccess(),
         referral: { enabled: false, code: null, url: null },
         reseller: { enabled: false, plan: null },
@@ -136,6 +156,7 @@ export async function GET() {
       authenticated: true,
       admin: false,
       supportWhatsApp: productAccess.anyPaidProduct === true,
+      priorityContact,
       access,
       referral,
       reseller,
