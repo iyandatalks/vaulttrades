@@ -23,13 +23,29 @@ export async function GET(request: Request) {
   const db = process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : auth;
   const { data: profile } = await db.from("users").select("id,role").eq("auth_user_id", user.id).maybeSingle();
   if (!profile) return NextResponse.json({ error: "PROFILE_NOT_FOUND" }, { status: 404 });
-  let plan: string | null = profile.role === "admin" ? "vortex" : null;
-  if (profile.role !== "admin") {
+  const isAdmin = profile.role === "admin";
+  const isPartnerRole = profile.role === "partner" || profile.role === "reseller";
+  let plan: string | null = isAdmin ? "vortex" : null;
+  if (!isAdmin) {
     const { data: licenses } = await db.from("product_licenses").select("entitlement_code,status,start_at,end_at")
       .eq("user_id", profile.id).in("entitlement_code", MEMBERSHIP_CODES).eq("status", "active");
     plan = planFrom(licenses ?? []);
   }
-  if (!plan) return NextResponse.json({ error: "ACTIVE_MEMBERSHIP_REQUIRED" }, { status: 403 });
+
+  // Partner Portal approval is independent of a paid Nexus membership.
+  // Match the access decision used by /member-portal so approved partners
+  // receive the shared partner learning topics even without a product licence.
+  let partnerPortalGranted = false;
+  if (isPartnerRole) {
+    const { data: override } = await db.from("partner_portal_access_overrides")
+      .select("decision").eq("auth_user_id", user.id).maybeSingle();
+    partnerPortalGranted = override?.decision === "grant";
+    if (override?.decision === "revoke") partnerPortalGranted = false;
+  }
+  const partnerAccessOnly = isPartnerRole && !plan && partnerPortalGranted;
+  if (!isAdmin && !plan && !partnerAccessOnly) {
+    return NextResponse.json({ error: "ACTIVE_MEMBERSHIP_REQUIRED" }, { status: 403 });
+  }
 
   const url = new URL(request.url);
   const month = url.searchParams.get("month") ?? new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Johannesburg" }).slice(0,7);
@@ -41,7 +57,7 @@ export async function GET(request: Request) {
   let sections: any[] = [];
   try { sections = sectionSetting?.setting_value ? JSON.parse(sectionSetting.setting_value) : []; } catch { sections = []; }
   if (!Array.isArray(sections)) sections = [];
-  if (profile.role !== "admin") sections = sections.filter(section => section.isPublished !== false);
+  if (!isAdmin) sections = sections.filter(section => section.isPublished !== false);
 
   const [{ data: resources, error: resourceError }, { data: events, error: eventError }] = await Promise.all([
     db.from("member_knowledge_resources").select("id,section_id,title,description,resource_kind,resource_url,plan_codes,sort_order,created_at")
@@ -51,6 +67,10 @@ export async function GET(request: Request) {
   ]);
   if (resourceError || eventError) return NextResponse.json({ error: "MEMBER_CONTENT_UNAVAILABLE" }, { status: 500 });
   const rank = (value: string | null) => value === "vortex" ? 3 : value === "nexus_plus" ? 2 : value === "nexus" ? 1 : 0;
-  const resourcesForPlan = (resources ?? []).filter(item => !item.plan_codes?.length || item.plan_codes.some((code: string) => rank(plan) >= rank(code)));
-  return NextResponse.json({ resources: resourcesForPlan, events: events ?? [], month, plan, isAdmin: profile.role === "admin", sections });
+  // A partner-only portal grant does not include paid plan-specific resources.
+  // It can still display shared resources that have no plan restriction.
+  const resourcesForPlan = (resources ?? []).filter(item =>
+    !item.plan_codes?.length || (!partnerAccessOnly && item.plan_codes.some((code: string) => rank(plan) >= rank(code)))
+  );
+  return NextResponse.json({ resources: resourcesForPlan, events: events ?? [], month, plan, isAdmin, partnerAccessOnly, sections });
 }
