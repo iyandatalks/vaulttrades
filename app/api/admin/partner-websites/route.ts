@@ -18,7 +18,7 @@ export async function GET() {
   const auth = await authorize();
   if ("response" in auth) return auth.response;
   const [{ data: requests, error: requestError }, { data: users, error: usersError }] = await Promise.all([
-    auth.db.from("member_website_requests").select("id,user_id,auth_user_id,member_email,domain_preference,preferred_name_1,preferred_name_2,preferred_name_3,custom_domain,status,admin_notes,assigned_domain,partner_paypal_nexus_url,partner_paypal_nexus_plus_url,partner_paypal_vortex_url,general_contact_whatsapp,submitted_at,updated_at").order("submitted_at", { ascending: false }),
+    auth.db.from("member_website_requests").select("id,user_id,auth_user_id,member_email,domain_preference,preferred_name_1,preferred_name_2,preferred_name_3,custom_domain,status,admin_notes,assigned_domain,partner_paypal_nexus_url,partner_paypal_nexus_plus_url,partner_paypal_vortex_url,general_contact_whatsapp,story_title,story_body,story_image_url,submitted_at,updated_at").order("submitted_at", { ascending: false }),
     auth.db.from("users").select("id,auth_user_id,email,first_name,last_name,referral_code,is_active,role").not("auth_user_id", "is", null).not("referral_code", "is", null).order("created_at", { ascending: false }),
   ]);
   if (requestError || usersError) return NextResponse.json({ error: "Could not load partner website records." }, { status: 500 });
@@ -36,6 +36,9 @@ export async function POST(request: Request) {
   const requestId = typeof body.requestId === "string" ? body.requestId : "";
   const notes = typeof body.adminNotes === "string" ? body.adminNotes.trim().slice(0, 2000) : null;
   const generalContactWhatsApp = typeof body.generalContactWhatsApp === "string" ? body.generalContactWhatsApp.trim() : "";
+  const storyTitle = typeof body.storyTitle === "string" ? body.storyTitle.trim().slice(0, 140) : "";
+  const storyBody = typeof body.storyBody === "string" ? body.storyBody.trim().slice(0, 12000) : "";
+  const storyImageUrl = typeof body.storyImageUrl === "string" ? body.storyImageUrl.trim() : "";
   const validDomain = domain.endsWith(".vaulttradesve.com") && domain.split(".").length === 3 && /^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$/.test(domain.split(".")[0]);
   if (!profileId || !validDomain || domain === "www.vaulttradesve.com") {
     return NextResponse.json({ error: "Choose a partner and enter a valid partner subdomain, such as partner.vaulttradesve.com." }, { status: 400 });
@@ -46,6 +49,7 @@ export async function POST(request: Request) {
   if (partnerError || !partner?.auth_user_id || !partner.referral_code || partner.is_active === false) {
     return NextResponse.json({ error: "The selected account is not an eligible active partner profile with a referral code." }, { status: 400 });
   }
+  if (!storyTitle || storyBody.length < 40 || !storyImageUrl) return NextResponse.json({ error: "A partner story, heading and photograph are required before publication." }, { status: 400 });
   const { data: conflict } = await auth.db.from("member_website_requests").select("id,member_email").ilike("assigned_domain", domain).maybeSingle();
   if (conflict && conflict.id !== requestId) return NextResponse.json({ error: "That domain is already assigned. Unassign it from the existing record before reusing it." }, { status: 409 });
 
@@ -54,7 +58,7 @@ export async function POST(request: Request) {
     user_id: partner.id, auth_user_id: partner.auth_user_id, member_email: partner.email,
     domain_preference: "vaulttrades_subdomain", custom_domain: null, assigned_domain: domain, general_contact_whatsapp: generalContactWhatsApp,
     preferred_name_1: domain.split(".")[0].slice(0, 30), preferred_name_2: domain.split(".")[0].slice(0, 24) + "-alt", preferred_name_3: domain.split(".")[0].slice(0, 23) + "-site",
-    status: "ready", admin_notes: notes, reviewed_by: auth.user.id, updated_at: now,
+    status: "ready", admin_notes: notes, general_contact_whatsapp: generalContactWhatsApp, story_title: storyTitle, story_body: storyBody, story_image_url: storyImageUrl, story_updated_at: now, reviewed_by: auth.user.id, updated_at: now,
   };
   let saved;
   let saveError;

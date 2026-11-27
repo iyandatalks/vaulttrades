@@ -2,6 +2,8 @@ import "./opportunity.css";
 import OpportunityIncomeSection from "./OpportunityIncomeSection";
 import VaultTradesFaq from "../VaultTradesFaq";
 import Link from "next/link";
+import { headers } from "next/headers";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 const stages = [
   ["01", "PREPARE", "Understand the market environment, set your priorities and wait for conditions that fit a defined plan."],
@@ -46,7 +48,21 @@ const resultStages = [
   },
 ];
 
-export default function OpportunityPage() {
+type PartnerStory = { title: string; body: string; imageUrl: string };
+async function resolvePartnerStory(): Promise<{ isPartnerHost: boolean; story: PartnerStory | null }> {
+  const requestHeaders = await headers();
+  const forwarded = requestHeaders.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const host = (forwarded || requestHeaders.get("host") || "").split(":")[0].toLowerCase();
+  const isPartnerHost = host.endsWith(".vaulttradesve.com") && host !== "www.vaulttradesve.com";
+  if (!isPartnerHost) return { isPartnerHost: false, story: null };
+  const db = createAdminClient();
+  const { data } = await db.from("member_website_requests").select("story_title,story_body,story_image_url").ilike("assigned_domain", host).eq("status", "ready").maybeSingle();
+  if (!data?.story_title || !data.story_body || !data.story_image_url) return { isPartnerHost: true, story: null };
+  return { isPartnerHost: true, story: { title: data.story_title, body: data.story_body, imageUrl: data.story_image_url } };
+}
+
+export default async function OpportunityPage() {
+  const { isPartnerHost, story: partnerStory } = await resolvePartnerStory();
   return (
     <main className="vt-opportunity">
       <section className="vto-hero">
@@ -69,7 +85,11 @@ export default function OpportunityPage() {
         </div>
       </section>
 
-      <section className="vto-story vto-container" id="my-story">
+      {isPartnerHost ? (partnerStory ? <section className="vto-story vto-container" id="my-story">
+        <div className="vto-story-photo-column"><div className="vto-story-photo-frame"><div className="vto-story-sun" aria-hidden="true" /><img className="vto-story-photo" src={partnerStory.imageUrl} alt="Partner portrait" loading="eager" fetchPriority="high"/><div className="vto-story-photo-caption">THE PERSON BEHIND THIS PARTNER WEBSITE</div></div></div>
+        <div className="vto-story-copy"><div className="vto-kicker">THE PERSON BEHIND THE OPPORTUNITY</div><h2>{partnerStory.title}</h2>{partnerStory.body.split(/\n{2,}/).map((paragraph,index)=><p key={index}>{paragraph}</p>)}<div className="vto-story-signoff">FOCUS. DISCIPLINE. CONSISTENCY.</div><Link className="vto-button vto-button-gold vto-story-cta" href="/start">EXPLORE THE OPPORTUNITY <span aria-hidden="true">→</span></Link></div>
+      </section> : <section className="vto-story vto-container" id="my-story"><div className="vto-story-copy"><div className="vto-kicker">PARTNER STORY</div><h2>This partner story is being prepared.</h2><p>Please contact the partner for more information about this website.</p></div></section>) : (
+<section className="vto-story vto-container" id="my-story">
         <div className="vto-story-photo-column">
           <div className="vto-story-photo-frame">
             <div className="vto-story-sun" aria-hidden="true" />
@@ -93,6 +113,7 @@ export default function OpportunityPage() {
           <Link className="vto-button vto-button-gold vto-story-cta" href="/start">EXPLORE THE OPPORTUNITY <span aria-hidden="true">→</span></Link>
         </div>
       </section>
+      )}
 
       <section className="vto-intro vto-container" id="the-opportunity">
         <div className="vto-kicker">A DIFFERENT WAY TO THINK ABOUT YOUR NEXT MOVE</div>
