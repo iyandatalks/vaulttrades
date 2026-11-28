@@ -1,8 +1,26 @@
-import Link from "next/link";
-
-const WOMENS_FOUNDERS_URL = "https://vaulttradesve.com/womens-provincial-founders";
+import { useEffect, useState } from "react";
 
 export default function WomensFoundersPromo() {
+  const [partnerCode, setPartnerCode] = useState("");
+
+  useEffect(() => {
+    const existingCode = new URLSearchParams(window.location.search).get("ref");
+    if (existingCode) {
+      setPartnerCode(existingCode.trim().toUpperCase());
+      return;
+    }
+    fetch("/api/partner-site", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => {
+        if (data?.isPartnerSite && data?.assigned && data?.partnerCode) {
+          setPartnerCode(String(data.partnerCode).trim().toUpperCase());
+        }
+      })
+      .catch(() => undefined);
+  }, []);
+
+  const opportunityUrl = `https://vaulttradesve.com/womens-provincial-founders${partnerCode ? `?ref=${encodeURIComponent(partnerCode)}` : ""}`;
+
   return (
     <section
       className="vt-womens-promo"
@@ -49,7 +67,7 @@ export default function WomensFoundersPromo() {
           </p>
         </div>
         <a
-          href={WOMENS_FOUNDERS_URL}
+          href={opportunityUrl}
           style={{
             background: "#d7b45a",
             color: "#090b10",
