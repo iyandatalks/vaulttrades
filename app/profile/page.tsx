@@ -18,6 +18,7 @@ export default function ProfilePage() {
   const [hasResellerProgramme, setHasResellerProgramme] = useState(false);
   const [resellerPlan, setResellerPlan] = useState<string | null>(null);
   const [referral, setReferral] = useState<ReferralState>({ enabled: false, code: null, url: null });
+  const [partnerOpportunityUrl, setPartnerOpportunityUrl] = useState<string | null>(null);
   const [membershipSetup, setMembershipSetup] = useState<MembershipSetupState>(null);
   const [partnerPortal, setPartnerPortal] = useState<PartnerPortalState | null>(null);
   const [priorityContact, setPriorityContact] = useState<PriorityContact>(null);
@@ -31,6 +32,7 @@ export default function ProfilePage() {
         const result = await response.json().catch(() => ({}));
         if (response.ok) {
           setReferral(result?.referral ?? { enabled: false, code: null, url: null });
+          setPartnerOpportunityUrl(result?.partnerReferral?.url ?? null);
           setIsAdmin(result?.admin === true);
           setHasResellerProgramme(result?.reseller?.enabled === true);
           setResellerPlan(result?.reseller?.plan ?? null);
@@ -80,6 +82,17 @@ export default function ProfilePage() {
           <article className="vt-info-card"><h3>Partner Website Management</h3><p className="muted">Create and edit partner websites, configure their public sales contact and payment links.</p><Link className="vt-primary" href="/admin/partner-websites" style={{ display: "inline-block", marginTop: 8 }}>Manage Partner Websites →</Link></article>
           <article className="vt-info-card"><h3>Manage Partners</h3><p className="muted">Manage the partner catalogue and public partner page.</p><Link className="vt-primary" href="/admin/partners" style={{ display: "inline-block", marginTop: 8 }}>Open Partner Management →</Link></article>
           <article className="vt-info-card"><h3>Revenue Model</h3><p className="muted">Private notes on reseller commissions, product revenue, website services and payment settlement.</p><Link className="vt-primary" href="/admin/revenue-model" style={{ display: "inline-block", marginTop: 8 }}>Open Revenue Model →</Link></article>
+        </div>
+      </section>}
+
+      {partnerOpportunityUrl && <section className="vt-info-card" style={{ marginTop: 24, textAlign: "left", border: "1px solid rgba(212,166,55,.45)" }}>
+        <div className="vt-label">PARTNER PROMOTION · 20% COMMISSION</div>
+        <h2 style={{ margin: "10px 0 8px", fontSize: 27 }}>Women’s Provincial Founding Partners</h2>
+        <p>Share this dedicated link with your audience or publish it on your partner website. When a visitor applies and completes a qualifying $105 individual contribution or $950 group purchase through your link, the referral is attributed to you and a 20% commission is recorded after payment verification.</p>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 14 }}>
+          <input readOnly value={partnerOpportunityUrl} aria-label="Your Women's Founding Partners referral link" style={{ flex: 1, minWidth: 280, padding: "12px 14px", borderRadius: 9, border: "1px solid rgba(255,255,255,.12)", background: "#050812", color: "#f4f6fb" }} />
+          <button type="button" className="vt-primary" onClick={() => void navigator.clipboard.writeText(partnerOpportunityUrl)}>Copy Link</button>
+          <a className="vt-primary" href={partnerOpportunityUrl} target="_blank" rel="noreferrer">Open Opportunity →</a>
         </div>
       </section>}
 

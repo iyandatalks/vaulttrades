@@ -60,6 +60,16 @@ export async function GET() {
       });
     }
 
+    const isPartnerRole = profile.role === "partner" || profile.role === "reseller";
+    let partnerReferralCode: string | null = profile.referral_code ?? null;
+    if (isPartnerRole && hasServiceRole && !partnerReferralCode) {
+      partnerReferralCode = "VT-" + crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase();
+      await db.from("users").update({ referral_code: partnerReferralCode }).eq("id", profile.id);
+    }
+    const partnerReferral = isPartnerRole && partnerReferralCode
+      ? { code: partnerReferralCode, url: "https://vaulttradesve.com/womens-provincial-founders?ref=" + encodeURIComponent(partnerReferralCode) }
+      : null;
+
     if (!hasServiceRole) {
       return NextResponse.json({
         authenticated: true,
@@ -68,6 +78,7 @@ export async function GET() {
         priorityContact,
         access: emptyAccess(),
         referral: { enabled: false, code: null, url: null },
+        partnerReferral,
         reseller: { enabled: false, plan: null },
         membershipSetup: null,
       });
@@ -97,7 +108,6 @@ export async function GET() {
       : codes.has("nexus") || codes.has("vaulttrades_nexus") ? "nexus"
       : null;
     const reseller = { enabled: Boolean(resellerPlan), plan: resellerPlan };
-    const isPartnerRole = profile.role === "partner" || profile.role === "reseller";
     const { data: portalOverride } = isPartnerRole
       ? await admin.from("partner_portal_access_overrides").select("decision,reason,updated_at").eq("auth_user_id", user.id).maybeSingle()
       : { data: null };
@@ -159,6 +169,7 @@ export async function GET() {
       priorityContact,
       access,
       referral,
+      partnerReferral,
       reseller,
       partnerPortal,
       membershipSetup,

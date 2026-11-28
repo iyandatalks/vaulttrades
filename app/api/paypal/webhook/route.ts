@@ -104,8 +104,63 @@ export async function POST(request: Request) {
       }
 
       const eaPlanByAmount: Record<number, string> = { 30: "nexus", 50: "nexus_plus", 110: "vortex" };
-      const component = captureAmount === 10 ? "community_join" : captureAmount === 39 ? "website_setup" : eaPlanByAmount[captureAmount] ? "ea_setup" : null;
+      const component = captureAmount === 10 ? "community_join" : captureAmount === 39 ? "website_setup" : captureAmount === 105 || captureAmount === 950 ? "womens_founders" : eaPlanByAmount[captureAmount] ? "ea_setup" : null;
       if (!component) return NextResponse.json({ received: true, ignored: true, reason: "Capture amount is not a configured VaultTrades payment" }, { status: 200 });
+
+      // Women's founding applicants do not create VaultTrades member profiles.
+      // Match the verified hosted-link capture to one pending lead by payer email and exact amount.
+      if (component === "womens_founders") {
+        const { data: alreadyCapturedLead, error: capturedLookupError } = await admin.from("womens_provincial_founders_leads")
+          .select("id,referrer_user_id,contribution_amount,payment_status,payment_reference")
+          .eq("payment_reference", captureId)
+          .eq("payment_status", "paid")
+          .maybeSingle();
+        if (capturedLookupError) return NextResponse.json({ error: "Unable to check the previous Women's Founding payment match." }, { status: 500 });
+
+        let lead: any = alreadyCapturedLead;
+        if (!lead) {
+          const { data: matchingLeads, error: leadMatchError } = await admin.from("womens_provincial_founders_leads")
+            .select("id,referrer_user_id,contribution_amount,payment_status,payment_reference")
+            .ilike("email", payerEmail)
+            .eq("contribution_amount", captureAmount)
+            .eq("payment_status", "pending")
+            .order("created_at", { ascending: false })
+            .limit(2);
+          if (leadMatchError) return NextResponse.json({ error: "Unable to match the Women's Founding payment to its application." }, { status: 500 });
+          if (!matchingLeads || matchingLeads.length !== 1) {
+            return NextResponse.json({ received: true, ignored: true, reason: matchingLeads?.length ? "Multiple Women's Founding applications match this payer and amount; admin reconciliation required" : "No pending Women's Founding application matches this payer and amount" }, { status: 200 });
+          }
+          lead = matchingLeads[0];
+        }
+        const verifiedAt = new Date().toISOString();
+        if (lead.payment_status === "pending") {
+          const { error: leadUpdateError } = await admin.from("womens_provincial_founders_leads")
+            .update({ payment_status: "paid", payment_reference: captureId, payment_provider: "paypal", payment_confirmed_at: verifiedAt })
+            .eq("id", lead.id).eq("payment_status", "pending");
+          if (leadUpdateError) return NextResponse.json({ error: "PayPal payment was received, but the Women's Founding application could not be updated." }, { status: 500 });
+        }
+
+        if (lead.referrer_user_id) {
+          const commissionReference = `womens-founders:${lead.id}`;
+          const { data: existingCommission, error: commissionLookupError } = await admin.from("referral_commissions")
+            .select("id").eq("subscription_id", commissionReference).maybeSingle();
+          if (commissionLookupError) return NextResponse.json({ error: "Payment was verified, but partner commission lookup failed." }, { status: 500 });
+          if (!existingCommission) {
+            const commissionAmount = Number((captureAmount * 0.2).toFixed(2));
+            const { error: commissionError } = await admin.from("referral_commissions").insert({
+              referrer_id: lead.referrer_user_id,
+              referral_id: null,
+              subscription_id: commissionReference,
+              subscription_amount_usd: captureAmount,
+              commission_rate: 20,
+              commission_amount_usd: commissionAmount,
+              status: "pending",
+            });
+            if (commissionError) return NextResponse.json({ error: "Payment was verified, but partner commission needs admin reconciliation." }, { status: 500 });
+          }
+        }
+        return NextResponse.json({ received: true, verified: true, product: "womens_provincial_founders", commissionUsd: lead.referrer_user_id ? Number((captureAmount * 0.2).toFixed(2)) : 0 }, { status: 200 });
+      }
 
       const { data: customer } = await admin.from("users")
         .select("id,auth_user_id,email,referred_by")

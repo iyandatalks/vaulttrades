@@ -1,8 +1,36 @@
-import Link from "next/link";
+"use client";
 
-const WOMENS_FOUNDERS_URL = "https://vaulttradesve.com/womens-provincial-founders";
+import { useEffect, useState } from "react";
 
 export default function WomensFoundersPromo() {
+  const [partnerCode, setPartnerCode] = useState("");
+  const [partnerContextReady, setPartnerContextReady] = useState(false);
+
+  useEffect(() => {
+    const existingCode = new URLSearchParams(window.location.search).get("ref");
+    if (existingCode) {
+      setPartnerCode(existingCode.trim().toUpperCase());
+      setPartnerContextReady(true);
+      return;
+    }
+    const isPartnerHost = window.location.hostname.toLowerCase().endsWith(".vaulttradesve.com") && window.location.hostname.toLowerCase() !== "www.vaulttradesve.com";
+    if (!isPartnerHost) {
+      setPartnerContextReady(true);
+      return;
+    }
+    fetch("/api/partner-site", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => {
+        if (data?.isPartnerSite && data?.assigned && data?.partnerCode) {
+          setPartnerCode(String(data.partnerCode).trim().toUpperCase());
+        }
+        setPartnerContextReady(true);
+      })
+      .catch(() => setPartnerContextReady(true));
+  }, []);
+
+  const opportunityUrl = `https://vaulttradesve.com/womens-provincial-founders${partnerCode ? `?ref=${encodeURIComponent(partnerCode)}` : ""}`;
+
   return (
     <section
       className="vt-womens-promo"
@@ -49,7 +77,8 @@ export default function WomensFoundersPromo() {
           </p>
         </div>
         <a
-          href={WOMENS_FOUNDERS_URL}
+          href={opportunityUrl}
+          aria-disabled={!partnerContextReady}
           style={{
             background: "#d7b45a",
             color: "#090b10",
@@ -59,6 +88,8 @@ export default function WomensFoundersPromo() {
             fontSize: 11,
             textDecoration: "none",
             whiteSpace: "nowrap",
+            opacity: partnerContextReady ? 1 : 0.55,
+            pointerEvents: partnerContextReady ? "auto" : "none",
           }}
         >
           EXPLORE ↗
