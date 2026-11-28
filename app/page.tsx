@@ -47,9 +47,9 @@ export default function HomePage() {
       <section className="vt-sales-hero">
         <div className="vt-sales-wrap">
           <div className="vt-sales-hero-inner">
-            <div className="vt-sales-kicker">BUILT BY TRADERS. BUILT FOR STRUCTURE.</div>
-            <h1>Trade with structure.<br /><span>Build with opportunity.</span></h1>
-            <p>VaultTrades brings together in-house trading technology, practical digital resources and education—alongside an optional business opportunity for people interested in representing selected digital programmes.</p>
+            <div className="vt-sales-kicker">MASTER RESELLER RIGHTS · A DIGITAL-PRODUCTS BUSINESS</div>
+            <h1>A process you can follow.<br /><span>A business you can build.</span></h1>
+            <p>Explore the VaultTrades Master Reseller Rights opportunity: build your own branded digital-products business, introduce customers to a portfolio of products and access trading tools, technology and learning resources within one connected ecosystem.</p>
             <div className="vt-sales-actions">
               <a className="vt-sales-btn gold" href="#products">Explore our products <b>↘</b></a>
               <Link className="vt-sales-btn outline" href="/contact-partner">Explore the business opportunity <b>→</b></Link>
@@ -65,9 +65,9 @@ export default function HomePage() {
       <section className="vt-sales-section">
         <div className="vt-sales-wrap">
           <div className="vt-sales-heading">
-            <div className="vt-sales-kicker">THE VAULTTRADES ECOSYSTEM</div>
-            <h2>Technology, tools and learning—brought together.</h2>
-            <p>We develop and curate digital programmes designed to support traders at different stages. Choose the product or resource that fits what you are looking for; access to each paid service is activated separately.</p>
+            <div className="vt-sales-kicker">THE MASTER RESELLER RIGHTS ECOSYSTEM</div>
+            <h2>Master Reseller Rights, supported by a digital-products portfolio.</h2>
+            <p>Master Reseller Rights provide the business pathway. The VaultTrades portfolio gives resellers digital products to introduce to customers, including trading technology, analysis tools, learning resources and related services. Product access and reseller eligibility remain subject to their applicable terms.</p>
           </div>
           <div className="vt-product-grid" id="products">
             {products.map(product => (
@@ -86,15 +86,15 @@ export default function HomePage() {
       <section className="vt-sales-section alt">
         <div className="vt-sales-wrap">
           <div className="vt-sales-heading">
-            <div className="vt-sales-kicker">A SEPARATE BUSINESS OPPORTUNITY</div>
-            <h2>Interested in representing digital programmes?</h2>
-            <p>VaultTrades also offers a business opportunity built around selected in-house digital programmes and partner products. Approved participants can market qualifying products and earn a share of eligible sales under the applicable reseller terms.</p>
+            <div className="vt-sales-kicker">THE MASTER RESELLER RIGHTS OPPORTUNITY</div>
+            <h2>Build a digital-products business with Master Reseller Rights.</h2>
+            <p>The Master Reseller Rights opportunity gives approved participants a branded digital presence and the ability to market the VaultTrades product portfolio under their assigned reseller terms. Trading tools and other digital services form part of the portfolio—not the primary business proposition.</p>
           </div>
           <div className="vt-opportunity-grid">
             <div className="vt-opportunity-copy">
               <div className="vt-sales-kicker">RESELLER PARTICIPATION</div>
-              <h3>A digital-programme business opportunity, with the platform infrastructure managed by VaultTrades.</h3>
-              <p>The opportunity is separate from purchasing trading tools. It is designed for people interested in building a customer network around selected digital products, with the programme terms, eligibility and onboarding explained before joining.</p>
+              <h3>Your own reseller presence, supported by VaultTrades infrastructure.</h3>
+              <p>Master Reseller Rights are the foundation of this business pathway. Build a customer network around eligible digital products while VaultTrades centrally manages the platform infrastructure. Your package, qualifying activity and reseller permissions are explained before joining.</p>
               <div className="vt-split"><span>100% ELIGIBLE MRR COMMISSION</span><span>SEPARATE VAULTTRADES SERVICES</span></div>
               <p>Illustrative headline split only. Actual eligibility, qualifying products, transaction treatment, refunds and payout terms are governed by the reseller agreement.</p>
               <Link className="vt-sales-btn outline" href="/contact-partner">View the opportunity <b>→</b></Link>
@@ -102,7 +102,7 @@ export default function HomePage() {
             <div className="vt-calculator">
               <div className="vt-sales-kicker">SALES POTENTIAL CALCULATOR</div>
               <h3>Model an example sales scenario.</h3>
-              <p>Enter an illustrative number of qualifying product sales and an average sale value. This illustrates the reseller's 100% commission on the eligible MRR component only. EA setup, annual licensing, website setup and separate subscriptions are excluded; it is not an earnings forecast or promise.</p>
+              <p>Enter an illustrative number of qualifying product sales and an average sale value. This illustrates the reseller's 100% commission on the eligible MRR component only. Business setup, annual licensing, website setup and separate subscriptions are excluded; this is an illustration, not an earnings forecast or promise.</p>
               <div className="vt-calc-field"><label htmlFor="vt-sales-count">Number of qualifying sales</label><input id="vt-sales-count" type="number" min="0" max="100000" step="1" value={sales} onChange={e => setSales(Math.max(0,Math.min(100000,Number(e.target.value)||0)))} /></div>
               <div className="vt-calc-field"><label htmlFor="vt-average-sale">Illustrative eligible MRR component per sale (USD)</label><input id="vt-average-sale" type="number" min="0" max="1000000" step="0.01" value={averageSale} onChange={e => setAverageSale(Math.max(0,Math.min(1000000,Number(e.target.value)||0)))} /></div>
               <div className="vt-calc-results">
