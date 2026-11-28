@@ -18,19 +18,19 @@ export default function ProductsPage() {
   return (
     <main className="vt-products-page">
       <style>{`
-        .vt-products-page{min-height:100vh;background:#080b12;color:#f6f4ef;padding:68px 20px 90px}
+        .vt-products-page{min-height:100vh;background:#080b12;color:#171b24;padding:68px 20px 90px}
         .vt-products-wrap{max-width:1160px;margin:0 auto}
-        .vt-products-kicker{color:#d7b45a;font-size:11px;font-weight:800;letter-spacing:.2em}
-        .vt-products-page h1{font-size:clamp(38px,5vw,62px);letter-spacing:-.05em;margin:14px 0}
-        .vt-products-intro{max-width:760px;color:#aeb7c5;font-size:16px;line-height:1.8;margin-bottom:38px}
+        .vt-products-kicker{color:#8a6415;font-size:11px;font-weight:800;letter-spacing:.2em}
+        .vt-products-page h1{color:#171b24;font-size:clamp(38px,5vw,62px);letter-spacing:-.05em;margin:14px 0}
+        .vt-products-intro{max-width:760px;color:#424b59;font-size:16px;line-height:1.8;margin-bottom:38px}
         .vt-products-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
-        .vt-products-card{min-height:270px;padding:26px;border:1px solid #30323a;border-radius:8px;background:linear-gradient(145deg,#141b28,#0b0f17);display:flex;flex-direction:column}
+        .vt-products-card{min-height:270px;padding:26px;border:1px solid #30323a;border-radius:8px;background:linear-gradient(145deg,#141b28,#0b0f17);color:#f6f4ef;display:flex;flex-direction:column}
         .vt-products-card small{color:#d7b45a;font-size:10px;letter-spacing:.16em;font-weight:800}
-        .vt-products-card h2{font-size:23px;line-height:1.2;margin:20px 0 12px}
+        .vt-products-card h2{color:#f6f4ef;font-size:23px;line-height:1.2;margin:20px 0 12px}
         .vt-products-card p{color:#aeb7c5;font-size:13px;line-height:1.75;margin:0 0 12px}
-        .vt-products-card .detail{color:#798493;font-size:11px;margin-top:auto;padding-top:12px}
+        .vt-products-card .detail{color:#aeb7c5;font-size:11px;margin-top:auto;padding-top:12px}
         .vt-products-card a{color:#e5c779;font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;margin-top:17px}
-        .vt-products-note{margin-top:32px;padding:22px 25px;border:1px solid #383326;background:#10151e;border-radius:7px;color:#9ea8b6;font-size:12px;line-height:1.7}
+        .vt-products-note{margin-top:32px;padding:22px 25px;border:1px solid #383326;background:#10151e;border-radius:7px;color:#c4ccd8;font-size:12px;line-height:1.7}
         @media(max-width:900px){.vt-products-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
         @media(max-width:600px){.vt-products-grid{grid-template-columns:1fr}.vt-products-page{padding:48px 15px}}
       `}</style>
