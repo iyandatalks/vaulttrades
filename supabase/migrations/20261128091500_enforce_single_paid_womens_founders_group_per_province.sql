@@ -1,0 +1,1 @@
+create unique index if not exists womens_founders_one_paid_group_per_province on public.womens_provincial_founders_leads (province) where purchase_type = 'group' and payment_status = 'paid';
