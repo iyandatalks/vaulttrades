@@ -2,11 +2,18 @@ import { useEffect, useState } from "react";
 
 export default function WomensFoundersPromo() {
   const [partnerCode, setPartnerCode] = useState("");
+  const [partnerContextReady, setPartnerContextReady] = useState(false);
 
   useEffect(() => {
     const existingCode = new URLSearchParams(window.location.search).get("ref");
     if (existingCode) {
       setPartnerCode(existingCode.trim().toUpperCase());
+      setPartnerContextReady(true);
+      return;
+    }
+    const isPartnerHost = window.location.hostname.toLowerCase().endsWith(".vaulttradesve.com") && window.location.hostname.toLowerCase() !== "www.vaulttradesve.com";
+    if (!isPartnerHost) {
+      setPartnerContextReady(true);
       return;
     }
     fetch("/api/partner-site", { cache: "no-store" })
@@ -15,8 +22,9 @@ export default function WomensFoundersPromo() {
         if (data?.isPartnerSite && data?.assigned && data?.partnerCode) {
           setPartnerCode(String(data.partnerCode).trim().toUpperCase());
         }
+        setPartnerContextReady(true);
       })
-      .catch(() => undefined);
+      .catch(() => setPartnerContextReady(true));
   }, []);
 
   const opportunityUrl = `https://vaulttradesve.com/womens-provincial-founders${partnerCode ? `?ref=${encodeURIComponent(partnerCode)}` : ""}`;
@@ -68,6 +76,7 @@ export default function WomensFoundersPromo() {
         </div>
         <a
           href={opportunityUrl}
+          aria-disabled={!partnerContextReady}
           style={{
             background: "#d7b45a",
             color: "#090b10",
@@ -77,6 +86,8 @@ export default function WomensFoundersPromo() {
             fontSize: 11,
             textDecoration: "none",
             whiteSpace: "nowrap",
+            opacity: partnerContextReady ? 1 : 0.55,
+            pointerEvents: partnerContextReady ? "auto" : "none",
           }}
         >
           EXPLORE ↗
