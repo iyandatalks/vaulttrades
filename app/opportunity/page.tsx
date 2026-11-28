@@ -2,6 +2,7 @@ import "./opportunity.css";
 import OpportunityIncomeSection from "./OpportunityIncomeSection";
 import VaultTradesFaq from "../VaultTradesFaq";
 import Link from "next/link";
+import WomensFoundersPromo from "../WomensFoundersPromo";
 import { headers } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
 
