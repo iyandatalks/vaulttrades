@@ -50,6 +50,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "The VaultTrades payment link for this option has not yet been connected." }, { status: 503 });
     }
     const db = createAdminClient();
+    const submittedReferralCode = String(body.referralCode || "").trim().toUpperCase().slice(0, 40);
+    let referralCode: string | null = null;
+    let referrerUserId: string | null = null;
+    if (submittedReferralCode) {
+      const { data: referrer, error: referrerError } = await db.from("users")
+        .select("id,referral_code")
+        .eq("referral_code", submittedReferralCode)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (referrerError) throw referrerError;
+      if (referrer?.id && referrer.referral_code) {
+        referralCode = String(referrer.referral_code).toUpperCase();
+        referrerUserId = String(referrer.id);
+      }
+    }
     const { data: existing, error: checkError } = await db.from("womens_provincial_founders_leads").select("id,purchase_type").eq("province", province).eq("payment_status", "paid");
     if (checkError) throw checkError;
     if ((existing || []).some((row) => row.purchase_type === "group")) {
@@ -67,6 +82,8 @@ export async function POST(request: NextRequest) {
       payment_status: "pending",
       source_host: String(body.sourceHost || "").slice(0, 255),
       source_path: String(body.sourcePath || "").slice(0, 255),
+      referral_code: referralCode,
+      referrer_user_id: referrerUserId,
       privacy_consent: true,
     }).select("id").single();
     if (error) throw error;
