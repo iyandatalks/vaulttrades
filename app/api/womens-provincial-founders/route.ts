@@ -39,7 +39,8 @@ export async function POST(request: NextRequest) {
     const email = String(body.email || "").trim().toLowerCase();
     const cellphone = String(body.cellphone || "").trim();
     const province = String(body.province || "");
-    const purchaseType = body.purchaseType === "group" ? "group" : "individual";\n    const groupMembers = Array.isArray(body.groupMembers) ? body.groupMembers.slice(0, 9).map((member: any) => ({ fullName: String(member.fullName || "").trim(), email: String(member.email || "").trim().toLowerCase(), cellphone: String(member.cellphone || "").trim() })) : [];
+    const purchaseType = body.purchaseType === "group" ? "group" : "individual";
+    const groupMembers = Array.isArray(body.groupMembers) ? body.groupMembers.slice(0, 9).map((member: any) => ({ fullName: String(member.fullName || "").trim(), email: String(member.email || "").trim().toLowerCase(), cellphone: String(member.cellphone || "").trim() })) : [];
     if (!fullName || fullName.length > 140 || !email.includes("@") || !email.includes(".") || !cellphone || cellphone.length > 30 || !(provinces as readonly string[]).includes(province) || body.privacyConsent !== true || (purchaseType === "group" && (groupMembers.length !== 9 || groupMembers.some((member: any) => !member.fullName || !member.email.includes("@") || !member.email.includes(".") || !member.cellphone)))) {
       return NextResponse.json({ error: "Enter valid contact details, choose a province and accept the privacy notice." }, { status: 400 });
     }
@@ -61,7 +62,8 @@ export async function POST(request: NextRequest) {
       province,
       purchase_type: purchaseType,
       contribution_amount: purchaseType === "group" ? 950 : 105,
-      group_size: purchaseType === "group" ? 9 : 1,\n      group_members: purchaseType === "group" ? groupMembers : [],
+      group_size: purchaseType === "group" ? 9 : 1,
+      group_members: purchaseType === "group" ? groupMembers : [],
       payment_status: "pending",
       source_host: String(body.sourceHost || "").slice(0, 255),
       source_path: String(body.sourcePath || "").slice(0, 255),
