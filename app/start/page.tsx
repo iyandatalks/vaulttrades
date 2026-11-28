@@ -33,6 +33,7 @@ export default function StartPage() {
   }, []);
   const [website, setWebsite] = useState("");
   const publicWhatsAppUrl = generalContactWhatsApp ? "https://wa.me/" + generalContactWhatsApp.replace(/\D/g, "").replace(/^0/, "27") : "";
+  const womensFoundersUrl = "https://vaulttradesve.com/womens-provincial-founders" + (resolvedPartnerCode ? "?ref=" + encodeURIComponent(resolvedPartnerCode) : "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
