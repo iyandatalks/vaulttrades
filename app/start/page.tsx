@@ -17,17 +17,19 @@ export default function StartPage() {
   const [partnerShareConsent, setPartnerShareConsent] = useState(false);
   const [paramsHasPartner, setParamsHasPartner] = useState(false);
   const [resolvedPartnerCode, setResolvedPartnerCode] = useState("");
+  const [partnerAttributionReady, setPartnerAttributionReady] = useState(false);
   const [generalContactWhatsApp, setGeneralContactWhatsApp] = useState("");
   useEffect(() => {
     const host = window.location.hostname.toLowerCase();
     const queryCode = new URLSearchParams(window.location.search).get("ref") || "";
     const partnerHost = host.endsWith(".vaulttradesve.com") && host !== "www.vaulttradesve.com";
     setParamsHasPartner(Boolean(queryCode) || partnerHost);
-    if (queryCode) setResolvedPartnerCode(queryCode.toUpperCase());
+    if (queryCode) { setResolvedPartnerCode(queryCode.toUpperCase()); setPartnerAttributionReady(true); }
     if (partnerHost) fetch("/api/partner-site", { cache: "no-store" }).then(r => r.json()).then(data => {
       if (data.assigned && data.partnerCode) { setResolvedPartnerCode(String(data.partnerCode).toUpperCase()); setGeneralContactWhatsApp(String(data.generalContactWhatsApp || "")); }
       else setError("This partner website has not yet been assigned to an active VaultTrades partner account. Please contact VaultTrades before accepting enquiries.");
-    }).catch(() => setError("We could not verify this partner website. Please try again later."));
+    }).catch(() => setError("We could not verify this partner website. Please try again later.")).finally(() => setPartnerAttributionReady(true));
+    else setPartnerAttributionReady(true);
   }, []);
   const [website, setWebsite] = useState("");
   const publicWhatsAppUrl = generalContactWhatsApp ? "https://wa.me/" + generalContactWhatsApp.replace(/\D/g, "").replace(/^0/, "27") : "";
@@ -124,6 +126,19 @@ export default function StartPage() {
           </div>
         </div>
         <div className="vts-bottom-note">A clearer process. A chance to learn. Your decision.</div>
+      </section>
+
+      <section aria-label="Women’s Provincial Founding Partners" style={{ background: "#0a0e17", borderTop: "1px solid #3a3020", borderBottom: "1px solid #3a3020", padding: "26px 20px" }}>
+        <div style={{ width: "min(1120px, 100%)", margin: "0 auto", display: "grid", gridTemplateColumns: "minmax(120px, 190px) 1fr auto", gap: 20, alignItems: "center" }}>
+          <img src="/images/womens-founders.jpg" alt="Women building a shared provincial business" style={{ display: "block", width: "100%", aspectRatio: "3 / 2", objectFit: "contain", borderRadius: 6, border: "1px solid rgba(215,180,90,.4)" }} />
+          <div>
+            <div style={{ color: "#d7b45a", fontSize: 10, fontWeight: 900, letterSpacing: ".16em" }}>81 WOMEN · 9 PROVINCES</div>
+            <h2 style={{ color: "#f5f1e8", fontSize: "clamp(20px, 3vw, 30px)", margin: "7px 0" }}>Explore the Women’s Provincial Founding Partners opportunity.</h2>
+            <p style={{ color: "#b8c0cc", fontSize: 13, lineHeight: 1.7, margin: 0 }}>A collective business opportunity for women to build together through one shared provincial arrangement.</p>
+          </div>
+          <a href={womensFoundersUrl} aria-disabled={!partnerAttributionReady || (paramsHasPartner && !resolvedPartnerCode)} style={{ display: "inline-block", background: "#d7b45a", color: "#090b10", padding: "14px 17px", borderRadius: 4, fontWeight: 900, fontSize: 11, letterSpacing: ".06em", textDecoration: "none", whiteSpace: "nowrap", opacity: !partnerAttributionReady || (paramsHasPartner && !resolvedPartnerCode) ? .5 : 1, pointerEvents: !partnerAttributionReady || (paramsHasPartner && !resolvedPartnerCode) ? "none" : "auto" }}>EXPLORE THIS OPPORTUNITY →</a>
+        </div>
+        <style jsx>{`@media(max-width:700px){section[aria-label="Women’s Provincial Founding Partners"] > div{grid-template-columns:100px 1fr!important;gap:12px!important}section[aria-label="Women’s Provincial Founding Partners"] > div > a{grid-column:1/-1;text-align:center}}`}</style>
       </section>
 
       <section className="vts-memberships" aria-labelledby="vts-memberships-title">
