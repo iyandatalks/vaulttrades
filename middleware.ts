@@ -20,7 +20,7 @@ const featureProtectedPaths: Record<string, string> = {
   "/strategies": "analyzer",
 };
 const publicPagePaths = [
-  "/", "/products", "/plans", "/contact-partner", "/reseller-return", "/privacy-policy", "/community",
+  "/", "/products", "/plans", "/contact-partner", "/reseller-return", "/privacy-policy", "/community", "/womens-provincial-founders",
 ];
 const authenticatedPaths = ["/profile", "/dashboard"];
 const adminOnlyPaths = ["/membership", "/partners", "/how-it-works", "/admin/partner-websites"];
