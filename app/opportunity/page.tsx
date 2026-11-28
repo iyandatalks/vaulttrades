@@ -72,7 +72,7 @@ export default async function OpportunityPage() {
           <div className="vto-kicker">WELCOME TO THE VAULTTRADES OPPORTUNITY</div>
           <div className="vto-brand">VAULT<span>TRADES</span></div>
           <h1>A process you can follow.<br /><em>A business you can build.</em></h1>
-          <p className="vto-hero-lead">Explore a structured trading journey alongside a digital opportunity designed to help you develop skills, build connections and grow over time.</p>
+          <p className="vto-hero-lead">Explore the VaultTrades Master Reseller Rights opportunity: build your own branded digital-products business, introduce customers to the wider VaultTrades portfolio and access trading tools and learning resources as supporting products.</p>
           <div className="vto-hero-actions">
             <a className="vto-button vto-button-gold" href="#the-opportunity">EXPLORE THE OPPORTUNITY</a>
             <Link className="vto-button vto-button-outline" href="/plans">SEE HOW TO JOIN</Link>
@@ -81,7 +81,7 @@ export default async function OpportunityPage() {
         </div>
         <div className="vto-hero-popouts" aria-label="The two parts of the opportunity">
           <div><span>01</span><strong>A PROCESS<br />YOU CAN FOLLOW</strong></div>
-          <div><span>02</span><strong>A BUSINESS<br />YOU CAN BUILD</strong></div>
+          <div><span>02</span><strong>MASTER RESELLER<br />RIGHTS</strong></div>
         </div>
       </section>
 
@@ -108,7 +108,7 @@ export default async function OpportunityPage() {
           <h2>My journey started with a lesson in <span>experience.</span></h2>
           <p>I entered trading believing it could create a different future. Like many people who begin without enough experience, I made mistakes, lost money and became discouraged. I also explored other business opportunities, but found that many depended heavily on selling without giving me a clear structure to build around.</p>
           <p>Over time, I came to see that trading and digital business both require more than excitement. They need a process: learning, planning, risk awareness, disciplined execution and honest review. That is the thinking behind the VaultTrades ecosystem.</p>
-          <p>This opportunity is about giving people a structured way to explore trading, digital tools and a business pathway—then decide for themselves whether it fits their goals and circumstances.</p>
+          <p>The Master Reseller Rights opportunity gives people a structured way to build a digital-products business, supported by a portfolio of trading tools, technology and learning resources. Each person can review the rights, package and applicable terms before deciding whether it fits their goals.</p>
           <div className="vto-story-signoff">FOCUS. DISCIPLINE. CONSISTENCY.</div>
           <Link className="vto-button vto-button-gold vto-story-cta" href="/start">EXPLORE THE OPPORTUNITY <span aria-hidden="true">→</span></Link>
         </div>
@@ -118,12 +118,12 @@ export default async function OpportunityPage() {
       <section className="vto-intro vto-container" id="the-opportunity">
         <div className="vto-kicker">A DIFFERENT WAY TO THINK ABOUT YOUR NEXT MOVE</div>
         <h2>More than one pathway.<br /><span>One ecosystem to explore.</span></h2>
-        <p className="vto-lead">VaultTrades brings together personal trading, membership, digital products and a scaling affiliate opportunity. You can explore the different pathways, understand what each involves and decide which membership fits your goals and circumstances.</p>
+        <p className="vto-lead">The primary business opportunity is Master Reseller Rights: an approved reseller presence and the ability to introduce customers to the VaultTrades digital-products portfolio. Trading, membership tools and external partnerships support the wider ecosystem, each with its own access and terms.</p>
         <div className="vto-pillars">
-          <article className="vto-pillar"><div className="vto-number">01</div><h3>PERSONAL TRADING</h3><p>Develop a structured approach to the markets, with learning and automation options designed around a defined trading process.</p></article>
-          <article className="vto-pillar"><div className="vto-number">02</div><h3>MEMBERSHIP</h3><p>Become part of a wider ecosystem, develop your knowledge and explore the opportunity to build a network over time.</p></article>
-          <article className="vto-pillar"><div className="vto-number">03</div><h3>DIGITAL PRODUCTS</h3><p>Explore selected digital products and individual access options for people looking for particular capabilities.</p></article>
-          <article className="vto-pillar"><div className="vto-number">04</div><h3>SCALING AFFILIATE OPPORTUNITY</h3><p>Discover selected external partnerships and the potential to develop additional commission channels under their terms.</p></article>
+          <article className="vto-pillar"><div className="vto-number">01</div><h3>MASTER RESELLER RIGHTS</h3><p>Build a branded digital-products business with assigned reseller permissions, customer relationships and access to the VaultTrades partner ecosystem, subject to your package terms.</p></article>
+          <article className="vto-pillar"><div className="vto-number">02</div><h3>DIGITAL PRODUCT PORTFOLIO</h3><p>Introduce customers to eligible VaultTrades products, including Analyzer, trading tools, automation products and learning resources. Each product has its own access terms.</p></article>
+          <article className="vto-pillar"><div className="vto-number">03</div><h3>TRADING TOOLS & RESOURCES</h3><p>Trading technology, analysis tools, risk resources and education support the wider digital-products portfolio. They complement the reseller business rather than define it.</p></article>
+          <article className="vto-pillar"><div className="vto-number">04</div><h3>MENTORSHIP & AFFILIATE PARTNERSHIPS</h3><p>Explore separate authorised mentorship and external affiliate programmes, each governed by its own eligibility, referral and commission terms.</p></article>
         </div>
       </section>
 
@@ -159,11 +159,11 @@ export default async function OpportunityPage() {
         <div className="vto-container">
           <div className="vto-capital-grid">
             <div>
-              <div className="vto-kicker">A DIGITAL OPPORTUNITY BUILT FOR THE LONG VIEW</div>
+              <div className="vto-kicker">MASTER RESELLER RIGHTS · THE BUSINESS PATHWAY</div>
               <h2>Make room for growth.<br /><span>Build with a clear process.</span></h2>
             </div>
             <div>
-              <p>Technology has changed how people access financial markets, learn new skills and participate in digital business. VaultTrades brings these possibilities together in one guided ecosystem—so you can develop your understanding, use structured tools and explore ways to build beyond a single activity.</p>
+              <p>Master Reseller Rights create the foundation for a digital-products business. Through your branded presence, you can introduce customers to the VaultTrades portfolio while the platform, product infrastructure and service delivery remain centrally managed.</p>
               <p>You do not need to become a content creator or build a complicated platform from scratch. The focus is on understanding the opportunity, learning how the tools work, following a clear process and developing useful connections over time.</p>
             </div>
           </div>
@@ -207,7 +207,7 @@ export default async function OpportunityPage() {
         <div className="vto-business-copy">
           <div className="vto-kicker">A BUSINESS YOU CAN BUILD</div>
           <h2>Learn to attract.<br /><span>Connect. Grow with purpose.</span></h2>
-          <p>Develop digital-business skills, learn how the membership ecosystem works and understand how selected digital products and partnerships can create additional opportunities.</p>
+          <p>Develop your reseller business, understand your assigned rights and learn how to introduce customers to the VaultTrades digital-products portfolio. Trading tools and resources are supporting products within the ecosystem.</p>
           <p>As members progress, eligible plans may provide access to a wider set of tools, products and network-building opportunities. The specific access and terms are presented with each membership option.</p>
         </div>
         <div className="vto-business-list">
