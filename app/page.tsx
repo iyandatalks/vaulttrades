@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import PartnerNetworkSection from "./PartnerNetworkSection";
+import WomensFoundersPromo from "./WomensFoundersPromo";
 import VaultTradesFaq from "./VaultTradesFaq";
 
 const products = [
@@ -61,6 +62,7 @@ export default function HomePage() {
       </section>
 
       <PartnerNetworkSection compact />
+      <WomensFoundersPromo />
 
       <section className="vt-sales-section">
         <div className="vt-sales-wrap">
