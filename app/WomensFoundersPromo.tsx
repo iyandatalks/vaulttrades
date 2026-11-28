@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+const WOMENS_FOUNDERS_URL = "https://vaulttradesve.com/womens-provincial-founders";
+
 export default function WomensFoundersPromo() {
   return (
     <section
@@ -46,8 +48,8 @@ export default function WomensFoundersPromo() {
             Women's Provincial Founding Partners — a collective business opportunity for women.
           </p>
         </div>
-        <Link
-          href="/womens-provincial-founders"
+        <a
+          href={WOMENS_FOUNDERS_URL}
           style={{
             background: "#d7b45a",
             color: "#090b10",
@@ -60,7 +62,7 @@ export default function WomensFoundersPromo() {
           }}
         >
           EXPLORE ↗
-        </Link>
+        </a>
       </div>
       <style>{`
         @media (max-width: 620px) {
